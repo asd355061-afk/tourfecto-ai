@@ -1,0 +1,1484 @@
+<?php
+/**
+ * Tourfecto - Subscription Controller
+ * متحكم إدارة الاشتراكات والفوترة
+ * @version 1.0.0
+ * @author Tourfecto Team
+ * @copyright 2026 Tourfecto
+ */
+
+class SubscriptionController extends Controller {
+    /**
+     * @var SubscriptionValidator $subscription - مدقق الاشتراكات
+     */
+    private $subscription;
+    
+    /**
+     * Constructor
+     */
+    public function __construct() {
+        parent::__construct();
+        $this->subscription = new SubscriptionValidator();
+    }
+    
+    /**
+     * التحقق من صلاحية الاشتراك
+     * POST /api/subscription/validate
+     * @param array $params
+     * @return array
+     */
+    public function validateSubscriptionStatus(array $params = []): array {
+        try {
+            if (!$this->isAuthenticated()) {
+                return $this->error('Unauthorized', 401);
+            }
+            
+            $result = $this->subscription->validateSubscription($this->user['id']);
+            
+            return $this->success($result);
+            
+        } catch (Exception $e) {
+            Logger::error('Validate Subscription Error', [
+                'message' => $e->getMessage()
+            ]);
+            return $this->error('Validation failed', 500);
+        }
+    }
+    
+    /**
+     * الحصول على تفاصيل الاشتراك الحالي
+     * GET /api/subscription/current
+     * @param array $params
+     * @return array
+     */
+    public function current(array $params = []): array {
+        try {
+            if (!$this->isAuthenticated()) {
+                return $this->error('Unauthorized', 401);
+            }
+            
+            $subscription = Subscription::activeSubscriptionRow($this->user['id']);
+            
+            if (!$subscription) {
+                return $this->success([
+                    'has_subscription' => false
+                ]);
+            }
+            
+            $usage = $this->getUsageStats($this->user['id']);
+            
+            return $this->success([
+                'has_subscription' => true,
+                'subscription' => $subscription,
+                'usage' => $usage,
+                'features' => $this->getPlanFeatures($subscription['plan_name'])
+            ]);
+            
+        } catch (Exception $e) {
+            Logger::error('Get Current Subscription Error', [
+                'message' => $e->getMessage()
+            ]);
+            return $this->error('Failed to get subscription', 500);
+        }
+    }
+    
+    /**
+     * إنشاء اشتراك جديد
+     * POST /api/subscription/create
+     * @param array $params
+     * @return array
+     */
+    public function create(array $params = []): array {
+        try {
+            if (!$this->isAuthenticated()) {
+                return $this->error('Unauthorized', 401);
+            }
+            
+            $planName = $this->get('plan_name');
+            $planType = $this->get('plan_type', 'monthly');
+            
+            if (!$planName) {
+                return $this->error('Plan name is required', 400);
+            }
+            
+            // التحقق من وجود اشتراك نشط
+            // تصحيح: expiry_date مش اسم العمود الحقيقي في القاعدة المنشورة
+            $expiryCol = Subscription::expiryColumn();
+            $expiryClause = $expiryCol ? "AND (`{$expiryCol}` IS NULL OR `{$expiryCol}` > NOW())" : '';
+            $sql = "SELECT id FROM subscriptions 
+                    WHERE user_id = ? 
+                    AND status = 'active' 
+                    {$expiryClause}
+                    LIMIT 1";
+            
+            $existing = $this->db->query($sql, [$this->user['id']]);
+            
+            if (!empty($existing)) {
+                return $this->error('You already have an active subscription', 400);
+            }
+            
+            // إنشاء الاشتراك
+            $subscription = Subscription::createSubscription(
+                $this->user['id'],
+                $planName,
+                $planType
+            );
+            
+            if (!$subscription) {
+                return $this->error('Failed to create subscription', 500);
+            }
+            
+            $this->log('Subscription Created', [
+                'plan' => $planName,
+                'type' => $planType
+            ]);
+            
+            return $this->success([
+                'subscription' => $subscription->toArray()
+            ], 'Subscription created successfully');
+            
+        } catch (Exception $e) {
+            Logger::error('Create Subscription Error', [
+                'message' => $e->getMessage()
+            ]);
+            $debugMsg = (defined('APP_DEBUG') && APP_DEBUG)
+                ? 'Failed to create subscription: ' . $e->getMessage()
+                : 'Failed to create subscription';
+            return $this->error($debugMsg, 500);
+        }
+    }
+    
+    /**
+     * تجديد الاشتراك
+     * POST /api/subscription/renew
+     * @param array $params
+     * @return array
+     */
+    public function renew(array $params = []): array {
+        try {
+            if (!$this->isAuthenticated()) {
+                return $this->error('Unauthorized', 401);
+            }
+            
+            // جلب الاشتراك الحالي
+            $sql = "SELECT * FROM subscriptions 
+                    WHERE user_id = ? 
+                    AND status = 'active' 
+                    ORDER BY id DESC LIMIT 1";
+            
+            $result = $this->db->query($sql, [$this->user['id']]);
+            
+            if (empty($result)) {
+                return $this->error('No active subscription found', 404);
+            }
+            
+            $subscription = new Subscription($result[0]);
+            $renewed = $subscription->renew();
+            
+            if (!$renewed) {
+                return $this->error('Failed to renew subscription', 500);
+            }
+            
+            $this->log('Subscription Renewed', [
+                'subscription_id' => $subscription->getAttribute('id')
+            ]);
+            
+            return $this->success([
+                'subscription' => $subscription->toArray()
+            ], 'Subscription renewed successfully');
+            
+        } catch (Exception $e) {
+            Logger::error('Renew Subscription Error', [
+                'message' => $e->getMessage()
+            ]);
+            return $this->error('Failed to renew subscription', 500);
+        }
+    }
+    
+    /**
+     * إلغاء الاشتراك
+     * POST /api/subscription/cancel
+     * @param array $params
+     * @return array
+     */
+    public function cancel(array $params = []): array {
+        try {
+            if (!$this->isAuthenticated()) {
+                return $this->error('Unauthorized', 401);
+            }
+            
+            // جلب الاشتراك الحالي
+            $sql = "SELECT * FROM subscriptions 
+                    WHERE user_id = ? 
+                    AND status = 'active' 
+                    ORDER BY id DESC LIMIT 1";
+            
+            $result = $this->db->query($sql, [$this->user['id']]);
+            
+            if (empty($result)) {
+                return $this->error('No active subscription found', 404);
+            }
+            
+            $subscription = new Subscription($result[0]);
+            $cancelled = $subscription->cancel();
+            
+            if (!$cancelled) {
+                return $this->error('Failed to cancel subscription', 500);
+            }
+            
+            $this->log('Subscription Cancelled', [
+                'subscription_id' => $subscription->getAttribute('id')
+            ]);
+
+            // تصحيح (2026-08-09 / Phase 3): كان في $this->log() بس، وده بيكتب
+            // في ملف اللوج العادي مش في activity_logs (سجل النشاط اللي
+            // ظاهر فعليًا للأدمن ومرتبط بباقي أحداث الفوترة زي الإيداعات
+            // وتغيير الباقة). إضافة السطر ده بس - مفيش أي تغيير في منطق
+            // الإلغاء نفسه.
+            ActivityLog::record('subscription', 'subscription.cancelled', [
+                'user_id' => (int) $this->user['id'],
+                'subject_type' => 'subscriptions',
+                'subject_id' => (int) $subscription->getAttribute('id'),
+            ]);
+            
+            return $this->success([], 'Subscription cancelled successfully');
+            
+        } catch (Exception $e) {
+            Logger::error('Cancel Subscription Error', [
+                'message' => $e->getMessage()
+            ]);
+            return $this->error('Failed to cancel subscription', 500);
+        }
+    }
+    
+    /**
+     * ترقية الباقة
+     * POST /api/subscription/upgrade
+     * @param array $params
+     * @return array
+     */
+    public function upgrade(array $params = []): array {
+        try {
+            if (!$this->isAuthenticated()) {
+                return $this->error('Unauthorized', 401);
+            }
+
+            $newPlan = $this->get('plan_name');
+            if (!$newPlan) {
+                return $this->error('Plan name is required', 400);
+            }
+
+            // تصحيح جذري (2026-08-09 / Phase 1): الكود القديم هنا كان بيكتب
+            // على أعمدة قديمة (plan_name, ai_credits, price...) مش موجودة
+            // في جدول subscriptions الحقيقي على السيرفر (اللي بيستخدم
+            // plan_id + subscription_plans بدلها فعليًا - شوف تعليق
+            // Subscription::activeSubscriptionRow() للتفاصيل الكاملة). يعني
+            // كل استدعاء لـ upgrade() كان بيفشل فعليًا (UPDATE على عمود
+            // مش موجود) ويرجّع 500 دايمًا في الإنتاج، ومكنش بيخصم أي حاجة
+            // حتى لو نجح بالغلط - ثغرة ترقية مجانية لو كان فيه جدول قديم شغال.
+            //
+            // الإصلاح: نستخدم نفس المسار الحقيقي المضمون
+            // (WalletService::subscribeWithBalance) اللي بيحسب فرق السعر
+            // بس لو فيه اشتراك فعّال، يخصمه من المحفظة، ويلغي الاشتراك
+            // القديم قبل ما ينشئ الجديد - بدل التكرار المنطقي، /api/wallet/subscribe
+            // و /api/subscription/upgrade بقوا نفس المسار الفعلي تحت الغطاء.
+            $planType = (string) $this->get('plan_type', '');
+            if ($planType === '') {
+                $currentRow = Subscription::activeSubscriptionRow((int) $this->user['id']);
+                $planType = $currentRow['plan_type'] ?? 'monthly';
+            }
+            if (!in_array($planType, ['monthly', 'yearly'], true)) {
+                $planType = 'monthly';
+            }
+
+            $idempotencyKey = $this->get('idempotency_key');
+            $idempotencyKey = is_string($idempotencyKey) && $idempotencyKey !== '' ? $idempotencyKey : null;
+
+            $walletService = new WalletService();
+            $result = $walletService->subscribeWithBalance((int) $this->user['id'], (string) $newPlan, $planType, $idempotencyKey);
+
+            if (!$result['success']) {
+                return $this->error($result['error'], 402, $result);
+            }
+
+            $this->log('Subscription Upgraded', [
+                'new_plan' => $newPlan,
+                'plan_type' => $planType,
+                'charged' => $result['charged'] ?? 0,
+            ]);
+
+            return $this->success($result, 'Subscription upgraded successfully');
+
+        } catch (Exception $e) {
+            Logger::error('Upgrade Subscription Error', [
+                'message' => $e->getMessage()
+            ]);
+            return $this->error('Failed to upgrade subscription', 500);
+        }
+    }
+    
+    /**
+     * الحصول على خطط الاشتراك المتاحة
+     * GET /api/subscription/plans
+     * @param array $params
+     * @return array
+     */
+    public function getPlans(array $params = []): array {
+        try {
+            $plans = Subscription::getAvailablePlans();
+            
+            return $this->success([
+                'plans' => $plans
+            ]);
+            
+        } catch (Exception $e) {
+            Logger::error('Get Plans Error', [
+                'message' => $e->getMessage()
+            ]);
+            return $this->error('Failed to get plans', 500);
+        }
+    }
+    
+    /**
+     * الحصول على إحصائيات الاستخدام
+     * @param int $userId
+     * @return array
+     */
+    private function getUsageStats(int $userId): array {
+        $data = Subscription::activeSubscriptionRow($userId);
+        
+        if (!$data) {
+            return [];
+        }
+        
+        $usage = [
+            'ai' => [
+                'total' => (int) $data['ai_credits'],
+                'used' => (int) $data['ai_credits_used'],
+                'remaining' => (int) $data['ai_credits'] - (int) $data['ai_credits_used']
+            ],
+            'chat' => [
+                'total' => (int) $data['chat_credits'],
+                'used' => (int) $data['chat_credits_used'],
+                'remaining' => (int) $data['chat_credits'] - (int) $data['chat_credits_used']
+            ],
+            'review' => [
+                'total' => (int) $data['review_credits'],
+                'used' => (int) $data['review_credits_used'],
+                'remaining' => (int) $data['review_credits'] - (int) $data['review_credits_used']
+            ],
+            'competitor' => [
+                'total' => (int) $data['competitor_analysis_limit'],
+                'used' => (int) $data['competitor_analysis_used'],
+                'remaining' => (int) $data['competitor_analysis_limit'] - (int) $data['competitor_analysis_used']
+            ]
+        ];
+
+        // Phase 3: تنبيهات نسب الاستخدام (50/75/90/100%). period_key بيتغيّر
+        // تلقائيًا كل ما الاشتراك يتجدد أو الباقة تتغيّر (id مختلف أو
+        // expiry_date مختلف) فالتنبيهات بترجع تتصفّر لوحدها كل فترة فوترة.
+        if (class_exists('UsageAlertService') && !empty($data['id'])) {
+            $periodKey = $data['id'] . ':' . ($data['expiry_date'] ?? '');
+            (new UsageAlertService())->checkAndNotify($userId, $usage, $periodKey);
+        }
+
+        return $usage;
+    }
+    
+    /**
+     * الحصول على ميزات الباقة
+     * @param string $planName
+     * @return array
+     */
+    private function getPlanFeatures(string $planName): array {
+        $plans = Subscription::getAvailablePlans();
+        return $plans[$planName]['features'] ?? [];
+    }
+
+    // ============================================
+    // الدوال التالية أُضيفت لاحقًا لأن app/routes/web.php و api.php
+    // كانا يشيران إليها ولم تكن معرّفة، ما كان سيسبب خطأ
+    // "Action not found in SubscriptionController" عند زيارتها.
+    // ============================================
+
+    /**
+     * GET /api/subscription/billing-profile
+     * بيانات الفوترة الرسمية للعميل الحالي (اسم قانوني، عنوان، رقم ضريبي).
+     * Phase 4 - جدول جديد بالكامل، مفيش أي تعديل على منطق الفوترة الأساسي.
+     */
+    public function getBillingProfile(array $params = []): array {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        try {
+            $profile = BillingProfile::forUser((int) $this->user['id']);
+            return $this->success(['profile' => $profile ? $profile->toArray() : null]);
+        } catch (Exception $e) {
+            Logger::error('Get Billing Profile Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر جلب بيانات الفوترة', 500);
+        }
+    }
+
+    /** PUT /api/subscription/billing-profile */
+    public function updateBillingProfile(array $params = []): array {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        // كل الحقول اختيارية إلا الإيميل لازم يكون صيغة صحيحة لو اتبعت.
+        $billingEmail = trim((string) $this->get('billing_email', ''));
+        if ($billingEmail !== '' && !filter_var($billingEmail, FILTER_VALIDATE_EMAIL)) {
+            return $this->error('صيغة إيميل الفوترة غير صحيحة', 422);
+        }
+
+        try {
+            $userId = (int) $this->user['id'];
+            $profile = BillingProfile::forUser($userId) ?? new BillingProfile();
+            $profile->fill([
+                'user_id' => $userId,
+                'legal_name' => trim((string) $this->get('legal_name', '')) ?: null,
+                'billing_email' => $billingEmail ?: null,
+                'address_line1' => trim((string) $this->get('address_line1', '')) ?: null,
+                'address_line2' => trim((string) $this->get('address_line2', '')) ?: null,
+                'city' => trim((string) $this->get('city', '')) ?: null,
+                'country' => trim((string) $this->get('country', '')) ?: null,
+                'tax_id' => trim((string) $this->get('tax_id', '')) ?: null,
+            ]);
+            $profile->save();
+
+            ActivityLog::record('subscription', 'subscription.billing_profile_updated', [
+                'user_id' => $userId, 'subject_type' => 'billing_profiles',
+                'subject_id' => (int) $profile->getAttribute('id'),
+            ]);
+
+            return $this->success(['profile' => $profile->toArray()], 'تم حفظ بيانات الفوترة');
+        } catch (Exception $e) {
+            Logger::error('Update Billing Profile Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر حفظ بيانات الفوترة', 500);
+        }
+    }
+
+    /** GET /pricing (عام - بدون تسجيل دخول) */
+    public function showPricing(array $params = []): array {
+        return $this->renderPlansPage();
+    }
+
+    /** GET /subscription */
+    public function showSubscription(array $params = []): array {
+        if (!$this->isAuthenticated()) {
+            header('Location: /login?redirect=' . urlencode('/subscription'));
+            exit;
+        }
+
+        $current = $this->current($params);
+        $data = $current['data'] ?? [];
+        $hasSubscription = $data['has_subscription'] ?? false;
+
+        if (!$hasSubscription) {
+            $tNoActiveSub = $this->tr('subscription.no_active');
+            $tSeePlans = $this->tr('subscription.see_plans');
+            $body = '<div class="p-card"><div class="p-empty"><div class="p-empty-icon">💳</div>' . $tNoActiveSub . '<br><a href="/plans" class="p-btn primary" style="margin-top:14px;">' . $tSeePlans . ' ←</a></div></div>';
+            $body .= $this->renderWalletCardHtml();
+            header('Content-Type: text/html; charset=utf-8');
+            echo $this->renderPanelPage('_subscription', $this->tr('subscription.page_title'), $this->tr('subscription.page_subtitle'), $body, $this->buildWalletOnlyScript());
+            exit;
+        }
+
+        $sub = $data['subscription'];
+        $usage = $data['usage'] ?? [];
+        $plansData = SubscriptionPlan::allAsLegacyArray();
+        $planInfo = $plansData[$sub['plan_name']] ?? null;
+        $planLabel = htmlspecialchars($planInfo['name'] ?? $sub['plan_name'], ENT_QUOTES, 'UTF-8');
+        $status = htmlspecialchars((string) $sub['status'], ENT_QUOTES, 'UTF-8');
+        $statusLabel = $status === 'active' ? $this->tr('subscription.status.active') : $status;
+        $price = htmlspecialchars((string) $sub['price'], ENT_QUOTES, 'UTF-8');
+        // تصحيح جذري: بدل ما نثق في $sub['currency'] المخزّنة (ممكن تكون
+        // قديمة أو اتسجّلت غلط وقت الإنشاء زي "EGP" لسعر بالدولار فعليًا)،
+        // بنجيب رمز العملة الصحيح من جدول الأسعار القابل للتعديل من
+        // الأدمن - ده مصدر الحقيقة الوحيد لعرض الأسعار في كل الموقع.
+        $currencySymbol = htmlspecialchars($planInfo['currency_symbol'] ?? '$', ENT_QUOTES, 'UTF-8');
+        $planType = $sub['plan_type'] === 'yearly' ? $this->tr('admin.yearly') : $this->tr('admin.monthly');
+        $expiryLabel = !empty($sub['expiry_date']) ? date('Y-m-d', strtotime($sub['expiry_date'])) : '-';
+        $expiryTimestamp = !empty($sub['expiry_date']) ? strtotime($sub['expiry_date']) : 0;
+        $daysLeft = $expiryTimestamp ? max(0, (int) ceil(($expiryTimestamp - time()) / 86400)) : null;
+
+        $usageMeta = [
+            'ai' => ['label' => $this->tr('dashboard.action.new_seo_analysis'), 'icon' => '🤖'],
+            'chat' => ['label' => $this->tr('chat.settings.title'), 'icon' => '💬'],
+            'review' => ['label' => $this->tr('admin.plans.review_credits'), 'icon' => '⭐'],
+            'competitor' => ['label' => $this->tr('sidebar.ai_competitors'), 'icon' => '🏁'],
+        ];
+        $tRemainingThisMonth = $this->tr('subscription.remaining_this_month');
+        $usageRows = '';
+        foreach ($usageMeta as $key => $meta) {
+            $u = $usage[$key] ?? ['total' => 0, 'used' => 0, 'remaining' => 0];
+            $total = max(1, (int) $u['total']);
+            $used = (int) $u['used'];
+            $percent = min(100, round(($used / $total) * 100));
+            $remaining = max(0, (int) $u['total'] - $used);
+            $barColor = $percent >= 90 ? 'var(--panel-danger)' : ($percent >= 70 ? 'var(--panel-warning)' : 'var(--panel-accent)');
+            // dir="ltr" على الأرقام عشان نمنع مشكلة اختلاط اتجاهات الكتابة
+            // (الأرقام LTR جوه سياق عربي RTL) اللي كانت بتخلّي النص يبان
+            // متراكم ومقروء بترتيب غلط.
+            $usageRows .= <<<HTML
+            <div class="usage-metric-box">
+                <div class="usage-metric-icon">{$meta['icon']}</div>
+                <div class="usage-metric-body">
+                    <div class="usage-metric-label">{$meta['label']}</div>
+                    <div class="usage-metric-nums" dir="ltr">{$used} <span class="p-cell-muted">/ {$u['total']}</span></div>
+                    <div class="usage-bar"><div style="width:{$percent}%;background:{$barColor};"></div></div>
+                    <div class="usage-metric-foot">{$remaining} {$tRemainingThisMonth}</div>
+                </div>
+            </div>
+HTML;
+        }
+
+        $tDaysLeft = $this->tr('subscription.days_left');
+        $daysLeftBadge = $daysLeft !== null
+            ? ($daysLeft <= 7 ? "<span class=\"pill orange\" style=\"margin-inline-start:8px;\">{$tDaysLeft} {$daysLeft}</span>" : '')
+            : '';
+
+        $tStatus = $this->tr('chat.col.status');
+        $tNextRenewal = $this->tr('subscription.next_renewal');
+        $tUpgrade = $this->tr('subscription.upgrade');
+        $tCancelSub = $this->tr('subscription.cancel');
+        $tUsageThisMonth = $this->tr('subscription.usage_this_month');
+        $tUsageResetHint = $this->tr('subscription.usage_reset_hint');
+        $tInvoices = $this->tr('subscription.invoices');
+        $tInvoiceNum = $this->tr('subscription.invoice_num');
+        $tAmount = $this->tr('subscription.amount');
+        $tDate = $this->tr('admin.col.date');
+        $tLoading = $this->tr('common.loading');
+
+        $body = <<<HTML
+        <div class="p-card sub-plan-card">
+            <div class="p-card-head">
+                <h3>{$planLabel}</h3>
+                <span class="p-card-sub">{$planType} · {$currencySymbol}{$price}</span>
+            </div>
+            <div class="p-kv"><span class="k">{$tStatus}</span><span class="v"><span class="pill green">✔ {$statusLabel}</span></span></div>
+            <div class="p-kv"><span class="k">{$tNextRenewal}</span><span class="v">{$expiryLabel}{$daysLeftBadge}</span></div>
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <a href="/plans" class="p-btn outline">⬆️ {$tUpgrade}</a>
+                <button class="p-btn danger" onclick="cancelSub()">{$tCancelSub}</button>
+            </div>
+            <div id="subAlert" class="alert alert-danger" style="display:none;margin-top:10px;"></div>
+        </div>
+
+        <div class="p-card wallet-card" style="margin-top:16px;">
+            <div class="p-card-head">
+                <h3>💰 {$this->tr('wallet.title')}</h3>
+                <span class="p-card-sub">{$this->tr('wallet.subtitle')}</span>
+            </div>
+            <div class="wallet-balance-box">
+                <div class="wallet-balance-label">{$this->tr('wallet.current_balance')}</div>
+                <div class="wallet-balance-amount" id="walletBalance" dir="ltr">$0.00</div>
+            </div>
+            <button class="p-btn primary btn-block" style="margin-top:14px;" onclick="P.openModal('depositModal')">➕ {$this->tr('wallet.deposit')}</button>
+
+            <div style="display:flex;gap:6px;margin-top:10px;">
+                <input type="text" id="rechargeCardCode" class="p-select xs" style="flex:1;" placeholder="{$this->tr('wallet.card.placeholder')}" dir="ltr">
+                <button class="p-btn outline xs" onclick="redeemCard()">🎫 {$this->tr('wallet.card.redeem')}</button>
+            </div>
+            <div id="redeemCardAlert" class="alert alert-danger" style="display:none;margin-top:8px;font-size:12px;"></div>
+
+            <div id="walletHistoryList" style="margin-top:16px;"></div>
+        </div>
+
+        <div class="p-card" style="margin-top:16px;">
+            <div class="p-card-head" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                <div><h3>{$tUsageThisMonth}</h3><span class="p-card-sub">{$tUsageResetHint}</span></div>
+                <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                    <input type="checkbox" id="usageNotifyToggle" onchange="toggleUsageNotify(this.checked)" style="width:16px;height:16px;accent-color:var(--panel-accent);cursor:pointer;">
+                    🔔 نبّهني عند 50% / 75% / 90% / 100% من أي رصيد
+                </label>
+            </div>
+            <div class="usage-metrics-grid">{$usageRows}</div>
+        </div>
+
+        <div class="p-card no-pad" style="margin-top:16px;">
+            <div class="p-card-head" style="padding:18px 20px 0;"><h3>🧾 {$tInvoices}</h3></div>
+            <div class="p-table-scroll"><table class="p-table" id="invoicesTable">
+                <thead><tr><th>{$tInvoiceNum}</th><th>{$tAmount}</th><th>{$tStatus}</th><th>{$tDate}</th><th></th></tr></thead>
+                <tbody><tr class="p-loading-row"><td colspan="5">{$tLoading}</td></tr></tbody>
+
+            </table></div>
+        </div>
+
+        <div class="p-card" id="billingProfileCard">
+            <div class="p-card-head"><h3>🧾 بيانات الفوترة الرسمية</h3><span class="p-card-sub">اختياري - تظهر على فواتيرك لو محتاج فاتورة رسمية باسم شركتك</span></div>
+            <div class="p-grid cols-2">
+                <div><label class="form-label" for="bp_legal_name">الاسم القانوني / اسم الشركة</label><input type="text" id="bp_legal_name" class="p-input" style="width:100%;"></div>
+                <div><label class="form-label" for="bp_billing_email">إيميل استلام الفواتير</label><input type="email" id="bp_billing_email" class="p-input" style="width:100%;"></div>
+                <div><label class="form-label" for="bp_address_line1">العنوان (سطر 1)</label><input type="text" id="bp_address_line1" class="p-input" style="width:100%;"></div>
+                <div><label class="form-label" for="bp_address_line2">العنوان (سطر 2)</label><input type="text" id="bp_address_line2" class="p-input" style="width:100%;"></div>
+                <div><label class="form-label" for="bp_city">المدينة</label><input type="text" id="bp_city" class="p-input" style="width:100%;"></div>
+                <div><label class="form-label" for="bp_country">الدولة</label><input type="text" id="bp_country" class="p-input" style="width:100%;"></div>
+                <div><label class="form-label" for="bp_tax_id">الرقم الضريبي / VAT ID</label><input type="text" id="bp_tax_id" class="p-input" style="width:100%;" dir="ltr"></div>
+            </div>
+            <div id="billingProfileAlert" class="alert alert-danger" role="alert" aria-live="polite" style="display:none;margin-top:10px;"></div>
+            <button class="p-btn primary" style="margin-top:14px;" onclick="saveBillingProfile()">💾 حفظ بيانات الفوترة</button>
+        </div>
+
+        <div class="p-modal-overlay" id="depositModal">
+            <div class="p-modal">
+                <div class="p-modal-head"><h3>➕ {$this->tr('wallet.deposit_title')}</h3><button class="p-modal-close" onclick="P.closeModal('depositModal')">×</button></div>
+                <div class="p-modal-body">
+                    <label class="form-label">{$this->tr('wallet.amount_usd')}</label>
+                    <input type="number" id="depositAmount" class="form-control" min="1" max="99999999.99" step="0.01" style="margin-bottom:14px;">
+
+                    <label class="form-label">{$this->tr('wallet.payment_method')}</label>
+                    <div class="p-tabs" id="depositMethodTabs" style="margin-bottom:14px;">
+                        <button type="button" class="p-tab active" data-method="iban">🏦 IBAN</button>
+                        <button type="button" class="p-tab" data-method="paypal">💳 PayPal</button>
+                    </div>
+
+                    <div id="depositInfoBox" class="wallet-payment-info"></div>
+
+                    <label class="form-label" style="margin-top:14px;">{$this->tr('wallet.note_optional')}</label>
+                    <textarea id="depositNote" class="form-control" rows="2" placeholder="{$this->tr('wallet.note_placeholder')}"></textarea>
+
+                    <div id="depositAlert" class="alert alert-danger" style="display:none;margin-top:10px;"></div>
+                </div>
+                <div class="p-modal-foot">
+                    <a href="#" id="depositWhatsappBtn" target="_blank" rel="noopener" class="p-btn outline">📲 {$this->tr('wallet.confirm_whatsapp')}</a>
+                    <button class="p-btn primary" onclick="submitDeposit()">{$this->tr('wallet.submit_request')}</button>
+                </div>
+            </div>
+        </div>
+HTML;
+
+        $script = <<<'JS'
+(function () {
+    const P = window.Panel;
+    const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast, formatDate = P.formatDate;
+
+    window.cancelSub = async function () {
+        if (!confirm(I18N['subscription.cancel_confirm'])) return;
+        const res = await fetchJSON('/api/subscription/cancel', { method: 'POST' });
+        if (res.success) { toast(I18N['common.deleted'], 'success'); window.location.reload(); }
+        else { document.getElementById('subAlert').textContent = res.error || I18N['subscription.cancel_failed']; document.getElementById('subAlert').style.display = 'block'; }
+    };
+
+    let walletPaymentInfo = {};
+    let selectedDepositMethod = 'iban';
+
+    async function loadWallet() {
+        const res = await fetchJSON('/api/wallet/balance');
+        if (res.success) {
+            document.getElementById('walletBalance').textContent = '$' + Number(res.data.balance).toFixed(2);
+            walletPaymentInfo = res.data.payment_info || {};
+            renderDepositInfo();
+        }
+        loadWalletHistory();
+    }
+
+    window.redeemCard = async function () {
+        const input = document.getElementById('rechargeCardCode');
+        const code = input.value.trim();
+        const alertBox = document.getElementById('redeemCardAlert');
+        alertBox.style.display = 'none';
+        if (!code) return;
+
+        const res = await fetchJSON('/api/wallet/redeem-card', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }),
+        });
+
+        if (res.success) {
+            toast(res.message || I18N['wallet.card.success'], 'success');
+            input.value = '';
+            loadWallet();
+        } else {
+            alertBox.textContent = res.error || I18N['wallet.card.failed'];
+            alertBox.style.display = 'block';
+        }
+    };
+
+    async function loadWalletHistory() {
+        const res = await fetchJSON('/api/wallet/history');
+        const box = document.getElementById('walletHistoryList');
+        if (!res.success || !res.data.transactions || !res.data.transactions.length) {
+            box.innerHTML = '';
+            return;
+        }
+        const typeLabels = { deposit: I18N['wallet.type.deposit'], subscription_charge: I18N['wallet.type.charge'], refund: I18N['wallet.type.refund'], admin_adjustment: I18N['wallet.type.adjustment'], card_redemption: I18N['wallet.type.card_redemption'] };
+        const statusPills = { pending: '<span class="pill orange">' + I18N['wallet.status.pending'] + '</span>', completed: '<span class="pill green">' + I18N['wallet.status.completed'] + '</span>', rejected: '<span class="pill red">' + I18N['wallet.status.rejected'] + '</span>' };
+        box.innerHTML = `<div class="p-cell-muted" style="font-size:12px;margin-bottom:8px;">${I18N['wallet.recent_activity']}</div>` +
+            res.data.transactions.slice(0, 8).map(t => `
+                <div class="wallet-tx-row">
+                    <span>${esc(typeLabels[t.type] || t.type)}</span>
+                    <span dir="ltr" style="font-weight:700;color:${t.amount >= 0 ? 'var(--panel-success)' : 'var(--panel-text)'};">${t.amount >= 0 ? '+' : ''}${esc(t.amount)}$</span>
+                    ${statusPills[t.status] || ''}
+                </div>`).join('');
+    }
+
+    function renderDepositInfo() {
+        const box = document.getElementById('depositInfoBox');
+        if (selectedDepositMethod === 'iban') {
+            box.innerHTML = `
+                <div class="p-kv"><span class="k">IBAN</span><span class="v" dir="ltr">${esc(walletPaymentInfo.iban || '-')}</span></div>
+                <div class="p-kv"><span class="k">${I18N['wallet.bank_name']}</span><span class="v">${esc(walletPaymentInfo.iban_bank_name || '-')}</span></div>
+                <div class="p-kv"><span class="k">${I18N['wallet.account_name']}</span><span class="v">${esc(walletPaymentInfo.iban_account_name || '-')}</span></div>`;
+        } else {
+            box.innerHTML = `<div class="p-kv"><span class="k">PayPal</span><span class="v" dir="ltr">${esc(walletPaymentInfo.paypal_email || '-')}</span></div>`;
+        }
+    }
+
+    document.querySelectorAll('#depositMethodTabs .p-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#depositMethodTabs .p-tab').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedDepositMethod = btn.dataset.method;
+            renderDepositInfo();
+        });
+    });
+
+    document.getElementById('depositWhatsappBtn').addEventListener('click', function (e) {
+        const amount = document.getElementById('depositAmount').value.trim();
+        const num = walletPaymentInfo.whatsapp_number;
+        if (!num) { e.preventDefault(); toast(I18N['wallet.whatsapp_not_configured'], 'error'); return; }
+        const method = selectedDepositMethod === 'iban' ? 'IBAN' : 'PayPal';
+        const text = encodeURIComponent(`أهلاً، هبعت إيداع بمبلغ $${amount || '...'} عن طريق ${method} - محتاج تأكيد.`);
+        this.href = `https://wa.me/${num}?text=${text}`;
+    });
+
+    window.submitDeposit = async function () {
+        const alertBox = document.getElementById('depositAlert');
+        alertBox.style.display = 'none';
+        const amount = document.getElementById('depositAmount').value;
+        const note = document.getElementById('depositNote').value.trim();
+
+        if (!amount || Number(amount) <= 0) {
+            alertBox.textContent = I18N['wallet.amount_required'];
+            alertBox.style.display = 'block';
+            return;
+        }
+
+        const res = await fetchJSON('/api/wallet/deposit', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount, payment_method: selectedDepositMethod, note }),
+        });
+
+        if (res.success) {
+            toast(I18N['wallet.deposit_requested'], 'success');
+            P.closeModal('depositModal');
+            document.getElementById('depositAmount').value = '';
+            document.getElementById('depositNote').value = '';
+            loadWalletHistory();
+        } else {
+            alertBox.textContent = res.error || I18N['wallet.deposit_failed'];
+            alertBox.style.display = 'block';
+        }
+    };
+
+    loadWallet();
+
+    async function loadInvoices() {
+        const res = await fetchJSON('/api/subscription/invoices');
+        const tbody = document.querySelector('#invoicesTable tbody');
+        if (res.success && Array.isArray(res.data.invoices) && res.data.invoices.length) {
+            tbody.innerHTML = res.data.invoices.map(inv => `
+                <tr>
+                    <td>#${esc(inv.id)}</td>
+                    <td>${esc(inv.amount || '-')} ${esc(inv.currency || '')}</td>
+                    <td>${esc(inv.status || '-')}</td>
+                    <td class="p-cell-muted">${formatDate(inv.created_at)}</td>
+                    <td><a href="/invoice/${inv.id}" class="p-btn outline xs">${I18N['common.view']}</a></td>
+                </tr>`).join('');
+        } else {
+            tbody.innerHTML = `<tr><td colspan="5" class="p-cell-muted text-center" style="padding:30px 0;">📭 ${I18N['subscription.no_invoices']}</td></tr>`;
+        }
+    }
+    loadInvoices();
+
+    async function loadBillingProfile() {
+        const res = await fetchJSON('/api/subscription/billing-profile');
+        if (!res.success || !res.data.profile) return;
+        const p = res.data.profile;
+        const fields = ['legal_name', 'billing_email', 'address_line1', 'address_line2', 'city', 'country', 'tax_id'];
+        fields.forEach(f => {
+            const el = document.getElementById('bp_' + f);
+            if (el && p[f]) el.value = p[f];
+        });
+    }
+    loadBillingProfile();
+
+    async function loadUsageNotifyPref() {
+        const res = await fetchJSON('/api/settings/notifications');
+        if (res.success) {
+            document.getElementById('usageNotifyToggle').checked = !!res.data.billing_usage_notifications;
+        }
+    }
+    loadUsageNotifyPref();
+
+    window.toggleUsageNotify = async function (checked) {
+        const res = await fetchJSON('/api/settings/notifications', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ billing_usage_notifications: checked }),
+        });
+        if (res.success) {
+            toast(checked ? 'هيتم تنبيهك عند تجاوز نسب الاستخدام' : 'تم إيقاف تنبيهات الاستخدام', 'success');
+        } else {
+            toast(res.error || 'تعذر حفظ التفضيل', 'error');
+        }
+    };
+
+    window.saveBillingProfile = async function () {
+        const alertBox = document.getElementById('billingProfileAlert');
+        alertBox.style.display = 'none';
+
+        const payload = {
+            legal_name: document.getElementById('bp_legal_name').value.trim(),
+            billing_email: document.getElementById('bp_billing_email').value.trim(),
+            address_line1: document.getElementById('bp_address_line1').value.trim(),
+            address_line2: document.getElementById('bp_address_line2').value.trim(),
+            city: document.getElementById('bp_city').value.trim(),
+            country: document.getElementById('bp_country').value.trim(),
+            tax_id: document.getElementById('bp_tax_id').value.trim(),
+        };
+
+        const res = await fetchJSON('/api/subscription/billing-profile', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+
+        if (res.success) {
+            toast(res.message || 'تم الحفظ ✔', 'success');
+        } else {
+            alertBox.textContent = res.error || 'تعذر حفظ بيانات الفوترة';
+            alertBox.style.display = 'block';
+        }
+    };
+})();
+JS;
+
+        header('Content-Type: text/html; charset=utf-8');
+        echo $this->renderPanelPage('_subscription', $this->tr('subscription.page_title'), $this->tr('subscription.page_subtitle_active'), $body, $script);
+        exit;
+    }
+
+    /** GET /plans (عام - بدون تسجيل دخول) */
+    public function showPlans(array $params = []): array {
+        return $this->renderPlansPage();
+    }
+
+    private function renderPlansPage(): array {
+        // تصحيح: بقت الباقات قابلة للتعديل من لوحة الأدمن بدل الثابت الجامد.
+        $plans = SubscriptionPlan::allAsLegacyArray();
+        $cardsHtml = '';
+
+        foreach ($plans as $key => $plan) {
+            $name = htmlspecialchars($plan['name'], ENT_QUOTES, 'UTF-8');
+            $priceMonthly = number_format($plan['price_monthly'], 0);
+            $priceYearly = number_format($plan['price_yearly'], 0);
+            // تصحيح باغ عملة حقيقي: كانت مكتوبة "جنيه" (EGP) بشكل ثابت
+            // بجانب أسعار مقصود بيها أصلاً تكون بالدولار ($49، $99، $299)
+            // - يعني العميل كان يشوف "49 جنيه" وهو المفروض يدفع 49 دولار.
+            // دلوقتي الرمز بييجي من قاعدة البيانات (قابل للتعديل من الأدمن).
+            $currencySymbol = htmlspecialchars($plan['currency_symbol'] ?? '$', ENT_QUOTES, 'UTF-8');
+            $f = $plan['features'];
+            $keySafe = htmlspecialchars($key, ENT_QUOTES, 'UTF-8');
+
+            $featureItems = [
+                "🤖 {$f['ai_analysis']} تحليل AI شهريًا",
+                "🏁 {$f['competitor_analysis']} تحليل منافسين",
+                "💬 {$f['chat_credits']} رسالة شات",
+                "⭐ {$f['review_credits']} رد على مراجعات",
+                "🌐 حتى {$f['multiple_websites']} " . ($f['multiple_websites'] > 1 ? 'مواقع' : 'موقع'),
+                $f['auto_pilot'] ? "✔ إرسال تلقائي بدون مراجعة" : "○ يتطلب موافقتك على الردود",
+                $f['advanced_analytics'] ? "✔ تحليلات متقدمة" : "○ تحليلات أساسية",
+            ];
+            $featuresHtml = implode('', array_map(fn($i) => '<li>' . htmlspecialchars($i, ENT_QUOTES, 'UTF-8') . '</li>', $featureItems));
+
+            $whatsappMonthly = $this->buildWhatsAppSubscribeLink($plan['name'], $priceMonthly, 'شهري', $currencySymbol);
+            $whatsappYearly = $this->buildWhatsAppSubscribeLink($plan['name'], $priceYearly, 'سنوي', $currencySymbol);
+
+            // نسبة التوفير الحقيقية بمقارنة السعر السنوي بسعر 12 شهر
+            // مدفوعين شهريًا - محسوبة من أسعار حقيقية مخزّنة في قاعدة
+            // البيانات، مش رقم ثابت مخترع.
+            $monthlyAnnualized = (float) $plan['price_monthly'] * 12;
+            $savingsPercent = $monthlyAnnualized > 0
+                ? max(0, round((1 - ((float) $plan['price_yearly'] / $monthlyAnnualized)) * 100))
+                : 0;
+            $savingsBadge = $savingsPercent > 0 ? "<span class=\"pill green\">وفّر {$savingsPercent}%</span>" : '';
+
+            // زرار "اشترك بالرصيد" يظهر للمستخدمين المسجّلين بس - بيخصم
+            // فورًا من رصيد المحفظة ويفعّل الاشتراك من غير أي تدخل بشري
+            // أو انتظار على واتساب.
+            $walletButtonsMonthly = '';
+            $walletButtonsYearly = '';
+            if ($this->isAuthenticated()) {
+                $walletButtonsMonthly = "<button class=\"p-btn success btn-block\" style=\"margin-top:8px;\" onclick=\"subscribeWithWallet('{$keySafe}', 'monthly', '{$name}', {$plan['price_monthly']})\">💰 اشترك بالرصيد</button>";
+                $walletButtonsYearly = "<button class=\"p-btn success btn-block\" style=\"margin-top:8px;\" onclick=\"subscribeWithWallet('{$keySafe}', 'yearly', '{$name}', {$plan['price_yearly']})\">💰 اشترك بالرصيد</button>";
+            }
+
+            $cardsHtml .= <<<HTML
+            <div class="p-card">
+                <div class="p-card-head"><h3>{$name}</h3></div>
+
+                <div class="plan-cycle-block" data-cycle-block="monthly">
+                    <div style="font-size:32px;font-weight:700;margin:10px 0;">{$currencySymbol}{$priceMonthly} <span style="font-size:14px;font-weight:400;">/شهر</span></div>
+                    <ul style="margin:0 0 16px;padding-inline-start:20px;line-height:2;">{$featuresHtml}</ul>
+                    <a href="{$whatsappMonthly}" target="_blank" rel="noopener" class="p-btn primary btn-block">💬 اشترك عبر واتساب</a>
+                    {$walletButtonsMonthly}
+                </div>
+
+                <div class="plan-cycle-block" data-cycle-block="yearly" style="display:none;">
+                    <div style="font-size:32px;font-weight:700;margin:10px 0;">{$currencySymbol}{$priceYearly} <span style="font-size:14px;font-weight:400;">/سنة</span> {$savingsBadge}</div>
+                    <ul style="margin:0 0 16px;padding-inline-start:20px;line-height:2;">{$featuresHtml}</ul>
+                    <a href="{$whatsappYearly}" target="_blank" rel="noopener" class="p-btn primary btn-block">💬 اشترك عبر واتساب</a>
+                    {$walletButtonsYearly}
+                </div>
+            </div>
+HTML;
+        }
+
+        $isAuth = $this->isAuthenticated();
+        $billingToggleHtml = <<<HTML
+        <div class="p-tabs" id="billingCycleTabs" role="tablist" aria-label="دورة الفوترة" style="max-width:280px;margin:0 auto 22px;">
+            <button type="button" class="p-tab active" role="tab" aria-selected="true" data-cycle="monthly">شهري</button>
+            <button type="button" class="p-tab" role="tab" aria-selected="false" data-cycle="yearly">سنوي</button>
+        </div>
+HTML;
+        $body = $billingToggleHtml . '<div class="p-grid cols-3">' . $cardsHtml . '</div>';
+        if (!support_whatsapp_number()) {
+            $body = '<div class="alert alert-warning" style="margin-bottom:16px;">⚠️ رقم واتساب صاحب المنصة مش متظبط بعد (من لوحة الأدمن أو .env) - زراير "اشترك" مش هتشتغل لحد ما يتظبط.</div>' . $body;
+        }
+
+        $cycleToggleScript = <<<'JS'
+(function () {
+    const tabs = document.querySelectorAll('#billingCycleTabs .p-tab');
+    tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            const cycle = tab.getAttribute('data-cycle');
+            tabs.forEach(function (t) {
+                const isActive = t === tab;
+                t.classList.toggle('active', isActive);
+                t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            });
+            document.querySelectorAll('[data-cycle-block]').forEach(function (block) {
+                block.style.display = block.getAttribute('data-cycle-block') === cycle ? '' : 'none';
+            });
+        });
+    });
+})();
+JS;
+
+        $script = '';
+        if ($isAuth) {
+            $script = <<<'JS'
+(function () {
+    const P = window.Panel;
+    const fetchJSON = P.fetchJSON, toast = P.toast;
+
+    window.subscribeWithWallet = async function (planKey, planType, planName, price) {
+        // ملحوظة: $price هنا هو سعر الباقة الجديدة الكامل من جدول العرض
+        // (زي ما كان دايمًا) - ده بس نص التأكيد التقريبي قبل الإرسال.
+        // لو العميل عنده اشتراك فعّال بالفعل، السيرفر هيحسب فرق السعر
+        // الفعلي (مش السعر الكامل) ويخصمه بس - انظر WalletService::subscribeWithBalance.
+        if (!confirm(`هيتم تفعيل باقة "${planName}" (${price}$ سعرها الكامل - لو عندك اشتراك فعّال حاليًا هيتخصم فرق السعر بس). متابعة؟`)) return;
+
+        // مفتاح idempotency فريد لكل ضغطة - بيمنع تكرار الخصم لو الطلب
+        // اتبعت مرتين (دبل-كليك أو مشكلة شبكة مؤقتة).
+        const idempotencyKey = (window.crypto && window.crypto.randomUUID)
+            ? window.crypto.randomUUID()
+            : 'idem_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+
+        const res = await fetchJSON('/api/wallet/subscribe', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ plan_key: planKey, plan_type: planType, idempotency_key: idempotencyKey }),
+        });
+
+        if (res.success) {
+            const charged = res.data && typeof res.data.charged === 'number' ? res.data.charged : null;
+            const isPlanChange = res.data && res.data.is_plan_change;
+            const msg = isPlanChange
+                ? (charged > 0 ? `تم تفعيل الباقة الجديدة وخصم فرق السعر $${charged} ✔` : 'تم تفعيل الباقة الجديدة ✔')
+                : 'تم تفعيل الاشتراك فورًا من رصيدك ✔';
+            toast(msg, 'success');
+            setTimeout(() => window.location.href = '/subscription', 1200);
+        } else {
+            if (res.data && res.data.shortfall) {
+                const label = res.data.is_plan_change ? 'فرق السعر' : 'رصيدك';
+                toast(`رصيدك مش كافي لدفع ${label} - محتاج تودّع $${res.data.shortfall} إضافية`, 'error');
+            } else {
+                toast(res.error || 'تعذر تفعيل الاشتراك', 'error');
+            }
+        }
+    };
+})();
+JS;
+        }
+
+        header('Content-Type: text/html; charset=utf-8');
+
+        if ($isAuth) {
+            echo $this->renderPanelPage('_subscription', 'الباقات', 'اختر الباقة المناسبة لشركتك', $body, $cycleToggleScript . $script);
+        } else {
+            echo $this->renderPublicPlansPage($body, $cycleToggleScript);
+        }
+        exit;
+    }
+
+    /**
+     * رابط واتساب جاهز برسالة معبّأة مسبقًا بتفاصيل الباقة المطلوبة،
+     * عشان العميل يقدر يتواصل ويدفع يدويًا (مفيش بوابة دفع إلكتروني
+     * مفعّلة حاليًا). لما تستقبل الرسالة وتتأكد من الدفع، فعّل الاشتراك
+     * له من لوحة الأدمن (/admin/subscriptions).
+     */
+    /** كارت المحفظة الكامل (رصيد + إيداع + شحن كرت) - متاح للعميل بغض النظر عن حالة اشتراكه */
+    private function renderWalletCardHtml(): string {
+        return <<<HTML
+        <div class="p-card wallet-card" style="margin-top:16px;">
+            <div class="p-card-head">
+                <h3>💰 {$this->tr('wallet.title')}</h3>
+                <span class="p-card-sub">{$this->tr('wallet.subtitle')}</span>
+            </div>
+            <div class="wallet-balance-box">
+                <div class="wallet-balance-label">{$this->tr('wallet.current_balance')}</div>
+                <div class="wallet-balance-amount" id="walletBalance" dir="ltr">$0.00</div>
+            </div>
+            <button class="p-btn primary btn-block" style="margin-top:14px;" onclick="P.openModal('depositModal')">➕ {$this->tr('wallet.deposit')}</button>
+
+            <div style="display:flex;gap:6px;margin-top:10px;">
+                <input type="text" id="rechargeCardCode" class="p-select xs" style="flex:1;" placeholder="{$this->tr('wallet.card.placeholder')}" dir="ltr">
+                <button class="p-btn outline xs" onclick="redeemCard()">🎫 {$this->tr('wallet.card.redeem')}</button>
+            </div>
+            <div id="redeemCardAlert" class="alert alert-danger" style="display:none;margin-top:8px;font-size:12px;"></div>
+
+            <div id="walletHistoryList" style="margin-top:16px;"></div>
+        </div>
+
+        <div class="p-modal-overlay" id="depositModal">
+            <div class="p-modal">
+                <div class="p-modal-head"><h3>➕ {$this->tr('wallet.deposit_title')}</h3><button class="p-modal-close" onclick="P.closeModal('depositModal')">×</button></div>
+                <div class="p-modal-body">
+                    <label class="form-label">{$this->tr('wallet.amount_usd')}</label>
+                    <input type="number" id="depositAmount" class="form-control" min="1" max="99999999.99" step="0.01" style="margin-bottom:14px;">
+
+                    <label class="form-label">{$this->tr('wallet.payment_method')}</label>
+                    <div class="p-tabs" id="depositMethodTabs" style="margin-bottom:14px;">
+                        <button type="button" class="p-tab active" data-method="iban">🏦 IBAN</button>
+                        <button type="button" class="p-tab" data-method="paypal">💳 PayPal</button>
+                    </div>
+
+                    <div id="depositInfoBox" class="wallet-payment-info"></div>
+
+                    <label class="form-label" style="margin-top:14px;">{$this->tr('wallet.note_optional')}</label>
+                    <textarea id="depositNote" class="form-control" rows="2" placeholder="{$this->tr('wallet.note_placeholder')}"></textarea>
+
+                    <div id="depositAlert" class="alert alert-danger" style="display:none;margin-top:10px;"></div>
+                </div>
+                <div class="p-modal-foot">
+                    <a href="#" id="depositWhatsappBtn" target="_blank" rel="noopener" class="p-btn outline">📲 {$this->tr('wallet.confirm_whatsapp')}</a>
+                    <button class="p-btn primary" onclick="submitDeposit()">{$this->tr('wallet.submit_request')}</button>
+                </div>
+            </div>
+        </div>
+HTML;
+    }
+
+    /** سكريبت المحفظة بس (من غير باقي منطق صفحة الاشتراك) - للعميل اللي معندوش اشتراك نشط */
+    private function buildWalletOnlyScript(): string {
+        return <<<'JS'
+(function () {
+    const P = window.Panel;
+    const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast, formatDate = P.formatDate;
+    let walletPaymentInfo = {};
+    let selectedDepositMethod = 'iban';
+
+    async function loadWallet() {
+        const res = await fetchJSON('/api/wallet/balance');
+        if (res.success) {
+            document.getElementById('walletBalance').textContent = '$' + Number(res.data.balance).toFixed(2);
+            walletPaymentInfo = res.data.payment_info || {};
+            renderDepositInfo();
+        }
+        loadWalletHistory();
+    }
+
+    window.redeemCard = async function () {
+        const input = document.getElementById('rechargeCardCode');
+        const code = input.value.trim();
+        const alertBox = document.getElementById('redeemCardAlert');
+        alertBox.style.display = 'none';
+        if (!code) return;
+
+        const res = await fetchJSON('/api/wallet/redeem-card', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }),
+        });
+
+        if (res.success) {
+            toast(res.message || I18N['wallet.card.success'], 'success');
+            input.value = '';
+            loadWallet();
+        } else {
+            alertBox.textContent = res.error || I18N['wallet.card.failed'];
+            alertBox.style.display = 'block';
+        }
+    };
+
+    async function loadWalletHistory() {
+        const res = await fetchJSON('/api/wallet/history');
+        const box = document.getElementById('walletHistoryList');
+        if (!res.success || !res.data.transactions || !res.data.transactions.length) {
+            box.innerHTML = '';
+            return;
+        }
+        const typeLabels = { deposit: I18N['wallet.type.deposit'], subscription_charge: I18N['wallet.type.charge'], refund: I18N['wallet.type.refund'], admin_adjustment: I18N['wallet.type.adjustment'], card_redemption: I18N['wallet.type.card_redemption'] };
+        const statusPills = { pending: '<span class="pill orange">' + I18N['wallet.status.pending'] + '</span>', completed: '<span class="pill green">' + I18N['wallet.status.completed'] + '</span>', rejected: '<span class="pill red">' + I18N['wallet.status.rejected'] + '</span>' };
+        box.innerHTML = `<div class="p-cell-muted" style="font-size:12px;margin-bottom:8px;">${I18N['wallet.recent_activity']}</div>` +
+            res.data.transactions.slice(0, 8).map(t => `
+                <div class="wallet-tx-row">
+                    <span>${esc(typeLabels[t.type] || t.type)}</span>
+                    <span dir="ltr" style="font-weight:700;color:${t.amount >= 0 ? 'var(--panel-success)' : 'var(--panel-text)'};">${t.amount >= 0 ? '+' : ''}${esc(t.amount)}$</span>
+                    ${statusPills[t.status] || ''}
+                </div>`).join('');
+    }
+
+    function renderDepositInfo() {
+        const box = document.getElementById('depositInfoBox');
+        if (selectedDepositMethod === 'iban') {
+            box.innerHTML = `
+                <div class="p-kv"><span class="k">IBAN</span><span class="v" dir="ltr">${esc(walletPaymentInfo.iban || '-')}</span></div>
+                <div class="p-kv"><span class="k">${I18N['wallet.bank_name']}</span><span class="v">${esc(walletPaymentInfo.iban_bank_name || '-')}</span></div>
+                <div class="p-kv"><span class="k">${I18N['wallet.account_name']}</span><span class="v">${esc(walletPaymentInfo.iban_account_name || '-')}</span></div>`;
+        } else {
+            box.innerHTML = `<div class="p-kv"><span class="k">PayPal</span><span class="v" dir="ltr">${esc(walletPaymentInfo.paypal_email || '-')}</span></div>`;
+        }
+    }
+
+    document.querySelectorAll('#depositMethodTabs .p-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#depositMethodTabs .p-tab').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedDepositMethod = btn.dataset.method;
+            renderDepositInfo();
+        });
+    });
+
+    document.getElementById('depositWhatsappBtn').addEventListener('click', function () {
+        const amount = document.getElementById('depositAmount').value.trim();
+        const num = walletPaymentInfo.whatsapp_number;
+        if (!num) { event.preventDefault(); toast(I18N['wallet.whatsapp_not_configured'], 'error'); return; }
+        const method = selectedDepositMethod === 'iban' ? 'IBAN' : 'PayPal';
+        const text = encodeURIComponent(`أهلاً، هبعت إيداع بمبلغ $${amount || '...'} عن طريق ${method} - محتاج تأكيد.`);
+        this.href = `https://wa.me/${num}?text=${text}`;
+    });
+
+    window.submitDeposit = async function () {
+        const alertBox = document.getElementById('depositAlert');
+        alertBox.style.display = 'none';
+        const amount = document.getElementById('depositAmount').value;
+        const note = document.getElementById('depositNote').value.trim();
+
+        if (!amount || Number(amount) <= 0) {
+            alertBox.textContent = I18N['wallet.amount_required'];
+            alertBox.style.display = 'block';
+            return;
+        }
+
+        const res = await fetchJSON('/api/wallet/deposit', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount, payment_method: selectedDepositMethod, note }),
+        });
+
+        if (res.success) {
+            toast(I18N['wallet.deposit_requested'], 'success');
+            P.closeModal('depositModal');
+            document.getElementById('depositAmount').value = '';
+            document.getElementById('depositNote').value = '';
+            loadWalletHistory();
+        } else {
+            alertBox.textContent = res.error || I18N['wallet.deposit_failed'];
+            alertBox.style.display = 'block';
+        }
+    };
+
+    loadWallet();
+})();
+JS;
+    }
+
+    private function buildWhatsAppSubscribeLink(string $planLabel, string $price, string $cycle, string $currencySymbol = '$'): string {
+        if (!support_whatsapp_number()) {
+            return '#';
+        }
+
+        $userEmail = $this->isAuthenticated() ? ($this->user['email'] ?? '') : '';
+        $emailLine = $userEmail ? " (بريدي المسجّل: {$userEmail})" : '';
+
+        $message = "أهلاً، عايز أشترك في {$planLabel} ({$cycle}) بسعر {$currencySymbol}{$price}.{$emailLine}";
+
+        return 'https://wa.me/' . support_whatsapp_number() . '?text=' . rawurlencode($message);
+    }
+
+    /**
+     * صفحة أسعار عامة (بدون تسجيل دخول) - نفس نظام تصميم الصفحة الرئيسية
+     * (مش panel layout لأن الزائر لسه معندوش حساب).
+     */
+    private function renderPublicPlansPage(string $body, string $script): string {
+        $appName = defined('APP_NAME') ? APP_NAME : 'Tourfecto';
+        // تصحيح باغ فادح: {asset_v(...)} جوه heredoc مبيتفسّرش من PHP.
+        $styleCssUrl = asset_v('/assets/css/style.css');
+        $panelCssUrl = asset_v('/assets/css/panel.css');
+
+        return <<<HTML
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#060A13">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>الباقات والأسعار | {$appName}</title>
+    <link rel="stylesheet" href="{$styleCssUrl}">
+    <link rel="stylesheet" href="{$panelCssUrl}">
+    <style>body{padding:40px 20px;max-width:1100px;margin:0 auto;} h1{text-align:center;margin-bottom:8px;} .sub{text-align:center;color:var(--gray-500,#666);margin-bottom:30px;}</style>
+</head>
+<body>
+    <h1>الباقات والأسعار</h1>
+    <p class="sub">اختر الباقة المناسبة لشركتك السياحية</p>
+    {$body}
+    <p style="text-align:center;margin-top:30px;"><a href="/login">عندك حساب بالفعل؟ سجّل دخول</a></p>
+    <script>{$script}</script>
+<button id="pwaInstallBtn" class="pwa-install-fab" type="button" aria-label="تثبيت التطبيق" title="تثبيت التطبيق">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>تثبيت التطبيق</span>
+</button>
+<style>
+.pwa-install-fab {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    background: var(--primary-color, #0077be);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 12px 18px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(0, 119, 190, .35);
+    transition: transform .2s ease, box-shadow .2s ease, opacity .2s ease;
+}
+.pwa-install-fab:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(0, 119, 190, .45);
+}
+.pwa-install-fab svg { flex-shrink: 0; }
+@media (max-width: 480px) {
+    .pwa-install-fab span { display: none; }
+    .pwa-install-fab { padding: 14px; border-radius: 50%; bottom: 18px; left: 18px; }
+}
+</style>
+<script>
+(function () {
+    var btn = document.getElementById('pwaInstallBtn');
+    if (!btn) return;
+    var deferredPrompt = null;
+
+    function isStandalone() {
+        return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }
+
+    if (isStandalone()) return;
+
+    window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        deferredPrompt = e;
+        btn.style.display = 'flex';
+    });
+
+    btn.addEventListener('click', function () {
+        if (!deferredPrompt) return;
+        btn.style.display = 'none';
+        var promptEvent = deferredPrompt;
+        deferredPrompt = null;
+        promptEvent.prompt();
+        promptEvent.userChoice.then(function () {});
+    });
+
+    window.addEventListener('appinstalled', function () {
+        btn.style.display = 'none';
+        deferredPrompt = null;
+    });
+})();
+</script>
+</body>
+</html>
+HTML;
+    }
+
+    /** GET /invoice/{id} و GET /api/subscription/invoice/{id} */
+    public function showInvoice(array $params): array {
+        if (!$this->isAuthenticated()) {
+            header('Location: /login?redirect=' . urlencode('/invoice/' . ($params['id'] ?? '')));
+            exit;
+        }
+
+        $result = $this->getInvoice($params);
+        if (!($result['success'] ?? false)) {
+            $body = '<div class="p-card"><div class="p-empty"><div class="p-empty-icon">🧾</div>الفاتورة غير موجودة</div></div>';
+            header('Content-Type: text/html; charset=utf-8');
+            echo $this->renderPanelPage('_subscription', 'الفاتورة', '', $body, '');
+            exit;
+        }
+
+        $inv = $result['data']['invoice'];
+        $invId = (int) ($inv['id'] ?? 0);
+        $invNumber = htmlspecialchars((string) ($inv['invoice_number'] ?? ('#' . $invId)), ENT_QUOTES, 'UTF-8');
+        $amount = (float) ($inv['amount'] ?? 0);
+        $currency = htmlspecialchars((string) ($inv['currency'] ?? 'USD'), ENT_QUOTES, 'UTF-8');
+        $status = (string) ($inv['status'] ?? '-');
+        $statusPillClass = ['paid' => 'green', 'pending' => 'orange', 'failed' => 'red', 'cancelled' => 'red'][$status] ?? 'gray';
+        $statusLabelsAr = ['paid' => 'مدفوعة', 'pending' => 'قيد الانتظار', 'failed' => 'فشلت', 'cancelled' => 'ملغاة'];
+        $statusLabel = htmlspecialchars($statusLabelsAr[$status] ?? $status, ENT_QUOTES, 'UTF-8');
+        $createdDate = !empty($inv['created_at']) ? date('Y-m-d', strtotime($inv['created_at'])) : '-';
+        $dueDate = !empty($inv['due_date']) ? date('Y-m-d', strtotime($inv['due_date'])) : '-';
+        $paidDate = !empty($inv['paid_at']) ? date('Y-m-d', strtotime($inv['paid_at'])) : null;
+        $planLabel = htmlspecialchars((string) ($inv['plan_name'] ?? '-'), ENT_QUOTES, 'UTF-8');
+        $cycleLabel = ($inv['plan_type'] ?? '') === 'yearly' ? $this->tr('admin.yearly') : $this->tr('admin.monthly');
+        $paymentMethod = htmlspecialchars((string) ($inv['payment_method'] ?? '-'), ENT_QUOTES, 'UTF-8');
+        $transactionId = htmlspecialchars((string) ($inv['transaction_id'] ?? '-'), ENT_QUOTES, 'UTF-8');
+
+        $itemsRows = '';
+        foreach (($inv['items_resolved'] ?? []) as $item) {
+            $desc = htmlspecialchars((string) ($item['description'] ?? '-'), ENT_QUOTES, 'UTF-8');
+            $itemAmount = htmlspecialchars((string) ($item['amount'] ?? '-'), ENT_QUOTES, 'UTF-8');
+            $itemsRows .= "<tr><td>{$desc}</td><td class=\"text-end\" dir=\"ltr\">{$itemAmount} {$currency}</td></tr>";
+        }
+
+        $paidRow = $paidDate ? "<div class=\"p-kv\"><span class=\"k\">تاريخ الدفع</span><span class=\"v\">{$paidDate}</span></div>" : '';
+
+        $body = <<<HTML
+        <div class="p-card invoice-detail-card" id="invoicePrintArea">
+            <div class="p-card-head" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+                <div>
+                    <h3>فاتورة {$invNumber}</h3>
+                    <span class="p-card-sub">{$planLabel} · {$cycleLabel}</span>
+                </div>
+                <span class="pill {$statusPillClass}">{$statusLabel}</span>
+            </div>
+
+            <div class="p-kv"><span class="k">تاريخ الإصدار</span><span class="v">{$createdDate}</span></div>
+            <div class="p-kv"><span class="k">تاريخ الاستحقاق</span><span class="v">{$dueDate}</span></div>
+            {$paidRow}
+            <div class="p-kv"><span class="k">طريقة الدفع</span><span class="v">{$paymentMethod}</span></div>
+            <div class="p-kv"><span class="k">رقم العملية</span><span class="v" dir="ltr">{$transactionId}</span></div>
+
+            <div class="p-table-scroll" style="margin-top:16px;"><table class="p-table">
+                <thead><tr><th>البند</th><th class="text-end">المبلغ</th></tr></thead>
+                <tbody>{$itemsRows}</tbody>
+                <tfoot><tr><td style="font-weight:700;">الإجمالي</td><td class="text-end" style="font-weight:700;" dir="ltr">{$amount} {$currency}</td></tr></tfoot>
+            </table></div>
+
+            <div style="display:flex;gap:10px;margin-top:18px;" class="no-print">
+                <button class="p-btn outline" onclick="window.print()">🖨️ طباعة / حفظ كـ PDF</button>
+                <a href="/subscription" class="p-btn outline">← رجوع للاشتراك</a>
+            </div>
+        </div>
+HTML;
+
+        $style = <<<CSS
+        <style>
+        @media print {
+            .no-print, .p-panel-sidebar, .p-panel-topbar { display: none !important; }
+            #invoicePrintArea { box-shadow: none !important; border: none !important; }
+        }
+        .invoice-detail-card .p-table td, .invoice-detail-card .p-table th { padding: 10px 12px; }
+        .invoice-detail-card .text-end { text-align: end; }
+        </style>
+CSS;
+
+        header('Content-Type: text/html; charset=utf-8');
+        echo $this->renderPanelPage('_subscription', 'فاتورة ' . $invNumber, '', $style . $body, '');
+        exit;
+    }
+
+    /** GET /api/subscription/invoices */
+    public function getInvoices(array $params = []): array {
+        try {
+            $sql = "SELECT * FROM invoices WHERE user_id = ? ORDER BY created_at DESC LIMIT 100";
+            $invoices = $this->db->query($sql, [$this->user['id'] ?? ($_SESSION['user_id'] ?? 0)]);
+            return $this->success(['invoices' => $invoices]);
+        } catch (Exception $e) {
+            Logger::error('Get Invoices Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر جلب الفواتير', 500);
+        }
+    }
+
+    /** GET /api/subscription/invoice/{id} */
+    public function getInvoice(array $params): array {
+        try {
+            if (!$this->isAuthenticated()) {
+                return $this->error('Unauthorized', 401);
+            }
+
+            // تصحيح أمني (2026-08-09 / Phase 2): الاستعلام القديم كان بيجيب
+            // الفاتورة بالـ ID بس من غير أي تحقق من صاحبها - يعني أي مستخدم
+            // مسجّل دخول يقدر يشوف فاتورة أي عميل تاني لو خمّن أو جرّب
+            // الأرقام بالترتيب في /invoice/{id}. ده مخالف مباشر لعزل بيانات
+            // المستخدمين (كل مستخدم يشوف بياناته هو بس). الأدمن لسه يقدر
+            // يشوف أي فاتورة لأغراض الدعم الفني.
+            $isAdmin = in_array($this->user['role'] ?? 'user', ['admin', 'super_admin'], true);
+            $invoiceId = (int) ($params['id'] ?? 0);
+
+            if ($isAdmin) {
+                $sql = "SELECT * FROM invoices WHERE id = ? LIMIT 1";
+                $result = $this->db->query($sql, [$invoiceId]);
+            } else {
+                $sql = "SELECT * FROM invoices WHERE id = ? AND user_id = ? LIMIT 1";
+                $result = $this->db->query($sql, [$invoiceId, (int) $this->user['id']]);
+            }
+
+            if (empty($result)) {
+                return $this->error('الفاتورة غير موجودة', 404);
+            }
+
+            $invoice = $result[0];
+
+            // بنود الفاتورة: لو عمود items معبّى فعليًا (JSON) بنستخدمه زي
+            // ما هو. لو فاضي (الحالة الشائعة حاليًا - العمود موجود بالجدول
+            // لكن مفيش أي كود بيعبّيه وقت إنشاء الفاتورة)، بنبني بند واحد
+            // مشتق من بيانات الفاتورة الحقيقية نفسها (اسم الباقة + نوعها)
+            // بدل ما نخترع بنود وهمية أو نسيب الواجهة فاضية بلا تفسير.
+            $items = [];
+            if (!empty($invoice['items'])) {
+                $decoded = json_decode($invoice['items'], true);
+                if (is_array($decoded)) {
+                    $items = $decoded;
+                }
+            }
+            if (empty($items)) {
+                $planLabel = $invoice['plan_name'] ?? '-';
+                $cycleLabel = ($invoice['plan_type'] ?? '') === 'yearly' ? $this->tr('admin.yearly') : $this->tr('admin.monthly');
+                $items = [[
+                    'description' => trim($planLabel . ' - ' . $cycleLabel),
+                    'amount' => $invoice['amount'] ?? 0,
+                ]];
+            }
+            $invoice['items_resolved'] = $items;
+
+            return $this->success(['invoice' => $invoice]);
+        } catch (Exception $e) {
+            Logger::error('Get Invoice Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر جلب الفاتورة', 500);
+        }
+    }
+
+    /** POST /api/subscription/payment */
+    public function processPayment(array $params = []): array {
+        // ملاحظة: لا توجد بوابة دفع (Stripe/PayPal) مفعّلة فعليًا بالكود حاليًا
+        // رغم وجود مفاتيحها في .env، لذا هذه الدالة لا تخترع منطق دفع وهمي.
+        return $this->error('بوابة الدفع غير مفعّلة بعد في هذه النسخة', 501);
+    }
+}

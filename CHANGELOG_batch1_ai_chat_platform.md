@@ -1,0 +1,241 @@
+# Tourfecto — AI Chat & Customer Communication Platform
+## تسليم نهائي موحّد (يجمع المراحل 1-6) — 2026-08-09
+
+هذا هو **الملف الوحيد المطلوب رفعه**. يحتوي على كل الملفات الجديدة
+والمعدَّلة من كل المراحل الست، بحالتها **النهائية** فقط (مفيش تكرار أو
+نسخ وسيطة) - بديل عن الـ6 ZIPs المنفصلة اللي اتسلّمت أثناء العمل.
+
+**النطاق**: AI Chat & Customer Communication Platform فقط - لا تعديل على
+أي Module آخر (SEO/CRM/Ads/Analytics مستقلة) طبقًا لتعليمات الطلب الأصلي.
+
+---
+
+## 0) ملخص تنفيذي
+
+من أصل 35 بندًا في الطلب الأصلي، **كل بنود الـBackend/API منفَّذة**. البند
+الوحيد المستبعَد عمدًا هو **29 (UI/UX)** لأن عندكم Frontend منفصل بيستهلك
+نفس هذا الـAPI. الجدول الكامل لحالة كل بند في القسم 8 آخر الملف.
+
+**فجوات معروفة ومُقِرّ بيها صراحة** (لسه موجودة، مش اتحلّت في هذا التسليم):
+1. **لا يوجد اختبار Runtime حقيقي** - كل الاختبار كان `php -l` + فحص
+   تصادم كلاسات + مراجعة منطقية يدوية. لا قاعدة بيانات ولا مزود AI ولا
+   حساب Meta حقيقي كانوا متاحين للاختبار الفعلي.
+2. مؤشرات Analytics معيّنة تقريبية موثَّقة بوضوح (قسم 5 تحت).
+3. عدّاد Follow-up مبسَّط (إجمالي مش لكل دورة صمت - قسم 4 تحت).
+4. Payload شكل Messenger/Instagram/Email مبني على أفضل فهم من التوثيق
+   العام، غير مُختبَر ضد حركة حقيقية.
+5. `app/Chat/*` كود ميت قديم غير محمَّل - لُوحِظ ولم يُحذَف (قرار لكم).
+
+---
+
+## 1) الملفات الجديدة (36 ملفًا)
+
+### قاعدة البيانات
+- `database/migrations/2026_08_08_000001_create_ai_chat_platform_tables.sql`
+  — 9 جداول جديدة بالكامل + عمود واحد إضافي على `chat_messages`.
+
+### AI Provider Abstraction (بند 20)
+- `app/Services/AI/Providers/AIProviderInterface.php`
+- `app/Services/AI/Providers/GeminiProvider.php`
+- `app/Services/AI/Providers/OpenAICompatibleProvider.php`
+- `app/Services/AI/Providers/OpenAIProvider.php`
+- `app/Services/AI/Providers/DeepSeekProvider.php`
+- `app/Services/AI/Providers/KimiProvider.php`
+- `app/Services/AI/Providers/AIProviderManager.php`
+- `app/Config/openai.php`, `app/Config/deepseek.php`, `app/Config/kimi.php`
+- `app/Models/AiUsageLog.php`
+
+### Knowledge Base (بند 4، 13)
+- `app/Models/AiKnowledgeBase.php`
+- `app/Services/AI/KnowledgeBaseService.php`
+- `app/Controllers/AiKnowledgeBaseController.php`
+
+### Unified Inbox + AI Conversation Engine (بند 1، 2، 3، 8، 9، 10، 11)
+- `app/Models/AiChatConversation.php`
+- `app/Models/AiCustomerMemory.php`
+- `app/Services/Chat/UnifiedInboxService.php`
+- `app/Services/AI/AIConversationEngine.php`
+- `app/Controllers/ChatInboxController.php`
+
+### AI Sales Agent + Follow-up Automation (بند 5، 6، 7)
+- `app/Models/AiLead.php`
+- `app/Models/AiFollowup.php`
+- `app/Models/AiFollowupRule.php`
+- `app/Models/AiCustomTag.php`
+- `app/Services/AI/LeadScoringService.php`
+- `app/Services/AI/FollowUpAutomationService.php`
+- `app/Controllers/AiLeadController.php`
+- `app/Controllers/AiFollowupSettingsController.php`
+- `cron/process_ai_followups.php`
+
+### Analytics + Reply Suggestions (بند 12، 18)
+- `app/Services/AI/AiAnalyticsService.php`
+- `app/Services/AI/AiReplySuggestionsService.php`
+- `app/Controllers/AiAnalyticsController.php`
+
+### قنوات إضافية (بند 1، 23)
+- `app/Services/Chat/MessengerAPI.php`
+- `app/Services/Chat/InstagramAPI.php`
+- `app/Services/Chat/EmailChannelAPI.php`
+
+---
+
+## 2) الملفات المعدَّلة (10 ملفات)
+
+| الملف | التعديل |
+|---|---|
+| `public_html/index.php` | تحميل config الـProviders الجدد + دعم استجابة `_raw_text` لـMeta verification |
+| `public_html/system_check.php` | إضافة config الـProviders الجدد لقائمة الفحص |
+| `cron/bootstrap.php` | تحميل config الـProviders الجدد |
+| `tests/bootstrap.php` | تحميل config الـProviders الجدد |
+| `.env.example` | متغيرات Providers/Rate Limiting الجديدة |
+| `app/routes/api.php` | كل مسارات AI Chat الجديدة (~30 مسار) |
+| `app/Config/constants.php` | تفعيل Messenger + إضافة Instagram/Email في `CHAT_PLATFORMS`، وثوابت Rate Limiting |
+| `app/Models/ChatMessage.php` | عمود `conversation_id` في `$fillable` |
+| `app/Services/Chat/ChatManager.php` | **الأهم** - انظر قسم 3 |
+| `app/Services/Chat/AutoReplyEngine.php` | معاملان اختياريان جدد، متوافق 100% مع الاستدعاء القديم |
+| `app/Controllers/ChatController.php` | 12 دالة جديدة لقنوات Messenger/Instagram/Email |
+
+---
+
+## 3) أهم تصحيح في المشروع كله (اقرأه قبل الرفع)
+
+`ChatManager::processIncomingMessage()` خطوة "إرسال الرد التلقائي" كانت
+تستخدم دالة قديمة (`sendMessage()`) تعتمد على **مثيل WhatsApp واحد ثابت
+للمنصة كلها** - رغم وجود `sendMessageForWebsite()` (Multi-tenant حقيقي
+لكل موقع) في الكود الأصلي أصلًا **مع تعليق من المطور نفسه يوضّح إنها
+البديل الصحيح**. يبدو أنها بُنيت ولم تُربَط بالتدفق الفعلي - خلل سابق
+لتدخلنا.
+
+**تم تصحيحه** ليستخدم `sendMessageForWebsite()` الآن متعددة القنوات
+(WhatsApp/Messenger/Instagram/Email). هذا **ضروري** لعمل القنوات
+الجديدة، ويُصحح أيضًا سلوك إرسال WhatsApp نفسه ليستخدم اتصال كل موقع
+الصحيح بدل مثيل مشترك.
+
+⚠️ **اختبروا إرسال WhatsApp Auto Pilot أولًا وقبل أي حاجة تانية** بعد
+الرفع، وتأكدوا إن كل موقع نشط له اتصال UltraMsg متصل في
+`platform_connections` (نفس الشرط المطلوب مسبقًا لعمل
+`sendMessageForWebsite()` أصلًا). للتراجع السريع لو احتجتوه: في
+`ChatManager.php`، رجّعوا استدعاء الخطوة 10 لـ`sendMessage()` بدل
+`sendMessageForWebsite()`.
+
+---
+
+## 4) قرارات تصميم مهمة يجب مراجعتها
+
+- **عدّاد Follow-up إجمالي وليس لكل دورة صمت**: `followup_number` يُحسَب
+  من إجمالي المتابعات المُرسَلة تاريخيًا للمحادثة، مش بيتصفّر مع كل مرة
+  العميل يسكت من جديد. قرار متعمَّد يمنع إغراق العميل بمتابعات لا
+  نهائية عبر دورات صمت متكررة.
+- **رسائل المتابعة Templates ثابتة، مش AI-generated** - تفاديًا لأي رد
+  "مُختلَق" تلقائي بدون مراجعة بشرية.
+- **AI Conversation Engine يطلب من الموديل رد بصيغة JSON منظّمة** (رد +
+  ثقة + حاجة لتحويل + ملخص + وسوم + ذاكرة) بدل نص حر - لو الموديل ما
+  التزمش بالصيغة، فيه مسار احتياطي (`parseDecision`) يتعامل مع النص
+  الخام بثقة متوسطة بدل رفض الرد بالكامل.
+- **قاعدة المعرفة الفارغة**: لو صاحب الشركة لسه ما أضافش أي محتوى
+  Knowledge Base، الـAI يُعلَّم صراحة إنه "ميعرفش" ويوجَّه لطلب تحويل
+  لموظف بدل اختراع معلومات - هذا سلوك مقصود ومطلوب من الطلب الأصلي.
+
+---
+
+## 5) ملاحظات صدق حول Analytics (بند 18)
+
+بعض المؤشرات المطلوبة (Most Asked Questions، Top Customer Intent) تحتاج
+تحليل نصي عميق (NLP) غير متاح باستعلام SQL تجميعي بسيط. بدل تقديم رقم
+غير دقيق، استُخدِمت بدائل موثوقة وواضحة:
+- **Top Customer Intent** → أكثر الوسوم (Tags) التلقائية تكرارًا.
+- **Most Asked Questions** → لم تُنفَّذ كمؤشر منفصل (تحتاج تتبع أي عناصر
+  Knowledge Base استُخدِمت فعليًا في كل رد - غير متوفر حاليًا).
+- **متوسط زمن الرد** → تقدير عملي من الفارق بين كل رسالة واردة وأول رد
+  صادر بعدها في نفس المحادثة.
+- **Follow-up Success** → "هل العميل رد بعد المتابعة؟" وليس "هل تحوّل
+  لحجز فعلي؟" (الأخير يحتاج ربط بنظام حجوزات خارج نطاق AI Chat).
+
+---
+
+## 6) تغييرات قاعدة البيانات
+
+ملف واحد فقط، يُشغَّل **مرة واحدة**:
+```
+mysql -u USER -p DATABASE < database/migrations/2026_08_08_000001_create_ai_chat_platform_tables.sql
+```
+9 جداول جديدة بالكامل (`ai_knowledge_base`, `ai_conversations`,
+`ai_customer_memory`, `ai_leads`, `ai_followup_rules`, `ai_followups`,
+`ai_custom_tags`, `ai_usage_logs`, `ai_webhook_events`) + عمود واحد
+إضافي (`conversation_id`) على `chat_messages` الموجود. **لا حذف أو
+تعديل كاسر لأي بيانات موجودة.**
+
+---
+
+## 7) خطوات التركيب الكاملة (بالترتيب)
+
+1. **نسخة احتياطية كاملة من قاعدة البيانات** قبل أي خطوة.
+2. ارفعوا كل ملفات هذا الـZIP بنفس المسارات بالضبط (استبدال كامل للملفات
+   المعدَّلة المذكورة في قسم 2).
+3. شغّلوا الـmigration (قسم 6).
+4. أضيفوا في `.env` الحقيقي:
+   ```
+   AI_PROVIDER_PRIORITY=gemini,openai,deepseek,kimi
+   OPENAI_API_KEY=          (اختياري)
+   DEEPSEEK_API_KEY=        (اختياري)
+   KIMI_API_KEY=            (اختياري)
+   AI_CHAT_RATE_LIMIT_MAX=20
+   AI_CHAT_RATE_LIMIT_WINDOW_SECONDS=60
+   ```
+   (`GEMINI_API_KEY` الموجود بالفعل كافٍ لتشغيل الـAI فورًا بدون أي
+   إعداد إضافي - باقي المزودين اختياريون لخاصية الـFallback).
+5. **اختبروا WhatsApp Auto Pilot أولًا** (أهم خطوة - راجعوا قسم 3).
+6. أضيفوا محتوى تجريبي حقيقي في Knowledge Base:
+   `POST /api/ai-chat/websites/{id}/knowledge-base`
+7. ابدأوا محادثة WhatsApp تجريبية، وتأكدوا إن الرد مبني فعليًا على
+   المحتوى المُضاف.
+8. راجعوا Unified Inbox: `GET /api/ai-chat/websites/{id}/conversations`
+9. جرّبوا Human Handoff يدويًا، وتأكدوا إن الردود الآلية بتتوقف فعلاً.
+10. لربط Messenger/Instagram: `POST /api/chat/connect/messenger`
+    (أو `instagram`) بـ`website_id` و`access_token`، ثم استخدموا
+    `webhook_url`/`verify_token` المرجَعين لتسجيل الـWebhook في Meta for
+    Developers.
+11. لتفعيل Follow-up Automation: `PUT /api/ai-chat/websites/{id}/followup-settings`
+    ثم أضيفوا `cron/process_ai_followups.php` في cPanel Cron Jobs (كل 30
+    دقيقة مقترح).
+12. راجعوا Analytics: `GET /api/ai-chat/websites/{id}/analytics`
+
+---
+
+## 8) حالة كل بند من الطلب الأصلي (35 بندًا)
+
+| # | البند | الحالة |
+|---|---|---|
+| 1 | Unified Inbox (WhatsApp+Messenger+Instagram+Email+Website Chat) | ✅ |
+| 2 | AI Conversation Engine | ✅ |
+| 3 | AI Memory | ✅ |
+| 4 | Company Knowledge Base | ✅ |
+| 5 | AI Sales Agent | ✅ |
+| 6 | Lead Qualification | ✅ |
+| 7 | Follow-up Automation | ✅ (عدّاد إجمالي - قسم 4) |
+| 8 | Human Handoff | ✅ |
+| 9 | AI Confidence | ✅ |
+| 10 | Smart Conversation Summary | ✅ |
+| 11 | Smart Tagging | ✅ |
+| 12 | AI Reply Suggestions | ✅ |
+| 13 | Tone & Brand Voice | ✅ |
+| 14 | Multi-language | ✅ Architecture + رصد تلقائي |
+| 15-16 | Search & Filters | ✅ |
+| 17 | Notifications | ✅ (7 أحداث) |
+| 18 | AI Analytics | ✅ (مؤشرات تقريبية موثَّقة - قسم 5) |
+| 19 | Admin Dashboard | ✅ API فقط (Frontend منفصل عندكم) |
+| 20 | AI Provider Architecture | ✅ |
+| 21 | AI Cost/Usage | ✅ |
+| 22 | Rate Limiting | ✅ قابل للتعديل عبر .env |
+| 23 | Webhook Architecture + Idempotency | ✅ |
+| 24 | Error Handling | ✅ مدمج في كل خدمة |
+| 25-26 | Security & Multi-tenant | ✅ |
+| 27-28 | Database & Performance | ✅ |
+| 29 | UI/UX | ⏭️ خارج النطاق (Frontend منفصل حسب اتفاقنا) |
+| 30 | لا كسر للمشروع الموجود | ✅ (كل تعديل موثَّق ومبرَّر - انظر قسم 3 لأهم استثناء يستحق اختبار) |
+| 31 | تنفيذ فعلي + اختبار | ⚠️ لينت وفحص منطقي فقط - لا Runtime حقيقي (قسم 0) |
+| 32 | تسليم ZIP واحد نهائي بالمسارات الأصلية | ✅ هذا الملف |
+| 33 | CHANGELOG | ✅ هذا الملف |
+| 34 | عزل النطاق (AI Chat فقط) | ✅ لا لمسة لأي Module آخر |
+| 35 | الهدف النهائي الشامل | ✅ محقَّق على مستوى Backend/API |
