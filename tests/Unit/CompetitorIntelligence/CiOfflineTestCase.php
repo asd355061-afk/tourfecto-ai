@@ -36,6 +36,16 @@ abstract class CiOfflineTestCase {
         $condition ? $this->pass($message) : $this->fail($message);
     }
 
+    protected function assertFalse(bool $condition, string $message): void {
+        $condition ? $this->fail($message) : $this->pass($message);
+    }
+
+    protected function assertNull($value, string $message): void {
+        $value === null
+            ? $this->pass($message)
+            : $this->fail("{$message} - expected null, got " . var_export($value, true));
+    }
+
     protected function assertSame($expected, $actual, string $message): void {
         $expected === $actual
             ? $this->pass("{$message} (got " . var_export($actual, true) . ')')

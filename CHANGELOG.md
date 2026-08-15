@@ -32,6 +32,27 @@
   `SsrfGuardTest` موسّع (23) + `CiPermissionsTest` (10) — 80 Assertion بدون أي فشل،
   كلها بدون اتصال (Offline). التوثيق في `docs/competitor-intelligence/README.md`.
 
+### v1.5.1 (2026-08-15) — تحسينات تنافسية (Competitive Gap-Fill)
+
+بناءً على مقارنة تنافسية مع المنصات العالمية الرائدة في نفس الخدمة
+(Klue، Crayon، Kompyte/Semrush، Prisync، SEMrush/Similarweb)، تم سدّ
+ثلاث فجوات مباشرة قابلة للتنفيذ (المقارنة الكاملة في
+`docs/competitor-intelligence/README.md`):
+
+- **أسعار مهيكلة (تاريخ أسعار)** — `PriceExtractor` يستخرج الرقم والعملة
+  من نص تغيير pricing/offers/new_product، تُحفظ في `price_before` /
+  `price_after` / `currency` (Migration 049، إضافي). Endpoint جديد
+  `GET /competitors/{id}/price-history` + بطاقة تاريخ أسعار في
+  التايم لاين (ميزة Prisync).
+- **إشارة توظيف (Job Postings)** — `SitemapMonitor::isCareerUrl()`
+  يكتشف صفحات careers/jobs/join/hiring/vacancies في sitemap ويعلّمها
+  `page_type=careers` بخطورة `high` (ميزة Crayon/Kompyte).
+- **تصدير CSV للمقارنة** — `POST /comparison/export` بنفس بيانات
+  المقارنة كملف CSV قابل للتنزيل (ميزة تقارير Prisync Excel).
+- اختبارات جديدة: `PriceExtractorTest` (31) + `SitemapMonitorTest` (13) +
+  تحديث `CiConstantsTest` (23) — الإجمالي **126 Assertion، صفر فشل**،
+  كلها offline.
+
 ---
 
 ## المرحلة 5: Notifications + Rate Limiting — 2026-08-08

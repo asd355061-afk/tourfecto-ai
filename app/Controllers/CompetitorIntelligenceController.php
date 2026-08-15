@@ -550,6 +550,70 @@ class CompetitorIntelligenceController extends Controller {
         return $this->success($comparison);
     }
 
+    /**
+     * POST /api/competitor-intelligence/comparison/export
+     * نفس بيانات المقارنة لكن بصيغة CSV جاهزة للتنزيل (ميزة تقارير
+     * Excel اللي بتقدمها Prisync). بنرجّع النص كـ JSON والواجهة بتحوّله
+     * لملف تحميل عبر Blob - مفيش حاجة تتخزن على السيرفر.
+     */
+    public function apiComparisonExport(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if (!$this->validate(['website_id' => 'required', 'competitor_ids' => 'required'])) {
+            return $this->error($this->tr('ci.error.missing_fields'), 422);
+        }
+        $ids = array_map('intval', (array) $this->get('competitor_ids'));
+        $owned = $this->db->query(
+            "SELECT id FROM competitors WHERE user_id = ? AND id IN (" . implode(',', array_fill(0, count($ids), '?')) . ")",
+            array_merge([(int) $this->user['id']], $ids)
+        );
+        $ownedIds = array_map(fn($r) => (int) $r['id'], $owned);
+        if (empty($ownedIds)) {
+            return $this->error('Not found', 404);
+        }
+
+        $comparison = (new BenchmarkingService())->compare((int) $this->get('website_id'), $ownedIds, (int) $this->get('days', 90));
+
+        $rows = $comparison['rows'] ?? [];
+        $labels = array_column($rows, 'label');
+        $metrics = ['website_presence', 'content_activity', 'offer_activity', 'product_service_coverage', 'market_position_signals'];
+
+        $out = fopen('php://temp', 'r+');
+        fputcsv($out, array_merge(['metric'], $labels));
+
+        foreach ($metrics as $metric) {
+            $line = [$metric];
+            foreach ($rows as $row) {
+                $value = $row[$metric] ?? '';
+                $line[] = is_array($value) ? implode('; ', array_map(fn($k, $v) => "{$k}={$v}", array_keys($value), array_values($value))) : (string) $value;
+            }
+            fputcsv($out, $line);
+        }
+        rewind($out);
+        $csv = stream_get_contents($out);
+        fclose($out);
+
+        return $this->success([
+            'filename' => 'comparison-' . date('Y-m-d') . '.csv',
+            'csv' => $csv,
+        ]);
+    }
+
+    /** GET /api/competitor-intelligence/competitors/{id}/price-history */
+    public function apiPriceHistory(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
+        if (!$competitor) return $this->error('Not found', 404);
+
+        $rows = $this->db->query(
+            "SELECT id, change_type, page_type, severity, price_before, price_after, currency, source_url, detected_at
+             FROM ci_changes
+             WHERE competitor_id = ? AND user_id = ? AND (price_before IS NOT NULL OR price_after IS NOT NULL)
+             ORDER BY detected_at DESC LIMIT 200",
+            [(int) $competitor->getAttribute('id'), (int) $this->user['id']]
+        );
+        return $this->success(['price_history' => $rows]);
+    }
+
     /** GET /api/competitor-intelligence/alerts */
     public function apiAlerts(array $params = []): array {
         if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
@@ -1404,6 +1468,7 @@ HTML;
     let ciScorecardTrendChartInstance = null;
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const sevBadge = (s) => `<span class="ci-sev-badge ci-sev-${esc(s)}">${esc(s)}</span>`;
+    const fmtPrice = (amount, currency) => (amount === null || amount === undefined) ? '—' : `${esc(currency || '')}${Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`.trim();
     const T = (key, vars) => {
         let s = (window.I18N && window.I18N[key]) || key;
         if (vars) Object.keys(vars).forEach(k => { s = s.replace('{' + k + '}', vars[k]); });
@@ -1689,6 +1754,8 @@ HTML;
             chartOffers.push(typeof r.offer_activity === 'number' ? r.offer_activity : 0);
         });
         html += '</tbody></table></div>';
+        html += `<div style="margin-top:10px;"><button class="p-btn outline xs" onclick="ciExportComparisonCsv()">${T('ci.js.export_csv')}</button></div>`;
+        window.__ciLastComparison = { ids, websiteId };
         box.innerHTML = html;
 
         if (typeof Chart !== 'undefined') {
@@ -1706,6 +1773,25 @@ HTML;
                 options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
             });
         }
+    };
+
+    window.ciExportComparisonCsv = async function () {
+        const last = window.__ciLastComparison;
+        if (!last || !last.ids.length) return;
+        const res = await fetchJSON('/api/competitor-intelligence/comparison/export', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ website_id: last.websiteId, competitor_ids: last.ids }),
+        });
+        if (!res.success) { toast(res.error || T('ci.js.failed'), 'error'); return; }
+        const blob = new Blob(['\uFEFF' + res.data.csv], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = res.data.filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(a.href);
+        toast(T('ci.js.exported'), 'success');
     };
 
     async function loadAlerts() {
@@ -2013,12 +2099,22 @@ HTML;
         if (!res.success) { box.textContent = res.error || T('ci.js.failed'); return; }
         const timeline = res.data.timeline || {};
         const months = Object.keys(timeline).sort().reverse();
-        box.innerHTML = months.length
+        let html = months.length
             ? months.map(m => `<div class="p-card" style="margin-bottom:10px;">
                 <h4 style="margin:0 0 8px;">${esc(m)}</h4>
                 ${timeline[m].map(c => `<div style="font-size:12.5px;margin-bottom:4px;">${sevBadge(c.severity)} ${esc(c.change_type)} — ${esc(c.page_type)} <span class="p-cell-muted">(${esc(c.detected_at)})</span></div>`).join('')}
               </div>`).join('')
             : `<div class="p-cell-muted">${T('ci.js.no_changes_yet')}</div>`;
+
+        const ph = await fetchJSON('/api/competitor-intelligence/competitors/' + currentProfileId + '/price-history');
+        if (ph.success && (ph.data.price_history || []).length) {
+            html += `<h4 style="margin:16px 0 8px;">${T('ci.js.price_history')}</h4>`
+                + ph.data.price_history.map(p => `<div style="font-size:12.5px;margin-bottom:4px;">
+                    ${esc(p.detected_at)} — ${fmtPrice(p.price_before, p.currency)} → ${fmtPrice(p.price_after, p.currency)}
+                    <span class="p-cell-muted">(${esc(p.change_type)} · ${esc(p.page_type)})</span></div>`).join('');
+        }
+
+        box.innerHTML = html;
     }
 
     async function ciLoadProfileInsights() {

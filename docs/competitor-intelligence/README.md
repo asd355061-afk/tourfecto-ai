@@ -1,9 +1,10 @@
 # Tourfecto — Competitor Intelligence Module
 
-> Version 1.5.0 — a self-contained module for discovering, tracking, and
+> Version 1.5.1 — a self-contained module for discovering, tracking, and
 > benchmarking competitors: monitoring, change detection, alerts, AI
 > insights, reports, and settings. Arabic-first codebase (comments, UI
-> strings, Lang files).
+> strings, Lang files). v1.5.1 adds the competitive-differentiator pass:
+> structured price tracking, careers/hiring signals, and CSV export.
 
 ## Quick navigation
 
@@ -30,6 +31,8 @@ user adds/imports a competitor
         -> MonitoringEngine fetches 7 page types + sitemap.xml
         -> WebsiteSnapshotFetcher (SSRF-protected) stores ci_snapshots
         -> ChangeDetectionService diffs last two snapshots -> ci_changes
+           (pricing/offer/product changes also get structured
+            price_before/price_after/currency via PriceExtractor)
         -> AlertService (respects watchlist min severity / keyword rules
            / pause state) -> ci_alerts -> email / webhook / slack
         -> ThreatOpportunityService -> ci_insights (evidence-linked)
@@ -62,7 +65,7 @@ ownership is asserted in the controller (`assertCompetitorOwnership`,
 | `CompetitorDomain` | **Single normalization point** for user-entered domains/URLs: trim, auto `https://`, lowercase host extraction, SSRF safety. Use this everywhere you touch a competitor domain. |
 | `SsrfGuard` | SSRF gate. Resolves **all** A + AAAA records and rejects the domain if any single record is private/reserved/loopback — including IPv4-mapped IPv6 (`::ffff:127.0.0.1`) and IPv6-only private ranges. Blocks non-http(s) schemes, non-standard ports, known metadata hostnames. Re-validates every redirect hop. |
 | `WebsiteSnapshotFetcher` | Safe GET of one public page (1.5MB cap, 12s timeout, manual redirect handling, pins IPv4 so the connection matches the validated addresses). Extracts title/meta/normalized text/hash + technology signals. |
-| `SitemapMonitor` | New/Removed Pages detection via `sitemap.xml` diffing (index recursion capped at 3 sub-sitemaps). No arbitrary crawling. |
+| `SitemapMonitor` | New/Removed Pages detection via `sitemap.xml` diffing (index recursion capped at 3 sub-sitemaps). No arbitrary crawling. **v1.5.1:** detects careers/jobs/join/hiring/vacancies URLs and flags them as a strategic hiring signal (page_type `careers`, severity `high`). |
 | `ChangeDetectionService` | Hash diff between last two snapshots of a page -> rule-based change_type/severity/confidence. Fetch failure is "monitoring failed", never "nothing changed". |
 | `MonitoringEngine` | One full cycle for one competitor: fetch -> snapshot -> detect -> alert, rate-limited between requests. |
 | `CompetitorDiscoveryService` + sources | Pluggable discovery (`CompetitorDiscoverySourceInterface`): `WebsiteOnboardingDiscoverySource` (user's own onboarding URLs, free), `GooglePlacesDiscoverySource`, `NullDiscoverySource` (honest "not configured"). |
@@ -72,6 +75,7 @@ ownership is asserted in the controller (`assertCompetitorOwnership`,
 | `BenchmarkingService` | Comparison + periodic scorecards labeled `data_backed` / `estimated`. |
 | `ReportService` | Weekly/Monthly/Profile/Threat/Opportunity/Change reports stored as JSON, viewable + exportable. |
 | `CiRateLimiter` | Per-user fixed-window rate limiter on expensive endpoints (DB-backed via `ci_rate_limits`). |
+| `PriceExtractor` | **v1.5.1.** Pure rule-based extraction of structured price + currency from changed page text (symbols, ISO codes, Arabic words, Arabic-Indic digits). Drives the price-history feature. |
 | `CiConstants` | Centralized allowed-value lists (categories, frequencies, severities, channels, insight statuses, page types) + severity rank. |
 | `CiPermissions` | Maps `users.role` onto Admin/Manager/Analyst/Viewer scoped to this module. Fails closed: missing/unknown role -> viewer. |
 
@@ -89,12 +93,13 @@ All under `/api/competitor-intelligence/`. List endpoints paginate
 | `POST /competitors/{id}/check-now` | Manual cycle, rate-limited to 1/5min per competitor |
 | `GET /competitors/{id}` | Profile + insights |
 | `GET /competitors/{id}/timeline` | Month-grouped history |
+| `GET /competitors/{id}/price-history` | **v1.5.1.** Structured price-change log (before/after/currency) for pricing, offers & product changes — rendered as a history card in the profile timeline |
 | `POST /competitors/{id}/scan-insights` | Run rules engine (rate-limited) |
 | `POST /competitors/{id}/analyze-profile` | AI positioning (rate-limited) |
 | `POST /competitors/{id}/compute-scorecard` · `GET /competitors/{id}/scorecard-trend` | Benchmarking |
 | `POST /discovery/suggest` · `POST /discovery/run` (rate-limited) · `GET /discovery` · `POST /discovery/{id}/approve|dismiss` | Discovery |
 | `GET /watchlist` · `POST /watchlist` · `DELETE /watchlist` | Watchlist upsert/remove |
-| `GET /activity` · `POST /comparison` | Feed + compare |
+| `GET /activity` · `POST /comparison` · `POST /comparison/export` | Feed + compare + **v1.5.1** CSV export (same data, downloadable) |
 | `GET /alerts` · `POST /alerts/{id}/read` · `POST /alerts/read-all` · `GET /alerts/unread-count` | Alerts incl. v1.5.0 bulk-read + badge count |
 | `GET /insights` · `POST /insights/{id}/status` | Insights incl. v1.5.0 review/dismiss |
 | `POST /ai/ask` (rate-limited) · `GET /ai/weekly-summary` (rate-limited) | AI |
@@ -135,7 +140,9 @@ the limiter fails open and logs (the migration is additive).
 
 All tables are additive `ci_*` tables plus **optional** new columns on
 `competitors`. Migrations are plain SQL, run in filename order:
-`2026_08_08_000042` … `2026_08_14_000048` (rate limits). No existing
+`2026_08_08_000042` … `2026_08_15_000049` (v1.5.1 adds `price_before` /
+`price_after` / `currency` on `ci_changes` and a `careers` `page_type`
+value to the `ci_snapshots` / `ci_changes` enums). No existing
 production tables are altered in a breaking way.
 
 ## Tests
@@ -149,9 +156,11 @@ php tests/Unit/CompetitorIntelligence/CompetitorDomainTest.php
 php tests/Unit/CompetitorIntelligence/CiRateLimiterTest.php
 php tests/Unit/CompetitorIntelligence/CiConstantsTest.php
 php tests/Unit/CompetitorIntelligence/CiPermissionsTest.php
+php tests/Unit/CompetitorIntelligence/PriceExtractorTest.php
+php tests/Unit/CompetitorIntelligence/SitemapMonitorTest.php
 ```
 
-Current suite: **80 assertions, 0 failures.** The integration test
+Current suite: **126 assertions, 0 failures.** The integration test
 (`tests/Integration/CompetitorIntelligenceTest.php`) requires the full
 production app (real database + migrations) and cannot run offline — run it
 in the production environment after applying the migrations.
@@ -161,6 +170,46 @@ Sanity check before shipping:
 ```bash
 find app cron tests -name "*.php" -print0 | xargs -0 -I{} php -l {}
 ```
+
+## Competitive analysis (v1.5.1)
+
+Benchmark against the global leaders offering the same service class
+(research 2026-08-15):
+
+| Platform | Focus | Flagship capabilities |
+|---|---|---|
+| **Klue** | Sales-enablement CI | Battlecards, "Ask Klue" (Slack/Salesforce answers), deal tips, email digests, win/loss suite, G2-review insights |
+| **Crayon** | Market intel | Aggregates websites + news + social + ads + jobs + reviews; Crayon AI; battlecards; win/loss |
+| **Kompyte** (Semrush) | Automation CI | Tracks websites, reviews, content, social, ads, **job postings**; AI daily summaries; battlecards; Slack/Teams/CRM; win/loss |
+| **Prisync** | E-commerce pricing | **Structured price tracking**, price history, price-position comparison, stock availability, Excel reports, daily/instant email alerts |
+| **SEMrush / Similarweb** | Digital marketing | Traffic / SEO visibility / market-share benchmarking |
+
+### Our position and what closes the gaps
+
+We already cover the website-tracking core (snapshots, sitemap change
+detection, keyword watchlists, severity thresholds, dashboard/email/in_app/
+webhook/slack alerts, AI insights + weekly digest, reports, roles,
+rate limiting, SSRF hardening). v1.5.1 closes three concrete gaps that the
+research shows matter most for the SMB segment:
+
+1. **Structured pricing intelligence** (Prisync differentiator) —
+   `PriceExtractor` turns raw text diffs into `price_before` / `price_after`
+   / `currency`, surfaced through `GET /competitors/{id}/price-history` and
+   a price-history card in the profile timeline.
+2. **Careers / hiring signal** (Crayon & Kompyte both track job postings) —
+   `SitemapMonitor::isCareerUrl()` flags new/removed careers pages as
+   `page_type=careers`, severity `high`.
+3. **CSV export** (Prisync Excel reports) — `POST /comparison/export`
+   returns the same comparison matrix as a downloadable CSV (client-side
+   Blob download, nothing stored on the server).
+
+### Deliberately deferred (roadmap — need external data / paid APIs / CRM)
+
+- Traffic/SEO visibility data (SEMrush/Similarweb APIs), social & review
+  monitoring (G2/Trustpilot APIs), win/loss analysis (needs CRM + sales
+  pipeline), and screenshot/visual diff (needs a headless browser). These
+  are noted here so future work targets the right platform; the module
+  already has the data model and endpoints to bolt each one on additively.
 
 ## Development rules honored
 

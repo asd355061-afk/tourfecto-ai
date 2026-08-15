@@ -34,6 +34,8 @@ class CiConstantsTest extends CiOfflineTestCase {
         $this->assertSame(['high', 'medium', 'low'], CiConstants::CONFIDENCE_LEVELS, 'confidence levels');
         $this->assertSame(['new', 'reviewed', 'dismissed'], CiConstants::INSIGHT_STATUSES, 'insight statuses match ci_insights.status');
         $this->assertSame(['dashboard', 'email', 'in_app', 'webhook', 'slack'], CiConstants::ALERT_CHANNELS, 'alert channels');
+        $this->assertTrue(in_array('pricing', CiConstants::PAGE_TYPES, true), 'PAGE_TYPES includes pricing');
+        $this->assertTrue(in_array('careers', CiConstants::PAGE_TYPES, true), 'PAGE_TYPES includes careers (hiring signal)');
     }
 
     private function testWithin(): void {

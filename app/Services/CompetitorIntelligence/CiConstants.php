@@ -32,7 +32,7 @@ class CiConstants {
     public const SEVERITY_RANK = ['info' => 0, 'low' => 1, 'medium' => 2, 'high' => 3, 'critical' => 4];
 
     /** الصفحات الفرعية المدعومة للمراقبة */
-    public const PAGE_TYPES = ['homepage', 'pricing', 'products', 'services', 'offers', 'blog', 'contact'];
+    public const PAGE_TYPES = ['homepage', 'pricing', 'products', 'services', 'offers', 'blog', 'contact', 'careers'];
 
     /** سقف عدد الصفوف في استدعاء واحد للـ bulk import (منع استعلامات ضخمة) */
     public const BULK_IMPORT_MAX_ROWS = 200;

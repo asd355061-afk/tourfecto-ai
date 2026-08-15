@@ -60,17 +60,32 @@ class SitemapMonitor {
             return null; // Nothing Changed
         }
 
+        // إشارة توظيف (Job Postings) - مصدر استخبارات استراتيجي بتتبعه
+        // منصات Crayon/Kompyte: ظهور/اختفاء صفحة careers/jobs عند المنافس
+        // بيقول كتير عن توسعهم أو تقلصهم. بتترفع الخطورة لـ high فورًا.
+        $careersAdded = array_values(array_filter($addedUrls, [self::class, 'isCareerUrl']));
+        $careersRemoved = array_values(array_filter($removedUrls, [self::class, 'isCareerUrl']));
+        $hasCareersSignal = !empty($careersAdded) || !empty($careersRemoved);
+
         $changeType = !empty($addedUrls) && empty($removedUrls) ? 'new_page' : (empty($addedUrls) ? 'removed_page' : 'new_page');
-        $severity = (count($addedUrls) + count($removedUrls)) >= 5 ? 'medium' : 'low';
+        $severity = $hasCareersSignal ? 'high' : ((count($addedUrls) + count($removedUrls)) >= 5 ? 'medium' : 'low');
+        $pageType = $hasCareersSignal ? 'careers' : 'sitemap';
+
+        $visibleNewValue = array_merge(
+            array_map(fn($u) => "[careers] {$u}", $careersAdded),
+            array_diff($addedUrls, $careersAdded),
+            array_map(fn($u) => "[careers-removed] {$u}", $careersRemoved),
+            array_map(fn($u) => "[removed] {$u}", array_diff($removedUrls, $careersRemoved))
+        );
 
         $change = new CiChange([
             'competitor_id' => $competitorId,
             'user_id' => (int) $competitor->getAttribute('user_id'),
-            'page_type' => 'sitemap',
+            'page_type' => $pageType,
             'change_type' => $changeType,
             'severity' => $severity,
             'previous_value' => 'Sitemap had ' . count($previousUrls) . ' URLs',
-            'new_value' => implode("\n", array_slice(array_merge($addedUrls, array_map(fn($u) => "[removed] {$u}", $removedUrls)), 0, 30)),
+            'new_value' => implode("\n", array_slice($visibleNewValue, 0, 30)),
             'source_url' => $sitemapUrl,
             'confidence' => 'high', // مقارنة روابط فعلية، مش استنتاج
             'snapshot_before_id' => (int) $previous->getAttribute('id'),
@@ -82,6 +97,28 @@ class SitemapMonitor {
         $competitor->save();
 
         return $change;
+    }
+
+    /**
+     * هل الرابط صفحة توظيف؟ Heuristic على اسم الـ host/المسار
+     * (careers/jobs/join/hiring/vacancies) - نفس المنطق اللي بتستخدمه
+     * منصات تتبع Job Postings. الكلمة لازم تكون مقطعًا كاملًا (حدود:
+     * بداية/نهاية أو بعد / أو . للسوب دومين)، مش جزءًا من كلمة مركبة
+     * (joinery أو jobs-in-seo مثلًا). عامة وثابتة عشان قابلة للاختبار offline.
+     */
+    public static function isCareerUrl(string $url): bool {
+        $haystack = (string) (parse_url($url, PHP_URL_HOST) ?? '') . (string) (parse_url($url, PHP_URL_PATH) ?? '');
+
+        if (preg_match('#(?:^|[/.])(?:careers?|jobs?|hiring|vacancies)(?:$|[/.])#i', $haystack)) {
+            return true;
+        }
+        if (preg_match('#join[\-_]?us#i', $haystack)) {
+            return true; // "join-us" / "joinus" شائعة جدًا
+        }
+        if (preg_match('#(?:^|[/.])join(?:$|[/.])#i', $haystack)) {
+            return true;
+        }
+        return false;
     }
 
     /**
