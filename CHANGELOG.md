@@ -181,3 +181,52 @@ Feature موجودة يمكن إعادة استخدامها، استخدمها �
 - `php -l` على كل الملفات المعدَّلة - لا أخطاء.
 - `php tests/Unit/RevenueIntelligenceTest.php` → 81/81 ✅ (100%).
 
+---
+
+# AI Revenue Assistant — الترقية v1.3.0 (Seasonality + NLP + Cache TTL) — 2026-08-15
+
+## 1) ما الذي أُضيف ولماذا
+
+- **Seasonality** (Forecast): `RevenueForecastService::computeSeasonalFactor()`
+  + `seasonalForecast()` - مقارنة الفترة الحالية بالفترة السابقة المكافئة
+  بنفس الطول من البيانات الحقيقية لاكتشاف مواسم (الحجوزات/البيع الصيفي...).
+  التوقع الموسمي = التوقع الخطي الحقيقي × العامل الموسمي. **مُصرَّح**
+  صراحة أنها مقارنة بسيطة بنفس الفترة السابقة وليست نموذج موسمية كامل
+  متعدد السنوات - لا ادعاء يتجاوز البيانات.
+- **Graduated Cache TTL** (Performance): `RevenueCacheService::ttlForPeriod()`
+  - daily=30s، weekly=90s، monthly=180s، quarterly=600s، yearly=900s.
+  الفترات الأسرع حركةً تكاش أقل، والأغلى حسابيًا تكاش أطول.
+- **توسيع الـNLP العربي** (Assistant v1.3.0): مرادفات أوسع (زبون، مبيعات،
+  دخل، منين، الجاية، الأولوية...) تصل لنفس النوايا، ومكافئات إنجليزية
+  (client، sales forecast، sales pipeline، outlier...).
+
+## 2) الملفات المعدَّلة
+
+- `app/Services/RevenueIntelligence/RevenueForecastService.php` (v1.1.0):
+  `computeSeasonalFactor()` + `seasonalForecast()` pure functions.
+- `app/Services/RevenueIntelligence/RevenueCacheService.php` (v1.1.0):
+  `ttlForPeriod()` + استخدامه في rememberOverview/rememberForecast.
+- `app/Services/RevenueIntelligence/RevenueAssistantService.php` (v1.3.0):
+  توسيع intentPatterns() بالمرادفات الجديدة.
+- `tests/Unit/RevenueIntelligenceTest.php` (v1.3.0): 20 اختبارًا جديدًا
+  (SeasonalFactor، SeasonalForecast، GraduatedCacheTtl، ArabicSynonyms).
+  الإجمالي: **101 اختبارًا، 100% نجاح**.
+
+## 3) قاعدة البيانات
+
+لا تغيير على قاعدة البيانات إطلاقًا.
+
+## 4) لماذا لم تُدمج بيانات `invoices`/`wallet_transactions` في الإيرادات؟
+
+فحصنا `invoices` و`wallet_transactions` فوجدناهما **فوترة منصة Tourfecto
+نفسها** (المستخدم يدفع لـ Tourfecto مقابل الاشتراك) - وليست إيراد أعمال
+العميل. دمجها في `total_revenue` سيكون خطأً دلاليًا (مزج إيراد المنصة
+بإيراد العميل) وينتهك قاعدة "لا بيانات صامتة خاطئة" - لذلك تُرك الإيراد
+معتمدًا على `rev_revenue_records` (المصدر الصحيح الوحيد)، وهذا موثّق
+كقرار تصميم وليس إغفالًا.
+
+## 5) الاختبارات
+
+- `php -l` على كل الملفات المعدَّلة - لا أخطاء.
+- `php tests/Unit/RevenueIntelligenceTest.php` → 101/101 ✅ (100%).
+

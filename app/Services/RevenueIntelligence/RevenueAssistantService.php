@@ -1,7 +1,7 @@
 <?php
 /**
  * Tourfecto - AI Revenue Assistant Service
- * @version 1.2.0
+ * @version 1.3.0
  *
  * Section 10: AI REVENUE ASSISTANT
  *
@@ -33,6 +33,10 @@
  *    على نفس الاتجاه التاريخي الحقيقي - مش رقم مخترع.
  *  - Follow-up suggestions (زي Clari Copilot): كل إجابة بتقترح 3
  *    أسئلة متابعة منطقية تبقى كـ chips للمستخدم يضغط عليها.
+ *
+ * v1.3.0 (توسيع الـNLP): مرادفات عربية أوسع (زبون/مبيعات/دخل/منين/
+ * الجاي...) تصل لنفس النوايا مع الإنجليزية المكافئة (client/sales/
+ * forecast/outlier...).
  */
 class RevenueAssistantService {
     private RevenueOverviewService $overview;
@@ -101,18 +105,18 @@ class RevenueAssistantService {
     /** كل النوايا المدعومة وأنماطها - مصدر واحد يستخدمه matchIntent() وأيضًا fallback الاقتراح (self::suggestClosestIntents). */
     public static function intentPatterns(): array {
         return [
-            'why_revenue_declined' => ['ليه.*قل', 'ليه.*انخفض', 'ليه.*نزل', 'سبب.*انخفاض', 'لية.*انخفاض', 'انخفضت ليه', 'why.*(decrease|drop|declin|down|less|fell|fall)', 'reason.*(drop|decline)'],
-            'top_revenue_sources' => ['أكبر مصادر', 'اكبر مصادر', 'أكبر مصدر', 'اكبر مصدر', 'مصادر الإيراد', 'مصادر الايراد', 'أهم مصدر', 'top.*(source|channel)', 'biggest.*source', 'best.*(source|channel)', 'which source'],
-            'top_value_customers' => ['أعلى قيمة', 'اعلى قيمة', 'عملاء.*قيمة', 'أفضل عملاء', 'افضل عملاء', 'اكبر عميل', 'أكتر عميل', 'اكتر عميل', 'top.*(customer|client)', 'most valuable customer', 'best customer', 'biggest customer'],
-            'growth_opportunities' => ['فرص', 'تزود الإيرادات', 'تزود الايرادات', 'زيادة الإيرادات', 'زيادة الايرادات', 'أزود.*إيراد', 'ازود.*ايراد', 'opportunit', 'grow.*revenue', 'increase revenue', 'how (can|do) i (grow|increase)'],
-            'is_trending_up' => ['اتجاه صاعد', 'ماشية.*صاعد', 'الوضع عامل إيه', 'الوضع عامل ايه', 'الوضع ماشي إزاي', 'الوضع ماشي ازاي', 'trending up', 'is revenue up', 'going up', 'how are we doing', 'overall.*(status|health)'],
-            'current_risks' => ['المخاطر', 'مخاطر موجودة', 'إيه المشاكل', 'ايه المشاكل', 'حاجة تقلقني', 'risk', 'any problems', 'what.*wrong'],
-            'next_month_forecast' => ['المتوقع الشهر', 'الشهر القادم', 'الشهر الجاي', 'هيحصل إيه بعدين', 'هيحصل ايه بعدين', 'next month', 'forecast', 'expected next', 'what.*expect'],
-            'what_if_scenario' => ['ماذا لو', 'لو زاد', 'لو قل', 'لو حصل', 'لو زودنا', 'لو قللنا', 'ماذا يحدث لو', 'سيناريو', 'what if', 'scenario', 'if revenue', 'what would happen', 'projection if'],
-            'pipeline_status' => ['خط الصفقات', 'خط المبيعات', 'الصفقات المفتوحة', 'حالة الصفقات', 'pipeline', 'open deals', 'deals status', 'sales pipeline'],
-            'customer_segments' => ['الشرائح', 'تقسيم العملاء', 'فئات العملاء', 'customer segment', 'vip customer', 'customer tier', 'segmentation'],
-            'anomaly_check' => ['حاجة غريبة', 'شذوذ', 'حاجة مش طبيعية', 'anomal', 'unusual', 'weird spike', 'strange drop', 'suspicious'],
-            'next_best_action' => ['أعمل إيه دلوقتي', 'اعمل ايه دلوقتي', 'إيه المفروض أعمله', 'ايه المفروض اعمله', 'اقترح', 'إيه الأولوية', 'ايه الاولويه', 'what should i do', 'next step', 'what.*priorit', 'recommend.*action'],
+            'why_revenue_declined' => ['ليه.*قل', 'ليه.*انخفض', 'ليه.*نزل', 'سبب.*انخفاض', 'لية.*انخفاض', 'انخفضت ليه', 'ليه.*مبيعات', 'لية.*مبيعات', 'ليه.*دخل', 'لية.*دخل', 'نزلت ليه', 'why.*(decrease|drop|declin|down|less|fell|fall)', 'reason.*(drop|decline)', 'sales.*(drop|down|decline)'],
+            'top_revenue_sources' => ['أكبر مصادر', 'اكبر مصادر', 'أكبر مصدر', 'اكبر مصدر', 'مصادر الإيراد', 'مصادر الايراد', 'أهم مصدر', 'اهم مصدر', 'مصدر الدخل', 'ايراد.*منين', 'الايراد.*منين', 'الايراد.*من فين', 'بيتولد منين', 'top.*(source|channel)', 'biggest.*source', 'best.*(source|channel)', 'which source', 'where.*(revenue|income)'],
+            'top_value_customers' => ['أعلى قيمة', 'اعلى قيمة', 'عملاء.*قيمة', 'أفضل عملاء', 'افضل عملاء', 'اكبر عميل', 'أكتر عميل', 'اكتر عميل', 'افضل زبون', 'أفضل زبون', 'اكبر زبون', 'الزباين.*(مهم|كبار|مميز)', 'top.*(customer|client)', 'most valuable customer', 'best customer', 'biggest customer', 'best client', 'top client'],
+            'growth_opportunities' => ['فرص', 'تزود الإيرادات', 'تزود الايرادات', 'زيادة الإيرادات', 'زيادة الايرادات', 'أزود.*إيراد', 'ازود.*ايراد', 'ازود.*مبيعات', 'زود.*مبيعات', 'تزود.*مبيعات', 'زيادة المبيعات', 'تنمية المبيعات', 'انمى المبيعات', 'اوسع المبيعات', 'نمو الدخل', 'opportunit', 'grow.*revenue', 'increase revenue', 'how (can|do) i (grow|increase)', 'grow.*sales', 'increase.*sales'],
+            'is_trending_up' => ['اتجاه صاعد', 'ماشية.*صاعد', 'الوضع عامل إيه', 'الوضع عامل ايه', 'الوضع ماشي إزاي', 'الوضع ماشي ازاي', 'الدخل ماشي', 'المبيعات ماشيه', 'المبيعات ماشية', 'trending up', 'is revenue up', 'going up', 'how are we doing', 'overall.*(status|health)', 'is business doing well'],
+            'current_risks' => ['المخاطر', 'مخاطر موجودة', 'إيه المشاكل', 'ايه المشاكل', 'حاجة تقلقني', 'مخاوف', 'عايز اعرف الخطر', 'risk', 'any problems', 'what.*wrong', 'anything to worry'],
+            'next_month_forecast' => ['المتوقع الشهر', 'الشهر القادم', 'الشهر الجاي', 'هيحصل إيه بعدين', 'هيحصل ايه بعدين', 'توقعات الشهر', 'متوقع المبيعات', 'المبيعات الجايه', 'المبيعات الجاية', 'next month', 'forecast', 'expected next', 'what.*expect', 'sales forecast', 'projected revenue'],
+            'what_if_scenario' => ['ماذا لو', 'لو زاد', 'لو قل', 'لو حصل', 'لو زودنا', 'لو قللنا', 'ماذا يحدث لو', 'سيناريو', 'لو زودنا المبيعات', 'لو قللنا المصاريف', 'what if', 'scenario', 'if revenue', 'what would happen', 'projection if'],
+            'pipeline_status' => ['خط الصفقات', 'خط المبيعات', 'الصفقات المفتوحة', 'حالة الصفقات', 'صفقات شغاله', 'صفقات شغالة', 'pipeline', 'open deals', 'deals status', 'sales pipeline'],
+            'customer_segments' => ['الشرائح', 'تقسيم العملاء', 'فئات العملاء', 'تقسيم الزباين', 'فئات الزبون', 'customer segment', 'vip customer', 'customer tier', 'segmentation'],
+            'anomaly_check' => ['حاجة غريبة', 'شذوذ', 'حاجة مش طبيعية', 'انحراف في', 'حصل حاجة غريبة', 'anomal', 'unusual', 'weird spike', 'strange drop', 'suspicious', 'outlier'],
+            'next_best_action' => ['أعمل إيه دلوقتي', 'اعمل ايه دلوقتي', 'إيه المفروض أعمله', 'ايه المفروض اعمله', 'اقترح', 'إيه الأولوية', 'ايه الاولويه', 'خطوتي الجاية', 'ايه الخطوه الجايه', 'what should i do', 'next step', 'what.*priorit', 'recommend.*action'],
         ];
     }
 
