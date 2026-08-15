@@ -187,3 +187,53 @@ Migrations الجديدة الست (`database/migrations/2026_08_08_*.sql` و
 
 > ملاحظة: الـ migrations دي إضافية بالكامل (non-destructive) — مش بتحذف
 > ولا بتعدّل أي عمود/قيمة موجودة.
+
+---
+
+## 6) Phase 18 — التجديد التلقائي من الرصيد (2026-08-15)
+
+سد فجوة جوهرية مقابلة Stripe Billing: كانت الاشتراكات بتوصل
+`current_period_end` ومفيش أي كود بيحاول يخصم الرصيد تلقائيًا للتجديد
+— كان بتروح `past_due` حتى لو العميل عنده رصيد كافي.
+
+### 6.1 WalletService::renewSubscriptionFromBalance()
+
+- يخصم سعر الباقة من المحفظة، يمدّد `current_period_end` (شهر/سنة حسب
+  `billing_cycle`)، يعيد تصفير عدادات الاستخدام (`usage_*_count` + 
+  `last_usage_reset_at`)، ينشئ فاتورة `paid`، ويسجّل ActivityLog +
+  إشعار (`subscription_renewed`).
+- **Idempotent وآمن ضد التشغيل المزدوج**: `SELECT ... FOR UPDATE` على
+  صف الاشتراك نفسه جوه الـ transaction + إعادة فحص `current_period_end`
+  بعد القفل + `idempotency_key` فريدة (`renewal_{subId}_{periodEnd}`) —
+  أول عملية بس بتخصم، والباقي بيتجاهل.
+- بيرفض تجديد الاشتراكات اللي عليها `cancel_at_period_end = 1` (العميل
+  طلب الإلغاء صراحةً) وما بيبعتش إشعار "فشل دفع" (الـ Dunning اللي في
+  الـ Lifecycle هو اللي بيهتم بده).
+- متوافق مع `subscription_plans` الحقيقية (`plan_code`, `billing_cycle`,
+  `price`) — نفس مصدر السعر اللي بيستخدمه الاشتراك الجديد.
+
+### 6.2 SubscriptionLifecycleService
+
+- `attemptAutoRenewals()` — جديد: بيدوّر على الاشتراكات اللي
+  `status='active'` و`current_period_end <= NOW()`، وبينادي
+  `renewSubscriptionFromBalance()` لكل واحدة. كل عملية معزولة بـ
+  try/catch (فشل واحد ميمنعش الباقي). النتيجة فيها عدّادات:
+  `attempted / renewed / insufficient_balance / skipped / failed / errors`.
+- `transitionCancelledAtPeriodEnd()` — جديد: الاشتراك اللي عليه
+  `cancel_at_period_end = 1` والفترة خلصت بيروح `cancelled` مباشرة
+  (مش `past_due`) — بيتنفذ **قبل** `transitionExpiredActiveToPastDue`
+  عشان محدش ياخد صف مخصوصه.
+- `runLifecycleChecks()` راجع دلوقتي (بالترتيب): auto-renewals →
+  cancelled_at_period_end → past_due → trials → grace → التذكيرات.
+
+### 6.3 مفيش migrations جديدة
+
+كل الأعمدة المستخدمة (`current_period_start/end`, `cancel_at_period_end`,
+`usage_ai_analysis_count`, `usage_ai_message_count`, `usage_review_reply_count`,
+`last_usage_reset_at`) موجودة بالفعل في جدول `subscriptions` الحقيقي
+(متأكَّد منها من `Subscription::createSubscription`).
+
+> ⚠️ ملحوظة تشغيلية: لسه مفيش Cron حقيقي — التجديد التلقائي بيعمل
+> "كسول" لما الأدمن يفتح صفحة الاشتراكات أو يضغط
+> `/api/admin/subscriptions/run-lifecycle-checks`. لأداء حقيقي لازم
+> Job runner يستدعي الـ endpoint ده دوريًا (يوميًا على الأقل).

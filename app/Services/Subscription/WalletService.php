@@ -820,6 +820,164 @@ class WalletService {
         }
     }
 
+    /**
+     * تحليل تنافسي (Stripe/Chargebee/Paddle): التجديد التلقائي من الرصيد.
+     *
+     * فجوة حقيقية كانت موجودة: الاشتراك بيوصل current_period_end ومفيش
+     * أي كود بيحاول يخصم الرصيد تلقائيًا للتجديد - كان بيروح past_due
+     * حتى لو العميل عنده رصيد كافي (بخلاف Stripe اللي بيحاول الدفع
+     * تلقائيًا). الدالة دي بتسد الفجوة دي.
+     *
+     * Idempotent بأمان: بتحصر صف الاشتراك نفسه بـ FOR UPDATE جوه
+     * الـ transaction، وبعد القفل بتتأكد إن current_period_end لسه
+     * <= NOW() (يعني لسه مستحق) قبل أي خصم - فأي تشغيلين متوازيين لنفس
+     * الاشتراك (صفحتين أدمن، أو تشغيل Cron + lazy) أول واحد بس يخصم
+     * والباقي بيشوف الفترة اتجدّدت وبيسحب. كل خصم بيتسجّل بمفتاح
+     * idempotency فريد من رقم الاشتراك.
+     *
+     * @return array{success: bool, reason?: string, subscription_id?: int, charged?: float, new_period_end?: string, balance?: float, required?: float}
+     */
+    public function renewSubscriptionFromBalance(int $subscriptionId): array {
+        try {
+            return $this->db->transaction(function () use ($subscriptionId) {
+                // قفل صف الاشتراك نفسه - مفتاح الـ idempotency الأساسي ضد
+                // التشغيل المزدوج. أول معاملة بتقفل الصف وتمد الفترة،
+                // والتانية بتلاقي الفترة اتجدّدت وترجع "not_due".
+                $subs = $this->db->query(
+                    "SELECT s.*, sp.plan_code, sp.billing_cycle, sp.price, sp.name AS plan_display_name
+                     FROM subscriptions s
+                     JOIN subscription_plans sp ON sp.id = s.plan_id
+                     WHERE s.id = ? LIMIT 1 FOR UPDATE",
+                    [$subscriptionId]
+                );
+                if (empty($subs)) {
+                    return ['success' => false, 'reason' => 'not_found'];
+                }
+                $sub = $subs[0];
+
+                // المستحق فعلاً للتجديد: active + الفترة خلصت. مش `past_due`
+                // (ليه فترة سماح خاصة بيه في الـ Lifecycle) ومش `trialing`
+                // (مفيش دفع بعد). لو cancel_at_period_end مفعّل، العميل
+                // طلب الإلغاء صراحةً - متجددوش (الـ Lifecycle هيلغي).
+                if ($sub['status'] !== 'active') {
+                    return ['success' => false, 'reason' => 'not_due', 'subscription_id' => $subscriptionId];
+                }
+                if (!empty($sub['cancel_at_period_end'])) {
+                    return ['success' => false, 'reason' => 'cancel_at_period_end', 'subscription_id' => $subscriptionId];
+                }
+                if (empty($sub['current_period_end']) || strtotime((string) $sub['current_period_end']) > time()) {
+                    return ['success' => false, 'reason' => 'not_due', 'subscription_id' => $subscriptionId];
+                }
+
+                $userId = (int) $sub['user_id'];
+                $planKey = (string) $sub['plan_code'];
+                $planType = $sub['billing_cycle'] === 'yearly' ? 'yearly' : 'monthly';
+                $price = (float) $sub['price'];
+
+                if ($price <= 0) {
+                    return ['success' => false, 'reason' => 'invalid_price', 'subscription_id' => $subscriptionId];
+                }
+
+                // قفل صف المستخدم - نفس نمط باقي المعاملات المالية
+                // (subscribeWithBalance/chargeForUsage) عشان متحصلش
+                // منافسة على نفس الرصيد مع خصم تاني.
+                $this->db->query("SELECT id FROM users WHERE id = ? FOR UPDATE", [$userId]);
+
+                $balance = $this->getBalance($userId);
+                if ($balance < $price) {
+                    // مش بتبعت إشعار "فشل دفع" هنا - الـ Lifecycle بيهتم
+                    // بالانتقال لـ past_due + إنذارات الـ Dunning بفترة
+                    // السماح، فمفيش تكرار رسائل.
+                    return [
+                        'success' => false,
+                        'reason' => 'insufficient_balance',
+                        'subscription_id' => $subscriptionId,
+                        'balance' => $balance,
+                        'required' => $price,
+                    ];
+                }
+
+                $idempotencyKey = 'renewal_' . $subscriptionId . '_' . strtotime((string) $sub['current_period_end']);
+
+                // خصم سعر الباقة من المحفظة (نفس نمط الاشتراك الجديد).
+                $chargeTx = new WalletTransaction();
+                $chargeTx->fill([
+                    'user_id' => $userId,
+                    'type' => 'subscription_charge',
+                    'amount' => -$price,
+                    'currency' => 'USD',
+                    'status' => 'completed',
+                    'reference_note' => 'تجديد تلقائي لاشتراك "' . ($sub['plan_display_name'] ?: $planKey) . '"',
+                    'related_subscription_plan' => $planKey,
+                    'approved_at' => date('Y-m-d H:i:s'),
+                    'idempotency_key' => $idempotencyKey,
+                ]);
+                $chargeTx->save();
+                $this->checkLowBalanceAndNotify($userId);
+
+                // تسجيل موازٍ في payment_transactions (نفس نمط
+                // subscribeWithBalance) - عشان أي استرجاع مستقبلي يتعامل
+                // مع التجديد ده كمعاملة دفع. معزول في try/catch مستقلة.
+                try {
+                    $adapter = new WalletGatewayAdapter();
+                    $intent = $adapter->createPaymentIntent($userId, $price, 'USD', [
+                        'plan' => $planKey, 'plan_type' => $planType, 'auto_renewal' => true,
+                    ]);
+                    $adapter->markSettled($intent['internal_transaction_id'], true, (int) $chargeTx->getAttribute('id'));
+                } catch (Exception $ledgerError) {
+                    Logger::error('auto-renew ledger write failed (charge already succeeded)', [
+                        'user_id' => $userId, 'subscription_id' => $subscriptionId, 'message' => $ledgerError->getMessage(),
+                    ]);
+                }
+
+                // تمديد الفترة + إعادة تصفير عدادات الاستخدام (كل فترة
+                // جديدة بتفتح برصيد جديد). بيتنفذ مباشرة على الصف المقفول.
+                $newStart = $sub['current_period_end'];
+                $newEnd = $planType === 'yearly'
+                    ? date('Y-m-d H:i:s', strtotime('+1 year', strtotime((string) $newStart)))
+                    : date('Y-m-d H:i:s', strtotime('+1 month', strtotime((string) $newStart)));
+
+                $this->db->exec(
+                    "UPDATE subscriptions
+                     SET status = 'active',
+                         current_period_start = ?, current_period_end = ?,
+                         usage_ai_analysis_count = 0, usage_ai_message_count = 0, usage_review_reply_count = 0,
+                         last_usage_reset_at = NOW(), updated_at = NOW()
+                     WHERE id = ?",
+                    [$newStart, $newEnd, $subscriptionId]
+                );
+
+                // فاتورة 'paid' للتجديد - نفس createInvoiceForCharge اللي
+                // بيستخدمها الاشتراك الجديد. معزولة في try/catch مستقلة.
+                $this->createInvoiceForCharge($userId, $planKey, ['name' => $sub['plan_display_name'] ?: $planKey], $planType, $price, $chargeTx);
+
+                ActivityLog::record('wallet', 'wallet.subscription_renewed', [
+                    'user_id' => $userId,
+                    'subject_type' => 'subscriptions',
+                    'subject_id' => $subscriptionId,
+                    'meta' => ['plan' => $planKey, 'type' => $planType, 'charged' => $price, 'new_period_end' => $newEnd],
+                ]);
+
+                if (class_exists('Notification')) {
+                    $cycleLabel = $planType === 'yearly' ? 'عام إضافي' : 'شهر إضافي';
+                    Notification::notify($userId, 'subscription_renewed', 'تم تجديد اشتراكك تلقائيًا',
+                        'تم خصم ' . $price . '$ من محفظتك لتجديد باقة "' . ($sub['plan_display_name'] ?: $planKey) . '" لمدة ' . $cycleLabel . '.', '/subscription');
+                }
+
+                return [
+                    'success' => true,
+                    'subscription_id' => $subscriptionId,
+                    'charged' => $price,
+                    'new_period_end' => $newEnd,
+                    'balance' => $this->getBalance($userId),
+                ];
+            });
+        } catch (Exception $e) {
+            Logger::error('renewSubscriptionFromBalance failed', ['subscription_id' => $subscriptionId, 'message' => $e->getMessage()]);
+            return ['success' => false, 'reason' => 'error', 'subscription_id' => $subscriptionId];
+        }
+    }
+
     /** كل أسعار الاستخدام (نشطة وغير نشطة) - لعرضها وتعديلها في لوحة الأدمن */
     public function getAllUsagePricingForAdmin(): array {
         try {

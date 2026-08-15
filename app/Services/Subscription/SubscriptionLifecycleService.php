@@ -47,10 +47,18 @@ class SubscriptionLifecycleService {
      * يتنفذ أي عدد مرات (كل صف بيتنقل مرة واحدة بس لأن الشرط بيبقى
      * مش صحيح تاني بعد الانتقال).
      *
-     * @return array{moved_to_past_due: int, moved_to_cancelled: int, trials_ended: int, renewal_reminders_sent: int, early_renewal_reminders_sent: int, dunning_final_notices_sent: int}
+     * الترتيب مهم: التجديد التلقائي بيشتغل الأول (عشان اللي رصيده كافي
+     * يتجدّد ويضل active)، وبعدها إلغاء "عند نهاية الفترة" (اللي طلب
+     * الإلغاء صراحةً) - والاتنين قبل الانتقال لـ past_due عشان محدش
+     * ياخد صف مخصوصه (عشان كده transitionCancelledAtPeriodEnd لازم
+     * يجري قبل transitionExpiredActiveToPastDue).
+     *
+     * @return array{moved_to_past_due: int, moved_to_cancelled: int, cancelled_at_period_end: int, trials_ended: int, renewal_reminders_sent: int, early_renewal_reminders_sent: int, dunning_final_notices_sent: int, auto_renewals: array}
      */
     public function runLifecycleChecks(): array {
         return [
+            'auto_renewals' => $this->attemptAutoRenewals(),
+            'cancelled_at_period_end' => $this->transitionCancelledAtPeriodEnd(),
             'moved_to_past_due' => $this->transitionExpiredActiveToPastDue(),
             'trials_ended' => $this->transitionExpiredTrialsToPastDue(),
             'moved_to_cancelled' => $this->transitionExpiredGraceToCancelled(),
@@ -58,6 +66,59 @@ class SubscriptionLifecycleService {
             'early_renewal_reminders_sent' => $this->sendEarlyRenewalReminders(),
             'dunning_final_notices_sent' => $this->sendDunningFinalNotices(),
         ];
+    }
+
+    /**
+     * تحليل تنافسي (Stripe/Chargebee/Paddle): التجديد التلقائي من الرصيد.
+     *
+     * بيدوّر على الاشتراكات اللي لسه active بس current_period_end خلصت
+     * (مفيش تجديد حصل قبل كده) وبينادي WalletService يحاول يخصم سعر
+     * الباقة من رصيد المحفظة. لو الرصيد كافي → الفترة بتتمدد والاشتراك
+     * يضل active (ومش هيتحرّك لـ past_due بعدها). لو مش كافي → بيسيب
+     * الاشتراك زي ما هو عشان transitionExpiredActiveToPastDue ياخده
+     * بعد كده في نفس التشغيلة.
+     *
+     * كل عملية تجديد مفردة معزولة بـ try/catch خاص + idempotent (شوف
+     * WalletService::renewSubscriptionFromBalance) - فشل واحد ميمنعش
+     * باقي الاشتراكات. ✋ تقف على أي Subscription كان cancel_at_period_end
+     * مفعّل (العميل طلب الإلغاء صراحةً) ومبتجددوش.
+     *
+     * @return array{attempted: int, renewed: int, insufficient_balance: int, skipped: int, failed: int, errors: array}
+     */
+    private function attemptAutoRenewals(): array {
+        $result = ['attempted' => 0, 'renewed' => 0, 'insufficient_balance' => 0, 'skipped' => 0, 'failed' => 0, 'errors' => []];
+        try {
+            $rows = $this->db->query(
+                "SELECT id FROM subscriptions WHERE status = 'active' AND current_period_end <= NOW()"
+            );
+            if (empty($rows) || !class_exists('WalletService')) {
+                return $result;
+            }
+            $wallet = new WalletService();
+            foreach ($rows as $row) {
+                $result['attempted']++;
+                try {
+                    $out = $wallet->renewSubscriptionFromBalance((int) $row['id']);
+                    if (!empty($out['success'])) {
+                        $result['renewed']++;
+                    } elseif ($out['reason'] === 'insufficient_balance') {
+                        $result['insufficient_balance']++;
+                    } elseif ($out['reason'] === 'cancel_at_period_end' || $out['reason'] === 'not_due' || $out['reason'] === 'not_found' || $out['reason'] === 'invalid_price') {
+                        $result['skipped']++;
+                    } else {
+                        $result['failed']++;
+                        $result['errors'][] = ['subscription_id' => (int) $row['id'], 'reason' => $out['reason'] ?? 'unknown'];
+                    }
+                } catch (Exception $e) {
+                    $result['failed']++;
+                    $result['errors'][] = ['subscription_id' => (int) $row['id'], 'message' => $e->getMessage()];
+                }
+            }
+            return $result;
+        } catch (Exception $e) {
+            Logger::error('SubscriptionLifecycleService::attemptAutoRenewals failed', ['message' => $e->getMessage()]);
+            return $result;
+        }
     }
 
     /** active + current_period_end انتهت → past_due (بداية فترة السماح) */
@@ -74,6 +135,32 @@ class SubscriptionLifecycleService {
             return count($rows);
         } catch (Exception $e) {
             Logger::error('SubscriptionLifecycleService::transitionExpiredActiveToPastDue failed', ['message' => $e->getMessage()]);
+            return 0;
+        }
+    }
+
+    /**
+     * active + cancel_at_period_end = 1 + الفترة خلصت → cancelled
+     * (العميل طلب الإلغاء عند نهاية الفترة صراحةً - مش past_due ولا
+     * فشل دفع، فمش بيتجر له إنذارات الـ Dunning). بيتنفذ بعد
+     * attemptAutoRenewals مباشرة - الاشتراك اللي رصيده اتحسب قبل
+     * التجديد وهوا عليه cancel_at_period_end مش بيتم تجديده أصلًا
+     * (WalletService بيكشفها وبيـ skip).
+     */
+    private function transitionCancelledAtPeriodEnd(): int {
+        try {
+            $rows = $this->db->query(
+                "SELECT id, user_id FROM subscriptions
+                 WHERE status = 'active' AND cancel_at_period_end = 1 AND current_period_end <= NOW()"
+            );
+            foreach ($rows as $row) {
+                $this->db->exec("UPDATE subscriptions SET status = 'cancelled', updated_at = NOW() WHERE id = ?", [(int) $row['id']]);
+                $this->notifyAndLog((int) $row['id'], (int) $row['user_id'], 'expired',
+                    'انتهى اشتراكك', 'تم إيقاف اشتراكك في نهاية الفترة زي ما طلبت - تقدر تشترك تاني في أي وقت.');
+            }
+            return count($rows);
+        } catch (Exception $e) {
+            Logger::error('SubscriptionLifecycleService::transitionCancelledAtPeriodEnd failed', ['message' => $e->getMessage()]);
             return 0;
         }
     }
