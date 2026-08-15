@@ -34,6 +34,7 @@ $router->delete('/api/user/oauth/{provider}', 'UserController', 'disconnectOAuth
 $router->post('/api/user/2fa/setup', 'UserController', 'setupTwoFactor', ['AuthMiddleware']);
 $router->post('/api/user/2fa/enable', 'UserController', 'enableTwoFactor', ['AuthMiddleware']);
 $router->post('/api/user/2fa/disable', 'UserController', 'disableTwoFactor', ['AuthMiddleware']);
+$router->post('/api/user/2fa/recovery-codes/regenerate', 'UserController', 'regenerateRecoveryCodes', ['AuthMiddleware']);
 // Profile Center Phase 9 (2026-08-10): Data Export
 $router->post('/api/user/data-export', 'UserController', 'requestDataExport', ['AuthMiddleware']);
 $router->get('/api/user/data-export', 'UserController', 'listDataExports', ['AuthMiddleware']);
@@ -46,6 +47,7 @@ $router->get('/api/user/api-keys', 'UserController', 'listApiKeys', ['AuthMiddle
 $router->post('/api/user/api-keys', 'UserController', 'createApiKey', ['AuthMiddleware']);
 $router->post('/api/user/api-keys/{id}/revoke', 'UserController', 'revokeApiKey', ['AuthMiddleware']);
 $router->get('/api/user/audit-log', 'UserController', 'listAuditLog', ['AuthMiddleware']);
+$router->get('/api/user/audit-log/export', 'UserController', 'exportAuditLog', ['AuthMiddleware']);
 $router->post('/api/user/deactivate', 'UserController', 'deactivateAccount', ['AuthMiddleware']);
 $router->get('/api/workspace', 'WorkspaceController', 'getWorkspace', ['AuthMiddleware']);
 $router->put('/api/workspace', 'WorkspaceController', 'updateWorkspace', ['AuthMiddleware']);

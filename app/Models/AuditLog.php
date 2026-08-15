@@ -98,6 +98,10 @@ class AuditLog extends Model
             $where[] = 'action = :action';
             $params[':action'] = $filters['action'];
         }
+        if (!empty($filters['result']) && in_array($filters['result'], ['success', 'failed'], true)) {
+            $where[] = 'result = :result';
+            $params[':result'] = $filters['result'];
+        }
         if (!empty($filters['search'])) {
             $where[] = '(action LIKE :search OR object_type LIKE :search OR object_id LIKE :search)';
             $params[':search'] = '%' . $filters['search'] . '%';
@@ -126,5 +130,47 @@ class AuditLog extends Model
         );
 
         return ['rows' => $rows ?: [], 'total' => $total];
+    }
+
+    /**
+     * كل الصفوف المطابقة للفلاتر بدون ترقيم صفحات - للتصدير (CSV).
+     * محدودة بـ 5000 صف كحد أقصى لكل تصدير عشان منحمّلش السيرفر.
+     *
+     * @return array مصفوفة من الصفوف اللي لسه فاضية من الفلاتر
+     */
+    public static function exportFor(int $userId, array $filters = [], int $maxRows = 5000): array {
+        $db = Database::getInstance();
+
+        $where = ['user_id = :user_id'];
+        $params = [':user_id' => $userId];
+
+        if (!empty($filters['action'])) {
+            $where[] = 'action = :action';
+            $params[':action'] = $filters['action'];
+        }
+        if (!empty($filters['result']) && in_array($filters['result'], ['success', 'failed'], true)) {
+            $where[] = 'result = :result';
+            $params[':result'] = $filters['result'];
+        }
+        if (!empty($filters['search'])) {
+            $where[] = '(action LIKE :search OR object_type LIKE :search OR object_id LIKE :search)';
+            $params[':search'] = '%' . $filters['search'] . '%';
+        }
+        if (!empty($filters['from'])) {
+            $where[] = 'created_at >= :from';
+            $params[':from'] = $filters['from'] . ' 00:00:00';
+        }
+        if (!empty($filters['to'])) {
+            $where[] = 'created_at <= :to';
+            $params[':to'] = $filters['to'] . ' 23:59:59';
+        }
+
+        $whereSql = implode(' AND ', $where);
+        $maxRows = max(1, min(5000, (int) $maxRows));
+
+        return $db->query(
+            "SELECT `action`, `object_type`, `object_id`, `result`, `meta`, `ip_address`, `created_at` FROM `audit_logs` WHERE {$whereSql} ORDER BY `created_at` DESC LIMIT {$maxRows}",
+            $params
+        ) ?: [];
     }
 }

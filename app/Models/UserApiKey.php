@@ -17,6 +17,7 @@ class UserApiKey extends Model
         'key_prefix',
         'key_hash',
         'last_used_at',
+        'expires_at',
         'revoked_at',
     ];
 
@@ -36,16 +37,23 @@ class UserApiKey extends Model
      *
      * @return array{model: UserApiKey, raw_key: string}
      */
-    public static function generateFor(int $userId, string $name): array
-    {
+    public static function generateFor(int $userId, string $name, ?string $expiresAt = null): array {
         $rawKey = self::KEY_PREFIX_TAG . bin2hex(random_bytes(self::RAW_RANDOM_BYTES));
 
-        $model = new self([
+        // نضيف expires_at للأعمدة بس لو فيه صلاحية فعليًا (مش null) -
+        // عشان لو الـ migration لسه متعملش على السيرفر، الـ INSERT
+        // مفيش فيه عمود غير موجود أصلاً ومايقعش (Backward Compatible).
+        $attrs = [
             'user_id' => $userId,
             'name' => $name,
             'key_prefix' => substr($rawKey, 0, self::DISPLAY_PREFIX_LENGTH),
             'key_hash' => password_hash($rawKey, PASSWORD_DEFAULT),
-        ]);
+        ];
+        if ($expiresAt !== null) {
+            $attrs['expires_at'] = $expiresAt;
+        }
+
+        $model = new self($attrs);
         $model->save();
 
         return ['model' => $model, 'raw_key' => $rawKey];
@@ -55,6 +63,14 @@ class UserApiKey extends Model
     public static function looksLikeUserApiKey(string $rawKey): bool
     {
         return strpos($rawKey, self::KEY_PREFIX_TAG) === 0;
+    }
+
+    /** هل المفتاح منتهي الصلاحية بناءً على expires_at؟ (null = لا ينتهي أبدًا) */
+    public static function isExpired(?string $expiresAt): bool {
+        if ($expiresAt === null || $expiresAt === '') {
+            return false;
+        }
+        return strtotime($expiresAt) <= time();
     }
 
     /**
@@ -74,6 +90,9 @@ class UserApiKey extends Model
         foreach ($candidates as $candidate) {
             if ($candidate->getAttribute('revoked_at')) {
                 continue;
+            }
+            if (self::isExpired($candidate->getAttribute('expires_at'))) {
+                continue; // منتهي الصلاحية - مش صالح
             }
             if (password_verify($rawKey, $candidate->getAttribute('key_hash'))) {
                 return $candidate;
@@ -110,6 +129,7 @@ class UserApiKey extends Model
             'key_prefix' => $this->getAttribute('key_prefix'),
             'last_used_at' => $this->getAttribute('last_used_at'),
             'created_at' => $this->getAttribute('created_at'),
+            'expires_at' => $this->getAttribute('expires_at'),
             'revoked' => (bool) $this->getAttribute('revoked_at'),
         ];
     }
