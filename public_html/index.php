@@ -271,6 +271,15 @@ $optionalNewClassFiles = [
     APP_PATH . '/Models/CrmImportBatch.php',
     APP_PATH . '/Services/Crm/CrmPaginationHelper.php',
     APP_PATH . '/Jobs/CrmImportContactsJob.php',
+    // CRM Upgrade Phase 12 (2026-08-15) - Message Templates / Sales Goals /
+    // Custom Fields. نفس السبب: مش مسجّلة في classmap القديم.
+    APP_PATH . '/Models/CrmMessageTemplate.php',
+    APP_PATH . '/Models/CrmSalesGoal.php',
+    APP_PATH . '/Models/CrmCustomField.php',
+    APP_PATH . '/Models/CrmCustomFieldValue.php',
+    APP_PATH . '/Services/Crm/CrmMessageTemplateService.php',
+    APP_PATH . '/Services/Crm/CrmReportService.php',
+    APP_PATH . '/Services/Crm/CrmCustomFieldService.php',
     // GBP Module Upgrade (2026-08-09/10) - Setup Wizard/Connection Center/
     // Sync/Profile/Photos/Insights/AI/Attributes. نفس السبب زي كل
     // الكلاسات فوق: مش مسجّلة في classmap القديم بتاع composer.

@@ -853,6 +853,28 @@ $router->post('/api/crm/team', 'CrmApiController', 'addTeamMember', ['AuthMiddle
 $router->put('/api/crm/team/{id}', 'CrmApiController', 'updateTeamMemberRole', ['AuthMiddleware']);
 $router->delete('/api/crm/team/{id}', 'CrmApiController', 'removeTeamMember', ['AuthMiddleware']);
 
+// المرحلة 12 (G1) - Message Templates
+$router->get('/api/crm/templates', 'CrmApiController', 'listTemplates', ['AuthMiddleware']);
+$router->get('/api/crm/templates/variables', 'CrmApiController', 'templateVariables', ['AuthMiddleware']);
+$router->post('/api/crm/templates', 'CrmApiController', 'createTemplate', ['AuthMiddleware']);
+$router->put('/api/crm/templates/{id}', 'CrmApiController', 'updateTemplate', ['AuthMiddleware']);
+$router->delete('/api/crm/templates/{id}', 'CrmApiController', 'deleteTemplate', ['AuthMiddleware']);
+$router->post('/api/crm/templates/{id}/render', 'CrmApiController', 'renderTemplate', ['AuthMiddleware']);
+
+// المرحلة 12 (G4) - Win/Loss Analysis + Sales Goals
+$router->get('/api/crm/reports/win-loss', 'CrmApiController', 'winLossReport', ['AuthMiddleware']);
+$router->get('/api/crm/reports/sales-goals', 'CrmApiController', 'salesGoalsReport', ['AuthMiddleware']);
+$router->post('/api/crm/reports/sales-goals', 'CrmApiController', 'setSalesGoal', ['AuthMiddleware']);
+$router->delete('/api/crm/reports/sales-goals/{id}', 'CrmApiController', 'deleteSalesGoal', ['AuthMiddleware']);
+
+// المرحلة 12 (G2) - Custom Fields
+$router->get('/api/crm/custom-fields', 'CrmApiController', 'listCustomFields', ['AuthMiddleware']);
+$router->post('/api/crm/custom-fields', 'CrmApiController', 'createCustomField', ['AuthMiddleware']);
+$router->put('/api/crm/custom-fields/{id}', 'CrmApiController', 'updateCustomField', ['AuthMiddleware']);
+$router->delete('/api/crm/custom-fields/{id}', 'CrmApiController', 'deleteCustomField', ['AuthMiddleware']);
+$router->get('/api/crm/entities/{entityType}/{id}/custom-fields', 'CrmApiController', 'getEntityCustomFields', ['AuthMiddleware']);
+$router->post('/api/crm/entities/{entityType}/{id}/custom-fields', 'CrmApiController', 'setEntityCustomFields', ['AuthMiddleware']);
+
 // Webhook عام (بدون AuthMiddleware عمدًا - Meta هي اللي بتنادي عليه، راجع
 // تعليق CrmWhatsAppWebhookController للتفاصيل الأمنية).
 $router->get('/webhooks/crm/whatsapp', 'CrmWhatsAppWebhookController', 'verify', []);
