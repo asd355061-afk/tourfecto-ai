@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - GeoIP Service
  * تحديد الموقع الجغرافي التقريبي لعنوان IP (الدولة/المدينة/المنطقة/الإحداثيات)
@@ -14,8 +15,8 @@
  * @copyright 2026 Tourfecto
  */
 
-class GeoIPService {
-
+class GeoIPService
+{
     /** @var int مهلة الاتصال بالثواني */
     private const TIMEOUT = 2;
 
@@ -27,7 +28,8 @@ class GeoIPService {
      * @param string $ip
      * @return array{country:?string, city:?string, region:?string, latitude:?float, longitude:?float}
      */
-    public static function lookup(string $ip): array {
+    public static function lookup(string $ip): array
+    {
         $empty = [
             'country' => null,
             'city' => null,
@@ -62,7 +64,8 @@ class GeoIPService {
      * @param string $ip
      * @return array|null
      */
-    private static function fetch(string $ip): ?array {
+    private static function fetch(string $ip): ?array
+    {
         $url = 'http://ip-api.com/json/' . urlencode($ip) . '?fields=status,country,regionName,city,lat,lon';
 
         $context = stream_context_create([
@@ -98,7 +101,8 @@ class GeoIPService {
      * @param string $ip
      * @return bool
      */
-    private static function isPublicIp(string $ip): bool {
+    private static function isPublicIp(string $ip): bool
+    {
         if (!filter_var($ip, FILTER_VALIDATE_IP)) {
             return false;
         }

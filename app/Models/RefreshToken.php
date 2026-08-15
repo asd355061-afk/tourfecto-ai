@@ -1,11 +1,13 @@
 <?php
+
 /**
  * Tourfecto - Refresh Token Model
  * إدارة توكنات تحديث JWT لكل جهاز/تسجيل دخول على حدة.
  * @version 1.0.0
  */
 
-class RefreshToken extends Model {
+class RefreshToken extends Model
+{
     protected $table = 'user_refresh_tokens';
 
     protected $fillable = [
@@ -17,7 +19,8 @@ class RefreshToken extends Model {
      * توليد refresh token خام جديد لمستخدم معيّن، وتخزين الـ hash بتاعه.
      * @return array{model: RefreshToken, raw_token: string}
      */
-    public static function issueFor(int $userId, ?string $deviceName, string $ip, ?string $userAgent): array {
+    public static function issueFor(int $userId, ?string $deviceName, string $ip, ?string $userAgent): array
+    {
         $rawToken = bin2hex(random_bytes(40));
         $ttl = defined('JWT_REFRESH_TOKEN_TTL') ? JWT_REFRESH_TOKEN_TTL : 2592000;
 
@@ -42,7 +45,8 @@ class RefreshToken extends Model {
      * هتفشل تتحقق من أي توكن سليم أبدًا. الحل: نجيب توكنات المستخدم
      * ونفلتر revoked_at في PHP بدل الاعتماد على الشرط ده في SQL.
      */
-    public static function verify(string $rawToken, ?int $userId = null): ?self {
+    public static function verify(string $rawToken, ?int $userId = null): ?self
+    {
         $model = new self();
         $conditions = $userId !== null ? ['user_id' => $userId] : [];
         $candidates = $userId !== null ? $model->where($conditions) : $model->all();
@@ -64,13 +68,15 @@ class RefreshToken extends Model {
     }
 
     /** إلغاء توكن واحد فقط (تسجيل خروج من جهاز واحد) */
-    public function revoke(): bool {
+    public function revoke(): bool
+    {
         $this->setAttribute('revoked_at', date('Y-m-d H:i:s'));
         return (bool) $this->save();
     }
 
     /** إلغاء كل توكنات مستخدم (تسجيل خروج من كل الأجهزة) */
-    public static function revokeAllForUser(int $userId): void {
+    public static function revokeAllForUser(int $userId): void
+    {
         $model = new self();
         $tokens = $model->where(['user_id' => $userId]);
         foreach ($tokens as $token) {
@@ -80,7 +86,8 @@ class RefreshToken extends Model {
         }
     }
 
-    public function touchUsage(): void {
+    public function touchUsage(): void
+    {
         try {
             $this->setAttribute('last_used_at', date('Y-m-d H:i:s'));
             $this->save();

@@ -1,6 +1,8 @@
 <?php
+
 /** Tourfecto - CRM Deal Model @version 1.1.0 */
-class CrmDeal extends Model {
+class CrmDeal extends Model
+{
     protected $table = 'crm_deals';
     protected $fillable = [
         'owner_user_id', 'lead_id', 'contact_id', 'company_id', 'pipeline_id', 'stage_id',
@@ -8,7 +10,8 @@ class CrmDeal extends Model {
         'closed_at', 'status', 'lost_reason', 'notes',
     ];
 
-    public function allForOwner(int $ownerUserId, int $limit = 200): array {
+    public function allForOwner(int $ownerUserId, int $limit = 200): array
+    {
         return $this->db->query(
             "SELECT d.*, s.name AS stage_name, s.color AS stage_color, s.is_won, s.is_lost
              FROM `crm_deals` d
@@ -25,7 +28,8 @@ class CrmDeal extends Model {
      * حديث ووقت طويل في نفس المرحلة (بند 26). Heuristic بسيط شفاف - وليس
      * "AI تنبؤي" مُدّعى؛ هذه أساس جاهز ليُستبدل/يُدعّم بموديول AI في مرحلة تالية.
      */
-    public function staleOpenDeals(int $ownerUserId, int $daysWithoutActivity = 14): array {
+    public function staleOpenDeals(int $ownerUserId, int $daysWithoutActivity = 14): array
+    {
         return $this->db->query(
             "SELECT d.*, s.name AS stage_name
              FROM `crm_deals` d

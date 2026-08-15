@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Wallet Service
  * منطق المحفظة: طلب إيداع، موافقة الأدمن، الخصم التلقائي وقت الاشتراك.
@@ -6,18 +7,21 @@
  * أضمن وأسهل في التدقيق، وميحصلش تضارب بيانات لو حصل خطأ في مكان.
  * @version 1.0.0
  */
-class WalletService {
+class WalletService
+{
     /** @var Database */
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
     /**
      * الرصيد الحالي = مجموع الإيداعات المكتملة - مجموع الخصومات (المخزّنة كأرقام سالبة أصلاً)
      */
-    public function getBalance(int $userId): float {
+    public function getBalance(int $userId): float
+    {
         $rows = $this->db->query(
             "SELECT COALESCE(SUM(amount), 0) AS balance FROM wallet_transactions WHERE user_id = ? AND status = 'completed'",
             [$userId]
@@ -29,7 +33,8 @@ class WalletService {
      * طلب إيداع جديد - بيتسجّل كـ "pending" لحد ما الأدمن يوافق بعد ما
      * يستلم التحويل فعليًا (بنك/PayPal) ويتأكد عن طريق واتساب.
      */
-    public function requestDeposit(int $userId, float $amount, string $paymentMethod, string $note = ''): WalletTransaction {
+    public function requestDeposit(int $userId, float $amount, string $paymentMethod, string $note = ''): WalletTransaction
+    {
         if ($amount <= 0) {
             throw new Exception('المبلغ لازم يكون أكبر من صفر');
         }
@@ -58,7 +63,8 @@ class WalletService {
     }
 
     /** موافقة الأدمن على إيداع - بيحوّل حالته لـ completed فيدخل في حساب الرصيد */
-    public function approveDeposit(int $transactionId, int $adminId, string $adminNote = ''): WalletTransaction {
+    public function approveDeposit(int $transactionId, int $adminId, string $adminNote = ''): WalletTransaction
+    {
         $tx = (new WalletTransaction())->find($transactionId);
         if (!$tx || $tx->getAttribute('type') !== 'deposit') {
             throw new Exception('طلب الإيداع غير موجود');
@@ -75,8 +81,13 @@ class WalletService {
 
         $userId = (int) $tx->getAttribute('user_id');
         if (class_exists('Notification')) {
-            Notification::notify($userId, 'wallet_deposit_approved', 'تم شحن رصيدك',
-                'تمت الموافقة على إيداعك بمبلغ ' . $tx->getAttribute('amount') . '$ وبقى متاح في محفظتك.', '/subscription');
+            Notification::notify(
+                $userId,
+                'wallet_deposit_approved',
+                'تم شحن رصيدك',
+                'تمت الموافقة على إيداعك بمبلغ ' . $tx->getAttribute('amount') . '$ وبقى متاح في محفظتك.',
+                '/subscription'
+            );
         }
 
         ActivityLog::record('wallet', 'wallet.deposit_approved', [
@@ -87,7 +98,8 @@ class WalletService {
     }
 
     /** رفض طلب إيداع (لو الفلوس ما وصلتش فعليًا مثلاً) */
-    public function rejectDeposit(int $transactionId, int $adminId, string $adminNote = ''): WalletTransaction {
+    public function rejectDeposit(int $transactionId, int $adminId, string $adminNote = ''): WalletTransaction
+    {
         $tx = (new WalletTransaction())->find($transactionId);
         if (!$tx || $tx->getAttribute('type') !== 'deposit') {
             throw new Exception('طلب الإيداع غير موجود');
@@ -139,7 +151,8 @@ class WalletService {
      *        مرتين (دبل-كليك أو إعادة محاولة شبكة). لو مش متبعت، بيتولّد
      *        سيرفر-سايد.
      */
-    public function subscribeWithBalance(int $userId, string $planKey, string $planType, ?string $idempotencyKey = null): array {
+    public function subscribeWithBalance(int $userId, string $planKey, string $planType, ?string $idempotencyKey = null): array
+    {
         $plans = SubscriptionPlan::allAsLegacyArray();
         $plan = $plans[$planKey] ?? null;
         if (!$plan) {
@@ -174,6 +187,38 @@ class WalletService {
 
         try {
             return $this->db->transaction(function () use ($userId, $planKey, $planType, $plan, $newPrice, $oldPrice, $chargeAmount, $isPlanChange, $currentRow, $idempotencyKey) {
+                // قفل صف المستخدم - نفس تصحيح Section 6 المطبّق في
+                // chargeForUsage(): بيمنع سباق بين تغيير باقة وخصم
+                // pay-as-you-go متزامنين لنفس العميل. الفحص فوق (قبل
+                // دخول الـ transaction) كان بس Fast-fail لتحسين تجربة
+                // المستخدم - الفحص الحقيقي المُعتمَد عليه هو ده جوه القفل.
+                $this->db->query("SELECT id FROM users WHERE id = ? FOR UPDATE", [$userId]);
+                if ($chargeAmount > 0) {
+                    $freshBalance = $this->getBalance($userId);
+                    if ($freshBalance < $chargeAmount) {
+                        // Section 13: إشعار "فشل الدفع" - عند نقطة الفحص
+                        // المُعتمَد عليها فعليًا (جوه القفل)، مش الفحص
+                        // السريع اللي قبلها (عشان متتكررش الرسالة).
+                        if (class_exists('Notification')) {
+                            Notification::notify(
+                                $userId,
+                                'payment_failed',
+                                'تعذّر إتمام الدفع',
+                                'رصيدك الحالي مش كافي - جدّد رصيد محفظتك وحاول تاني.',
+                                '/subscription'
+                            );
+                        }
+                        return [
+                            'success' => false,
+                            'error' => $isPlanChange ? 'رصيدك الحالي غير كافي لدفع فرق السعر' : 'رصيدك الحالي غير كافي',
+                            'balance' => $freshBalance,
+                            'required' => $chargeAmount,
+                            'shortfall' => round($chargeAmount - $freshBalance, 2),
+                            'is_plan_change' => $isPlanChange,
+                        ];
+                    }
+                }
+
                 // خصم الفرق (أو السعر الكامل لو اشتراك جديد) - كحركة مكتملة
                 // فورًا. لو الفرق صفر أو سالب (تخفيض)، مفيش حركة محفظة خالص
                 // (لا خصم ولا استرجاع تلقائي).
@@ -191,6 +236,66 @@ class WalletService {
                         'idempotency_key' => $idempotencyKey,
                     ]);
                     $chargeTx->save();
+                    $this->checkLowBalanceAndNotify($userId);
+
+                    // Section 3/9: تسجيل موازٍ في سجل payment_transactions
+                    // الموحّد - عشان أي استرجاع مستقبلي (RefundService)
+                    // يقدر يتعامل مع الخصم ده زي أي معاملة دفع تانية،
+                    // بدل ما يكون معزول جوه wallet_transactions بس.
+                    // معزولة في try/catch مستقلة تمامًا - فشلها ميلغيش
+                    // الخصم أو الاشتراك اللي نجحوا فعلًا.
+                    try {
+                        $adapter = new WalletGatewayAdapter();
+                        $intent = $adapter->createPaymentIntent($userId, $chargeAmount, 'USD', [
+                            'plan' => $planKey, 'plan_type' => $planType, 'is_plan_change' => $isPlanChange,
+                        ]);
+                        $adapter->markSettled($intent['internal_transaction_id'], true, (int) $chargeTx->getAttribute('id'));
+                    } catch (Exception $ledgerError) {
+                        Logger::error('payment_transactions ledger write failed (charge already succeeded)', [
+                            'user_id' => $userId, 'message' => $ledgerError->getMessage(),
+                        ]);
+                    }
+                }
+
+                // تصحيح (2026-08-15 / Phase 17 - Prorated Downgrade Credit):
+                // لو التخفيض (chargeAmount سالب) والمنصة فعّلت الرجوع
+                // التلقائي، نضيف فرق السعر رصيد موجبة لمحفظة العميل.
+                // مقفول افتراضيًا (ALLOW_PRORATED_DOWNGRADE_CREDIT = false)
+                // - قرار مالي بياخده مالك المنصة مش الكود.
+                if ($chargeAmount < 0 && self::ALLOW_PRORATED_DOWNGRADE_CREDIT) {
+                    $creditAmount = abs($chargeAmount);
+                    $creditTx = new WalletTransaction();
+                    $creditTx->fill([
+                        'user_id' => $userId,
+                        'type' => 'subscription_credit',
+                        'amount' => $creditAmount,
+                        'currency' => 'USD',
+                        'status' => 'completed',
+                        'reference_note' => 'رصيد فرق تخفيض الباقة من "' . $plan['name'] . '"',
+                        'approved_at' => date('Y-m-d H:i:s'),
+                        'idempotency_key' => $idempotencyKey,
+                    ]);
+                    $creditTx->save();
+
+                    ActivityLog::record('wallet', 'wallet.downgrade_credited', [
+                        'user_id' => $userId,
+                        'subject_type' => 'wallet_transactions',
+                        'subject_id' => (int) $creditTx->getAttribute('id'),
+                        'meta' => [
+                            'plan' => $planKey, 'type' => $planType,
+                            'old_price' => $oldPrice, 'new_price' => $newPrice, 'credited' => $creditAmount,
+                        ],
+                    ]);
+
+                    if (class_exists('Notification')) {
+                        Notification::notify(
+                            $userId,
+                            'wallet_downgrade_credit',
+                            'اتضاف رصيد لمحفظتك',
+                            'بسبب تخفيض باقتك لـ "' . $plan['name'] . '"، اتضاف فرق السعر ' . $creditAmount . '$ لرصيد محفظتك.',
+                            '/subscription'
+                        );
+                    }
                 }
 
                 // لو ده تغيير باقة، نلغي الاشتراك القديم أولاً عشان ميفضلش
@@ -268,7 +373,8 @@ class WalletService {
     }
 
     /** كل حركات محفظة مستخدم معيّن (لعرضها في صفحة الاشتراك) */
-    public function getHistory(int $userId, int $limit = 30): array {
+    public function getHistory(int $userId, int $limit = 30): array
+    {
         return (new WalletTransaction())->where(['user_id' => $userId], ['created_at' => 'DESC'], $limit);
     }
 
@@ -276,7 +382,8 @@ class WalletService {
      * الأدمن يضيف رصيد مباشر لعميل معيّن - بيتسجّل "مكتمل" فورًا (مفيش
      * موافقة لازمة، الأدمن نفسه هو اللي بيوافق بالفعل بضغطة الزرار).
      */
-    public function adminAddBalance(int $userId, float $amount, int $adminId, string $note = ''): WalletTransaction {
+    public function adminAddBalance(int $userId, float $amount, int $adminId, string $note = ''): WalletTransaction
+    {
         if ($amount <= 0) {
             throw new Exception('المبلغ لازم يكون أكبر من صفر');
         }
@@ -302,7 +409,8 @@ class WalletService {
      * توليد دفعة بطاقات شحن جديدة - كل بطاقة بكود فريد بصيغة سهلة
      * القراءة (زي أمازون بالظبط: TRFC-XXXX-XXXX-XXXX).
      */
-    public function generateRechargeCards(int $count, float $value, int $adminId, string $batchLabel = ''): array {
+    public function generateRechargeCards(int $count, float $value, int $adminId, string $batchLabel = ''): array
+    {
         if ($count <= 0 || $count > 500) {
             throw new Exception('عدد البطاقات لازم يكون بين 1 و 500');
         }
@@ -328,7 +436,8 @@ class WalletService {
         return $cards;
     }
 
-    private function generateUniqueCardCode(): string {
+    private function generateUniqueCardCode(): string
+    {
         do {
             $code = 'TRFC-' . strtoupper(bin2hex(random_bytes(2))) . '-' . strtoupper(bin2hex(random_bytes(2))) . '-' . strtoupper(bin2hex(random_bytes(2)));
             $exists = !empty((new WalletRechargeCard())->where(['code' => $code], [], 1));
@@ -340,7 +449,8 @@ class WalletService {
      * العميل يشحن بطاقة - بيتأكد إن الكود صحيح ومستخدمش قبل كده،
      * ويضيف قيمتها لرصيد محفظته فورًا.
      */
-    public function redeemCard(int $userId, string $code): array {
+    public function redeemCard(int $userId, string $code): array
+    {
         $code = strtoupper(trim($code));
         $rows = (new WalletRechargeCard())->where(['code' => $code], [], 1);
 
@@ -376,7 +486,8 @@ class WalletService {
     }
 
     /** كل طلبات الإيداع المعلّقة (لعرضها في لوحة الأدمن) */
-    public function getPendingDeposits(): array {
+    public function getPendingDeposits(): array
+    {
         return (new WalletTransaction())->where(['type' => 'deposit', 'status' => 'pending'], ['created_at' => 'ASC']);
     }
 
@@ -385,7 +496,8 @@ class WalletService {
      * هذا الشهر، عدد الطلبات المعلّقة، إجمالي أرصدة كل العملاء، وإجمالي
      * خصومات "ادفع حسب الاستخدام" هذا الشهر.
      */
-    public function getAdminStats(): array {
+    public function getAdminStats(): array
+    {
         try {
             $depositsThisMonth = $this->db->query(
                 "SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count FROM wallet_transactions
@@ -430,7 +542,8 @@ class WalletService {
      * مرة حد (أدمن) يفتح إحصائيات الفوترة في اليوم ده. لو اليوم مسجّل
      * بالفعل، الاستعلام بيتجاهل التكرار (ON DUPLICATE KEY).
      */
-    private function snapshotTodayMetricsIfNeeded(array $billing): bool {
+    private function snapshotTodayMetricsIfNeeded(array $billing): bool
+    {
         if ($billing['mrr'] === null) {
             return false; // مفيش بيانات كافية أصلاً - متسجّلش لقطة مضلّلة
         }
@@ -449,12 +562,75 @@ class WalletService {
     }
 
     /**
+     * تحليل تنافسي (Stripe/Chargebee/Paddle): "الإيراد لكل ميزة" -
+     * تفصيل إيراد "ادفع حسب الاستخدام" الشهري لكل ميزة على حدة، مع
+     * إجمالي عدد مرات الاستخدام. العمود feature_key بيتعبى من Phase 17
+     * (كانت الميزات بتختفي قبل كده). لو صفوف قديمة مفيهاش feature_key
+     * (NULL)، بتتجمع تحت مفتاح '_unmapped' عشان ميحصلش فقد صامت للبيانات.
+     */
+    public function getUsageRevenueBreakdown(?int $year = null, ?int $month = null): array
+    {
+        $year = $year ?: (int) date('Y');
+        $month = $month ?: (int) date('n');
+        try {
+            $rows = $this->db->query(
+                "SELECT COALESCE(feature_key, '_unmapped') AS feature_key,
+                        COUNT(*) AS usage_count,
+                        COALESCE(SUM(ABS(amount)), 0) AS revenue
+                 FROM wallet_transactions
+                 WHERE type = 'subscription_charge' AND status = 'completed'
+                   AND feature_key IS NOT NULL
+                   AND YEAR(created_at) = ? AND MONTH(created_at) = ?
+                 GROUP BY feature_key
+                 ORDER BY revenue DESC",
+                [$year, $month]
+            );
+            // الصفوف القديمة (feature_key = NULL) - بنعدّها من reference_note
+            // بس مجموعها الكلي، عشان النقطة المؤقتة دي متضيعش إيراد.
+            $legacy = $this->db->query(
+                "SELECT COUNT(*) AS usage_count, COALESCE(SUM(ABS(amount)), 0) AS revenue
+                 FROM wallet_transactions
+                 WHERE type = 'subscription_charge' AND status = 'completed'
+                   AND feature_key IS NULL
+                   AND YEAR(created_at) = ? AND MONTH(created_at) = ?",
+                [$year, $month]
+            );
+
+            $breakdown = [];
+            foreach ($rows as $row) {
+                $breakdown[$row['feature_key']] = [
+                    'usage_count' => (int) $row['usage_count'],
+                    'revenue' => round((float) $row['revenue'], 2),
+                ];
+            }
+            if (!empty($legacy) && ((int) $legacy[0]['usage_count']) > 0) {
+                $breakdown['_legacy_unmapped'] = [
+                    'usage_count' => (int) $legacy[0]['usage_count'],
+                    'revenue' => round((float) $legacy[0]['revenue'], 2),
+                ];
+            }
+
+            return [
+                'year' => $year,
+                'month' => $month,
+                'total_revenue' => round(array_sum(array_column($breakdown, 'revenue')), 2),
+                'total_usage_count' => (int) array_sum(array_column($breakdown, 'usage_count')),
+                'breakdown' => $breakdown,
+            ];
+        } catch (Exception $e) {
+            Logger::error('getUsageRevenueBreakdown failed', ['message' => $e->getMessage()]);
+            return ['year' => $year, 'month' => $month, 'total_revenue' => 0.0, 'total_usage_count' => 0, 'breakdown' => []];
+        }
+    }
+
+    /**
      * Phase 10: تاريخ MRR/ARR الحقيقي لآخر N يوم - من اللقطات اللي
      * اتسجّلت فعليًا (lazy snapshot أعلاه). لو المنتج جديد ومفيش لقطات
      * كتير لسه، هترجع مصفوفة قصيرة بس - ده طبيعي ومش خطأ (البيانات
      * بتتكوّن تدريجيًا، مفيش تاريخ ملفّق قبل أول استخدام فعلي للصفحة).
      */
-    public function getMrrTrend(int $days = 30): array {
+    public function getMrrTrend(int $days = 30): array
+    {
         try {
             $rows = $this->db->query(
                 "SELECT snapshot_date, mrr, arr, active_subscriptions FROM billing_metrics_snapshots
@@ -483,7 +659,8 @@ class WalletService {
      * نفس الشهر، الرقم ممكن يبقى أعلى شوية من الحقيقي - محدود التأثير
      * لأن الصف بيتحدّث غالبًا وقت الإلغاء بس فعليًا حسب الكود الحالي.
      */
-    private function getBillingAnalytics(): array {
+    private function getBillingAnalytics(): array
+    {
         $safe = function (string $sql) {
             try {
                 $rows = $this->db->query($sql);
@@ -538,7 +715,8 @@ class WalletService {
     }
 
     /** بيانات الدفع (IBAN/PayPal) القابلة للتعديل من لوحة الأدمن */
-    public function getPaymentSettings(): array {
+    public function getPaymentSettings(): array
+    {
         try {
             $rows = $this->db->query("SELECT setting_key, setting_value FROM wallet_payment_settings");
         } catch (Exception $e) {
@@ -552,7 +730,8 @@ class WalletService {
     }
 
     /** تحديث إعداد دفع واحد من لوحة الأدمن */
-    public function updatePaymentSetting(string $key, string $value): void {
+    public function updatePaymentSetting(string $key, string $value): void
+    {
         $this->db->exec(
             "INSERT INTO wallet_payment_settings (setting_key, setting_value) VALUES (?, ?)
              ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)",
@@ -567,7 +746,8 @@ class WalletService {
     // ============================================
 
     /** كل أسعار الاستخدام الفردي النشطة، مفهرسة بمفتاح الميزة */
-    public function getUsagePricing(): array {
+    public function getUsagePricing(): array
+    {
         try {
             $rows = $this->db->query("SELECT * FROM pay_per_use_pricing WHERE is_active = 1");
         } catch (Exception $e) {
@@ -581,7 +761,8 @@ class WalletService {
     }
 
     /** فحص: هل رصيد العميل كافي لاستخدام ميزة معيّنة مرة واحدة؟ */
-    public function canAffordUsage(int $userId, string $featureKey): array {
+    public function canAffordUsage(int $userId, string $featureKey): array
+    {
         $pricing = $this->getUsagePricing();
         $price = $pricing[$featureKey] ?? null;
 
@@ -605,30 +786,82 @@ class WalletService {
     /**
      * خصم فعلي لثمن استخدام ميزة واحدة من المحفظة. بترجع false لو الرصيد
      * مش كافي (بدل ما تخصم قيمة سالبة/تدّي رصيد بالسالب بالغلط).
+     *
+     * تصحيح حرج (2026-08-12 / Phase 14 - Atomic Pay-As-You-Go): كانت
+     * الدالة دي بتقرأ الرصيد ثم تكتب الخصم في خطوتين منفصلتين من غير
+     * أي قفل أو Transaction - يعني طلبين متزامنين لنفس العميل (زي مثال
+     * Balance=100 وطلبين بـ80) كانوا يقدروا الاتنين يعدّوا فحص "الرصيد
+     * كافي" في نفس اللحظة قبل ما أي واحد يكتب، فيتم خصم الاتنين ويوصل
+     * الرصيد لسالب. دلوقتي العملية كلها جوه Database Transaction، مع
+     * قفل صف المستخدم نفسه (SELECT ... FOR UPDATE) - أي طلب تاني لنفس
+     * العميل بيستنى لحد ما القفل يتفك (يعني بعد ما أول عملية تخلص وتلتزم
+     * فعليًا)، فيعيد حساب الرصيد الحقيقي المُحدَّث ويرفض لو مبقاش كافي -
+     * بدل ما ينفّذ عمليتين مش المفروض تتنفّذ الاتنين مع بعض.
+     *
+     * @param string|null $idempotencyKey مفتاح فريد اختياري لمنع تكرار
+     *        نفس الخصم لو نفس الطلب اتبعت مرتين (شبكة/دبل-كليك).
      */
-    public function chargeForUsage(int $userId, string $featureKey, string $note = ''): bool {
-        $check = $this->canAffordUsage($userId, $featureKey);
-        if (!$check['can_afford']) {
+    public function chargeForUsage(int $userId, string $featureKey, string $note = '', ?string $idempotencyKey = null): bool
+    {
+        $pricing = $this->getUsagePricing();
+        $price = $pricing[$featureKey] ?? null;
+        if (!$price) {
             return false;
         }
+        $unitPrice = (float) $price['price'];
 
-        $tx = new WalletTransaction();
-        $tx->fill([
-            'user_id' => $userId,
-            'type' => 'subscription_charge',
-            'amount' => -$check['price'],
-            'currency' => 'USD',
-            'status' => 'completed',
-            'reference_note' => $note ?: $featureKey,
-            'approved_at' => date('Y-m-d H:i:s'),
-        ]);
-        $tx->save();
+        try {
+            return $this->db->transaction(function () use ($userId, $featureKey, $unitPrice, $note, $idempotencyKey) {
+                // قفل صف المستخدم - أي عملية خصم تانية لنفس اليوزر (سواء
+                // usage charge أو subscribe/upgrade) بتتسلسل خلف القفل ده
+                // بدل ما تتنافس على قراءة رصيد قديم.
+                $this->db->query("SELECT id FROM users WHERE id = ? FOR UPDATE", [$userId]);
 
-        return true;
+                if ($idempotencyKey) {
+                    $existing = $this->db->query(
+                        "SELECT id FROM wallet_transactions WHERE idempotency_key = ? LIMIT 1",
+                        [$idempotencyKey]
+                    );
+                    if (!empty($existing)) {
+                        return true; // نفس الطلب اتنفّذ قبل كده - مش خطأ، بس منفّذوش تاني
+                    }
+                }
+
+                // إعادة حساب الرصيد جوه القفل - ده الرصيد الحقيقي المضمون
+                // دلوقتي، مش اللي اتقرا قبل الدخول في الـ transaction.
+                $balance = $this->getBalance($userId);
+                if ($balance < $unitPrice) {
+                    return false;
+                }
+
+                $tx = new WalletTransaction();
+                $tx->fill([
+                    'user_id' => $userId,
+                    'type' => 'subscription_charge',
+                    'amount' => -$unitPrice,
+                    'currency' => 'USD',
+                    'status' => 'completed',
+                    'reference_note' => $note ?: $featureKey,
+                    // Phase 17: feature_key لتحليل "الإيراد لكل ميزة" -
+                    // كان بيختفي وبيتحفظ Arabic label بس في reference_note.
+                    'feature_key' => $featureKey,
+                    'approved_at' => date('Y-m-d H:i:s'),
+                    'idempotency_key' => $idempotencyKey,
+                ]);
+                $tx->save();
+                $this->checkLowBalanceAndNotify($userId);
+
+                return true;
+            });
+        } catch (Exception $e) {
+            Logger::error('chargeForUsage failed', ['user_id' => $userId, 'feature' => $featureKey, 'message' => $e->getMessage()]);
+            return false;
+        }
     }
 
     /** كل أسعار الاستخدام (نشطة وغير نشطة) - لعرضها وتعديلها في لوحة الأدمن */
-    public function getAllUsagePricingForAdmin(): array {
+    public function getAllUsagePricingForAdmin(): array
+    {
         try {
             return $this->db->query("SELECT * FROM pay_per_use_pricing ORDER BY id ASC");
         } catch (Exception $e) {
@@ -637,11 +870,77 @@ class WalletService {
     }
 
     /** تحديث سعر استخدام ميزة واحدة من لوحة الأدمن */
-    public function updateUsagePricing(int $id, float $price, bool $isActive): void {
+    public function updateUsagePricing(int $id, float $price, bool $isActive): void
+    {
         $this->db->exec(
             "UPDATE pay_per_use_pricing SET price = ?, is_active = ? WHERE id = ?",
             [$price, $isActive ? 1 : 0, $id]
         );
+    }
+
+    /** حد "رصيد منخفض" - تحت الرقم ده بيتبعت تنبيه (مرة واحدة كل يوم بالكتير) */
+    private const LOW_BALANCE_THRESHOLD = 10.0;
+
+    /**
+     * هل نرجع رصيد تلقائي للعميل عند التخفيض (downgrade)؟
+     *
+     * تحليل تنافسي (Stripe Billing / Chargebee / Paddle): المنصات العالمية
+     * العالمية بتعمل prorated credit تلقائي عند تغيير الباقة لأسفل -
+     * العميل بياخد فرق السعر عن الأيام المتبقية من الفترة الحالية رصيد
+     * في محفظته بدل ما يخسر فلوسه.
+     *
+     * ❌ قيمتها حاليًا false (سياسة محافظة مستمرة من قبل): التخفيض
+     * بيفعّل الباقة الجديدة من غير أي استرجاع تلقائي. ده قرار مالي
+     * حقيقي بيأثر على إيراد المنصة، فمش هيتفعّل في الكود إلا بقرار
+     * صريح من مالك المنصة - غيّر القيمة لـ true هنا لما تقرر كده.
+     *
+     * ⚠️ ملحوظة تقنية: المبلغ المرتجع هنا هو فرق السعر الكامل
+     * (old - new) مش "pro-rated" حرفيًا على الأيام المتبقية - لأن
+     * التسعير الحالي بيخصم الفرق الكامل عند الترقية برضه (متماثل
+     * الاتجاهين). لو احتجناهم pro-rating حقيقي بدقة على اليوم، ده
+     * بيتطلب تخزين تاريخ بداية الفترة (متاح فعلًا في subscriptions
+     * كـ current_period_start) ويبقى تعديل منفصل موثّق.
+     */
+    private const ALLOW_PRORATED_DOWNGRADE_CREDIT = false;
+
+    /**
+     * Section 13: تنبيه "رصيد منخفض" - بيتنده بعد أي خصم ناجح (استخدام
+     * فردي أو اشتراك). Dedup مرة واحدة في اليوم لكل عميل (نفس نمط
+     * تذكير التجديد) عشان ميبقاش إشعار مزعج على كل عملية صغيرة تحت الحد.
+     */
+    private function checkLowBalanceAndNotify(int $userId): void
+    {
+        try {
+            $balance = $this->getBalance($userId);
+            if ($balance >= self::LOW_BALANCE_THRESHOLD) {
+                return;
+            }
+
+            $today = date('Y-m-d');
+            $already = $this->db->query(
+                "SELECT id FROM activity_logs WHERE module = 'wallet' AND action = 'wallet.low_balance_notified'
+                 AND user_id = ? AND DATE(created_at) = ? LIMIT 1",
+                [$userId, $today]
+            );
+            if (!empty($already)) {
+                return;
+            }
+
+            if (class_exists('Notification')) {
+                Notification::notify(
+                    $userId,
+                    'wallet_low_balance',
+                    'رصيد محفظتك منخفض',
+                    'رصيدك الحالي $' . number_format($balance, 2) . ' - جدّده عشان متتأثرش خدماتك.',
+                    '/subscription'
+                );
+            }
+            ActivityLog::record('wallet', 'wallet.low_balance_notified', [
+                'user_id' => $userId, 'meta' => ['balance' => $balance],
+            ]);
+        } catch (Exception $e) {
+            Logger::error('checkLowBalanceAndNotify failed', ['user_id' => $userId, 'message' => $e->getMessage()]);
+        }
     }
 
     /**
@@ -660,7 +959,8 @@ class WalletService {
      * لازم تتأكد من أعمدة الجدول الحقيقية أول Deployment (SHOW COLUMNS
      * FROM invoices;) وتظبط القائمة تحت لو فيه فرق.
      */
-    private function createInvoiceForCharge(int $userId, string $planKey, array $plan, string $planType, float $amount, ?WalletTransaction $chargeTx): void {
+    private function createInvoiceForCharge(int $userId, string $planKey, array $plan, string $planType, float $amount, ?WalletTransaction $chargeTx): void
+    {
         try {
             $invoiceNumber = 'INV-' . date('Ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 6));
             $cycleLabel = $planType === 'yearly' ? 'سنوي' : 'شهري';
@@ -670,13 +970,39 @@ class WalletService {
                 'quantity' => 1,
             ]], JSON_UNESCAPED_UNICODE);
 
+            // Section 12: ضريبة معلوماتية بس - من دولة العميل الحقيقية
+            // في billing_profile لو موجودة. مفيش نسبة افتراضية، ومفيش
+            // إضافة تلقائية لمبلغ amount المخصوم فعليًا (شوف تعليق
+            // migration الأعمدة). لو فشل الاستعلام لأي سبب، الفاتورة
+            // لسه بتتعمل عادي من غير بيانات ضريبة.
+            $taxCountry = null;
+            $taxType = null;
+            $taxAmount = null;
+            try {
+                if (class_exists('BillingProfile') && class_exists('TaxService')) {
+                    $profile = BillingProfile::forUser($userId);
+                    $country = $profile ? $profile->getAttribute('country') : null;
+                    if ($country) {
+                        $tax = (new TaxService())->computeTax($amount, $country);
+                        if ($tax['configured']) {
+                            $taxCountry = $tax['country_code'];
+                            $taxType = $tax['tax_type'];
+                            $taxAmount = $tax['tax_amount'];
+                        }
+                    }
+                }
+            } catch (Exception $taxError) {
+                Logger::error('Invoice tax lookup failed (invoice still created without tax data)', ['message' => $taxError->getMessage()]);
+            }
+
             $this->db->exec(
                 "INSERT INTO invoices
-                    (user_id, invoice_number, plan_name, plan_type, amount, currency, status,
-                     payment_method, transaction_id, items, due_date, paid_at, created_at)
-                 VALUES (?, ?, ?, ?, ?, 'USD', 'paid', 'wallet', ?, ?, CURDATE(), NOW(), NOW())",
+                    (user_id, invoice_number, plan_name, plan_type, amount, subtotal, tax_country, tax_type, tax_amount,
+                     currency, status, payment_method, transaction_id, items, due_date, paid_at, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'USD', 'paid', 'wallet', ?, ?, CURDATE(), NOW(), NOW())",
                 [
-                    $userId, $invoiceNumber, ($plan['name'] ?? $planKey), $planType, $amount,
+                    $userId, $invoiceNumber, ($plan['name'] ?? $planKey), $planType, $amount, $amount,
+                    $taxCountry, $taxType, $taxAmount,
                     $chargeTx ? 'wallet_tx_' . $chargeTx->getAttribute('id') : 'wallet_no_charge',
                     $items,
                 ]

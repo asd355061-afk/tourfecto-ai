@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Weekly Digest Scheduler
  * @version 1.0.0
@@ -108,7 +109,11 @@ try {
     $durationMs = round((microtime(true) - $startedAt) * 1000);
     fwrite(STDOUT, sprintf(
         "[%s] CI Weekly Digest: sent=%d skipped=%d total_opted_in=%d (%dms)\n",
-        date('Y-m-d H:i:s'), $sent, $skipped, count($users), $durationMs
+        date('Y-m-d H:i:s'),
+        $sent,
+        $skipped,
+        count($users),
+        $durationMs
     ));
 } catch (Throwable $e) {
     fwrite(STDERR, '[' . date('Y-m-d H:i:s') . '] CI weekly digest error: ' . $e->getMessage() . "\n");

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Legal Controller
  * الصفحات القانونية (الشروط، الخصوصية، الكوكيز، GDPR)
@@ -14,9 +15,10 @@
  * أو كاليفورنيا/CCPA).
  */
 
-class LegalController extends Controller {
-
-    private function pageShell(string $title, string $bodyHtml): string {
+class LegalController extends Controller
+{
+    private function pageShell(string $title, string $bodyHtml): string
+    {
         $appName = defined('APP_NAME') ? APP_NAME : 'Tourfecto';
         $brandHtml = site_brand_html();
         $lang = current_lang();
@@ -140,7 +142,8 @@ HTML;
     }
 
     /** GET /terms */
-    public function terms(array $params = []): array {
+    public function terms(array $params = []): array
+    {
         $body = class_exists('SystemSettingsService')
             ? (new SystemSettingsService())->get('terms_content', self::getDefaultTermsHtml())
             : self::getDefaultTermsHtml();
@@ -151,7 +154,8 @@ HTML;
     }
 
     /** المحتوى الافتراضي لشروط الخدمة - نص واحد بيُستخدم هنا وفي لوحة إعدادات الأدمن */
-    public static function getDefaultTermsHtml(): string {
+    public static function getDefaultTermsHtml(): string
+    {
         return <<<'HTML'
 <h1>Terms of Service</h1>
 <div class="updated">Last updated: July 2026</div>
@@ -199,7 +203,8 @@ HTML;
     }
 
     /** GET /privacy */
-    public function privacy(array $params = []): array {
+    public function privacy(array $params = []): array
+    {
         $body = class_exists('SystemSettingsService')
             ? (new SystemSettingsService())->get('privacy_content', self::getDefaultPrivacyHtml())
             : self::getDefaultPrivacyHtml();
@@ -210,7 +215,8 @@ HTML;
     }
 
     /** المحتوى الافتراضي لسياسة الخصوصية - نص واحد بيُستخدم هنا وفي لوحة إعدادات الأدمن */
-    public static function getDefaultPrivacyHtml(): string {
+    public static function getDefaultPrivacyHtml(): string
+    {
         return <<<'HTML'
 <h1>Privacy Policy</h1>
 <div class="updated">Last updated: July 2026</div>
@@ -268,7 +274,8 @@ HTML;
     }
 
     /** GET /cookies */
-    public function cookies(array $params = []): array {
+    public function cookies(array $params = []): array
+    {
         $body = <<<'HTML'
 <h1>Cookie Policy</h1>
 <div class="updated">Last updated: July 2026</div>
@@ -286,7 +293,8 @@ HTML;
     }
 
     /** GET /data-deletion */
-    public function dataDeletion(array $params = []): array {
+    public function dataDeletion(array $params = []): array
+    {
         $body = <<<'HTML'
 <h1>Data Deletion Instructions</h1>
 <div class="updated">Last updated: July 2026</div>
@@ -316,7 +324,8 @@ HTML;
     }
 
     /** GET /gdpr */
-    public function gdpr(array $params = []): array {
+    public function gdpr(array $params = []): array
+    {
         $body = <<<'HTML'
 <h1>GDPR & Data Rights</h1>
 <div class="updated">Last updated: July 2026</div>

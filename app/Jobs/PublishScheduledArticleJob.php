@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Publish Scheduled Article Job
  * تنفيذ فعلي لجدولة نشر المقالات - بيتنفذ من نظام الـ Queue الموجود
@@ -10,9 +11,10 @@
  * @version 1.0.0
  */
 
-class PublishScheduledArticleJob implements QueueJobInterface {
-
-    public function handle(array $payload): void {
+class PublishScheduledArticleJob implements QueueJobInterface
+{
+    public function handle(array $payload): void
+    {
         $articleId = (int) ($payload['article_id'] ?? 0);
         $websiteId = (int) ($payload['website_id'] ?? 0);
         $draft = (bool) ($payload['draft'] ?? false);
@@ -134,7 +136,8 @@ class PublishScheduledArticleJob implements QueueJobInterface {
         }
     }
 
-    private function markFailed(AIArticle $article, string $reason): void {
+    private function markFailed(AIArticle $article, string $reason): void
+    {
         $article->setAttribute('status', 'schedule_failed');
         $article->setAttribute('error_message', $reason);
         $article->save();
@@ -151,7 +154,8 @@ class PublishScheduledArticleJob implements QueueJobInterface {
     }
 
     /** نفس منطق AIController::findPublishingConnection - مكرر هنا لإن الـ Job كلاس مستقل بدون context كنترولر */
-    private function findPublishingConnection(int $websiteId): ?PlatformConnection {
+    private function findPublishingConnection(int $websiteId): ?PlatformConnection
+    {
         foreach (['wordpress', 'custom_api'] as $platform) {
             $connections = (new PlatformConnection())->where([
                 'website_id' => $websiteId,

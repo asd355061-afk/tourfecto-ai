@@ -1,10 +1,12 @@
 <?php
+
 /**
  * Tourfecto - Activity Log Model
  * سجل نشاط موحّد لكل الموديولات (بدل 3 جداول مكررة كانت في الموديولات الأصلية)
  * @version 1.0.0
  */
-class ActivityLog extends Model {
+class ActivityLog extends Model
+{
     protected $table = 'activity_logs';
     protected $fillable = [
         'user_id', 'agency_id', 'module', 'action', 'subject_type',
@@ -15,7 +17,8 @@ class ActivityLog extends Model {
      * تسجيل حدث نشاط - نقطة الدخول الموحدة الوحيدة لكل الموديولات.
      * كل Controller/Service جديد يستخدم هذه الدالة بدل كتابة SQL مباشرة.
      */
-    public static function record(string $module, string $action, array $data = []): void {
+    public static function record(string $module, string $action, array $data = []): void
+    {
         try {
             $log = new self([
                 'user_id'      => $data['user_id'] ?? (function_exists('current_user_id') ? current_user_id() : null),

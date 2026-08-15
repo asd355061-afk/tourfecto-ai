@@ -239,3 +239,128 @@ mysql -u USER -p DATABASE < database/migrations/2026_08_08_000001_create_ai_chat
 | 33 | CHANGELOG | ✅ هذا الملف |
 | 34 | عزل النطاق (AI Chat فقط) | ✅ لا لمسة لأي Module آخر |
 | 35 | الهدف النهائي الشامل | ✅ محقَّق على مستوى Backend/API |
+
+---
+
+## 9) إضافة: الدمج النهائي داخل المشروع (2026-08-15)
+
+بعد مراجعة الريبو على GitHub، اتضح إن ملفات الموديول كانت موجودة لكن
+**مش متكاملة فعليًا**: مسارات `/api/ai-chat/*` كانت مسجّلة في ملف
+`app/routes/api_ADDITIONS.php` اللي **مفيش أي كود بيعمله `require`**،
+والكلاسات مش محمّلة في الـ bootstrap اليدوي. الاتنين كانوا هيوقعوا
+"Route not found" / "Class not found" بمجرد تشغيل الموديول. تم دمج كل ده
+بدون أي كسر للموجود:
+
+- `app/routes/api.php` — أُضيفت **25 مسارًا** للموديول في نهاية الملف:
+  - Unified Inbox: `conversations` CRUD + `reply` + `handoff` +
+    `resume-ai` + `reply-suggestions`
+  - Knowledge Base: `index` + `store` + `preview` + `update` + `destroy`
+  - Leads: `index` + `show` + `update`
+  - Follow-up Automation: `show` + `update`
+  - AI Analytics: `index`
+  - ربط القنوات: `POST /api/chat/connect/messenger` + `instagram`
+  - Webhooks (من غير AuthMiddleware): `messenger` + `instagram` (verify GET
+    + delivery POST) + `email`
+  - **لم تُمسَّ أي مسارات قديمة** — أُضيف بلوك واحد نظيف في النهاية.
+- `public_html/index.php` — أُضيفت **25 كلاسًا** لـ `$optionalNewClassFiles`
+  (نفس نمط `file_exists` الآمن الموجود): Providers بالترتيب الصحيح
+  (Interface ← OpenAICompatibleProvider ← المزودين ← AIProviderManager)،
+  Services، Models، و5 Controllers.
+- `cron/bootstrap.php` — أُضيفت كلاسات الموديول المطلوبة لـ
+  `process_ai_followups.php` (ChatManager/UnifiedInboxService/Providers/
+  AiFollowup/... ) في `$optionalJobDependencyFiles`.
+- `.env.example` — أُضيفت `AI_PROVIDER_PRIORITY` + `OPENAI_API_KEY` +
+  `DEEPSEEK_API_KEY` + `KIMI_API_KEY` + `AI_CHAT_RATE_LIMIT_*` (فاضية،
+  الوضع الحالي مش بيكسر: `GEMINI_API_KEY` كافٍ).
+- `tests/route_registration_test.php` — اختبار تشغيل ذاتي يتأكد إن كل
+  مسارات الموديول مسجّلة وبيماتشوا عناوين فعلية (25/25 نجح).
+- ملاحظة: `app/Chat/*` و `app/routes/Models/*` نسخ قديمة/مكررة **غير
+  محمّلة في أي مكان** — اتحقّق إن الموديول بيستخدم نسخ `app/Services/Chat/`
+  و`app/Models/` فقط، فمفيش أي تعارض.
+
+**التحقق**:
+```
+php -l app/routes/api.php public_html/index.php cron/bootstrap.php
+php tests/route_registration_test.php   # 25 passed, 0 failed
+# + فحص تحميل الكلاسات بالترتيب (كل الموديول يتحمّل بدون Class not found)
+```
+
+## 10) إضافة: تحليل المنافسين + تحسين Observability (2026-08-15)
+
+تحليل استراتيجي لمنافسي AI Chat العالميين (Intercom Fin، Zendesk AI
+Agents، Tidio/Lyro، Chatwoot، Gorgias، Wati/ManyChat) — النتيجة في:
+`docs/COMPETITIVE_ANALYSIS_AI_CHAT.md`. أبرز المواضع المستلهمة:
+
+- حلقة تعلّم مستمرة + مراقبة "What's working" عند Gorgias/Zendesk.
+- RAG مرتبط بـ Knowledge Base (مش مجرد LLM عام) — موجود عندنا بالفعل.
+- Copilot للموظف (Reply Suggestions) مش بديل له.
+
+**التحسين المنفَّذ (Observability)**:
+- `AIProviderManager::health(?int $websiteId)` — دالة جديدة بتُرجع:
+  - المزودين المهيّئين + الموديل لكل مزود + موقعه في ترتيب الأفضلية.
+  - ملخص آخر 24 ساعة من `ai_usage_logs` (نجاح/فشل/fallback/توكنز/تكلفة)
+    لكل مزود وإجمالًا، مع `status` (healthy/degraded/no_data).
+  - **لا تُرجع أي API Key إطلاقًا** (قراءة صريحة موثقة).
+- `AiAnalyticsController::index` — يستدعي `health()` ويُعيد الحقل الجديد
+  `provider_health` بجانب `dashboard` (متوافق، لم يُحذف شيء).
+- فشل قراءة الملخص يُسجَّل فقط ولا يكسر الاستجابة (نفس نمط
+  `logUsage` الآمن من الفشل).
+
+## 11) إضافة: Learning Loop + Re-ranking + لغات دولية (2026-08-16)
+
+**أ. Learning Loop (Resolution Learning Loop — Zendesk/Intercom Fin)**
+- Migration جديدة `2026_08_16_000001_create_ai_learning_loop_tables.sql`:
+  - `ai_resolution_events`: نتيجة كل محادثة عند حلها
+    (ai_resolved / human_resolved / abandoned / reopened) + القناة + اللغة
+    + سبب التحويل + آخر ثقة للـAI.
+  - `ai_knowledge_gaps`: فجوات المعرفة (أسئلة لم يستطع الـAI الإجابة
+    عنها فتحوّل لموظف) — مجمّعة بالسؤال بعد التسوية النصية، مع
+    occurrence_count للأسئلة المتكررة، وحالة (new/acknowledged/added_to_kb/
+    dismissed). نفس المحادثة تُسجَّل مرة واحدة فقط (UNIQUE).
+- `LearningLoopService` (جديد):
+  - `recordResolution()` + `recordResolutionForClosedConversation()` —
+    تسجيل النتيجة عند إغلاق المحادثة (ChatInboxController::update).
+  - `recordKnowledgeGap()` — تسجيل/تجميع فجوة معرفة مع منع التكرار.
+  - `scanKnowledgeGaps()` — مسح المحادثات المحوّلة لأسباب معرفية واستخراج
+    آخر رسالة عميل قبل التحويل كفجوة (Flywheel).
+  - `getLearningInsights()` — معدلات الحل + أسباب التحويل + أهم الفجوات.
+  - `updateGapStatus()` — إدارة الحالة مع عزل بيانات الموقع.
+  - كل دواله محايدة اللغة (agnostic) وتعمل على أي لغة، وآمنة من الفشل.
+- `AIConversationEngine` — عند التحويل لموظف لسبب معرفي
+  (outside_knowledge_base/low_ai_confidence/ai_requested_handoff) يسجّل
+  سؤال العميل كفجوة تلقائيًا.
+- `AiLearningController` (جديد) + 3 مسارات:
+  - `GET /api/ai-chat/websites/{id}/learning/gaps`
+  - `POST /api/ai-chat/websites/{id}/learning/gaps/{gapId}/status`
+  - `POST /api/ai-chat/websites/{id}/learning/gaps/scan`
+- `AiAnalyticsController` — يُعيد `learning_loop` (resolution_events +
+  ai_resolution_rate_percent + escalation_reasons + knowledge_gaps).
+
+**ب. Re-ranking لقاعدة المعرفة (RAG — Intercom Fin Reranker)**
+- `KnowledgeBaseService::rerankForQuery()` — ترتيب عناصر قاعدة المعرفة
+  حسب صلة كل عنصر برسالة العميل: تطابق كلمات (عنوان أعلى وزنًا من محتوى)
+  + وزن قسم (FAQ/Pricing/Tour أعلى) + أولوية. خوارزمية محايدة اللغة
+  (عربي/إنجليزي/أي لغة) بدون أي خدمة خارجية.
+- `buildContextForPrompt()` — معاملات جديدة اختيارية:
+  `$customerMessage` + `$maxEntries`. عند توفّرهما تُستخدم إعادة الترتيب
+  ويُحقن الأعلى صلة فقط (أدق + أوفر توكنز). **متوافق رجعيًا**: الاستدعاءات
+  القديمة بس معاملين تعمل كما كانت تمامًا.
+- `AIConversationEngine` — يمرر رسالة العميل مع حد 12 عنصرًا.
+
+**ج. لغات دولية (المنصة دولية وليست عربية فقط)**
+- القيم الافتراضية للغة غُيّرت من `'ar'` إلى `'en'` في:
+  `KnowledgeBaseService::addEntry`، `AiKnowledgeBaseController::store`،
+  `AIConversationEngine` (fallback)، `AiReplySuggestionsService`.
+- اللغة ما زالت تُكتشف تلقائيًا من نص العميل (`detectLanguage`)؛ الافتراضي
+  الجديد يُستخدم فقط عند غياب أي دليل لغة.
+
+**التحقق**:
+```
+php -l app/Services/AI/LearningLoopService.php app/Services/AI/KnowledgeBaseService.php \
+      app/Services/AI/AIConversationEngine.php app/Controllers/AiLearningController.php \
+      app/routes/api.php public_html/index.php cron/bootstrap.php
+php tests/route_registration_test.php   # 28 passed, 0 failed
+# + فحص تحميل الكلاسات (27 كلاسًا بدون redeclare) + اختبار منطق الـRerank
+#   (عربي/إنجليزي) + اختبار LearningLoop بقاعدة بيانات وهمية (فصل/فجوات/عزل)
+```
+

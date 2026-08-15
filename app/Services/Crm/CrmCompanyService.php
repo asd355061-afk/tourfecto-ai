@@ -1,9 +1,12 @@
 <?php
+
 /** Tourfecto - CRM Company Service @version 1.1.0 */
-class CrmCompanyService {
+class CrmCompanyService
+{
     use CrmPaginationHelper;
 
-    public function create(int $userId, array $data): CrmCompany {
+    public function create(int $userId, array $data): CrmCompany
+    {
         if (empty($data['name'])) {
             throw new Exception('اسم الشركة مطلوب');
         }
@@ -30,7 +33,8 @@ class CrmCompanyService {
         return $company;
     }
 
-    public function findOwned(int $userId, int $companyId): CrmCompany {
+    public function findOwned(int $userId, int $companyId): CrmCompany
+    {
         $company = (new CrmCompany())->find($companyId);
         if (!$company || (int) $company->getAttribute('user_id') !== $userId) {
             throw new Exception('الشركة غير موجودة', 404);
@@ -38,7 +42,8 @@ class CrmCompanyService {
         return $company;
     }
 
-    public function update(int $userId, int $companyId, array $data): CrmCompany {
+    public function update(int $userId, int $companyId, array $data): CrmCompany
+    {
         $company = $this->findOwned($userId, $companyId);
         foreach (['name', 'industry', 'website', 'phone', 'email', 'address', 'city', 'country', 'company_size', 'notes'] as $field) {
             if (array_key_exists($field, $data)) {
@@ -54,17 +59,25 @@ class CrmCompanyService {
         return $company;
     }
 
-    public function listForUser(int $userId, int $limit = 200): array {
+    public function listForUser(int $userId, int $limit = 200): array
+    {
         return (new CrmCompany())->allForUser($userId, $limit);
     }
 
     /** Filters + Pagination حقيقي (بند 29، 37) */
-    public function search(int $userId, array $filters = [], int $page = 1, int $perPage = 25): array {
+    public function search(int $userId, array $filters = [], int $page = 1, int $perPage = 25): array
+    {
         $where = ['user_id = ?'];
         $params = [$userId];
 
-        if (!empty($filters['industry'])) { $where[] = 'industry = ?'; $params[] = $filters['industry']; }
-        if (!empty($filters['country'])) { $where[] = 'country = ?'; $params[] = $filters['country']; }
+        if (!empty($filters['industry'])) {
+            $where[] = 'industry = ?';
+            $params[] = $filters['industry'];
+        }
+        if (!empty($filters['country'])) {
+            $where[] = 'country = ?';
+            $params[] = $filters['country'];
+        }
         if (!empty($filters['search'])) {
             $where[] = '(name LIKE ? OR email LIKE ? OR website LIKE ?)';
             $like = '%' . $filters['search'] . '%';

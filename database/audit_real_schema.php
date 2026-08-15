@@ -1,4 +1,5 @@
 <?php
+
 /**
  * أداة تشخيص السكيمة الحقيقية — Phase 0
  * ====================================
@@ -30,7 +31,8 @@ if (class_exists('Dotenv\\Dotenv') && file_exists($root . '/.env')) {
     $dotenv->load();
 }
 
-function env(string $key, $default = null) {
+function env(string $key, $default = null)
+{
     $value = $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key);
     return $value === false ? $default : $value;
 }

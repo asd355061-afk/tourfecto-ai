@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Auto Reply Engine
  * محرك توليد الردود التلقائية الذكية
@@ -7,31 +8,33 @@
  * @copyright 2026 Tourfecto
  */
 
-class AutoReplyEngine {
+class AutoReplyEngine
+{
     /**
      * @var TourfectoAIEngine $aiEngine - محرك الذكاء الاصطناعي
      */
     private $aiEngine;
-    
+
     /**
      * @var array $replyTemplates - قوالب الردود
      */
     private $replyTemplates = [];
-    
+
     /**
      * @var array $fallbackReplies - ردود احتياطية
      */
     private $fallbackReplies = [];
-    
+
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         $this->aiEngine = new TourfectoAIEngine();
         $this->loadTemplates();
         $this->loadFallbackReplies();
     }
-    
+
     /**
      * توليد رد تلقائي
      * @param string $message - رسالة العميل
@@ -77,30 +80,30 @@ class AutoReplyEngine {
 
             // 1. التحقق من وجود سياق سابق
             $hasContext = !empty($context);
-            
+
             // 2. تحليل الرسالة
             $processed = $this->analyzeMessage($message);
-            
+
             // 3. محاولة استخدام AI
             $aiReply = $this->aiEngine->generateChatReply(
                 $message,
                 $userId,
                 $context
             );
-            
+
             if ($aiReply) {
                 return $this->postProcessReply($aiReply, $processed);
             }
-            
+
             // 4. استخدام القوالب الذكية
             $templateReply = $this->generateFromTemplate($processed, $context);
             if ($templateReply) {
                 return $templateReply;
             }
-            
+
             // 5. استخدام ردود احتياطية
             return $this->getFallbackReply($processed['intent']);
-            
+
         } catch (Exception $e) {
             Logger::error('Auto Reply Generation Error', [
                 'message' => $e->getMessage()
@@ -108,15 +111,16 @@ class AutoReplyEngine {
             return $this->getFallbackReply('general');
         }
     }
-    
+
     /**
      * تحليل الرسالة
      * @param string $message
      * @return array
      */
-    private function analyzeMessage(string $message): array {
+    private function analyzeMessage(string $message): array
+    {
         $messageProcessor = new MessageProcessor();
-        
+
         return [
             'cleaned' => $messageProcessor->cleanMessage($message),
             'intent' => $messageProcessor->detectIntent($message),
@@ -125,27 +129,28 @@ class AutoReplyEngine {
             'language' => $messageProcessor->detectLanguage($message)
         ];
     }
-    
+
     /**
      * توليد رد من قالب
      * @param array $processed - البيانات المحللة
      * @param array $context - السياق
      * @return string|null
      */
-    private function generateFromTemplate(array $processed, array $context): ?string {
+    private function generateFromTemplate(array $processed, array $context): ?string
+    {
         $intent = $processed['intent']['primary'] ?? 'general';
         $sentiment = $processed['sentiment']['label'] ?? 'neutral';
-        
+
         $templates = $this->replyTemplates[$intent] ?? $this->replyTemplates['general'];
         $template = $templates[$sentiment] ?? $templates['neutral'] ?? $templates['default'] ?? null;
-        
+
         if (!$template) {
             return null;
         }
-        
+
         return $this->fillTemplate($template, $processed, $context);
     }
-    
+
     /**
      * ملء القالب بالبيانات
      * @param string $template
@@ -153,7 +158,8 @@ class AutoReplyEngine {
      * @param array $context
      * @return string
      */
-    private function fillTemplate(string $template, array $processed, array $context): string {
+    private function fillTemplate(string $template, array $processed, array $context): string
+    {
         $placeholders = [
             '{name}' => $context['customer_name'] ?? 'عميلنا العزيز',
             '{intent}' => $processed['intent']['primary'] ?? 'الاستفسار',
@@ -162,55 +168,58 @@ class AutoReplyEngine {
             '{entity_number}' => $processed['entities']['numbers'][0] ?? '',
             '{sentiment}' => $processed['sentiment']['label'] ?? 'محايد'
         ];
-        
+
         return str_replace(
             array_keys($placeholders),
             array_values($placeholders),
             $template
         );
     }
-    
+
     /**
      * معالجة الرد بعد التوليد
      * @param string $reply
      * @param array $processed
      * @return string
      */
-    private function postProcessReply(string $reply, array $processed): string {
+    private function postProcessReply(string $reply, array $processed): string
+    {
         $reply = trim($reply);
         $reply = preg_replace('/\s+/', ' ', $reply);
-        
+
         if (!preg_match('/[.!?…]$/', $reply)) {
             $reply .= '.';
         }
-        
+
         $sentiment = $processed['sentiment']['label'] ?? 'neutral';
         $friendlyPhrases = [
             'positive' => ['نتمنى لك يوماً سعيداً!', 'شكراً لتواصلك معنا!', 'يسعدنا خدمتك!'],
             'negative' => ['نحن هنا لمساعدتك!', 'سنتواصل معك قريباً!', 'نأسف لأي إزعاج!'],
             'neutral' => ['نحن في خدمتك!', 'شكراً لتواصلك!', 'نتطلع لخدمتك!']
         ];
-        
+
         $phrases = $friendlyPhrases[$sentiment] ?? $friendlyPhrases['neutral'];
         $reply .= ' ' . $phrases[array_rand($phrases)];
-        
+
         return $reply;
     }
-    
+
     /**
      * الحصول على رد احتياطي
      * @param string $intent
      * @return string
      */
-    private function getFallbackReply(string $intent): string {
+    private function getFallbackReply(string $intent): string
+    {
         $replies = $this->fallbackReplies[$intent] ?? $this->fallbackReplies['general'];
         return $replies[array_rand($replies)];
     }
-    
+
     /**
      * تحميل القوالب
      */
-    private function loadTemplates(): void {
+    private function loadTemplates(): void
+    {
         $this->replyTemplates = [
             'booking' => [
                 'positive' => 'يسعدنا جداً أنك ترغب في الحجز معنا {name}! سيكون من دواعي سرورنا خدمتك. هل لديك تاريخ محدد تفضله؟',
@@ -250,11 +259,12 @@ class AutoReplyEngine {
             ]
         ];
     }
-    
+
     /**
      * تحميل الردود الاحتياطية
      */
-    private function loadFallbackReplies(): void {
+    private function loadFallbackReplies(): void
+    {
         $this->fallbackReplies = [
             'booking' => [
                 'شكراً لتواصلك معنا بخصوص الحجز. أحد ممثلي خدمة العملاء سيتواصل معك قريباً.',

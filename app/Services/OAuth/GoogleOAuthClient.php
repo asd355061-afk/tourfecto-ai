@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Google OAuth Client
  * تدفّق OAuth 2.0 القياسي من Google (Authorization Code flow)
@@ -13,7 +14,8 @@
  *  4) القيم دي في .env: GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET,
  *     GOOGLE_OAUTH_REDIRECT_URI
  */
-class GoogleOAuthClient {
+class GoogleOAuthClient
+{
     private const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
     private const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
@@ -35,7 +37,8 @@ class GoogleOAuthClient {
      * @param string $scope واحدة من ثوابت SCOPE_* فوق. افتراضيًا business.manage
      *   عشان الاستدعاءات القديمة (new GoogleOAuthClient() من غير args) تفضل شغالة زي ما هي.
      */
-    public function __construct(string $scope = self::SCOPE_BUSINESS, ?string $redirectUri = null) {
+    public function __construct(string $scope = self::SCOPE_BUSINESS, ?string $redirectUri = null)
+    {
         // تصحيح: كنا بنقرا القيم بـ getenv() مباشرة، وده بيرجع false دايمًا
         // على استضافات زي Hostinger لما putenv() تكون معطّلة (نفس المشكلة
         // الموثّقة في دالة env() بملف app/Helpers/functions.php). استخدام
@@ -56,7 +59,8 @@ class GoogleOAuthClient {
         $this->scope = $scope;
     }
 
-    public function isConfigured(): bool {
+    public function isConfigured(): bool
+    {
         return $this->clientId !== '' && $this->clientSecret !== '' && $this->redirectUri !== '';
     }
 
@@ -64,7 +68,8 @@ class GoogleOAuthClient {
      * بناء رابط "موافقة Google" اللي هنوجّه العميل ليه.
      * @param string $state قيمة عشوائية موقّعة نتحقق منها وقت الرجوع (CSRF protection)
      */
-    public function buildAuthUrl(string $state): string {
+    public function buildAuthUrl(string $state): string
+    {
         $params = [
             'client_id' => $this->clientId,
             'redirect_uri' => $this->redirectUri,
@@ -82,7 +87,8 @@ class GoogleOAuthClient {
      * تبديل authorization code (اللي Google بترجعه في الـ callback) بتوكنات وصول حقيقية.
      * @return array ['success'=>bool, 'access_token'=>?, 'refresh_token'=>?, 'expires_in'=>?, 'error'=>?]
      */
-    public function exchangeCodeForTokens(string $code): array {
+    public function exchangeCodeForTokens(string $code): array
+    {
         return $this->postToken([
             'code' => $code,
             'client_id' => $this->clientId,
@@ -96,7 +102,8 @@ class GoogleOAuthClient {
      * تجديد access_token باستخدام refresh_token المحفوظ (access_token له
      * عمر قصير عادة ساعة واحدة، فلازم يتجدد بانتظام).
      */
-    public function refreshAccessToken(string $refreshToken): array {
+    public function refreshAccessToken(string $refreshToken): array
+    {
         return $this->postToken([
             'refresh_token' => $refreshToken,
             'client_id' => $this->clientId,
@@ -105,7 +112,8 @@ class GoogleOAuthClient {
         ]);
     }
 
-    private function postToken(array $fields): array {
+    private function postToken(array $fields): array
+    {
         try {
             $ch = curl_init(self::TOKEN_URL);
             curl_setopt_array($ch, [

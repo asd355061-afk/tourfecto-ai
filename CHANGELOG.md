@@ -1,17 +1,4 @@
 # Tourfecto AI Chat & Customer Communication Platform
-## المرحلة 12: دمج موديول CRM + الجولة 1 من خطة الترقية التنافسية — 2026-08-15
-
-دمج موديول Tourfecto AI CRM الكامل (137 مسار API موسّع + 8 صفحات ويب + 229 مفتاح
-`crm.*`) ثم تنفيذ أولى فجوات التحليل التنافسي (راجع
-`docs/COMPETITIVE_ANALYSIS.md`): G1 Message Templates، G2 Custom Fields،
-G4 Win/Loss + Sales Goals. التفاصيل الكاملة للترقية في ملف CHANGELOG الخاص
-بالموديول في مستودعه المصدر.
-
-**ملفات جديدة:** 3 migrations (`000006` قوالب، `000007` أهداف مبيعات، `000008`
-حقول مخصصة)، 4 Models، 3 Services (`CrmMessageTemplateService`/
-`CrmReportService`/`CrmCustomFieldService`)، 16 مسار API، 72 مفتاح Lang
-(`crm.templates.*`/`crm.reports.*`/`crm.goals.*`/`crm.custom_fields.*`).
-
 ## المرحلة 5: Notifications + Rate Limiting — 2026-08-08
 
 هذا التسليم يبني فوق **المراحل 1-4**. لا تعديل على `app/routes/api.php`
@@ -242,4 +229,72 @@ Feature موجودة يمكن إعادة استخدامها، استخدمها �
 
 - `php -l` على كل الملفات المعدَّلة - لا أخطاء.
 - `php tests/Unit/RevenueIntelligenceTest.php` → 101/101 ✅ (100%).
+
+---
+
+# AI Revenue Intelligence — الترقية v1.4.0 (Copilot + Retention + Digest) — 2026-08-15
+
+## 1) ما الذي أُضيف ولماذا
+
+- **Revenue Copilot** (`RevenueCopilotService`, v1.0.0): طبقة LLM اختيارية
+  فوق المساعد الصارم. الـLLM (Gemini) مكلَّف فقط بإعادة صياغة/سرد الرد
+  المحسوب من البيانات الحقيقية - prompt صارم: "Never add, change, invent,
+  or remove any number". أي فشل (مفتاح/شبكة/مهلة/نص فارغ) → fallback كامل
+  للرد الأصلي (`copilot_used=false`) - لا إجابة مخترعة أبدًا.
+- **Retention Analytics** (`RevenueRetentionService`, v1.0.0): Cohort
+  Retention، Repeat Purchase Rate، Recurring Stability، وRevenue Retention
+  Rate (GRR-style approximation) - كلها محسوبة من سجل الصفقات المكسوبة
+  الحقيقية (`crm_deals`). NRR/GRR الحرفية **مرفوضة صراحةً** لأن جدول
+  `subscriptions` هو خطة المستخدم نفسه في Tourfecto (صف واحد لكل مستخدم)،
+  ولا يوجد تتبع اشتراكات لكل عميل - فأي رقم NRR/GRR حرفي سيكون مخترعًا.
+- **Daily Revenue Digest** (`SendRevenueDigestJob`, v1.0.0): ملخص بريدي
+  يومي بأرقام حقيقية لحظية (Overview + Forecast + أهم المخاطر عالية
+  الخطورة). يخرج بدون فشل دائم لو الـMailer غير مُهيأ أو لا توجد بيانات.
+- **Retention Tab** في الواجهة: تبويب جديد يعرض الـCohort Retention جدولًا
+  (كل مجموعة أول شراء عبر 6 شهور لاحقة)، وRepeat Purchase، واستقرار
+  الإيراد المتكرر، مع إفصاح NRR/GRR الصريح - بنفس فلسفة "بيانات حقيقية فقط".
+- **Assistant** (v1.4.0): `askWithCopilot()` - نسخة Copilot اختيارية مع
+  `lang` (ar/en)، مع بقاء `ask()` نقيًا/حتميًا للاختبارات.
+
+## 2) الملفات المعدَّلة
+
+- `app/Services/RevenueIntelligence/RevenueCopilotService.php` (جديد v1.0.0):
+  `buildPrompt()` + `enhance()` مع fallback كامل.
+- `app/Services/RevenueIntelligence/RevenueRetentionService.php` (جديد v1.0.0):
+  `computeCohortRetention()`، `computeRepeatPurchaseRate()`،
+  `computeRecurringStability()`، `computeRevenueRetentionRate()`،
+  `getRetentionAnalytics()`.
+- `app/Jobs/SendRevenueDigestJob.php` (جديد v1.0.0): `handle()` + `buildDigestHtml()`.
+- `app/Services/RevenueIntelligence/RevenueDataGateway.php`: أُضيف
+  `getMonthlyRevenueSeries()`.
+- `app/Services/RevenueIntelligence/RevenueAssistantService.php` (v1.4.0):
+  `askWithCopilot()`.
+- `app/Controllers/RevenueIntelligenceController.php`: `apiRetention()` +
+  ربط `apiAssistantAsk` بالـCopilot مع `lang` + تبويب Retention في
+  `pageScript()`.
+- `app/routes/api.php`: `GET /api/revenue-intelligence/retention` (AuthMiddleware).
+- `app/Lang/ar.php` + `app/Lang/en.php`: مفاتيح تبويب وتحليلات الـRetention.
+- `tests/Unit/RevenueIntelligenceTest.php` (v1.4.0): 50 اختبارًا جديدًا
+  (Copilot، Retention، Digest). الإجمالي: **151 اختبارًا، 100% نجاح**.
+
+## 3) قاعدة البيانات
+
+لا تغيير على قاعدة البيانات إطلاقًا.
+
+## 4) لماذا لا يوجد NRR/GRR حرفي؟
+
+- NRR/GRR الحقيقي يتطلب تتبع اشتراك كل عميل (قيمة أولية + توسعات + انكماش
+  + انسحابات شهر بشهر).
+- الجدول الوحيد المسمى `subscriptions` هو اشتراك **مستخدم المنصة نفسه**
+  في Tourfecto (صف لكل مستخدم) - وليس عملاء أعماله.
+- لذلك أي NRR/GRR حرفي = رقم مخترع، ممنوع بموجب قاعدة "الـAI لا يخترع".
+  البديل الصادق المحسوب فعليًا: Cohort Retention وRepeat Purchase و
+  Revenue Retention Rate (GRR-approximation من `crm_deals` المكسوبة)،
+  مع إفصاح "Not enough data" الواضح في الواجهة والمخرجات.
+
+## 5) الاختبارات
+
+- `php -l` على كل الملفات المعدَّلة - لا أخطاء.
+- `php tests/Unit/RevenueIntelligenceTest.php` → 151/151 ✅ (100%).
+
 

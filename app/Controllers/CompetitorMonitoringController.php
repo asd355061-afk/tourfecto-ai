@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Monitoring Controller
  * بيبني فوق جدول competitors الموجود بالفعل (مش بيكرره) - بيضيف تتبع
@@ -8,10 +9,11 @@
  * إحصائيات سريعة، ربط صحيح بصفحة "المنافسين" (كان بيوجّه غلط لصفحة
  * تحليل SEO)، واتجاه تغيّر السعر (↑/↓ %) بدل أرقام مجردة.
  */
-class CompetitorMonitoringController extends Controller {
-
+class CompetitorMonitoringController extends Controller
+{
     /** GET /competitor-monitoring */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $tHowTitle = $this->tr('cm.how.title');
         $tHowBody = $this->tr('cm.how.body');
         $tAddCompetitorBtn = $this->tr('cm.add_competitor_btn');
@@ -256,8 +258,11 @@ JS;
     }
 
     /** GET /api/competitor-monitoring/summary */
-    public function getSummary(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getSummary(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $userId = $this->user['id'];
 
         try {
@@ -294,10 +299,15 @@ JS;
     }
 
     /** GET /api/competitor-monitoring/detail?competitor_id=X */
-    public function getDetail(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getDetail(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $competitorId = (int) $this->get('competitor_id');
-        if (!$this->ownsCompetitor($competitorId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsCompetitor($competitorId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         try {
             $pricing = $this->db->query("SELECT item_name, price, observed_at FROM cm_pricing WHERE competitor_id = ? ORDER BY observed_at DESC LIMIT 20", [$competitorId]);
@@ -310,14 +320,21 @@ JS;
     }
 
     /** POST /api/competitor-monitoring/pricing */
-    public function addPricing(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function addPricing(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $competitorId = (int) $this->get('competitor_id');
-        if (!$this->ownsCompetitor($competitorId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsCompetitor($competitorId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         $itemName = $this->get('item_name');
         $price = (float) $this->get('price');
-        if (!$itemName || $price <= 0) return $this->error('بيانات ناقصة', 422);
+        if (!$itemName || $price <= 0) {
+            return $this->error('بيانات ناقصة', 422);
+        }
 
         try {
             $this->db->exec("INSERT INTO cm_pricing (competitor_id, item_name, price, observed_at) VALUES (?, ?, ?, CURDATE())", [$competitorId, $itemName, $price]);
@@ -330,13 +347,20 @@ JS;
     }
 
     /** POST /api/competitor-monitoring/offers */
-    public function addOffer(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function addOffer(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $competitorId = (int) $this->get('competitor_id');
-        if (!$this->ownsCompetitor($competitorId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsCompetitor($competitorId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         $title = $this->get('title');
-        if (!$title) return $this->error('العنوان مطلوب', 422);
+        if (!$title) {
+            return $this->error('العنوان مطلوب', 422);
+        }
 
         try {
             $this->db->exec("INSERT INTO cm_offers (competitor_id, title, detected_at) VALUES (?, ?, CURDATE())", [$competitorId, $title]);
@@ -352,8 +376,11 @@ JS;
     }
 
     /** GET /api/competitor-monitoring/alerts */
-    public function getAlerts(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getAlerts(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $alerts = $this->db->query(
                 "SELECT a.alert_type, a.message, a.created_at, c.competitor_name
@@ -370,18 +397,24 @@ JS;
         }
     }
 
-    private function ownsCompetitor(int $competitorId): bool {
-        if (!$competitorId) return false;
+    private function ownsCompetitor(int $competitorId): bool
+    {
+        if (!$competitorId) {
+            return false;
+        }
         $rows = $this->db->query("SELECT id FROM competitors WHERE id = ? AND user_id = ? LIMIT 1", [$competitorId, $this->user['id']]);
         return !empty($rows);
     }
 
-    private function maybeAlertPriceChange(int $competitorId, string $itemName, float $newPrice): void {
+    private function maybeAlertPriceChange(int $competitorId, string $itemName, float $newPrice): void
+    {
         $prev = $this->db->query(
             "SELECT price FROM cm_pricing WHERE competitor_id = ? AND item_name = ? AND observed_at < CURDATE() ORDER BY observed_at DESC LIMIT 1",
             [$competitorId, $itemName]
         );
-        if (empty($prev)) return;
+        if (empty($prev)) {
+            return;
+        }
         $oldPrice = (float) $prev[0]['price'];
         if ($oldPrice > 0 && abs($newPrice - $oldPrice) / $oldPrice >= 0.05) {
             $direction = $newPrice > $oldPrice ? 'زيادة' : 'نقصان';

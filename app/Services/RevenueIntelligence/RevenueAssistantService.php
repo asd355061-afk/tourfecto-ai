@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Revenue Assistant Service
  * @version 1.3.0
@@ -38,7 +39,8 @@
  * الجاي...) تصل لنفس النوايا مع الإنجليزية المكافئة (client/sales/
  * forecast/outlier...).
  */
-class RevenueAssistantService {
+class RevenueAssistantService
+{
     private RevenueOverviewService $overview;
     private RevenueForecastService $forecastService;
     private RevenueInsightService $insightService;
@@ -65,7 +67,8 @@ class RevenueAssistantService {
         $this->actionService = $actionService ?? new RevenueActionService($this->insightService, $this->anomalyService);
     }
 
-    public function ask(int $userId, string $question, bool $persist = true): array {
+    public function ask(int $userId, string $question, bool $persist = true): array
+    {
         $intent = self::matchIntent($question);
         $answer = $this->answerIntent($userId, $intent, $question);
         $answer['follow_up_questions'] = self::suggestFollowUps($intent);
@@ -91,11 +94,34 @@ class RevenueAssistantService {
     }
 
     /**
+     * نفس ask() لكن مع طبقة Copilot اختيارية (v1.4.0): الرد يُحسب أولًا
+     * بالطريقة الصارمة الحالية (بيانات حقيقية فقط)، ثم الـLLM يعيد صياغة
+     * نفس النتيجة نصًا طبيعيًا (copilot_narrative) بدون إضافة/تغيير أي
+     * رقم. أي فشل في الـLLM => يرجّع الرد الصارم الأصلي كما هو.
+     *
+     * @param int    $userId
+     * @param string $question
+     * @param bool   $persist
+     * @param string $lang 'ar' | 'en'
+     */
+    public function askWithCopilot(int $userId, string $question, bool $persist = true, string $lang = 'ar'): array {
+        $intent = self::matchIntent($question);
+        $answer = $this->ask($userId, $question, $persist);
+
+        if (class_exists('RevenueCopilotService')) {
+            $answer = RevenueCopilotService::enhance($answer, $intent, $question, $lang);
+        }
+
+        return $answer;
+    }
+
+    /**
      * Normalization عربي موحّد قبل أي مطابقة - يقلّل أخطاء الـNLP العربي
      * بشكل كبير: همزة/ألف، تاء مربوطة/هاء، ألف مقصورة/ياء. تطبيقه على
      * السؤال وعلى الأنماط معًا بحيث أي تهجئة شائعة بتوصل لنفس الـIntent.
      */
-    public static function normalizeArabic(string $text): string {
+    public static function normalizeArabic(string $text): string
+    {
         $text = str_replace(['أ', 'إ', 'آ'], 'ا', $text);
         $text = str_replace('ة', 'ه', $text);
         $text = str_replace(['ى', 'ئ'], 'ي', $text);
@@ -103,7 +129,8 @@ class RevenueAssistantService {
     }
 
     /** كل النوايا المدعومة وأنماطها - مصدر واحد يستخدمه matchIntent() وأيضًا fallback الاقتراح (self::suggestClosestIntents). */
-    public static function intentPatterns(): array {
+    public static function intentPatterns(): array
+    {
         return [
             'why_revenue_declined' => ['ليه.*قل', 'ليه.*انخفض', 'ليه.*نزل', 'سبب.*انخفاض', 'لية.*انخفاض', 'انخفضت ليه', 'ليه.*مبيعات', 'لية.*مبيعات', 'ليه.*دخل', 'لية.*دخل', 'نزلت ليه', 'why.*(decrease|drop|declin|down|less|fell|fall)', 'reason.*(drop|decline)', 'sales.*(drop|down|decline)'],
             'top_revenue_sources' => ['أكبر مصادر', 'اكبر مصادر', 'أكبر مصدر', 'اكبر مصدر', 'مصادر الإيراد', 'مصادر الايراد', 'أهم مصدر', 'اهم مصدر', 'مصدر الدخل', 'ايراد.*منين', 'الايراد.*منين', 'الايراد.*من فين', 'بيتولد منين', 'top.*(source|channel)', 'biggest.*source', 'best.*(source|channel)', 'which source', 'where.*(revenue|income)'],
@@ -121,7 +148,8 @@ class RevenueAssistantService {
     }
 
     /** مطابقة النية - Pure function قابلة للاختبار بأمثلة نصية ثابتة. */
-    public static function matchIntent(string $question): string {
+    public static function matchIntent(string $question): string
+    {
         $q = self::normalizeArabic(mb_strtolower(trim($question)));
 
         foreach (self::intentPatterns() as $intent => $regexes) {
@@ -139,7 +167,8 @@ class RevenueAssistantService {
      * ليتحوّل بيها الرد إلى الفترة الصحيحة بدل monthly الثابتة. الفترة
      * الوحيدة اللي مش بيحصلها نص بتترجم إلى monthly (السلوك الافتراضي).
      */
-    public static function detectPeriod(string $question): string {
+    public static function detectPeriod(string $question): string
+    {
         $q = self::normalizeArabic(mb_strtolower(trim($question)));
 
         $periodWords = [
@@ -162,7 +191,8 @@ class RevenueAssistantService {
     }
 
     /** يستخرج نسبة النمو المذكورة في سؤال "what-if" (مثل "زادت 20%" أو "grows 15%"). */
-    public static function extractGrowthPercent(string $question): float {
+    public static function extractGrowthPercent(string $question): float
+    {
         $q = trim($question);
 
         // إنجليزي: "grows 15%" / "increase by 20%" / "decline 10%"
@@ -190,7 +220,8 @@ class RevenueAssistantService {
      * بترجع أسئلة متابعة منطقية عشان المستخدم يكمل الاستكشاف بنقرة
      * واحدة. مقترحات ثابتة لكل نية - مش بيانات مخترعة.
      */
-    public static function suggestFollowUps(string $intent): array {
+    public static function suggestFollowUps(string $intent): array
+    {
         $map = [
             'why_revenue_declined' => [
                 'أكبر مصادر الإيرادات إيه؟',
@@ -267,7 +298,8 @@ class RevenueAssistantService {
      * نقترح "تقصد كذا؟" بدل رفض جاف، من غير ما نجاوب على سؤال تاني
      * غير اللي اتسأل فعلاً.
      */
-    public static function suggestClosestIntents(string $question, int $limit = 3): array {
+    public static function suggestClosestIntents(string $question, int $limit = 3): array
+    {
         $qWords = array_filter(preg_split('/[\s؟?!.,]+/u', self::normalizeArabic(mb_strtolower(trim($question)))), static function ($w) {
             return mb_strlen($w) >= 3;
         });
@@ -299,7 +331,8 @@ class RevenueAssistantService {
         return array_slice(array_keys($scores), 0, $limit);
     }
 
-    private function answerIntent(int $userId, string $intent, string $originalQuestion): array {
+    private function answerIntent(int $userId, string $intent, string $originalQuestion): array
+    {
         $period = self::detectPeriod($originalQuestion);
 
         switch ($intent) {
@@ -332,7 +365,8 @@ class RevenueAssistantService {
         }
     }
 
-    private function answerUnknown(string $question): array {
+    private function answerUnknown(string $question): array
+    {
         $suggestions = self::suggestClosestIntents($question);
         $labels = [
             'why_revenue_declined' => 'why revenue changed', 'top_revenue_sources' => 'top revenue sources',
@@ -344,7 +378,9 @@ class RevenueAssistantService {
         ];
 
         if (!empty($suggestions)) {
-            $suggestedLabels = implode(', ', array_map(static function ($s) use ($labels) { return $labels[$s] ?? $s; }, $suggestions));
+            $suggestedLabels = implode(', ', array_map(static function ($s) use ($labels) {
+                return $labels[$s] ?? $s;
+            }, $suggestions));
             return [
                 'has_data' => false,
                 'confidence' => null,
@@ -365,11 +401,15 @@ class RevenueAssistantService {
         ];
     }
 
-    private function answerWhyRevenueDeclined(int $userId): array {
+    private function answerWhyRevenueDeclined(int $userId): array
+    {
         $risks = $this->insightService->getRisks($userId);
         $declineRisk = null;
         foreach ($risks as $r) {
-            if ($r['category'] === 'revenue_decline') { $declineRisk = $r; break; }
+            if ($r['category'] === 'revenue_decline') {
+                $declineRisk = $r;
+                break;
+            }
         }
         if ($declineRisk === null) {
             $overview = $this->overview->getOverview($userId, 'monthly');
@@ -397,13 +437,16 @@ class RevenueAssistantService {
         ];
     }
 
-    private function answerTopRevenueSources(int $userId, string $period = 'monthly'): array {
+    private function answerTopRevenueSources(int $userId, string $period = 'monthly'): array
+    {
         $sourceGrowth = $this->overview->getRevenueBySourceWithGrowth($userId, $period);
         if (!$sourceGrowth['has_data'] || empty($sourceGrowth['sources'])) {
             return self::insufficientData();
         }
         $top = array_slice($sourceGrowth['sources'], 0, 5);
-        $summary = implode(', ', array_map(static function ($s) { return "{$s['source']} ({$s['revenue']})"; }, $top));
+        $summary = implode(', ', array_map(static function ($s) {
+            return "{$s['source']} ({$s['revenue']})";
+        }, $top));
         return [
             'has_data' => true,
             'confidence' => 'high',
@@ -414,13 +457,16 @@ class RevenueAssistantService {
         ];
     }
 
-    private function answerTopValueCustomers(int $userId): array {
+    private function answerTopValueCustomers(int $userId): array
+    {
         $intel = $this->customerService->getCustomerRevenueIntelligence($userId);
         if (!$intel['has_data']) {
             return self::insufficientData();
         }
         $top = array_slice($intel['customers'], 0, 5);
-        $summary = implode(', ', array_map(static function ($c) { return "{$c['name']} ({$c['customer_revenue']})"; }, $top));
+        $summary = implode(', ', array_map(static function ($c) {
+            return "{$c['name']} ({$c['customer_revenue']})";
+        }, $top));
         return [
             'has_data' => true,
             'confidence' => 'high',
@@ -431,13 +477,16 @@ class RevenueAssistantService {
         ];
     }
 
-    private function answerGrowthOpportunities(int $userId): array {
+    private function answerGrowthOpportunities(int $userId): array
+    {
         $opportunities = $this->insightService->getOpportunities($userId);
         if (empty($opportunities)) {
             return self::insufficientData();
         }
         $top = array_slice($opportunities, 0, 5);
-        $summary = implode(' | ', array_map(static function ($o) { return $o['title']; }, $top));
+        $summary = implode(' | ', array_map(static function ($o) {
+            return $o['title'];
+        }, $top));
         return [
             'has_data' => true,
             'confidence' => 'medium',
@@ -448,7 +497,8 @@ class RevenueAssistantService {
         ];
     }
 
-    private function answerTrend(int $userId, string $period = 'monthly'): array {
+    private function answerTrend(int $userId, string $period = 'monthly'): array
+    {
         $overview = $this->overview->getOverview($userId, $period);
         if (!$overview['has_data'] || $overview['growth_percent'] === null) {
             return self::insufficientData();
@@ -464,7 +514,8 @@ class RevenueAssistantService {
         ];
     }
 
-    private function answerCurrentRisks(int $userId): array {
+    private function answerCurrentRisks(int $userId): array
+    {
         $risks = $this->insightService->getRisks($userId);
         if (empty($risks)) {
             return [
@@ -477,7 +528,9 @@ class RevenueAssistantService {
             ];
         }
         $top = array_slice($risks, 0, 5);
-        $summary = implode(' | ', array_map(static function ($r) { return $r['title']; }, $top));
+        $summary = implode(' | ', array_map(static function ($r) {
+            return $r['title'];
+        }, $top));
         return [
             'has_data' => true,
             'confidence' => 'medium',
@@ -488,7 +541,8 @@ class RevenueAssistantService {
         ];
     }
 
-    private function answerNextMonthForecast(int $userId, string $period = 'monthly'): array {
+    private function answerNextMonthForecast(int $userId, string $period = 'monthly'): array
+    {
         $forecast = $this->forecastService->forecast($userId, $period, false);
         if ($forecast['insufficient_data']) {
             return self::insufficientData('Not enough data for reliable forecast.');
@@ -508,7 +562,8 @@ class RevenueAssistantService {
      * بياخد نفس الـ Forecast التاريخي الحقيقي وبيطبّق عليه نسبة النمو
      * المذكورة في السؤال. الرقم الأساسي مش مخترع - مبني على بيانات فعلية.
      */
-    private function answerWhatIfScenario(int $userId, string $period, string $question): array {
+    private function answerWhatIfScenario(int $userId, string $period, string $question): array
+    {
         $base = $this->forecastService->forecast($userId, $period, false);
         if ($base['insufficient_data']) {
             return self::insufficientData('Not enough data for reliable scenario forecast.');
@@ -528,7 +583,8 @@ class RevenueAssistantService {
         ];
     }
 
-    private function answerPipelineStatus(int $userId): array {
+    private function answerPipelineStatus(int $userId): array
+    {
         $result = $this->pipelineService->getPipelineIntelligence($userId);
         if (!$result['has_data']) {
             return self::insufficientData();
@@ -545,12 +601,15 @@ class RevenueAssistantService {
         ];
     }
 
-    private function answerCustomerSegments(int $userId): array {
+    private function answerCustomerSegments(int $userId): array
+    {
         $result = $this->customerService->getSegments($userId);
         if (!($result['has_data'] ?? false) || empty($result['summary'])) {
             return self::insufficientData();
         }
-        $summary = implode(', ', array_map(static function ($s) { return "{$s['segment']} ({$s['customer_count']})"; }, $result['summary']));
+        $summary = implode(', ', array_map(static function ($s) {
+            return "{$s['segment']} ({$s['customer_count']})";
+        }, $result['summary']));
         return [
             'has_data' => true,
             'confidence' => 'high',
@@ -561,7 +620,8 @@ class RevenueAssistantService {
         ];
     }
 
-    private function answerAnomalyCheck(int $userId): array {
+    private function answerAnomalyCheck(int $userId): array
+    {
         $result = $this->anomalyService->detect($userId);
         if (!$result['has_data']) {
             return self::insufficientData();
@@ -577,7 +637,9 @@ class RevenueAssistantService {
             ];
         }
         $top = array_slice($result['anomalies'], 0, 3);
-        $summary = implode(' | ', array_map(static function ($a) { return ($a['type'] === 'sudden_drop' ? 'Drop' : 'Spike') . " on {$a['period']}"; }, $top));
+        $summary = implode(' | ', array_map(static function ($a) {
+            return ($a['type'] === 'sudden_drop' ? 'Drop' : 'Spike') . " on {$a['period']}";
+        }, $top));
         return [
             'has_data' => true,
             'confidence' => 'medium',
@@ -588,12 +650,15 @@ class RevenueAssistantService {
         ];
     }
 
-    private function answerNextBestAction(int $userId): array {
+    private function answerNextBestAction(int $userId): array
+    {
         $actions = $this->actionService->getNextBestActions($userId, 3);
         if (empty($actions)) {
             return self::insufficientData();
         }
-        $summary = implode(' | ', array_map(static function ($a) { return "{$a['action']}: {$a['reason']}"; }, $actions));
+        $summary = implode(' | ', array_map(static function ($a) {
+            return "{$a['action']}: {$a['reason']}";
+        }, $actions));
         return [
             'has_data' => true,
             'confidence' => $actions[0]['confidence'] ?? 'medium',
@@ -604,7 +669,8 @@ class RevenueAssistantService {
         ];
     }
 
-    private static function insufficientData(string $message = 'Not enough data.'): array {
+    private static function insufficientData(string $message = 'Not enough data.'): array
+    {
         return [
             'has_data' => false,
             'confidence' => null,

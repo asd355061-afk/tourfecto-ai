@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - GBP Profile Management Service
  * عرض وتعديل بيانات بروفايل Google Business Profile الحقيقية + Score
@@ -6,13 +7,15 @@
  * @version 1.0.0
  * @since 2026-08-09 (GBP Module Upgrade)
  */
-class GbpProfileService {
+class GbpProfileService
+{
     /** @var GbpSyncService */
     private $sync;
     /** @var GoogleReviewSyncService */
     private $reviewSync;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->sync = new GbpSyncService();
         $this->reviewSync = new GoogleReviewSyncService();
     }
@@ -26,7 +29,8 @@ class GbpProfileService {
      * هتظهر أصلاً هنا (بدل ما نعرض "Not available" لكل صفة ممكنة - عرض
      * بس اللي فعلاً متاح أدق وأوضح للمستخدم).
      */
-    public function getAttributes(int $websiteId, int $userId): array {
+    public function getAttributes(int $websiteId, int $userId): array
+    {
         $connection = $this->sync->findConnection($websiteId, $userId);
         if (!$connection) {
             return ['success' => false, 'error' => 'Not Connected - اربط Google Business Profile أولاً'];
@@ -81,7 +85,8 @@ class GbpProfileService {
      *                        أو ['type'=>'REPEATED_ENUM','set'=>[...],'unset'=>[...]]
      *                        أو ['type'=>'URL','values'=>['https://...']]
      */
-    public function updateAttributes(int $websiteId, int $userId, array $changes): array {
+    public function updateAttributes(int $websiteId, int $userId, array $changes): array
+    {
         if (empty($changes)) {
             return ['success' => false, 'error' => 'لا يوجد تغييرات'];
         }
@@ -125,7 +130,8 @@ class GbpProfileService {
     }
 
     /** تسميات عربية معروفة لأشهر Attribute IDs الموثقة من Google - أي ID غير موجود هنا بيتعرض بمعرفه الخام */
-    private static function attributeLabels(): array {
+    private static function attributeLabels(): array
+    {
         return [
             'has_wifi' => 'يوجد واي فاي',
             'wheelchair_accessible_entrance' => 'مدخل لذوي الاحتياجات',
@@ -147,7 +153,8 @@ class GbpProfileService {
     }
 
     /** يجيب أحدث بروفايل حقيقي من Google + Completeness Score محسوب من نفس البيانات */
-    public function getProfile(int $websiteId, int $userId): array {
+    public function getProfile(int $websiteId, int $userId): array
+    {
         $connection = $this->sync->findConnection($websiteId, $userId);
         if (!$connection) {
             return ['success' => false, 'error' => 'Not Connected - اربط Google Business Profile أولاً'];
@@ -183,7 +190,8 @@ class GbpProfileService {
     }
 
     /** متوسط التقييم وعدد المراجعات الفعلي من قاعدة بياناتنا (مُزامَنة من Google) */
-    private function getRatingStats(int $websiteId, int $userId): array {
+    private function getRatingStats(int $websiteId, int $userId): array
+    {
         try {
             $db = Database::getInstance();
             $rows = $db->query(
@@ -202,7 +210,8 @@ class GbpProfileService {
     }
 
     /** تعديل حقول مسموح بتعديلها فعليًا عبر Business Information API فقط */
-    public function updateProfile(int $websiteId, int $userId, array $fields): array {
+    public function updateProfile(int $websiteId, int $userId, array $fields): array
+    {
         $connection = $this->sync->findConnection($websiteId, $userId);
         if (!$connection) {
             return ['success' => false, 'error' => 'Not Connected - اربط Google Business Profile أولاً'];
@@ -250,7 +259,8 @@ class GbpProfileService {
      * أي حقل مش موجود في الرد بيتحسب "Unknown / Not Available" ومش
      * بيتحسب ضد النشاط (عشان بعض الحقول مش كل الحسابات بترجعها).
      */
-    private function computeCompleteness(array $location): array {
+    private function computeCompleteness(array $location): array
+    {
         $checks = [
             'name' => !empty($location['name']),
             'description' => !empty($location['description']),
@@ -261,14 +271,14 @@ class GbpProfileService {
             'address' => !empty($location['address']),
         ];
 
-        $known = array_filter($checks, fn($v) => $v !== null);
+        $known = array_filter($checks, fn ($v) => $v !== null);
         $complete = array_filter($known);
         $score = count($known) > 0 ? (int) round((count($complete) / count($known)) * 100) : 0;
 
         return [
             'score' => $score,
             'checks' => $checks,
-            'missing' => array_keys(array_filter($checks, fn($v) => $v === false)),
+            'missing' => array_keys(array_filter($checks, fn ($v) => $v === false)),
         ];
     }
 }

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - تكوين OpenAI API (جزء من AI Provider Abstraction لـ AI Chat)
  * @version 1.0.0

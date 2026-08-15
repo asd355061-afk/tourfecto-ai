@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - User Controller
  * الملف الشخصي وإعدادات المستخدم
@@ -8,12 +9,13 @@
  * الموجود فعليًا في app/Models/User.php.
  */
 
-class UserController extends Controller {
-
+class UserController extends Controller
+{
     /**
      * الحصول على المستخدم الحالي من الجلسة، ويُرجع null إن لم يكن مسجل دخول
      */
-    private function currentUser(): ?User {
+    private function currentUser(): ?User
+    {
         $id = $_SESSION['user_id'] ?? null;
         if (!$id) {
             return null;
@@ -25,13 +27,15 @@ class UserController extends Controller {
     /**
      * هل الطلب الحالي API (JSON) ولا صفحة ويب عادية؟
      */
-    private function isApiRequest(): bool {
+    private function isApiRequest(): bool
+    {
         $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
         return strpos($path, '/api/') === 0;
     }
 
     /** GET /profile و GET /api/user/profile */
-    public function showProfile(array $params = []): array {
+    public function showProfile(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             if ($this->isApiRequest()) {
@@ -53,7 +57,8 @@ class UserController extends Controller {
         exit;
     }
 
-    private function renderProfilePage(User $user): void {
+    private function renderProfilePage(User $user): void
+    {
         $data = $user->toArray();
         $firstName = htmlspecialchars((string) ($data['first_name'] ?? ''), ENT_QUOTES, 'UTF-8');
         $lastName = htmlspecialchars((string) ($data['last_name'] ?? ''), ENT_QUOTES, 'UTF-8');
@@ -145,7 +150,8 @@ JS;
         echo $this->renderPanelPage('_profile', 'الملف الشخصي', 'بيانات حسابك', $body, $script);
     }
 
-    public function profile(array $params = []): array {
+    public function profile(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -154,7 +160,8 @@ JS;
     }
 
     /** GET /profile/edit -> نفس صفحة /profile (الفورم متضمّن فيها بالفعل) */
-    public function showEditProfile(array $params = []): array {
+    public function showEditProfile(array $params = []): array
+    {
         if ($this->isApiRequest()) {
             return $this->profile($params);
         }
@@ -163,10 +170,14 @@ JS;
     }
 
     /** POST /profile/update و PUT /api/user/profile */
-    public function updateProfile(array $params = []): array {
+    public function updateProfile(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         // Server-side validation (لا نعتمد على Client Validation وحدها -
@@ -234,7 +245,8 @@ JS;
     }
 
     /** PUT /api/user/password */
-    public function updatePassword(array $params = []): array {
+    public function updatePassword(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -262,7 +274,8 @@ JS;
     }
 
     /** GET /profile/settings و GET /api/user/settings */
-    public function showSettings(array $params = []): array {
+    public function showSettings(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             if ($this->isApiRequest()) {
@@ -280,7 +293,8 @@ JS;
         exit;
     }
 
-    private function renderSettingsPage(User $user): void {
+    private function renderSettingsPage(User $user): void
+    {
         $data = $user->toArray();
 
         // Connected Accounts (Profile Center Phase 2): بيانات حقيقية من
@@ -478,6 +492,12 @@ JS;
         $tTabSecurity = $this->tr('settings.tab.security');
         $tTabNotifications = $this->tr('settings.tab.notifications');
         $tTabApi = $this->tr('settings.tab.api');
+        $tTabIntegrations = $this->tr('settings.tab.integrations');
+        $tTabsAriaLabel = $this->tr('settings.tabs_aria_label');
+        $tIntegrationsTitle = $this->tr('settings.integrations_title');
+        $tIntegrationsDesc = $this->tr('settings.integrations_desc');
+        $tIntegrationsListHint = $this->tr('settings.integrations_list_hint');
+        $tIntegrationsManageBtn = $this->tr('settings.integrations_manage_btn');
         $tTabBilling = $this->tr('settings.tab.billing');
         $tTabAudit = $this->tr('settings.tab.audit');
         $tTabWorkspace = $this->tr('settings.tab.workspace');
@@ -631,12 +651,29 @@ JS;
         $tLeaveWorkspaceWarning = $this->tr('settings.leave_workspace_warning');
         $tLeaveWorkspaceBtn = $this->tr('settings.leave_workspace_btn');
 
+        // Phase 12 (Scoped CSRF): التوكن اللي بيتبعت مع كل طلب JSON من
+        // أي تاب في الصفحة - بيتبني فوق كائن Csrf الموجود بالفعل.
+        $csrfToken = class_exists('Csrf') ? Csrf::token() : '';
+
         $body = <<<HTML
+        <script>window.TF_CSRF_TOKEN = "{$csrfToken}";</script>
+        <style>
+            /* Phase 14: تحويل تابات الإعدادات لـ Dropdown على الموبايل.
+               مقصود إنها مربوطة بـ #settingsTabs/#settingsTabsMobile
+               بالتحديد، مش .p-tabs/.p-tab العامة - الكلاسات دي مستخدمة
+               في صفحات تانية ومش عايزين نغيّر سلوكها الافتراضي هناك. */
+            #settingsTabsMobile { display: none; }
+            @media (max-width: 640px) {
+                #settingsTabs { display: none; }
+                #settingsTabsMobile { display: block; width: 100%; margin-bottom: 14px; }
+            }
+        </style>
         <div class="p-tabs" id="settingsTabs">
             <button class="p-tab active" data-section="profile">👤 {$tTabProfile}</button>
             <button class="p-tab" data-section="security">🔒 {$tTabSecurity}</button>
             <button class="p-tab" data-section="notifications">🔔 {$tTabNotifications}</button>
             <button class="p-tab" data-section="api">🔑 {$tTabApi}</button>
+            <button class="p-tab" data-section="integrations">🔌 {$tTabIntegrations}</button>
             <button class="p-tab" data-section="billing">💳 {$tTabBilling}</button>
             <button class="p-tab" data-section="audit">📜 {$tTabAudit}</button>
             <button class="p-tab" data-section="workspace">🏢 {$tTabWorkspace}</button>
@@ -646,6 +683,22 @@ JS;
             <button class="p-tab" data-section="activity">📋 {$tTabActivity}</button>
             <button class="p-tab" data-section="permissions">🛡️ {$tTabPermissions}</button>
         </div>
+
+        <select id="settingsTabsMobile" aria-label="{$tTabsAriaLabel}">
+            <option value="profile">👤 {$tTabProfile}</option>
+            <option value="security">🔒 {$tTabSecurity}</option>
+            <option value="notifications">🔔 {$tTabNotifications}</option>
+            <option value="api">🔑 {$tTabApi}</option>
+            <option value="integrations">🔌 {$tTabIntegrations}</option>
+            <option value="billing">💳 {$tTabBilling}</option>
+            <option value="audit">📜 {$tTabAudit}</option>
+            <option value="workspace">🏢 {$tTabWorkspace}</option>
+            <option value="team">👥 {$tTabTeam}</option>
+            <option value="general">🌐 {$tTabGeneral}</option>
+            <option value="connected">🔗 {$tTabConnected}</option>
+            <option value="activity">📋 {$tTabActivity}</option>
+            <option value="permissions">🛡️ {$tTabPermissions}</option>
+        </select>
 
         <!-- الملف الشخصي -->
         <div class="settings-section" id="section_profile">
@@ -873,6 +926,18 @@ JS;
                 </div>
 
                 <div id="apiKeysList">{$tKeysLoading}</div>
+            </div>
+        </div>
+
+        <!-- التكاملات (Phase 13) - مؤشر لصفحة /integrations الحقيقية -->
+        <div class="settings-section" id="section_integrations" style="display:none;">
+            <div class="p-card">
+                <div class="p-card-head"><h3>🔌 {$tIntegrationsTitle}</h3></div>
+                <p class="p-cell-muted">{$tIntegrationsDesc}</p>
+                <div class="p-cell-muted" style="font-size:12.5px;margin:10px 0 16px;padding:12px;background:var(--panel-bg,#151521);border-radius:8px;">
+                    💡 {$tIntegrationsListHint}
+                </div>
+                <a href="/integrations" class="p-btn primary">{$tIntegrationsManageBtn}</a>
             </div>
         </div>
 
@@ -1252,17 +1317,57 @@ HTML;
         $script = <<<JS
 (function () {
     const P = window.Panel;
-    const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast;
+    const esc = P.esc, toast = P.toast;
+    const rawFetchJSON = P.fetchJSON;
 
-    // ============ التابات ============
-    document.querySelectorAll('#settingsTabs .p-tab').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('#settingsTabs .p-tab').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            const section = btn.dataset.section;
-            document.querySelectorAll('.settings-section').forEach(s => s.style.display = 'none');
-            document.getElementById('section_' + section).style.display = 'block';
+    // Phase 12: نحقن csrf_token تلقائيًا في أي نداء بجسم JSON (POST/PUT/
+    // DELETE) - بنستبدل fetchJSON المحلية بغلاف بسيط حواليها، عشان كل
+    // نداء fetchJSON(...) موجود بالفعل في الملف ده كله (عشرات النداءات)
+    // ياخد الحماية دي تلقائيًا من غير ما نلمس ولا نداء منهم بنفسه.
+    // مبنيّة فوق window.TF_CSRF_TOKEN المحقون فوق في الصفحة.
+    // عملاء Bearer token (Authorization header) مش محتاجين التوكن ده.
+    async function fetchJSON(url, options = {}) {
+        const method = (options.method || 'GET').toUpperCase();
+        if (method !== 'GET' && typeof options.body === 'string') {
+            try {
+                const bodyObj = JSON.parse(options.body);
+                bodyObj.csrf_token = window.TF_CSRF_TOKEN || '';
+                options = Object.assign({}, options, { body: JSON.stringify(bodyObj) });
+            } catch (e) {
+                // جسم الطلب مش JSON (مثلًا FormData لرفع صورة) - نسيبه زي
+                // ما هو، أماكن الرفع بتضيف csrf_token بنفسها لو محتاجة.
+            }
+        } else if (method !== 'GET' && !options.body) {
+            // نداءات POST من غير جسم (زي 2fa/setup) - نضيف جسم بسيط فيه التوكن.
+            options = Object.assign({}, options, {
+                headers: Object.assign({ 'Content-Type': 'application/json' }, options.headers || {}),
+                body: JSON.stringify({ csrf_token: window.TF_CSRF_TOKEN || '' }),
+            });
+        } else if (method !== 'GET' && typeof FormData !== 'undefined' && options.body instanceof FormData) {
+            options.body.append('csrf_token', window.TF_CSRF_TOKEN || '');
+        }
+        return rawFetchJSON(url, options);
+    }
+
+    // ============ التابات (ديسكتوب + Dropdown الموبايل - Phase 14) ============
+    const settingsSections = ['profile', 'security', 'notifications', 'api', 'integrations', 'billing', 'audit', 'workspace', 'team', 'general', 'connected', 'activity', 'permissions'];
+    function switchSettingsTab(section) {
+        if (settingsSections.indexOf(section) === -1) {
+            section = 'profile';
+        }
+        document.querySelectorAll('#settingsTabs .p-tab').forEach(b => {
+            b.classList.toggle('active', b.dataset.section === section);
         });
+        document.getElementById('settingsTabsMobile').value = section;
+        document.querySelectorAll('.settings-section').forEach(s => {
+            s.style.display = (s.id === 'section_' + section) ? 'block' : 'none';
+        });
+    }
+    document.querySelectorAll('#settingsTabs .p-tab').forEach(btn => {
+        btn.addEventListener('click', () => switchSettingsTab(btn.dataset.section));
+    });
+    document.getElementById('settingsTabsMobile').addEventListener('change', function () {
+        switchSettingsTab(this.value);
     });
 
     // Connected Accounts (Profile Center Phase 2): توست بعد الرجوع من
@@ -2216,7 +2321,8 @@ JS;
     }
 
     /** يبني HTML الصورة الشخصية الحالية (صورة حقيقية لو موجودة، وإلا حرف أول الاسم) */
-    private function avatarInnerHtml(string $avatarUrl, string $initials): string {
+    private function avatarInnerHtml(string $avatarUrl, string $initials): string
+    {
         if ($avatarUrl !== '') {
             return '<img src="' . $avatarUrl . '" alt="الصورة الشخصية" style="width:100%;height:100%;object-fit:cover;">';
         }
@@ -2224,7 +2330,8 @@ JS;
     }
 
     /** POST /api/user/avatar - رفع/تغيير الصورة الشخصية */
-    public function uploadAvatar(array $params = []): array {
+    public function uploadAvatar(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2250,11 +2357,13 @@ JS;
     }
 
     /** يرجّع ' selected' لو القيمتين متطابقتين، مفيدة لبناء HTML بسيط */
-    private function selected(string $current, string $option): string {
+    private function selected(string $current, string $option): string
+    {
         return $current === $option ? ' selected' : '';
     }
 
-    private static function isoCountries(): array {
+    private static function isoCountries(): array
+    {
         static $countries = null;
         if ($countries !== null) {
             return $countries;
@@ -2312,7 +2421,8 @@ JS;
      * أو تتقاطع مع عملة الفوترة/الاشتراك في subscriptions/invoices.
      * @return array<string,string>
      */
-    private static function isoCurrencies(): array {
+    private static function isoCurrencies(): array
+    {
         return [
             'USD' => 'US Dollar', 'EUR' => 'Euro', 'GBP' => 'British Pound', 'EGP' => 'Egyptian Pound',
             'SAR' => 'Saudi Riyal', 'AED' => 'UAE Dirham', 'QAR' => 'Qatari Riyal', 'KWD' => 'Kuwaiti Dinar',
@@ -2338,12 +2448,14 @@ JS;
      * لأنها بتستخدم identifier حقيقي (زي Africa/Cairo) مش UTC+2 ثابت.
      * @return string[]
      */
-    private static function ianaTimezones(): array {
+    private static function ianaTimezones(): array
+    {
         return \DateTimeZone::listIdentifiers(\DateTimeZone::ALL);
     }
 
 
-    public function getSettings(array $params = []): array {
+    public function getSettings(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2355,7 +2467,8 @@ JS;
     }
 
     /** POST /profile/settings و PUT /api/user/settings */
-    public function updateSettings(array $params = []): array {
+    public function updateSettings(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2391,7 +2504,8 @@ JS;
      * Token مخزّن في oauth_accounts أصلاً، فمفيش حاجة حساسة نحذفها غير
      * الربط نفسه.
      */
-    public function disconnectOAuth(array $params = []): array {
+    public function disconnectOAuth(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2416,10 +2530,14 @@ JS;
      * ده بيمنع حالة إن مستخدم يولّد secret وينساه من غير ما يفعّل 2FA
      * فعليًا، ومحدش يقدر يقفل حسابه بالغلط.
      */
-    public function setupTwoFactor(array $params = []): array {
+    public function setupTwoFactor(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         $secret = AuthController::generateTotpSecret();
@@ -2443,10 +2561,14 @@ JS;
      * قبل ما نفعّل 2FA فعليًا على تسجيل الدخول. بعد كده بنولّد Recovery
      * Codes وبنعرضهم مرة واحدة بس (نص عادي) - بعدها بيتخزنوا مُشفّرين فقط.
      */
-    public function enableTwoFactor(array $params = []): array {
+    public function enableTwoFactor(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         $secret = (string) $user->getAttribute('two_factor_secret');
@@ -2478,10 +2600,14 @@ JS;
     }
 
     /** POST /api/user/2fa/disable - لازم كلمة المرور، مش بس زرار */
-    public function disableTwoFactor(array $params = []): array {
+    public function disableTwoFactor(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         if (!$this->validate(['password' => 'required'])) {
@@ -2510,7 +2636,8 @@ JS;
      * العمل زي المواقع/الاشتراكات/CRM). بيتنفّذ Async عن طريق الـQueue
      * الموجود بالفعل، مش هنا مباشرة.
      */
-    public function requestDataExport(array $params = []): array {
+    public function requestDataExport(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2550,7 +2677,8 @@ JS;
     }
 
     /** GET /api/user/data-export - طلبات المستخدم الحالي فقط */
-    public function listDataExports(array $params = []): array {
+    public function listDataExports(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2571,7 +2699,8 @@ JS;
      * public_html في TOURFECTO_STORAGE). لازم يتحقق من ملكية الطلب
      * وإن حالته "ready" وإنه لسه ما انتهتش صلاحيته قبل ما يسمح بالتحميل.
      */
-    public function downloadDataExport(array $params = []): array {
+    public function downloadDataExport(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             header('Location: /login');
@@ -2611,7 +2740,8 @@ JS;
     }
 
     /** GET /profile/security */
-    public function showSecurity(array $params = []): array {
+    public function showSecurity(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             if ($this->isApiRequest()) {
@@ -2632,12 +2762,14 @@ JS;
     }
 
     /** POST /profile/security */
-    public function updateSecurity(array $params = []): array {
+    public function updateSecurity(array $params = []): array
+    {
         return $this->updatePassword($params);
     }
 
     /** GET /profile/api */
-    public function showAPI(array $params = []): array {
+    public function showAPI(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             if ($this->isApiRequest()) {
@@ -2658,7 +2790,8 @@ JS;
     }
 
     /** GET /api/user/sessions - قائمة الجلسات النشطة (أجهزة سجّلت دخول فعليًا) */
-    public function listSessions(array $params = []): array {
+    public function listSessions(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2693,16 +2826,20 @@ JS;
         }
 
         // الأحدث نشاطًا الأول
-        usort($sessions, fn($a, $b) => strcmp((string) $b['last_active'], (string) $a['last_active']));
+        usort($sessions, fn ($a, $b) => strcmp((string) $b['last_active'], (string) $a['last_active']));
 
         return $this->success(['sessions' => $sessions]);
     }
 
     /** POST /api/user/sessions/{id}/logout - تسجيل خروج من جهاز واحد بعينه */
-    public function logoutSession(array $params = []): array {
+    public function logoutSession(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         $id = (int) ($params['id'] ?? 0);
@@ -2723,10 +2860,14 @@ JS;
     }
 
     /** POST /api/user/sessions/logout-others - تسجيل خروج من كل الأجهزة عدا الحالي */
-    public function logoutOtherSessions(array $params = []): array {
+    public function logoutOtherSessions(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         $currentId = $_SESSION['current_refresh_token_id'] ?? null;
@@ -2748,31 +2889,62 @@ JS;
     }
 
     /** تخمين مبسّط لاسم المتصفح من الـ User-Agent - عرض فقط، مش قرار أمني */
-    private function guessBrowser(string $ua): string {
-        if ($ua === '') return '-';
-        if (stripos($ua, 'Edg/') !== false) return 'Edge';
-        if (stripos($ua, 'OPR/') !== false || stripos($ua, 'Opera') !== false) return 'Opera';
-        if (stripos($ua, 'Chrome/') !== false) return 'Chrome';
-        if (stripos($ua, 'CriOS') !== false) return 'Chrome (iOS)';
-        if (stripos($ua, 'Firefox/') !== false) return 'Firefox';
-        if (stripos($ua, 'Safari/') !== false) return 'Safari';
+    private function guessBrowser(string $ua): string
+    {
+        if ($ua === '') {
+            return '-';
+        }
+        if (stripos($ua, 'Edg/') !== false) {
+            return 'Edge';
+        }
+        if (stripos($ua, 'OPR/') !== false || stripos($ua, 'Opera') !== false) {
+            return 'Opera';
+        }
+        if (stripos($ua, 'Chrome/') !== false) {
+            return 'Chrome';
+        }
+        if (stripos($ua, 'CriOS') !== false) {
+            return 'Chrome (iOS)';
+        }
+        if (stripos($ua, 'Firefox/') !== false) {
+            return 'Firefox';
+        }
+        if (stripos($ua, 'Safari/') !== false) {
+            return 'Safari';
+        }
         return 'غير معروف';
     }
 
     /** تخمين مبسّط لنظام التشغيل من الـ User-Agent - عرض فقط، مش قرار أمني */
-    private function guessOS(string $ua): string {
-        if ($ua === '') return '-';
-        if (stripos($ua, 'Windows') !== false) return 'Windows';
-        if (stripos($ua, 'iPhone') !== false || stripos($ua, 'iPad') !== false) return 'iOS';
-        if (stripos($ua, 'Mac OS X') !== false) return 'macOS';
-        if (stripos($ua, 'Android') !== false) return 'Android';
-        if (stripos($ua, 'Linux') !== false) return 'Linux';
+    private function guessOS(string $ua): string
+    {
+        if ($ua === '') {
+            return '-';
+        }
+        if (stripos($ua, 'Windows') !== false) {
+            return 'Windows';
+        }
+        if (stripos($ua, 'iPhone') !== false || stripos($ua, 'iPad') !== false) {
+            return 'iOS';
+        }
+        if (stripos($ua, 'Mac OS X') !== false) {
+            return 'macOS';
+        }
+        if (stripos($ua, 'Android') !== false) {
+            return 'Android';
+        }
+        if (stripos($ua, 'Linux') !== false) {
+            return 'Linux';
+        }
         return 'غير معروف';
     }
 
     /** يخفي جزء من الـ IP قبل عرضه (مثال: 41.238.xx.xx) - مش محتاج IP كامل في الواجهة */
-    private function maskIp(string $ip): string {
-        if ($ip === '') return '-';
+    private function maskIp(string $ip): string
+    {
+        if ($ip === '') {
+            return '-';
+        }
         if (strpos($ip, '.') !== false) { // IPv4
             $parts = explode('.', $ip);
             return count($parts) === 4 ? "{$parts[0]}.{$parts[1]}.xx.xx" : 'xx.xx.xx.xx';
@@ -2785,7 +2957,8 @@ JS;
     }
 
     /** GET /api/user/api-keys - قائمة مفاتيح API الشخصية للمستخدم الحالي */
-    public function listApiKeys(array $params = []): array {
+    public function listApiKeys(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2793,20 +2966,24 @@ JS;
 
         $keyModel = new UserApiKey();
         $keys = array_map(
-            fn($key) => $key->toSafeArray(),
+            fn ($key) => $key->toSafeArray(),
             $keyModel->where(['user_id' => (int) $user->getAttribute('id')], [], 0)
         );
 
-        usort($keys, fn($a, $b) => strcmp((string) $b['created_at'], (string) $a['created_at']));
+        usort($keys, fn ($a, $b) => strcmp((string) $b['created_at'], (string) $a['created_at']));
 
         return $this->success(['keys' => $keys]);
     }
 
     /** POST /api/user/api-keys - إنشاء مفتاح جديد (المفتاح الخام بيترجع مرة واحدة بس هنا) */
-    public function createApiKey(array $params = []): array {
+    public function createApiKey(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         if (!$this->validate(['name' => 'required|max:120'])) {
@@ -2818,7 +2995,7 @@ JS;
         $keyModel = new UserApiKey();
         $activeCount = count(array_filter(
             $keyModel->where(['user_id' => (int) $user->getAttribute('id')], [], 0),
-            fn($k) => !$k->getAttribute('revoked_at')
+            fn ($k) => !$k->getAttribute('revoked_at')
         ));
         if ($activeCount >= 10) {
             return $this->error('وصلت للحد الأقصى (10 مفاتيح فعّالة) - ألغِ مفتاح قديم أولًا', 422);
@@ -2838,10 +3015,14 @@ JS;
     }
 
     /** POST /api/user/api-keys/{id}/revoke */
-    public function revokeApiKey(array $params = []): array {
+    public function revokeApiKey(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         $id = (int) ($params['id'] ?? 0);
@@ -2865,10 +3046,14 @@ JS;
     }
 
     /** POST /api/user/deactivate - إيقاف مؤقت وقابل للتراجع (البديل الآمن للحذف النهائي) */
-    public function deactivateAccount(array $params = []): array {
+    public function deactivateAccount(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         if (!$this->validate(['current_password' => 'required'])) {
@@ -2902,7 +3087,8 @@ JS;
     }
 
     /** GET /api/user/audit-log - سجل نشاط الحساب (Read-Only) */
-    public function listAuditLog(array $params = []): array {
+    public function listAuditLog(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2944,10 +3130,14 @@ JS;
      * الحذف ده لـ Soft Delete بدل الاعتماد على CASCADE) قرار منتج/عمل
      * محتاج مراجعتك، مش حاجة غيّرتها من نفسي.
      */
-    public function deleteAccount(array $params = []): array {
+    public function deleteAccount(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         if (!$this->validate([

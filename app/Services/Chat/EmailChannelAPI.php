@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * تكامل قناة الإيميل (بند 1). يعيد استخدام Mailer الموجود بالفعل في
@@ -9,19 +10,21 @@
  * @version 1.0.0
  */
 
-class EmailChannelAPI {
-
+class EmailChannelAPI
+{
     /** @var Mailer */
     private $mailer;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->mailer = new Mailer();
     }
 
     /**
      * @return bool
      */
-    public function isConfigured(): bool {
+    public function isConfigured(): bool
+    {
         return $this->mailer->isConfigured();
     }
 
@@ -33,7 +36,8 @@ class EmailChannelAPI {
      * @param string $subject
      * @return bool
      */
-    public function sendMessage(string $toEmail, string $message, string $toName = '', string $subject = 'Re: Your inquiry'): bool {
+    public function sendMessage(string $toEmail, string $message, string $toName = '', string $subject = 'Re: Your inquiry'): bool
+    {
         if (!$this->isConfigured()) {
             Logger::warning('EmailChannelAPI: Mailer not configured, skipping send');
             return false;

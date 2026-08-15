@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Revenue Intelligence Cache Service
  * @version 1.1.0
@@ -12,7 +13,8 @@
  * واضحة قابلة للإبطال (invalidate) وقت حدوث Event حقيقي (إيراد جديد/
  * صفقة اتقفلت) - Section 25 و18 متكاملين مع بعض هنا.
  */
-class RevenueCacheService {
+class RevenueCacheService
+{
     /** ثواني - كافي لتخفيف الحمل وقت تنقل المستخدم بين التابات بسرعة، وقصير كفاية عشان البيانات تفضل حديثة. */
     public const DEFAULT_TTL = 180;
 
@@ -21,7 +23,8 @@ class RevenueCacheService {
      * كاش أقصر، والفترات الأطول (quarterly/yearly) أغلى حسابيًا فيلزم
      * كاش أطول - بدون ما نفقد حداثة البيانات على مستوى الفترة.
      */
-    public static function ttlForPeriod(string $period): int {
+    public static function ttlForPeriod(string $period): int
+    {
         switch ($period) {
             case 'daily': return 30;
             case 'weekly': return 90;
@@ -34,19 +37,23 @@ class RevenueCacheService {
     /** @var Cache|null */
     private $cache;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->cache = class_exists('Cache') ? new Cache() : null;
     }
 
-    public function rememberOverview(int $userId, string $period, callable $callback) {
+    public function rememberOverview(int $userId, string $period, callable $callback)
+    {
         return $this->remember(self::overviewKey($userId, $period), $callback, self::ttlForPeriod($period));
     }
 
-    public function rememberForecast(int $userId, string $period, callable $callback) {
+    public function rememberForecast(int $userId, string $period, callable $callback)
+    {
         return $this->remember(self::forecastKey($userId, $period), $callback, self::ttlForPeriod($period));
     }
 
-    public function rememberExecutiveSummary(int $userId, callable $callback) {
+    public function rememberExecutiveSummary(int $userId, callable $callback)
+    {
         return $this->remember(self::executiveKey($userId), $callback);
     }
 
@@ -58,7 +65,8 @@ class RevenueCacheService {
      * بره الكاش ده). ده يمنع تضخم جدول الـ Audit Log بصفوف مكررة من مجرد
      * ما المستخدم بيفتح/يحدّث التاب.
      */
-    public function rememberOncePerWindow(string $namespace, int $userId, callable $callback): void {
+    public function rememberOncePerWindow(string $namespace, int $userId, callable $callback): void
+    {
         if ($this->cache === null) {
             $callback(); // مفيش كاش متاح - ننفذ على طول بدل ما نمنع التسجيل خالص
             return;
@@ -87,7 +95,8 @@ class RevenueCacheService {
      * لو الـ Job اتشغّل أكتر من مرة في نفس اليوم (صفقتين اتقفلوا مثلاً)،
      * المستخدم ميتقصفش بنفس التنبيه عن نفس المخاطرة/الشذوذ.
      */
-    public function shouldNotify(string $dedupKey, int $ttlSeconds = 86400): bool {
+    public function shouldNotify(string $dedupKey, int $ttlSeconds = 86400): bool
+    {
         if ($this->cache === null) {
             return true; // مفيش كاش متاح - نفضّل نبعت الإشعار على إننا نمنعه بالغلط
         }
@@ -107,7 +116,8 @@ class RevenueCacheService {
         return true;
     }
 
-    private function remember(string $key, callable $callback, int $ttlSeconds = self::DEFAULT_TTL) {
+    private function remember(string $key, callable $callback, int $ttlSeconds = self::DEFAULT_TTL)
+    {
         if ($this->cache === null) {
             return $callback(); // مفيش كاش متاح - نحسب مباشرة بدل ما نكسر الطلب
         }
@@ -115,7 +125,8 @@ class RevenueCacheService {
     }
 
     /** يبطّل كل الكاش الخاص بمستخدم معيّن - بينادى عليها من listeners الأحداث (revenue.updated / crm.deal.won / crm.deal.lost). */
-    public function invalidateForUser(int $userId): void {
+    public function invalidateForUser(int $userId): void
+    {
         if ($this->cache === null) {
             return;
         }
@@ -129,15 +140,18 @@ class RevenueCacheService {
         }
     }
 
-    public static function overviewKey(int $userId, string $period): string {
+    public static function overviewKey(int $userId, string $period): string
+    {
         return "revai:overview:{$userId}:{$period}";
     }
 
-    public static function forecastKey(int $userId, string $period): string {
+    public static function forecastKey(int $userId, string $period): string
+    {
         return "revai:forecast:{$userId}:{$period}";
     }
 
-    public static function executiveKey(int $userId): string {
+    public static function executiveKey(int $userId): string
+    {
         return "revai:executive:{$userId}";
     }
 }

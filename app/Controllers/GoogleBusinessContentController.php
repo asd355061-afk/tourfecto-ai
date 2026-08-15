@@ -1,21 +1,25 @@
 <?php
+
 /**
  * Tourfecto - Google Business Profile Content Controller
  * القيمة الجديدة من دمج ai-google-business-hub: توليد وجدولة منشورات
  * GBP. الاتصال/المراجعات نفسها مُدارة فعليًا من ReputationController.
  * @version 1.0.0
  */
-class GoogleBusinessContentController extends Controller {
+class GoogleBusinessContentController extends Controller
+{
     /** @var GbpContentService */
     private $service;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->service = new GbpContentService();
     }
 
     /** GET /gbp-content */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         // تصحيح: بيقرا من إعدادات النظام القابلة للتعديل من لوحة الأدمن الأول
         // (زي GoogleOAuthClient بالظبط) قبل ما يرجع لـ .env كاحتياط، عشان
         // الأدمن يقدر يضبط المفتاح من اللوحة من غير ما يلمس السيرفر.
@@ -1153,8 +1157,11 @@ JS;
     }
 
     /** GET /api/gbp/content */
-    public function listContent(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listContent(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $items = (new GbpContent())->where(['user_id' => $this->user['id']], ['created_at' => 'DESC'], 30);
 
         // Round 7 (2026-08-14 - Production Finalization): كانت دي N+1
@@ -1163,7 +1170,7 @@ JS;
         // واحد بـ IN(...) وبنجمّع أحدث جدولة لكل منشور في PHP بدل SQL
         // (window functions زي ROW_NUMBER() مش مضمون توفرها في كل نسخ
         // MySQL المستخدمة، فده الحل الأكثر توافقًا).
-        $contentIds = array_map(fn($i) => (int) $i->getAttribute('id'), $items);
+        $contentIds = array_map(fn ($i) => (int) $i->getAttribute('id'), $items);
         $latestScheduleByContentId = [];
 
         if (!empty($contentIds)) {
@@ -1194,14 +1201,21 @@ JS;
     }
 
     /** POST /api/gbp/content */
-    public function generate(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!$this->validate(['website_id' => 'required', 'prompt' => 'required'])) return $this->error('بيانات ناقصة', 422);
+    public function generate(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!$this->validate(['website_id' => 'required', 'prompt' => 'required'])) {
+            return $this->error('بيانات ناقصة', 422);
+        }
 
         try {
             $content = $this->service->generate(
-                (int) $this->user['id'], (int) $this->get('website_id'),
-                (string) $this->get('type', 'update'), (string) $this->get('prompt')
+                (int) $this->user['id'],
+                (int) $this->get('website_id'),
+                (string) $this->get('type', 'update'),
+                (string) $this->get('prompt')
             );
             return $this->success(['content' => $content->toArray()], 'تم التوليد', 201);
         } catch (Exception $e) {
@@ -1211,11 +1225,16 @@ JS;
     }
 
     /** GET /api/gbp/location?website_id= — بيانات لوكيشن النشاط الحالية على الخريطة */
-    public function getLocation(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getLocation(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $websiteId = (int) $this->get('website_id');
-        if (!$websiteId) return $this->error('website_id مطلوب', 422);
+        if (!$websiteId) {
+            return $this->error('website_id مطلوب', 422);
+        }
 
         $website = (new Website())->find($websiteId);
         if (!$website || (int) $website->getAttribute('user_id') !== (int) $this->user['id']) {
@@ -1238,8 +1257,11 @@ JS;
     }
 
     /** POST /api/gbp/location — حفظ/تحديث لوكيشن النشاط لحظيًا من الخريطة */
-    public function saveLocation(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function saveLocation(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         if (!$this->validate(['website_id' => 'required', 'latitude' => 'required', 'longitude' => 'required'])) {
             return $this->error('بيانات ناقصة', 422);
         }
@@ -1275,15 +1297,20 @@ JS;
     }
 
     /** POST /api/gbp/content/{id}/schedule */
-    public function schedule(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function schedule(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         if (!$this->validate(['platform_connection_id' => 'required', 'scheduled_at' => 'required'])) {
             return $this->error('بيانات ناقصة', 422);
         }
 
         try {
             $scheduled = $this->service->schedule(
-                (int) ($params['id'] ?? 0), (int) $this->get('platform_connection_id'), (string) $this->get('scheduled_at')
+                (int) ($params['id'] ?? 0),
+                (int) $this->get('platform_connection_id'),
+                (string) $this->get('scheduled_at')
             );
             return $this->success(['scheduled' => $scheduled->toArray()], 'تمت الجدولة', 201);
         } catch (Exception $e) {
@@ -1296,13 +1323,20 @@ JS;
      * PUT /api/gbp/content/{id} - تعديل نص منشور قبل ما يتنشر
      * @since 2026-08-11 (GBP Module Upgrade - Round 6: Posts Edit/Delete)
      */
-    public function updateContent(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!$this->validate(['generated_text' => 'required'])) return $this->error('نص المنشور مطلوب', 422);
+    public function updateContent(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!$this->validate(['generated_text' => 'required'])) {
+            return $this->error('نص المنشور مطلوب', 422);
+        }
 
         try {
             $content = $this->service->editContent(
-                (int) ($params['id'] ?? 0), (int) $this->user['id'], (string) $this->get('generated_text')
+                (int) ($params['id'] ?? 0),
+                (int) $this->user['id'],
+                (string) $this->get('generated_text')
             );
             return $this->success(['content' => $content->toArray()], 'تم تعديل المنشور بنجاح');
         } catch (Exception $e) {
@@ -1314,8 +1348,11 @@ JS;
      * DELETE /api/gbp/content/{id} - حذف مسودة منشور لسه مجدولة/منشورش
      * @since 2026-08-11 (GBP Module Upgrade - Round 6: Posts Edit/Delete)
      */
-    public function deleteContent(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function deleteContent(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         try {
             $this->service->deleteContent((int) ($params['id'] ?? 0), (int) $this->user['id']);
@@ -1329,8 +1366,11 @@ JS;
      * POST /api/gbp/content/{id}/schedule/{scheduleId}/cancel - إلغاء جدولة قبل النشر
      * @since 2026-08-11 (GBP Module Upgrade - Round 6: Posts Edit/Delete)
      */
-    public function cancelSchedule(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function cancelSchedule(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         try {
             $scheduled = $this->service->cancelScheduled((int) ($params['scheduleId'] ?? 0), (int) $this->user['id']);

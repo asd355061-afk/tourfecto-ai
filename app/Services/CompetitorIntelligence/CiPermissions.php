@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Permissions
  * @version 1.0.0
@@ -21,7 +22,8 @@
  * ويُطبَّق دائمًا أولاً في الـ Controller عبر فلترة `user_id` - أي
  * مستخدم مهما كان دوره لا يرى بيانات مستخدم آخر بغض النظر عن الصلاحية.
  */
-class CiPermissions {
+class CiPermissions
+{
     public const PERM_VIEW = 'view';
     public const PERM_ADD = 'add';
     public const PERM_EDIT = 'edit';
@@ -56,12 +58,14 @@ class CiPermissions {
         ],
     ];
 
-    public static function ciRole(array $user): string {
+    public static function ciRole(array $user): string
+    {
         $role = (string) ($user['role'] ?? 'user');
         return self::ROLE_MAP[$role] ?? 'viewer';
     }
 
-    public static function can(array $user, string $permission): bool {
+    public static function can(array $user, string $permission): bool
+    {
         $ciRole = self::ciRole($user);
         return in_array($permission, self::MATRIX[$ciRole] ?? [], true);
     }

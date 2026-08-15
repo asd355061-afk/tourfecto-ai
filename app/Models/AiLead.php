@@ -1,11 +1,13 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * ملف Lead الغني الذي يبنيه الـAI Sales Agent من المحادثة (بند 5-6).
  * منفصل عمدًا عن WebsiteLead (نماذج التواصل من الموقع المنشور).
  * @version 1.0.0
  */
-class AiLead extends Model {
+class AiLead extends Model
+{
     protected $table = 'ai_leads';
     protected $fillable = [
         'website_id', 'conversation_id', 'name', 'phone', 'email',
@@ -21,7 +23,8 @@ class AiLead extends Model {
      * @param array $filters ['status']
      * @return array
      */
-    public function forWebsite(int $websiteId, array $filters = []): array {
+    public function forWebsite(int $websiteId, array $filters = []): array
+    {
         $conditions = ['website_id' => $websiteId];
         if (!empty($filters['status'])) {
             $conditions['status'] = $filters['status'];

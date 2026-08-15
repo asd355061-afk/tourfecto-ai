@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * إدارة ملفات Leads التي يبنيها AI Sales Agent تلقائيًا من المحادثات
@@ -8,12 +9,13 @@
  * @copyright 2026 Tourfecto
  */
 
-class AiLeadController extends Controller {
-
+class AiLeadController extends Controller
+{
     /** @var AiLead */
     private $leadModel;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->leadModel = new AiLead();
     }
@@ -23,7 +25,8 @@ class AiLeadController extends Controller {
      * GET /api/ai-chat/websites/{id}/leads
      * Query: status
      */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -52,7 +55,8 @@ class AiLeadController extends Controller {
      * تفاصيل Lead واحد.
      * GET /api/ai-chat/websites/{id}/leads/{leadId}
      */
-    public function show(array $params = []): array {
+    public function show(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -78,7 +82,8 @@ class AiLeadController extends Controller {
      * PUT /api/ai-chat/websites/{id}/leads/{leadId}
      * Body: status, assigned_agent_id
      */
-    public function update(array $params = []): array {
+    public function update(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -112,7 +117,8 @@ class AiLeadController extends Controller {
      * @param int $websiteId
      * @return Website|null
      */
-    private function authorizedWebsite(int $websiteId): ?Website {
+    private function authorizedWebsite(int $websiteId): ?Website
+    {
         if ($websiteId <= 0) {
             return null;
         }
@@ -128,7 +134,8 @@ class AiLeadController extends Controller {
      * @param int $websiteId
      * @return AiLead|null
      */
-    private function authorizedLead(int $leadId, int $websiteId): ?AiLead {
+    private function authorizedLead(int $leadId, int $websiteId): ?AiLead
+    {
         if ($leadId <= 0) {
             return null;
         }
@@ -144,7 +151,8 @@ class AiLeadController extends Controller {
      * @param bool $detailed
      * @return array
      */
-    private function serialize(AiLead $lead, bool $detailed = false): array {
+    private function serialize(AiLead $lead, bool $detailed = false): array
+    {
         $data = [
             'id' => $lead->getAttribute('id'),
             'conversation_id' => $lead->getAttribute('conversation_id'),

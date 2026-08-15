@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Pagination Helper (بند 37)
  * @version 1.0.0
@@ -7,14 +8,16 @@
  * الشكل في Tasks/Companies/Appointments/Deals/Leads بدل تكرار نفس كود
  * COUNT+LIMIT/OFFSET في كل Service (بند 33: لا تنشئ أنظمة مكررة).
  */
-trait CrmPaginationHelper {
+trait CrmPaginationHelper
+{
     /**
      * @param string $table اسم الجدول
      * @param string $whereSql شرط WHERE جاهز (بدون كلمة WHERE نفسها)
      * @param array $params قيم الشرط بنفس ترتيب علامات الاستفهام
      * @param string $orderBy عمود/اتجاه الترتيب (مُتحقَّق منه مسبقًا من المستدعي - لا يُمرَّر مباشرة من المستخدم أبدًا لتفادي SQL Injection)
      */
-    protected function paginateQuery(string $table, string $whereSql, array $params, int $page, int $perPage, string $orderBy = 'created_at DESC'): array {
+    protected function paginateQuery(string $table, string $whereSql, array $params, int $page, int $perPage, string $orderBy = 'created_at DESC'): array
+    {
         $page = max(1, $page);
         $perPage = max(1, min(100, $perPage));
         $offset = ($page - 1) * $perPage;
