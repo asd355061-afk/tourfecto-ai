@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Revenue Intelligence: Event Listeners
  * @version 1.0.0

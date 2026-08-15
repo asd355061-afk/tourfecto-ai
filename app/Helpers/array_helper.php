@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Array Helper
  * دوال مساعدة للتعامل مع المصفوفات
@@ -15,21 +16,22 @@ if (!function_exists('array_get')) {
      * @param mixed $default
      * @return mixed
      */
-    function array_get(array $array, string $key, $default = null) {
+    function array_get(array $array, string $key, $default = null)
+    {
         if (strpos($key, '.') === false) {
             return $array[$key] ?? $default;
         }
-        
+
         $keys = explode('.', $key);
         $current = $array;
-        
+
         foreach ($keys as $segment) {
             if (!is_array($current) || !isset($current[$segment])) {
                 return $default;
             }
             $current = $current[$segment];
         }
-        
+
         return $current;
     }
 }
@@ -42,24 +44,25 @@ if (!function_exists('array_set')) {
      * @param mixed $value
      * @return array
      */
-    function array_set(array $array, string $key, $value): array {
+    function array_set(array $array, string $key, $value): array
+    {
         if (strpos($key, '.') === false) {
             $array[$key] = $value;
             return $array;
         }
-        
+
         $keys = explode('.', $key);
         $current = &$array;
-        
+
         foreach ($keys as $segment) {
             if (!isset($current[$segment]) || !is_array($current[$segment])) {
                 $current[$segment] = [];
             }
             $current = &$current[$segment];
         }
-        
+
         $current = $value;
-        
+
         return $array;
     }
 }
@@ -71,7 +74,8 @@ if (!function_exists('array_has')) {
      * @param string $key
      * @return bool
      */
-    function array_has(array $array, string $key): bool {
+    function array_has(array $array, string $key): bool
+    {
         return array_get($array, $key, '__NOT_FOUND__') !== '__NOT_FOUND__';
     }
 }
@@ -84,7 +88,8 @@ if (!function_exists('array_pull')) {
      * @param mixed $default
      * @return mixed
      */
-    function array_pull(array &$array, string $key, $default = null) {
+    function array_pull(array &$array, string $key, $default = null)
+    {
         $value = array_get($array, $key, $default);
         array_forget($array, $key);
         return $value;
@@ -98,27 +103,28 @@ if (!function_exists('array_forget')) {
      * @param string $key
      * @return array
      */
-    function array_forget(array &$array, string $key): array {
+    function array_forget(array &$array, string $key): array
+    {
         if (strpos($key, '.') === false) {
             unset($array[$key]);
             return $array;
         }
-        
+
         $keys = explode('.', $key);
         $current = &$array;
-        
+
         foreach ($keys as $i => $segment) {
             if (!isset($current[$segment])) {
                 return $array;
             }
-            
+
             if ($i === count($keys) - 1) {
                 unset($current[$segment]);
             } else {
                 $current = &$current[$segment];
             }
         }
-        
+
         return $array;
     }
 }
@@ -130,7 +136,8 @@ if (!function_exists('array_only')) {
      * @param array $keys
      * @return array
      */
-    function array_only(array $array, array $keys): array {
+    function array_only(array $array, array $keys): array
+    {
         return array_intersect_key($array, array_flip($keys));
     }
 }
@@ -142,7 +149,8 @@ if (!function_exists('array_except')) {
      * @param array $keys
      * @return array
      */
-    function array_except(array $array, array $keys): array {
+    function array_except(array $array, array $keys): array
+    {
         return array_diff_key($array, array_flip($keys));
     }
 }
@@ -154,9 +162,10 @@ if (!function_exists('array_flatten')) {
      * @param int $depth
      * @return array
      */
-    function array_flatten(array $array, int $depth = PHP_INT_MAX): array {
+    function array_flatten(array $array, int $depth = PHP_INT_MAX): array
+    {
         $result = [];
-        
+
         foreach ($array as $item) {
             if (is_array($item) && $depth > 0) {
                 $result = array_merge($result, array_flatten($item, $depth - 1));
@@ -164,7 +173,7 @@ if (!function_exists('array_flatten')) {
                 $result[] = $item;
             }
         }
-        
+
         return $result;
     }
 }
@@ -176,21 +185,22 @@ if (!function_exists('array_unique_multidimensional')) {
      * @param string $key
      * @return array
      */
-    function array_unique_multidimensional(array $array, string $key = null): array {
+    function array_unique_multidimensional(array $array, string $key = null): array
+    {
         if ($key === null) {
             return array_unique($array, SORT_REGULAR);
         }
-        
+
         $seen = [];
         $result = [];
-        
+
         foreach ($array as $item) {
             if (isset($item[$key]) && !in_array($item[$key], $seen, true)) {
                 $seen[] = $item[$key];
                 $result[] = $item;
             }
         }
-        
+
         return $result;
     }
 }
@@ -202,14 +212,15 @@ if (!function_exists('array_group_by')) {
      * @param string $key
      * @return array
      */
-    function array_group_by(array $array, string $key): array {
+    function array_group_by(array $array, string $key): array
+    {
         $result = [];
-        
+
         foreach ($array as $item) {
             $groupKey = is_array($item) ? ($item[$key] ?? '') : '';
             $result[$groupKey][] = $item;
         }
-        
+
         return $result;
     }
 }
@@ -222,18 +233,19 @@ if (!function_exists('array_sort_by')) {
      * @param int $order
      * @return array
      */
-    function array_sort_by(array $array, string $key, int $order = SORT_ASC): array {
-        usort($array, function($a, $b) use ($key, $order) {
+    function array_sort_by(array $array, string $key, int $order = SORT_ASC): array
+    {
+        usort($array, function ($a, $b) use ($key, $order) {
             $valA = is_array($a) ? ($a[$key] ?? null) : null;
             $valB = is_array($b) ? ($b[$key] ?? null) : null;
-            
+
             if ($order === SORT_ASC) {
                 return $valA <=> $valB;
             }
-            
+
             return $valB <=> $valA;
         });
-        
+
         return $array;
     }
 }
@@ -244,7 +256,8 @@ if (!function_exists('array_is_associative')) {
      * @param array $array
      * @return bool
      */
-    function array_is_associative(array $array): bool {
+    function array_is_associative(array $array): bool
+    {
         return array_keys($array) !== range(0, count($array) - 1);
     }
 }
@@ -256,7 +269,8 @@ if (!function_exists('array_merge_recursive_distinct')) {
      * @param array $array2
      * @return array
      */
-    function array_merge_recursive_distinct(array $array1, array $array2): array {
+    function array_merge_recursive_distinct(array $array1, array $array2): array
+    {
         foreach ($array2 as $key => $value) {
             if (is_array($value) && isset($array1[$key]) && is_array($array1[$key])) {
                 $array1[$key] = array_merge_recursive_distinct($array1[$key], $value);
@@ -264,7 +278,7 @@ if (!function_exists('array_merge_recursive_distinct')) {
                 $array1[$key] = $value;
             }
         }
-        
+
         return $array1;
     }
 }
@@ -277,12 +291,13 @@ if (!function_exists('array_search_recursive')) {
      * @param bool $strict
      * @return array|bool
      */
-    function array_search_recursive($needle, array $haystack, bool $strict = false) {
+    function array_search_recursive($needle, array $haystack, bool $strict = false)
+    {
         foreach ($haystack as $key => $value) {
             if (($strict ? $value === $needle : $value == $needle)) {
                 return [$key];
             }
-            
+
             if (is_array($value)) {
                 $result = array_search_recursive($needle, $value, $strict);
                 if ($result !== false) {
@@ -290,7 +305,7 @@ if (!function_exists('array_search_recursive')) {
                 }
             }
         }
-        
+
         return false;
     }
 }
@@ -302,8 +317,9 @@ if (!function_exists('array_pluck')) {
      * @param string $key
      * @return array
      */
-    function array_pluck(array $array, string $key): array {
-        return array_map(function($item) use ($key) {
+    function array_pluck(array $array, string $key): array
+    {
+        return array_map(function ($item) use ($key) {
             return is_array($item) ? ($item[$key] ?? null) : null;
         }, $array);
     }
@@ -315,10 +331,11 @@ if (!function_exists('array_zip')) {
      * @param array ...$arrays
      * @return array
      */
-    function array_zip(array ...$arrays): array {
+    function array_zip(array ...$arrays): array
+    {
         $result = [];
         $maxLength = max(array_map('count', $arrays));
-        
+
         for ($i = 0; $i < $maxLength; $i++) {
             $row = [];
             foreach ($arrays as $array) {
@@ -326,7 +343,7 @@ if (!function_exists('array_zip')) {
             }
             $result[] = $row;
         }
-        
+
         return $result;
     }
 }
@@ -338,7 +355,8 @@ if (!function_exists('array_where')) {
      * @param callable $callback
      * @return array
      */
-    function array_where(array $array, callable $callback): array {
+    function array_where(array $array, callable $callback): array
+    {
         return array_values(array_filter($array, $callback));
     }
 }
@@ -351,7 +369,8 @@ if (!function_exists('array_first')) {
      * @param mixed $default
      * @return mixed
      */
-    function array_first(array $array, callable $callback = null, $default = null) {
+    function array_first(array $array, callable $callback = null, $default = null)
+    {
         if ($callback) {
             foreach ($array as $key => $value) {
                 if ($callback($value, $key)) {
@@ -360,7 +379,7 @@ if (!function_exists('array_first')) {
             }
             return $default;
         }
-        
+
         return reset($array) ?: $default;
     }
 }
@@ -373,7 +392,8 @@ if (!function_exists('array_last')) {
      * @param mixed $default
      * @return mixed
      */
-    function array_last(array $array, callable $callback = null, $default = null) {
+    function array_last(array $array, callable $callback = null, $default = null)
+    {
         if ($callback) {
             $reversed = array_reverse($array, true);
             foreach ($reversed as $key => $value) {
@@ -383,7 +403,7 @@ if (!function_exists('array_last')) {
             }
             return $default;
         }
-        
+
         return end($array) ?: $default;
     }
 }
@@ -395,18 +415,19 @@ if (!function_exists('array_random')) {
      * @param int $count
      * @return mixed|array
      */
-    function array_random(array $array, int $count = 1) {
+    function array_random(array $array, int $count = 1)
+    {
         $keys = array_rand($array, $count);
-        
+
         if ($count === 1) {
             return is_array($keys) ? $array[$keys[0]] : $array[$keys];
         }
-        
+
         $result = [];
         foreach ((array) $keys as $key) {
             $result[] = $array[$key];
         }
-        
+
         return $result;
     }
 }

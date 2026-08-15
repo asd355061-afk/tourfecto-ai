@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - الثوابت العامة
  * @version 1.0.0

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - تكوين قاعدة البيانات
  * @version 1.0.0
@@ -42,17 +43,17 @@ define('DB_OPTIONS', array_filter([
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     PDO::ATTR_EMULATE_PREPARES => false, // منع SQL Injection
     PDO::ATTR_STRINGIFY_FETCHES => false,
-    
+
     // الاتصال المستمر
     PDO::ATTR_PERSISTENT => false,
-    
+
     // الترميز
     PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci",
     PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => true,
-    
+
     // المهلة
     PDO::ATTR_TIMEOUT => 30,
-    
+
     // SSL (للأمان) - تُضاف فقط لو محددة فعليًا في .env، عشان متفعلش SSL بالغلط
     PDO::MYSQL_ATTR_SSL_CA => env('DB_SSL_CA') ?: null,
     PDO::MYSQL_ATTR_SSL_CERT => env('DB_SSL_CERT') ?: null,
