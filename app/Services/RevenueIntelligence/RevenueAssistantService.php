@@ -94,6 +94,28 @@ class RevenueAssistantService
     }
 
     /**
+     * نفس ask() لكن مع طبقة Copilot اختيارية (v1.4.0): الرد يُحسب أولًا
+     * بالطريقة الصارمة الحالية (بيانات حقيقية فقط)، ثم الـLLM يعيد صياغة
+     * نفس النتيجة نصًا طبيعيًا (copilot_narrative) بدون إضافة/تغيير أي
+     * رقم. أي فشل في الـLLM => يرجّع الرد الصارم الأصلي كما هو.
+     *
+     * @param int    $userId
+     * @param string $question
+     * @param bool   $persist
+     * @param string $lang 'ar' | 'en'
+     */
+    public function askWithCopilot(int $userId, string $question, bool $persist = true, string $lang = 'ar'): array {
+        $intent = self::matchIntent($question);
+        $answer = $this->ask($userId, $question, $persist);
+
+        if (class_exists('RevenueCopilotService')) {
+            $answer = RevenueCopilotService::enhance($answer, $intent, $question, $lang);
+        }
+
+        return $answer;
+    }
+
+    /**
      * Normalization عربي موحّد قبل أي مطابقة - يقلّل أخطاء الـNLP العربي
      * بشكل كبير: همزة/ألف، تاء مربوطة/هاء، ألف مقصورة/ياء. تطبيقه على
      * السؤال وعلى الأنماط معًا بحيث أي تهجئة شائعة بتوصل لنفس الـIntent.

@@ -98,6 +98,28 @@ class RevenueDataGateway
         );
     }
 
+    /**
+     * سلسلة شهرية (Y-m) لإيراد نوع معيّن (عادة source='subscription') خلال
+     * آخر N شهر - لتحليل استقرار الإيراد المتكرر (Revenue Retention).
+     * نرجّع صفًا لكل شهر فيه سجلات فقط (الشهر اللي مفيش فيه سجلات بيختفي
+     * من الناتج = إشارة "gap" قابلة للاكتشاف في الـRetentionService).
+     */
+    public function getMonthlyRevenueSeries(int $userId, int $months = 6, ?string $source = null): array {
+        $params = [$userId];
+        $sourceFilter = '';
+        if ($source !== null) {
+            $sourceFilter = ' AND source = ?';
+            $params[] = $source;
+        }
+        return $this->db->query(
+            "SELECT DATE_FORMAT(recorded_at, '%Y-%m') AS month, COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count
+             FROM rev_revenue_records
+             WHERE user_id = ? AND recorded_at >= DATE_SUB(CURDATE(), INTERVAL ? MONTH) {$sourceFilter}
+             GROUP BY month ORDER BY month ASC",
+            [$userId, max(1, $months), ...array_slice($params, 1)]
+        );
+    }
+
     // ============================================================
     // Marketing Spend (rev_marketing_spend + ad_campaigns) - BATCH6
     // ============================================================
