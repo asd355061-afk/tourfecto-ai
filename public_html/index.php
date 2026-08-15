@@ -181,6 +181,8 @@ $optionalNewClassFiles = [
     APP_PATH . '/Models/WorkspaceInvite.php',
     APP_PATH . '/Services/WorkspacePermissions.php',
     APP_PATH . '/Controllers/WorkspaceController.php',
+    // 2FA حقيقي (TOTP) في Settings Center (Phase 9 - 2026-08-11)
+    APP_PATH . '/Services/TotpService.php',
     // ============================================
     // CRM Module (Contacts/Companies/Tasks/Pipelines/Automation/Segments)
     // نفس المبدأ بالظبط زي كل الكلاسات فوق: كلاسات جديدة مش موجودة في
@@ -308,6 +310,22 @@ foreach ($optionalNewClassFiles as $classFile) {
     if (file_exists($classFile)) {
         require_once $classFile;
     }
+}
+
+// ============================================
+// 2.2. Helper Functions العامة (event(), container(), listen(), enqueue())
+// إصلاح اكتُشف أثناء Settings Center (Phase 11): طبقة
+// Container/EventDispatcher كلها (app/Core/Container.php،
+// app/Core/Events/*) كانت موجودة ومسجّلة في composer classmap فعليًا
+// (يعني الكلاسات نفسها شغالة)، لكن app/Helpers/enterprise_helpers.php
+// اللي بيعرّف الدوال العامة المختصرة (event()، container()...) عمره
+// ما كان بيتحمّل من أي مكان - يعني أي نداء event('...') في أي مكان
+// في الكود كله كان هيرمي Fatal Error "Call to undefined function"
+// فورًا. بعد إصلاح التحميل ده، أي موديول (GBP، Revenue Intelligence،
+// Reputation...) بقى يقدر يستخدم الأحداث بشكل حقيقي.
+// ============================================
+if (file_exists(APP_PATH . '/Helpers/enterprise_helpers.php')) {
+    require_once APP_PATH . '/Helpers/enterprise_helpers.php';
 }
 
 // ============================================

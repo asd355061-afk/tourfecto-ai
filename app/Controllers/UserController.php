@@ -168,6 +168,9 @@ JS;
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
         }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
+        }
 
         // Server-side validation (لا نعتمد على Client Validation وحدها -
         // كل حقل عنده حد أقصى مطابق للـ maxlength في الفورم ومطابق لطول
@@ -478,6 +481,12 @@ JS;
         $tTabSecurity = $this->tr('settings.tab.security');
         $tTabNotifications = $this->tr('settings.tab.notifications');
         $tTabApi = $this->tr('settings.tab.api');
+        $tTabIntegrations = $this->tr('settings.tab.integrations');
+        $tTabsAriaLabel = $this->tr('settings.tabs_aria_label');
+        $tIntegrationsTitle = $this->tr('settings.integrations_title');
+        $tIntegrationsDesc = $this->tr('settings.integrations_desc');
+        $tIntegrationsListHint = $this->tr('settings.integrations_list_hint');
+        $tIntegrationsManageBtn = $this->tr('settings.integrations_manage_btn');
         $tTabBilling = $this->tr('settings.tab.billing');
         $tTabAudit = $this->tr('settings.tab.audit');
         $tTabWorkspace = $this->tr('settings.tab.workspace');
@@ -631,12 +640,29 @@ JS;
         $tLeaveWorkspaceWarning = $this->tr('settings.leave_workspace_warning');
         $tLeaveWorkspaceBtn = $this->tr('settings.leave_workspace_btn');
 
+        // Phase 12 (Scoped CSRF): التوكن اللي بيتبعت مع كل طلب JSON من
+        // أي تاب في الصفحة - بيتبني فوق كائن Csrf الموجود بالفعل.
+        $csrfToken = class_exists('Csrf') ? Csrf::token() : '';
+
         $body = <<<HTML
+        <script>window.TF_CSRF_TOKEN = "{$csrfToken}";</script>
+        <style>
+            /* Phase 14: تحويل تابات الإعدادات لـ Dropdown على الموبايل.
+               مقصود إنها مربوطة بـ #settingsTabs/#settingsTabsMobile
+               بالتحديد، مش .p-tabs/.p-tab العامة - الكلاسات دي مستخدمة
+               في صفحات تانية ومش عايزين نغيّر سلوكها الافتراضي هناك. */
+            #settingsTabsMobile { display: none; }
+            @media (max-width: 640px) {
+                #settingsTabs { display: none; }
+                #settingsTabsMobile { display: block; width: 100%; margin-bottom: 14px; }
+            }
+        </style>
         <div class="p-tabs" id="settingsTabs">
             <button class="p-tab active" data-section="profile">👤 {$tTabProfile}</button>
             <button class="p-tab" data-section="security">🔒 {$tTabSecurity}</button>
             <button class="p-tab" data-section="notifications">🔔 {$tTabNotifications}</button>
             <button class="p-tab" data-section="api">🔑 {$tTabApi}</button>
+            <button class="p-tab" data-section="integrations">🔌 {$tTabIntegrations}</button>
             <button class="p-tab" data-section="billing">💳 {$tTabBilling}</button>
             <button class="p-tab" data-section="audit">📜 {$tTabAudit}</button>
             <button class="p-tab" data-section="workspace">🏢 {$tTabWorkspace}</button>
@@ -646,6 +672,22 @@ JS;
             <button class="p-tab" data-section="activity">📋 {$tTabActivity}</button>
             <button class="p-tab" data-section="permissions">🛡️ {$tTabPermissions}</button>
         </div>
+
+        <select id="settingsTabsMobile" aria-label="{$tTabsAriaLabel}">
+            <option value="profile">👤 {$tTabProfile}</option>
+            <option value="security">🔒 {$tTabSecurity}</option>
+            <option value="notifications">🔔 {$tTabNotifications}</option>
+            <option value="api">🔑 {$tTabApi}</option>
+            <option value="integrations">🔌 {$tTabIntegrations}</option>
+            <option value="billing">💳 {$tTabBilling}</option>
+            <option value="audit">📜 {$tTabAudit}</option>
+            <option value="workspace">🏢 {$tTabWorkspace}</option>
+            <option value="team">👥 {$tTabTeam}</option>
+            <option value="general">🌐 {$tTabGeneral}</option>
+            <option value="connected">🔗 {$tTabConnected}</option>
+            <option value="activity">📋 {$tTabActivity}</option>
+            <option value="permissions">🛡️ {$tTabPermissions}</option>
+        </select>
 
         <!-- الملف الشخصي -->
         <div class="settings-section" id="section_profile">
@@ -873,6 +915,18 @@ JS;
                 </div>
 
                 <div id="apiKeysList">{$tKeysLoading}</div>
+            </div>
+        </div>
+
+        <!-- التكاملات (Phase 13) - مؤشر لصفحة /integrations الحقيقية -->
+        <div class="settings-section" id="section_integrations" style="display:none;">
+            <div class="p-card">
+                <div class="p-card-head"><h3>🔌 {$tIntegrationsTitle}</h3></div>
+                <p class="p-cell-muted">{$tIntegrationsDesc}</p>
+                <div class="p-cell-muted" style="font-size:12.5px;margin:10px 0 16px;padding:12px;background:var(--panel-bg,#151521);border-radius:8px;">
+                    💡 {$tIntegrationsListHint}
+                </div>
+                <a href="/integrations" class="p-btn primary">{$tIntegrationsManageBtn}</a>
             </div>
         </div>
 
@@ -1252,17 +1306,57 @@ HTML;
         $script = <<<JS
 (function () {
     const P = window.Panel;
-    const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast;
+    const esc = P.esc, toast = P.toast;
+    const rawFetchJSON = P.fetchJSON;
 
-    // ============ التابات ============
-    document.querySelectorAll('#settingsTabs .p-tab').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('#settingsTabs .p-tab').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            const section = btn.dataset.section;
-            document.querySelectorAll('.settings-section').forEach(s => s.style.display = 'none');
-            document.getElementById('section_' + section).style.display = 'block';
+    // Phase 12: نحقن csrf_token تلقائيًا في أي نداء بجسم JSON (POST/PUT/
+    // DELETE) - بنستبدل fetchJSON المحلية بغلاف بسيط حواليها، عشان كل
+    // نداء fetchJSON(...) موجود بالفعل في الملف ده كله (عشرات النداءات)
+    // ياخد الحماية دي تلقائيًا من غير ما نلمس ولا نداء منهم بنفسه.
+    // مبنيّة فوق window.TF_CSRF_TOKEN المحقون فوق في الصفحة.
+    // عملاء Bearer token (Authorization header) مش محتاجين التوكن ده.
+    async function fetchJSON(url, options = {}) {
+        const method = (options.method || 'GET').toUpperCase();
+        if (method !== 'GET' && typeof options.body === 'string') {
+            try {
+                const bodyObj = JSON.parse(options.body);
+                bodyObj.csrf_token = window.TF_CSRF_TOKEN || '';
+                options = Object.assign({}, options, { body: JSON.stringify(bodyObj) });
+            } catch (e) {
+                // جسم الطلب مش JSON (مثلًا FormData لرفع صورة) - نسيبه زي
+                // ما هو، أماكن الرفع بتضيف csrf_token بنفسها لو محتاجة.
+            }
+        } else if (method !== 'GET' && !options.body) {
+            // نداءات POST من غير جسم (زي 2fa/setup) - نضيف جسم بسيط فيه التوكن.
+            options = Object.assign({}, options, {
+                headers: Object.assign({ 'Content-Type': 'application/json' }, options.headers || {}),
+                body: JSON.stringify({ csrf_token: window.TF_CSRF_TOKEN || '' }),
+            });
+        } else if (method !== 'GET' && typeof FormData !== 'undefined' && options.body instanceof FormData) {
+            options.body.append('csrf_token', window.TF_CSRF_TOKEN || '');
+        }
+        return rawFetchJSON(url, options);
+    }
+
+    // ============ التابات (ديسكتوب + Dropdown الموبايل - Phase 14) ============
+    const settingsSections = ['profile', 'security', 'notifications', 'api', 'integrations', 'billing', 'audit', 'workspace', 'team', 'general', 'connected', 'activity', 'permissions'];
+    function switchSettingsTab(section) {
+        if (settingsSections.indexOf(section) === -1) {
+            section = 'profile';
+        }
+        document.querySelectorAll('#settingsTabs .p-tab').forEach(b => {
+            b.classList.toggle('active', b.dataset.section === section);
         });
+        document.getElementById('settingsTabsMobile').value = section;
+        document.querySelectorAll('.settings-section').forEach(s => {
+            s.style.display = (s.id === 'section_' + section) ? 'block' : 'none';
+        });
+    }
+    document.querySelectorAll('#settingsTabs .p-tab').forEach(btn => {
+        btn.addEventListener('click', () => switchSettingsTab(btn.dataset.section));
+    });
+    document.getElementById('settingsTabsMobile').addEventListener('change', function () {
+        switchSettingsTab(this.value);
     });
 
     // Connected Accounts (Profile Center Phase 2): توست بعد الرجوع من
@@ -2421,6 +2515,9 @@ JS;
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
         }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
+        }
 
         $secret = AuthController::generateTotpSecret();
         $user->setAttribute('two_factor_secret', $secret);
@@ -2447,6 +2544,9 @@ JS;
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         $secret = (string) $user->getAttribute('two_factor_secret');
@@ -2482,6 +2582,9 @@ JS;
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         if (!$this->validate(['password' => 'required'])) {
@@ -2704,6 +2807,9 @@ JS;
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
         }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
+        }
 
         $id = (int) ($params['id'] ?? 0);
         $tokenModel = new RefreshToken();
@@ -2727,6 +2833,9 @@ JS;
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         $currentId = $_SESSION['current_refresh_token_id'] ?? null;
@@ -2808,6 +2917,9 @@ JS;
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
         }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
+        }
 
         if (!$this->validate(['name' => 'required|max:120'])) {
             return $this->error('بيانات غير صحيحة', 422, $this->getErrors());
@@ -2843,6 +2955,9 @@ JS;
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
         }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
+        }
 
         $id = (int) ($params['id'] ?? 0);
         $key = (new UserApiKey())->find($id);
@@ -2869,6 +2984,9 @@ JS;
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         if (!$this->validate(['current_password' => 'required'])) {
@@ -2948,6 +3066,9 @@ JS;
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         if (!$this->validate([

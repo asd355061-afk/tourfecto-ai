@@ -23,16 +23,62 @@ class AuthController extends Controller {
 
     /**
      * ===================== Two-Factor Authentication (TOTP) =====================
-     * تطبيق RFC 6238 (TOTP) باستخدام hash_hmac المدمجة في PHP فقط - بدون
-     * أي مكتبة خارجية زي spomky-labs/otphp أو pragmarx/google2fa، لأن
-     * المشروع مفهوش composer package زي ده، ومفيش طريقة آمنة تضيف
-     * Dependency جديدة دلوقتي من غير SSH لتشغيل composer install/update
-     * (نفس القيد الموثّق في UserController.php حول composer dump-autoload).
-     * هذا الكود بديل كامل من غير أي Dependency خارجية.
+     * تطبيق RFC 6238 (TOTP) يتم تفويضه إلى app/Services/TotpService.php
+     * (نفس الخوارزمية اللي بتستخدمها Google Authenticator / Authy:
+     * HMAC-SHA1، نافذة 30 ثانية، 6 أرقام) - من غير أي مكتبة خارجية،
+     * ومختبَر ضد قيم RFC 6238 الرسمية في tests/Unit/TotpServiceTest.php.
+     *
+     * الميثودات الستاتيك هنا بتتفوض لـ TotpService بنفس التوقيعات
+     * القديمة (generateTotpSecret / verifyTotpCode / generateRecoveryCodes)
+     * عشان أي كود قديم بيناديها (UserController، صفحات الـ2FA) يفضل
+     * شغال من غير أي تعديل.
      */
 
-    /** ترميز Base32 (RFC 4648) - مطلوب لعرض الـsecret بصيغة يفهمها أي تطبيق Authenticator */
-    private static function base32Encode(string $data): string {
+    /** توليد secret عشوائي جديد (160-bit، القياس الموصى به لـTOTP) */
+    public static function generateTotpSecret(): string {
+        if (class_exists('TotpService')) {
+            return TotpService::generateSecret();
+        }
+        return self::fallbackBase32Encode(random_bytes(20));
+    }
+
+    /**
+     * التحقق من كود TOTP بهامش ±1 خطوة زمنية (30 ثانية قبل/بعد) عشان نتحمل
+     * فرق بسيط في ساعة جهاز المستخدم - ده معيار شائع ومقبول أمنيًا، مش
+     * توسيع مبالغ فيه (لسه بيرفض أي كود قديم من أكتر من 30 ثانية).
+     */
+    public static function verifyTotpCode(string $base32Secret, string $code): bool {
+        if (class_exists('TotpService')) {
+            return TotpService::verify($base32Secret, $code, 1);
+        }
+        $code = trim($code);
+        if (!preg_match('/^\d{6}$/', $code)) {
+            return false;
+        }
+        $now = time();
+        foreach ([-30, 0, 30] as $offset) {
+            if (hash_equals(self::fallbackTotpCode($base32Secret, $now + $offset), $code)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** توليد 8 recovery codes (نص عادي مرة واحدة بس وقت العرض، بعدها مبيتخزنش إلا مُشفّر) */
+    public static function generateRecoveryCodes(int $count = 8): array {
+        if (class_exists('TotpService')) {
+            return TotpService::generateRecoveryCodes($count);
+        }
+        $codes = [];
+        for ($i = 0; $i < $count; $i++) {
+            $codes[] = strtoupper(bin2hex(random_bytes(5))); // 10 حروف/أرقام
+        }
+        return $codes;
+    }
+
+    /** ===== Fallback داخلي (لو TotpService مش محمّل لسبب ما) - نفس الخوارزمية ===== */
+
+    private static function fallbackBase32Encode(string $data): string {
         $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
         $binary = '';
         foreach (str_split($data) as $char) {
@@ -46,8 +92,21 @@ class AuthController extends Controller {
         return $output;
     }
 
-    /** فك ترميز Base32 - لازم للتحقق من الكود اللي بيبعته المستخدم */
-    private static function base32Decode(string $b32): string {
+    private static function fallbackTotpCode(string $base32Secret, ?int $timestamp = null): string {
+        $timestamp = $timestamp ?? time();
+        $counter = intdiv($timestamp, 30);
+        $binCounter = pack('N*', 0) . pack('N*', $counter);
+        $secretBinary = self::fallbackBase32Decode($base32Secret);
+        $hash = hash_hmac('sha1', $binCounter, $secretBinary, true);
+        $offset = ord($hash[19]) & 0x0F;
+        $truncated = ((ord($hash[$offset]) & 0x7F) << 24)
+            | ((ord($hash[$offset + 1]) & 0xFF) << 16)
+            | ((ord($hash[$offset + 2]) & 0xFF) << 8)
+            | (ord($hash[$offset + 3]) & 0xFF);
+        return str_pad((string) ($truncated % 1000000), 6, '0', STR_PAD_LEFT);
+    }
+
+    private static function fallbackBase32Decode(string $b32): string {
         $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
         $b32 = strtoupper(preg_replace('/[^A-Z2-7]/i', '', $b32));
         $binary = '';
@@ -65,54 +124,6 @@ class AuthController extends Controller {
             }
         }
         return $output;
-    }
-
-    /** توليد secret عشوائي جديد (160-bit، القياس الموصى به لـTOTP) */
-    public static function generateTotpSecret(): string {
-        return self::base32Encode(random_bytes(20));
-    }
-
-    /** توليد كود TOTP لثانية زمنية معيّنة (RFC 6238 - HMAC-SHA1، 6 أرقام، نافذة 30 ثانية) */
-    private static function generateTotpCode(string $base32Secret, ?int $timestamp = null): string {
-        $timestamp = $timestamp ?? time();
-        $counter = intdiv($timestamp, 30);
-        $binCounter = pack('N*', 0) . pack('N*', $counter);
-        $secretBinary = self::base32Decode($base32Secret);
-        $hash = hash_hmac('sha1', $binCounter, $secretBinary, true);
-        $offset = ord($hash[19]) & 0x0F;
-        $truncated = ((ord($hash[$offset]) & 0x7F) << 24)
-            | ((ord($hash[$offset + 1]) & 0xFF) << 16)
-            | ((ord($hash[$offset + 2]) & 0xFF) << 8)
-            | (ord($hash[$offset + 3]) & 0xFF);
-        return str_pad((string) ($truncated % 1000000), 6, '0', STR_PAD_LEFT);
-    }
-
-    /**
-     * التحقق من كود TOTP بهامش ±1 خطوة زمنية (30 ثانية قبل/بعد) عشان نتحمل
-     * فرق بسيط في ساعة جهاز المستخدم - ده معيار شائع ومقبول أمنيًا، مش
-     * توسيع مبالغ فيه (لسه بيرفض أي كود قديم من أكتر من 30 ثانية).
-     */
-    public static function verifyTotpCode(string $base32Secret, string $code): bool {
-        $code = trim($code);
-        if (!preg_match('/^\d{6}$/', $code)) {
-            return false;
-        }
-        $now = time();
-        foreach ([-30, 0, 30] as $offset) {
-            if (hash_equals(self::generateTotpCode($base32Secret, $now + $offset), $code)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /** توليد 8 recovery codes (نص عادي مرة واحدة بس وقت العرض، بعدها مبيتخزنش إلا مُشفّر) */
-    public static function generateRecoveryCodes(int $count = 8): array {
-        $codes = [];
-        for ($i = 0; $i < $count; $i++) {
-            $codes[] = strtoupper(bin2hex(random_bytes(5))); // 10 حروف/أرقام
-        }
-        return $codes;
     }
 
     /** ===================== نهاية Two-Factor Authentication Core ===================== */
