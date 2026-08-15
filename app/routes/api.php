@@ -210,8 +210,11 @@ $router->post('/api/competitor-intelligence/comparison', 'CompetitorIntelligence
 
 $router->get('/api/competitor-intelligence/alerts', 'CompetitorIntelligenceController', 'apiAlerts', ['AuthMiddleware']);
 $router->post('/api/competitor-intelligence/alerts/{id}/read', 'CompetitorIntelligenceController', 'apiMarkAlertRead', ['AuthMiddleware']);
+$router->post('/api/competitor-intelligence/alerts/read-all', 'CompetitorIntelligenceController', 'apiMarkAllAlertsRead', ['AuthMiddleware']);
+$router->get('/api/competitor-intelligence/alerts/unread-count', 'CompetitorIntelligenceController', 'apiUnreadAlertsCount', ['AuthMiddleware']);
 
 $router->get('/api/competitor-intelligence/insights', 'CompetitorIntelligenceController', 'apiInsights', ['AuthMiddleware']);
+$router->post('/api/competitor-intelligence/insights/{id}/status', 'CompetitorIntelligenceController', 'apiInsightStatus', ['AuthMiddleware']);
 $router->post('/api/competitor-intelligence/ai/ask', 'CompetitorIntelligenceController', 'apiAiAsk', ['AuthMiddleware']);
 $router->get('/api/competitor-intelligence/ai/weekly-summary', 'CompetitorIntelligenceController', 'apiAiWeeklySummary', ['AuthMiddleware']);
 

@@ -42,8 +42,7 @@ class WebsiteOnboardingDiscoverySource implements CompetitorDiscoverySourceInter
         if ($userId > 0) {
             $existing = $db->query("SELECT competitor_domain FROM competitors WHERE user_id = ?", [$userId]);
             foreach ($existing as $e) {
-                $host = parse_url((string) $e['competitor_domain'], PHP_URL_HOST) ?: $e['competitor_domain'];
-                $existingDomains[] = strtolower((string) $host);
+                $existingDomains[] = CompetitorDomain::host((string) $e['competitor_domain']) ?? '';
             }
         }
 
@@ -53,8 +52,7 @@ class WebsiteOnboardingDiscoverySource implements CompetitorDiscoverySourceInter
             if ($url === '') {
                 continue;
             }
-            $host = parse_url(preg_match('#^https?://#i', $url) ? $url : 'https://' . $url, PHP_URL_HOST);
-            $host = $host ? strtolower($host) : strtolower($url);
+            $host = CompetitorDomain::host($url) ?? strtolower($url);
 
             if (in_array($host, $existingDomains, true)) {
                 continue; // مُضاف بالفعل

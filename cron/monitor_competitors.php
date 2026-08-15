@@ -18,7 +18,7 @@
  * لـ Job منفصل له.
  *
  * Common Settings: كل 30 دقيقة (كافية لتغطية daily/weekly/custom بدقة
- * معقولة بدون Overhead) - * /30 * * * *
+ * معقولة بدون Overhead) - cron: كل 30 دقيقة كل ساعة
  * Command (غيّر المسار حسب اسم الدومين الحقيقي عندك):
  *   php /home/USERNAME/domains/YOURSITE.com/cron/monitor_competitors.php >> /home/USERNAME/domains/YOURSITE.com/storage/logs/ci_scheduler.log 2>&1
  */

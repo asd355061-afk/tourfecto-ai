@@ -139,13 +139,6 @@ class MonitoringEngine {
     }
 
     private function resolveBaseUrl(Competitor $competitor): ?string {
-        $domain = (string) $competitor->getAttribute('competitor_domain');
-        if ($domain === '') {
-            return null;
-        }
-        if (!preg_match('#^https?://#i', $domain)) {
-            $domain = 'https://' . $domain;
-        }
-        return SsrfGuard::isSafe($domain) ? $domain : null;
+        return CompetitorDomain::normalizeSafe($competitor->getAttribute('competitor_domain'));
     }
 }

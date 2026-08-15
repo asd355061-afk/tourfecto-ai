@@ -57,7 +57,11 @@ class CiPermissions {
     ];
 
     public static function ciRole(array $user): string {
-        $role = (string) ($user['role'] ?? 'user');
+        // fail-closed: أي سجل مستخدم من غير role أو بدور غير معروف بينزل
+        // لـ viewer (أقل صلاحية). الصلاحية الكاملة على بياناتك (admin)
+        // بتيجي بس لصاحب الحساب اللي دوره صراحة `user` - لأن عزل الـ
+        // Tenant (قاعدة 30) هو اللي بيضمن الأمان في الحالة دي.
+        $role = (string) ($user['role'] ?? '');
         return self::ROLE_MAP[$role] ?? 'viewer';
     }
 

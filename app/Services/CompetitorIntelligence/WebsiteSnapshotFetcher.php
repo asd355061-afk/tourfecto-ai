@@ -69,6 +69,7 @@ class WebsiteSnapshotFetcher {
             CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
             CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+            CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4, // نثبّت الاتصال على IPv4 عشان فحص SSRF (اللي بيفحص كل سجلات IPv4+IPv6) يطابق فعليًا العنوان اللي هيتصل بيه - يمنع سيناريو IPv6 primacy / DNS rebinding
             CURLOPT_RANGE => '0-' . self::MAX_BYTES, // يقلل الحمل، بعض السيرفرات بتتجاهله فنحد الحجم برضه بعد الاستلام
             CURLOPT_HTTPHEADER => ['Accept: text/html,application/xhtml+xml'],
         ]);
@@ -130,6 +131,7 @@ class WebsiteSnapshotFetcher {
             CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_TIMEOUT => self::TIMEOUT_SECONDS,
             CURLOPT_USERAGENT => self::USER_AGENT,
+            CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4, // نفس سبب httpGet - الاتصال الفعلي لازم يطابق فحص SSRF
         ]);
         $headers = curl_exec($ch);
         curl_close($ch);

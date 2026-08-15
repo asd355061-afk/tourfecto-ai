@@ -126,22 +126,22 @@ class CompetitorIntelligenceController extends Controller {
         if (!$this->validate(['website_id' => 'required', 'competitor_name' => 'required'])) {
             return $this->error($this->tr('ci.error.missing_fields'), 422);
         }
+        if (mb_strlen((string) $this->get('competitor_name')) > 255) {
+            return $this->error($this->tr('ci.error.input_too_long'), 422);
+        }
 
         $domain = trim((string) $this->get('competitor_domain', ''));
         if ($domain !== '') {
-            $normalized = preg_match('#^https?://#i', $domain) ? $domain : 'https://' . $domain;
-            if (!SsrfGuard::isSafe($normalized)) {
+            $normalized = CompetitorDomain::normalizeSafe($domain);
+            if ($normalized === null) {
                 return $this->error($this->tr('ci.error.invalid_or_unsafe_url'), 422);
             }
+            $domain = $normalized;
         }
 
         // نجيب تفضيلات المستخدم الافتراضية (لو ضبطها من تاب Settings) بدل
         // قيم ثابتة مكتوبة بالكود - لو لسه مفيش تفضيلات، نستخدم افتراضيات معقولة.
-        $prefRows = (new CiUserPreference())->where(['user_id' => (int) $this->user['id']], [], 1);
-        $prefs = $prefRows[0] ?? null;
-        $defaultFrequency = $prefs ? $prefs->getAttribute('default_monitoring_frequency') : 'weekly';
-        $defaultMinSeverity = $prefs ? $prefs->getAttribute('default_alert_min_severity') : 'medium';
-        $defaultChannels = $prefs && $prefs->getAttribute('default_alert_channels') ? $prefs->getAttribute('default_alert_channels') : json_encode(['dashboard']);
+        $defaults = $this->userDefaults((int) $this->user['id']);
 
         $competitor = new Competitor([
             'user_id' => (int) $this->user['id'],
@@ -152,9 +152,9 @@ class CompetitorIntelligenceController extends Controller {
             'industry' => $this->get('industry') ?: null,
             'country' => $this->get('country') ?: null,
             'market_segment' => $this->get('market_segment') ?: null,
-            'category' => in_array($this->get('category'), ['direct', 'indirect', 'emerging', 'potential'], true) ? $this->get('category') : 'direct',
+            'category' => CiConstants::within(CiConstants::CATEGORIES, $this->get('category'), 'direct'),
             'source' => 'manual',
-            'monitoring_frequency' => in_array($this->get('monitoring_frequency'), ['daily', 'weekly', 'custom'], true) ? $this->get('monitoring_frequency') : $defaultFrequency,
+            'monitoring_frequency' => CiConstants::within(CiConstants::FREQUENCIES, $this->get('monitoring_frequency'), $defaults['frequency']),
             'is_active' => 1,
         ]);
         $competitor->save();
@@ -164,8 +164,8 @@ class CompetitorIntelligenceController extends Controller {
             'user_id' => (int) $this->user['id'],
             'competitor_id' => (int) $competitor->getAttribute('id'),
             'priority' => 'medium',
-            'alert_min_severity' => $defaultMinSeverity,
-            'alert_channels' => $defaultChannels,
+            'alert_min_severity' => $defaults['min_severity'],
+            'alert_channels' => $defaults['channels'],
             'is_paused' => 0,
         ]);
         $watchlist->save();
@@ -196,20 +196,15 @@ class CompetitorIntelligenceController extends Controller {
         $userId = (int) $this->user['id'];
         $websiteId = (int) $this->get('website_id');
         $rows = (array) $this->get('rows');
-        if (count($rows) > 200) {
+        if (count($rows) > CiConstants::BULK_IMPORT_MAX_ROWS) {
             return $this->error($this->tr('ci.error.bulk_import_too_many_rows'), 422);
         }
 
         $existingDomains = array_map(function ($r) {
-            $host = parse_url((string) $r['competitor_domain'], PHP_URL_HOST);
-            return strtolower($host ?: (string) $r['competitor_domain']);
+            return CompetitorDomain::host((string) $r['competitor_domain']) ?? strtolower((string) $r['competitor_domain']);
         }, $this->db->query("SELECT competitor_domain FROM competitors WHERE user_id = ?", [$userId]));
 
-        $prefRows = (new CiUserPreference())->where(['user_id' => $userId], [], 1);
-        $prefs = $prefRows[0] ?? null;
-        $defaultFrequency = $prefs ? $prefs->getAttribute('default_monitoring_frequency') : 'weekly';
-        $defaultMinSeverity = $prefs ? $prefs->getAttribute('default_alert_min_severity') : 'medium';
-        $defaultChannels = $prefs && $prefs->getAttribute('default_alert_channels') ? $prefs->getAttribute('default_alert_channels') : json_encode(['dashboard']);
+        $defaults = $this->userDefaults($userId);
 
         $added = 0;
         $skipped = 0;
@@ -224,15 +219,20 @@ class CompetitorIntelligenceController extends Controller {
                 $skipped++;
                 continue;
             }
+            if (mb_strlen($name) > 255) {
+                $results[] = ['row' => $i + 1, 'status' => 'error', 'reason' => 'name_too_long', 'name' => $name];
+                $skipped++;
+                continue;
+            }
 
             if ($domain !== '') {
-                $normalized = preg_match('#^https?://#i', $domain) ? $domain : 'https://' . $domain;
-                if (!SsrfGuard::isSafe($normalized)) {
+                $normalized = CompetitorDomain::normalizeSafe($domain);
+                if ($normalized === null) {
                     $results[] = ['row' => $i + 1, 'status' => 'error', 'reason' => 'invalid_or_unsafe_url', 'name' => $name];
                     $skipped++;
                     continue;
                 }
-                $host = strtolower(parse_url($normalized, PHP_URL_HOST) ?: $domain);
+                $host = CompetitorDomain::host($normalized) ?? $domain;
                 if (in_array($host, $existingDomains, true)) {
                     $results[] = ['row' => $i + 1, 'status' => 'skipped', 'reason' => 'already_exists', 'name' => $name];
                     $skipped++;
@@ -245,14 +245,14 @@ class CompetitorIntelligenceController extends Controller {
             $competitor = new Competitor([
                 'user_id' => $userId, 'website_id' => $websiteId, 'competitor_name' => $name, 'competitor_domain' => $domain,
                 'industry' => $row['industry'] ?? null, 'country' => $row['country'] ?? null,
-                'category' => in_array($row['category'] ?? '', ['direct', 'indirect', 'emerging', 'potential'], true) ? $row['category'] : 'direct',
-                'source' => 'bulk_import', 'monitoring_frequency' => $defaultFrequency, 'is_active' => 1,
+                'category' => CiConstants::within(CiConstants::CATEGORIES, $row['category'] ?? '', 'direct'),
+                'source' => 'bulk_import', 'monitoring_frequency' => $defaults['frequency'], 'is_active' => 1,
             ]);
             $competitor->save();
 
             (new CiWatchlistItem([
                 'user_id' => $userId, 'competitor_id' => (int) $competitor->getAttribute('id'), 'priority' => 'medium',
-                'alert_min_severity' => $defaultMinSeverity, 'alert_channels' => $defaultChannels, 'is_paused' => 0,
+                'alert_min_severity' => $defaults['min_severity'], 'alert_channels' => $defaults['channels'], 'is_paused' => 0,
             ]))->save();
 
             $results[] = ['row' => $i + 1, 'status' => 'added', 'name' => $name, 'competitor_id' => (int) $competitor->getAttribute('id')];
@@ -378,10 +378,19 @@ class CompetitorIntelligenceController extends Controller {
         if (!$this->validate(['website_id' => 'required', 'competitor_name' => 'required'])) {
             return $this->error($this->tr('ci.error.missing_fields'), 422);
         }
+
+        // نفس فحص أمان الـ URL اللي بيتم على "أضف منافس" - المرشح اللي
+        // هيتم اعتماده هيبقى competitor_domain بعدين، فالخيط لازم يبان
+        // آمن من البداية (وليس وقت الاعتماد فقط).
+        $website = (string) $this->get('website', '');
+        if ($website !== '' && CompetitorDomain::normalizeSafe($website) === null) {
+            return $this->error($this->tr('ci.error.invalid_or_unsafe_url'), 422);
+        }
+
         $service = new CompetitorDiscoveryService();
         $candidate = $service->suggestManualCandidate(
             (int) $this->user['id'], (int) $this->get('website_id'), (string) $this->get('competitor_name'),
-            (string) $this->get('website', ''), (string) $this->get('industry', ''), (string) $this->get('country', '')
+            $website, (string) $this->get('industry', ''), (string) $this->get('country', '')
         );
         return $this->success(['candidate' => $candidate->toArray()], $this->tr('common.added'), 201);
     }
@@ -390,6 +399,7 @@ class CompetitorIntelligenceController extends Controller {
     public function apiDiscoveryRun(array $params = []): array {
         if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
         if (!$this->validate(['website_id' => 'required'])) return $this->error($this->tr('ci.error.missing_fields'), 422);
+        if (($limited = $this->assertRateLimit('discovery_run')) !== null) return $limited;
 
         $websiteId = (int) $this->get('website_id');
         $industry = $this->get('industry');
@@ -567,6 +577,37 @@ class CompetitorIntelligenceController extends Controller {
         return $this->success([], $this->tr('common.updated'));
     }
 
+    /** POST /api/competitor-intelligence/alerts/read-all */
+    public function apiMarkAllAlertsRead(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        $this->db->query("UPDATE ci_alerts SET is_read = 1 WHERE user_id = ? AND is_read = 0", [(int) $this->user['id']]);
+        return $this->success([], $this->tr('common.updated'));
+    }
+
+    /** GET /api/competitor-intelligence/alerts/unread-count */
+    public function apiUnreadAlertsCount(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        $count = (int) ($this->db->query("SELECT COUNT(*) c FROM ci_alerts WHERE user_id = ? AND is_read = 0", [(int) $this->user['id']])[0]['c'] ?? 0);
+        return $this->success(['unread_count' => $count]);
+    }
+
+    /** POST /api/competitor-intelligence/insights/{id}/status - body: {status: 'reviewed'|'dismissed'|'new'} */
+    public function apiInsightStatus(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        $status = CiConstants::within(CiConstants::INSIGHT_STATUSES, (string) $this->get('status'), '');
+        if ($status === '') {
+            return $this->error($this->tr('ci.error.missing_fields'), 422);
+        }
+
+        // رؤية معزولة بالمستخدم (tenant isolation) - محدش يعدّل رؤية حد تاني.
+        $id = (int) ($params['id'] ?? 0);
+        $rows = $this->db->query("SELECT id FROM ci_insights WHERE id = ? AND user_id = ? LIMIT 1", [$id, (int) $this->user['id']]);
+        if (empty($rows)) return $this->error('Not found', 404);
+
+        $this->db->query("UPDATE ci_insights SET status = ? WHERE id = ? AND user_id = ?", [$status, $id, (int) $this->user['id']]);
+        return $this->success(['status' => $status], $this->tr('common.updated'));
+    }
+
     /** GET /api/competitor-intelligence/insights */
     public function apiInsights(array $params = []): array {
         if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
@@ -592,6 +633,7 @@ class CompetitorIntelligenceController extends Controller {
         if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
         $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
         if (!$competitor) return $this->error('Not found', 404);
+        if (($limited = $this->assertRateLimit('ai_insights')) !== null) return $limited;
 
         $insights = (new ThreatOpportunityService())->scanCompetitor($competitor, (int) $this->get('days', 30));
         return $this->success(['insights' => array_map(fn($i) => $i->toArray(), $insights)]);
@@ -602,6 +644,7 @@ class CompetitorIntelligenceController extends Controller {
         if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
         $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
         if (!$competitor) return $this->error('Not found', 404);
+        if (($limited = $this->assertRateLimit('ai_profile')) !== null) return $limited;
 
         $result = (new AICompetitiveAnalyst())->analyzeProfile($competitor);
         return $this->success($result);
@@ -635,6 +678,10 @@ class CompetitorIntelligenceController extends Controller {
     public function apiAiAsk(array $params = []): array {
         if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
         if (!$this->validate(['question' => 'required'])) return $this->error($this->tr('ci.error.missing_fields'), 422);
+        if (mb_strlen((string) $this->get('question')) > 2000) {
+            return $this->error($this->tr('ci.error.input_too_long'), 422);
+        }
+        if (($limited = $this->assertRateLimit('ai_ask')) !== null) return $limited;
 
         $result = (new AICompetitiveAnalyst())->ask((int) $this->user['id'], (string) $this->get('question'), (int) $this->get('days', 30));
         return $this->success($result);
@@ -644,6 +691,7 @@ class CompetitorIntelligenceController extends Controller {
     public function apiAiWeeklySummary(array $params = []): array {
         if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
         if (!$this->validate(['website_id' => 'required'])) return $this->error($this->tr('ci.error.missing_fields'), 422);
+        if (($limited = $this->assertRateLimit('ai_weekly_summary')) !== null) return $limited;
 
         $result = (new AICompetitiveAnalyst())->weeklySummary((int) $this->user['id'], (int) $this->get('website_id'));
         return $this->success($result);
@@ -670,6 +718,8 @@ class CompetitorIntelligenceController extends Controller {
 
         $competitorId = $this->get('competitor_id') ? (int) $this->get('competitor_id') : null;
         if ($competitorId && !$this->assertCompetitorOwnership($competitorId)) return $this->error('Not found', 404);
+
+        if (($limited = $this->assertRateLimit('report_generate')) !== null) return $limited;
 
         try {
             $report = (new ReportService())->generate((int) $this->user['id'], (int) $this->get('website_id'), (string) $this->get('type'), [], $competitorId);
@@ -744,10 +794,10 @@ class CompetitorIntelligenceController extends Controller {
         $rows = (new CiUserPreference())->where(['user_id' => $userId], [], 1);
         $prefs = $rows[0] ?? new CiUserPreference(['user_id' => $userId]);
 
-        if (in_array($this->get('default_monitoring_frequency'), ['daily', 'weekly', 'custom'], true)) {
+        if (in_array($this->get('default_monitoring_frequency'), CiConstants::FREQUENCIES, true)) {
             $prefs->setAttribute('default_monitoring_frequency', $this->get('default_monitoring_frequency'));
         }
-        if (in_array($this->get('default_alert_min_severity'), ['info', 'low', 'medium', 'high', 'critical'], true)) {
+        if (in_array($this->get('default_alert_min_severity'), CiConstants::SEVERITIES, true)) {
             $prefs->setAttribute('default_alert_min_severity', $this->get('default_alert_min_severity'));
         }
         if ($this->get('default_alert_channels')) {
@@ -932,6 +982,36 @@ HTML;
         }
     }
 
+    /**
+     * بجيب تفضيلات المستخدم الافتراضية من ci_user_preferences (لو ضبطها من
+     * تاب Settings) بقيم افتراضية معقولة لو مفيش تفضيلات محفوظة بعد. مستخدم
+     * في نفس الصيغة من 3 أماكن (add + bulk import + المقارنة) - هنا في
+     * مكان واحد عشان القيم الافتراضية متتكررش ولا تتحرف.
+     * @return array{frequency:string, min_severity:string, channels:string}
+     */
+    private function userDefaults(int $userId): array {
+        $prefRows = (new CiUserPreference())->where(['user_id' => $userId], [], 1);
+        $prefs = $prefRows[0] ?? null;
+        return [
+            'frequency' => $prefs ? (string) $prefs->getAttribute('default_monitoring_frequency') : 'weekly',
+            'min_severity' => $prefs ? (string) $prefs->getAttribute('default_alert_min_severity') : 'medium',
+            'channels' => $prefs && $prefs->getAttribute('default_alert_channels') ? (string) $prefs->getAttribute('default_alert_channels') : json_encode(['dashboard']),
+        ];
+    }
+
+    /**
+     * حارس rate limit على الـ endpoints المكلفة - بيدا اتنين: رسالة خطأ
+     * (429) لو العدد اتعدّى، أو null لو متاح. بتشتغل لكل مستخدم لوحده
+     * (key معزول بالـ user_id) - مفيش أي مستخدم بيأثر على حدود غيره.
+     */
+    private function assertRateLimit(string $scope): ?array {
+        $result = CiRateLimiter::hit($scope, 'user:' . (int) $this->user['id']);
+        if (!$result['allowed']) {
+            return $this->error($this->tr('ci.error.rate_limited'), 429);
+        }
+        return null;
+    }
+
     /** @return array{0:int,1:int,2:int} [page, per_page, offset] */
     private function paginationParams(): array {
         $page = max(1, (int) $this->get('page', 1));
@@ -1004,6 +1084,7 @@ HTML;
             .ci-sev-medium { background:#fff3cd; color:#8a6500; }
             .ci-sev-high { background:#ffe1d6; color:#a3390a; }
             .ci-sev-critical { background:#ffd6d6; color:#a30a0a; }
+            .ci-unread-badge { background:#ef4444; color:#fff; font-size:11px; font-weight:700; padding:3px 10px; border-radius:99px; }
             .ci-profile-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1000; display:flex; align-items:flex-start; justify-content:center; padding:30px 16px; overflow-y:auto; }
             .ci-profile-modal { background:#fff; border-radius:12px; padding:20px; max-width:900px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,0.25); }
             .ci-profile-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; border-bottom:1px solid #eee; padding-bottom:12px; }
@@ -1136,6 +1217,11 @@ HTML;
         </div>
 
         <div class="ci-panel" id="ciPanel-alerts">
+            <div class="p-toolbar" style="margin-bottom:10px;">
+                <span id="ciUnreadBadge" class="ci-unread-badge" style="display:none;"></span>
+                <span style="flex:1;"></span>
+                <button class="p-btn outline xs" onclick="ciMarkAllAlertsRead()">{$this->tr('ci.js.mark_all_read')}</button>
+            </div>
             <div class="p-table-scroll"><table class="p-table" id="ciAlertsTable">
                 <thead><tr><th>{$this->tr('ci.form.name')}</th><th>{$this->tr('ci.table.severity')}</th><th>{$this->tr('ci.table.message')}</th><th>{$this->tr('ci.table.date')}</th><th>{$this->tr('ci.table.actions')}</th></tr></thead>
                 <tbody></tbody>
@@ -1357,7 +1443,7 @@ HTML;
         document.getElementById('ciStatChanges').textContent = res.data.new_changes_7d;
 
         document.getElementById('ciDashboardThreatsOpps').innerHTML =
-            `⚠️ ${res.data.threats} threats &nbsp; 💡 ${res.data.opportunities} opportunities`;
+            `⚠️ ${T('ci.js.threats', { n: res.data.threats })} &nbsp; 💡 ${T('ci.js.opportunities', { n: res.data.opportunities })}`;
 
         const rows = res.data.recent_activity || [];
         document.querySelector('#ciDashboardActivityTable tbody').innerHTML = rows.length
@@ -1372,10 +1458,10 @@ HTML;
                 data: {
                     labels: trend.map(t => t.date.slice(5)),
                     datasets: [
-                        { label: 'Low', data: trend.map(t => t.low), backgroundColor: '#c9d6ea' },
-                        { label: 'Medium', data: trend.map(t => t.medium), backgroundColor: '#f5c96b' },
-                        { label: 'High', data: trend.map(t => t.high), backgroundColor: '#f0916a' },
-                        { label: 'Critical', data: trend.map(t => t.critical), backgroundColor: '#d9534f' },
+                        { label: T('ci.chart.low'), data: trend.map(t => t.low), backgroundColor: '#c9d6ea' },
+                        { label: T('ci.chart.medium'), data: trend.map(t => t.medium), backgroundColor: '#f5c96b' },
+                        { label: T('ci.chart.high'), data: trend.map(t => t.high), backgroundColor: '#f0916a' },
+                        { label: T('ci.chart.critical'), data: trend.map(t => t.critical), backgroundColor: '#d9534f' },
                     ]
                 },
                 options: { responsive: true, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } } }
@@ -1633,11 +1719,27 @@ HTML;
               </tr>`).join('')
             : '<tr><td class="p-cell-muted">' + T('ci.js.no_alerts') + '</td></tr>';
         renderPagination('ciAlertsPagination', 'alerts', res.data.pagination, loadAlerts);
+        refreshUnreadBadge();
+    }
+
+    async function refreshUnreadBadge() {
+        const badge = document.getElementById('ciUnreadBadge');
+        if (!badge) return;
+        const res = await fetchJSON('/api/competitor-intelligence/alerts/unread-count');
+        if (!res.success) return;
+        const count = res.data.unread_count || 0;
+        badge.textContent = T('ci.js.unread_count', { n: count });
+        badge.style.display = count > 0 ? 'inline-block' : 'none';
     }
 
     window.ciMarkAlertRead = async function (id) {
         const res = await fetchJSON('/api/competitor-intelligence/alerts/' + id + '/read', { method: 'POST' });
         if (res.success) loadAlerts();
+    };
+
+    window.ciMarkAllAlertsRead = async function () {
+        const res = await fetchJSON('/api/competitor-intelligence/alerts/read-all', { method: 'POST' });
+        if (res.success) { loadAlerts(); refreshUnreadBadge(); }
     };
 
     window.ciLoadInsights = async function () {
@@ -1646,15 +1748,33 @@ HTML;
         if (!res.success) return;
         const rows = res.data.insights || [];
         document.getElementById('ciInsightsList').innerHTML = rows.length
-            ? rows.map(i => `<div class="p-card" style="margin-bottom:8px;">
-                <div style="font-weight:700;">${esc(i.title)} <span class="p-cell-muted" style="font-weight:400;">(${esc(i.competitor_name || i.competitor_domain || T('ci.js.market_wide'))})</span></div>
+            ? rows.map(i => `<div class="p-card" style="margin-bottom:8px;${i.status === 'dismissed' ? 'opacity:.55;' : ''}">
+                <div style="font-weight:700;">${esc(i.title)} <span class="p-cell-muted" style="font-weight:400;">(${esc(i.competitor_name || i.competitor_domain || T('ci.js.market_wide'))})</span> ${insightStatusPill(i.status)}</div>
                 <div class="p-cell-muted" style="margin:6px 0;">${esc(i.description)}</div>
                 ${i.recommended_action ? `<div style="font-size:12.5px;"><strong>${T('ci.js.recommended')}:</strong> ${esc(i.recommended_action)}</div>` : ''}
                 <div style="margin-top:6px;font-size:11.5px;color:#888;">${T('ci.js.confidence_label')}: ${esc(i.confidence)} · ${esc(i.created_at)}</div>
+                <div style="margin-top:8px;">
+                    ${i.status !== 'reviewed' ? `<button class="p-btn outline xs" onclick="ciSetInsightStatus(${i.id}, 'reviewed')">${T('ci.js.approve')}</button>` : ''}
+                    ${i.status !== 'dismissed' ? `<button class="p-btn outline xs" onclick="ciSetInsightStatus(${i.id}, 'dismissed')">${T('ci.js.dismiss')}</button>` : ''}
+                </div>
               </div>`).join('')
             : '<div class="p-cell-muted">' + T('ci.js.no_insights') + '</div>';
         renderPagination('ciInsightsPagination', 'insights', res.data.pagination, ciLoadInsights);
     };
+
+    window.ciSetInsightStatus = async function (id, status) {
+        const res = await fetchJSON('/api/competitor-intelligence/insights/' + id + '/status', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status }),
+        });
+        if (res.success) { toast(res.message || T('common.updated'), 'success'); ciLoadInsights(); } else { toast(res.error || T('ci.js.error'), 'error'); }
+    };
+
+    function insightStatusPill(status) {
+        const label = T('ci.js.status_' + status);
+        const colors = { new: '#e2e8f0', reviewed: '#dcfce7', dismissed: '#fee2e2' };
+        return `<span style="font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:99px;background:${colors[status] || '#eee'};color:#334155;">${esc(label)}</span>`;
+    }
 
     document.addEventListener('change', (e) => { if (e.target && e.target.id === 'ciInsightTypeFilter') pageState.insights = 1; });
 
@@ -1663,7 +1783,7 @@ HTML;
         if (!question) return;
         document.getElementById('ciAiAnswer').textContent = T('ci.js.thinking');
         const res = await fetchJSON('/api/competitor-intelligence/ai/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question }) });
-        document.getElementById('ciAiAnswer').textContent = res.success ? (res.data.answer || T('ci.js.no_answer')) : (res.error || 'Failed');
+        document.getElementById('ciAiAnswer').textContent = res.success ? (res.data.answer || T('ci.js.no_answer')) : (res.error || T('ci.js.failed'));
     };
 
     async function loadReports() {
@@ -1719,9 +1839,9 @@ HTML;
         const integ = d.integrations || {};
         const line = (label, ok) => `<div>${ok ? '✅' : '⚪'} ${esc(label)} — ${ok ? T('ci.settings.active') : T('ci.settings.inactive')}</div>`;
         document.getElementById('ciSettingsIntegrations').innerHTML =
-            line('Google Places Discovery', integ.google_places_discovery) +
-            line('AI Analyst (Gemini)', integ.ai_analyst) +
-            line('Email Alerts', integ.email_alerts);
+            line(T('ci.settings.integration_google'), integ.google_places_discovery) +
+            line(T('ci.settings.integration_ai'), integ.ai_analyst) +
+            line(T('ci.settings.integration_email'), integ.email_alerts);
 
         // مفيش صلاحية manage_settings -> نعطّل الحفظ/الأزرار الخطيرة بدل ما نخفيها بالكامل (شفافية أفضل)
         const canManage = d.granted_permissions.includes('manage_settings');
@@ -1939,6 +2059,7 @@ HTML;
     };
 
     ciSwitchTab('dashboard');
+    refreshUnreadBadge();
 })();
 JS;
         return $script;

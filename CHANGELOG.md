@@ -1,4 +1,39 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## المرحلة 6: احتراف موديول ذكاء المنافسة (Competitor Intelligence) v1.5.0 — 2026-08-14
+
+هذا التسليم هو تمرير احترافي (Professionalization) على موديول
+**Competitor Intelligence** الحالي — بلا أي تعديل على الموديولات الأخرى،
+وكله إضافي (Additive) على الـ migrations والـ routes القائمة.
+
+### الإصلاحات والأمان
+- إصلاح **خطأ Parse حقيقي في الإنتاج**: كان في `cron/monitor_competitors.php`
+  سطر docblock يحتوي `*/30 * * * *` (جدول cron) — النص `*/` كان ينهي تعليق PHP
+  مبكرًا ويسبب **خطأ Parse فادح** يكسر كرون المراقبة بالكامل. استُبدل بـ
+  `cron: كل 30 دقيقة كل ساعة`.
+- **Rate Limiting** لكل مستخدم على الـ 6 endpoints المكلفة (AI ask / profile /
+  insights / weekly summary، discovery run، report generate) عبر `CiRateLimiter`
+  + جدول `ci_rate_limits` الجديد (Migration جديد إضافي).
+- **SsrfGuard** أصبح يحلّ **كل** سجلات A + AAAA (كان IPv4 فقط بسجل واحد) ويرفض
+  أي دومين فيه سجل خاص واحد على الأقل، بما فيها IPv4-mapped IPv6
+  (`::ffff:127.0.0.1`)؛ وطبقة curl صارت تُثبّت `CURLOPT_IPRESOLVE` على IPv4.
+- اقتراحات Discovery اليدوية تُفحص SSRF مسبقًا، وإدخالات AI (سؤال/اسم) محدودة الطول.
+- `CiPermissions` يفشل مغلقًا (دور غير معروف → `viewer`).
+
+### ميزات وواجهة
+- `POST /alerts/read-all` (تعليم كل التنبيهات كمقروءة)،
+  `POST /insights/{id}/status` (مراجعة/إهمال insight)،
+  `GET /alerts/unread-count` (عدّاد غير المقروء) — كلها مقيدة بملكية المستخدم.
+- شارة غير المقروء + "تعليم الكل كمقروء" في تبويب التنبيهات، وpills لحالة
+  الـ insights مع أزرار موافقة/إهمال.
+- ترجمة عربية/إنجليزية كاملة للنصوص الثابتة الجديدة (T() بدل الحروف الميتة).
+
+### اختبارات
+- `CompetitorDomainTest` (17)، `CiRateLimiterTest` (9)، `CiConstantsTest` (21)،
+  `SsrfGuardTest` موسّع (23) + `CiPermissionsTest` (10) — 80 Assertion بدون أي فشل،
+  كلها بدون اتصال (Offline). التوثيق في `docs/competitor-intelligence/README.md`.
+
+---
+
 ## المرحلة 5: Notifications + Rate Limiting — 2026-08-08
 
 هذا التسليم يبني فوق **المراحل 1-4**. لا تعديل على `app/routes/api.php`

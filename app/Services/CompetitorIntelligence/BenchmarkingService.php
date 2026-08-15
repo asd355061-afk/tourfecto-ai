@@ -62,7 +62,7 @@ class BenchmarkingService {
 
     private function presenceSignals(int $competitorId, array $onlyPages = []): array {
         $db = Database::getInstance();
-        $pages = $onlyPages ?: ['homepage', 'pricing', 'products', 'services', 'offers', 'blog', 'contact'];
+        $pages = $onlyPages ?: CiConstants::PAGE_TYPES;
         $placeholders = implode(',', array_fill(0, count($pages), '?'));
 
         $rows = $db->query(
