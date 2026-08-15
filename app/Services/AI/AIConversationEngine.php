@@ -87,10 +87,10 @@ class AIConversationEngine {
             return $this->result(null, false, null, 0, null);
         }
 
-        $language = $this->detectLanguage($customerMessage) ?: ($conversation->getAttribute('language') ?: 'ar');
+        $language = $this->detectLanguage($customerMessage) ?: ($conversation->getAttribute('language') ?: 'en');
         $customerKey = (string) $conversation->getAttribute('customer_key');
 
-        $knowledgeContext = $this->knowledgeBase->buildContextForPrompt($websiteId, $language);
+        $knowledgeContext = $this->knowledgeBase->buildContextForPrompt($websiteId, $language, $customerMessage, 12);
         $brandVoice = $this->knowledgeBase->getBrandVoice($websiteId);
         $memory = $this->memoryModel->memoryFor($websiteId, $customerKey);
         $history = $this->loadHistory($conversationId);
@@ -127,6 +127,25 @@ class AIConversationEngine {
         if ($needsHuman) {
             $reason = $decision['handoff_reason'] ?: ($lowConfidence ? 'low_ai_confidence' : 'ai_requested_handoff');
             $this->inbox->handoffToHuman($conversationId, $reason);
+
+            // Learning Loop: لو التحويل بسبب نقص معرفة (الـAI لم يجد الإجابة)،
+            // سجّل سؤال العميل كفجوة معرفة يُقترح إضافتها لقاعدة المعرفة لاحقًا.
+            try {
+                $learningLoop = new LearningLoopService();
+                if (in_array($reason, LearningLoopService::KNOWLEDGE_GAP_HANDOFF_REASONS, true)) {
+                    $learningLoop->recordKnowledgeGap(
+                        $websiteId,
+                        $conversationId,
+                        $customerMessage,
+                        $language,
+                        $reason
+                    );
+                }
+            } catch (Exception $e) {
+                // فشل تسجيل الفجوة لا يوقف رد الـAI إطلاقًا
+                Logger::warning('AIConversationEngine: knowledge gap recording failed', ['error' => $e->getMessage()]);
+            }
+
             // لو الـAI مع ذلك ولّد رد توضيحي (مثال: "سأتأكد وأعود إليك")، نسمح
             // بإرساله قبل التحويل - أفضل من صمت مفاجئ للعميل.
             $replyBeforeHandoff = !empty($decision['reply']) ? $decision['reply'] : null;

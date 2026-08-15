@@ -248,6 +248,16 @@ class ChatInboxController extends Controller {
 
         $this->inbox->updateConversation((int) $conversation->getAttribute('id'), $fields);
 
+        // Learning Loop: عند إغلاق/حل المحادثة نسجّل نتيجتها (هل حلها الـAI
+        // أم أحيلت لموظف؟) لتحسين معدلات الحل مستقبلًا (Zendesk/Fin).
+        if (in_array((string) ($fields['status'] ?? ''), ['resolved', 'closed'], true)) {
+            try {
+                (new LearningLoopService())->recordResolutionForClosedConversation((int) $conversation->getAttribute('id'));
+            } catch (Exception $e) {
+                Logger::warning('ChatInboxController: resolution recording failed', ['error' => $e->getMessage()]);
+            }
+        }
+
         return $this->success([], 'Conversation updated');
     }
 

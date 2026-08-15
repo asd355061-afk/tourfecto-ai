@@ -40,9 +40,16 @@ class AiAnalyticsController extends Controller {
         // Zendesk/Gorgias). تُرجع المزودين المهيّئين + ملخص آخر 24 ساعة.
         $health = (new AIProviderManager())->health((int) $website->getAttribute('id'));
 
+        // Learning Loop (Zendesk/Fin): معدلات الحل + فجوات المعرفة المقترحة.
+        $learning = (new LearningLoopService())->getLearningInsights(
+            (int) $website->getAttribute('id'),
+            $since
+        );
+
         return $this->success([
             'dashboard' => $this->analytics->getDashboard((int) $website->getAttribute('id'), $since),
             'provider_health' => $health,
+            'learning_loop' => $learning,
         ]);
     }
 

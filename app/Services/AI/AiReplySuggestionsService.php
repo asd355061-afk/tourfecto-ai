@@ -43,7 +43,7 @@ class AiReplySuggestionsService {
             return ['suggestions' => [], 'error' => 'Conversation not found'];
         }
 
-        $language = $conversation->getAttribute('language') ?: 'ar';
+        $language = $conversation->getAttribute('language') ?: 'en';
         $knowledgeContext = $this->knowledgeBase->buildContextForPrompt($websiteId, $language);
         $brandVoice = $this->knowledgeBase->getBrandVoice($websiteId);
         $history = $this->loadHistory($conversationId);

@@ -925,6 +925,10 @@ $router->get('/api/ai-chat/websites/{id}/followup-settings', 'AiFollowupSettings
 $router->put('/api/ai-chat/websites/{id}/followup-settings', 'AiFollowupSettingsController', 'update', ['AuthMiddleware']);
 // AI Analytics
 $router->get('/api/ai-chat/websites/{id}/analytics', 'AiAnalyticsController', 'index', ['AuthMiddleware']);
+// Learning Loop (Zendesk/Fin): فجوات المعرفة المقترحة + إدارتها + إعادة مسح
+$router->get('/api/ai-chat/websites/{id}/learning/gaps', 'AiLearningController', 'gaps', ['AuthMiddleware']);
+$router->post('/api/ai-chat/websites/{id}/learning/gaps/{gapId}/status', 'AiLearningController', 'updateGapStatus', ['AuthMiddleware']);
+$router->post('/api/ai-chat/websites/{id}/learning/gaps/scan', 'AiLearningController', 'scan', ['AuthMiddleware']);
 // ربط قنوات Messenger/Instagram (بيحتاج AuthMiddleware - بيكلم Meta Graph API)
 $router->post('/api/chat/connect/messenger', 'ChatController', 'connectMessenger', ['AuthMiddleware']);
 $router->post('/api/chat/connect/instagram', 'ChatController', 'connectInstagram', ['AuthMiddleware']);

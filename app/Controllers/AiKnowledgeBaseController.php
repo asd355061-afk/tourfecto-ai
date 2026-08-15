@@ -74,7 +74,7 @@ class AiKnowledgeBaseController extends Controller {
                 'title' => $this->get('title'),
                 'content' => $this->get('content'),
                 'structured_data' => $this->get('structured_data'),
-                'language' => $this->get('language', 'ar'),
+                'language' => $this->get('language', 'en'),
                 'tone' => $this->get('tone'),
                 'priority' => (int) $this->get('priority', 0),
                 'created_by_user_id' => $this->user['id'],

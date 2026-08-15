@@ -306,3 +306,61 @@ Agents، Tidio/Lyro، Chatwoot، Gorgias، Wati/ManyChat) — النتيجة ف�
 - فشل قراءة الملخص يُسجَّل فقط ولا يكسر الاستجابة (نفس نمط
   `logUsage` الآمن من الفشل).
 
+## 11) إضافة: Learning Loop + Re-ranking + لغات دولية (2026-08-16)
+
+**أ. Learning Loop (Resolution Learning Loop — Zendesk/Intercom Fin)**
+- Migration جديدة `2026_08_16_000001_create_ai_learning_loop_tables.sql`:
+  - `ai_resolution_events`: نتيجة كل محادثة عند حلها
+    (ai_resolved / human_resolved / abandoned / reopened) + القناة + اللغة
+    + سبب التحويل + آخر ثقة للـAI.
+  - `ai_knowledge_gaps`: فجوات المعرفة (أسئلة لم يستطع الـAI الإجابة
+    عنها فتحوّل لموظف) — مجمّعة بالسؤال بعد التسوية النصية، مع
+    occurrence_count للأسئلة المتكررة، وحالة (new/acknowledged/added_to_kb/
+    dismissed). نفس المحادثة تُسجَّل مرة واحدة فقط (UNIQUE).
+- `LearningLoopService` (جديد):
+  - `recordResolution()` + `recordResolutionForClosedConversation()` —
+    تسجيل النتيجة عند إغلاق المحادثة (ChatInboxController::update).
+  - `recordKnowledgeGap()` — تسجيل/تجميع فجوة معرفة مع منع التكرار.
+  - `scanKnowledgeGaps()` — مسح المحادثات المحوّلة لأسباب معرفية واستخراج
+    آخر رسالة عميل قبل التحويل كفجوة (Flywheel).
+  - `getLearningInsights()` — معدلات الحل + أسباب التحويل + أهم الفجوات.
+  - `updateGapStatus()` — إدارة الحالة مع عزل بيانات الموقع.
+  - كل دواله محايدة اللغة (agnostic) وتعمل على أي لغة، وآمنة من الفشل.
+- `AIConversationEngine` — عند التحويل لموظف لسبب معرفي
+  (outside_knowledge_base/low_ai_confidence/ai_requested_handoff) يسجّل
+  سؤال العميل كفجوة تلقائيًا.
+- `AiLearningController` (جديد) + 3 مسارات:
+  - `GET /api/ai-chat/websites/{id}/learning/gaps`
+  - `POST /api/ai-chat/websites/{id}/learning/gaps/{gapId}/status`
+  - `POST /api/ai-chat/websites/{id}/learning/gaps/scan`
+- `AiAnalyticsController` — يُعيد `learning_loop` (resolution_events +
+  ai_resolution_rate_percent + escalation_reasons + knowledge_gaps).
+
+**ب. Re-ranking لقاعدة المعرفة (RAG — Intercom Fin Reranker)**
+- `KnowledgeBaseService::rerankForQuery()` — ترتيب عناصر قاعدة المعرفة
+  حسب صلة كل عنصر برسالة العميل: تطابق كلمات (عنوان أعلى وزنًا من محتوى)
+  + وزن قسم (FAQ/Pricing/Tour أعلى) + أولوية. خوارزمية محايدة اللغة
+  (عربي/إنجليزي/أي لغة) بدون أي خدمة خارجية.
+- `buildContextForPrompt()` — معاملات جديدة اختيارية:
+  `$customerMessage` + `$maxEntries`. عند توفّرهما تُستخدم إعادة الترتيب
+  ويُحقن الأعلى صلة فقط (أدق + أوفر توكنز). **متوافق رجعيًا**: الاستدعاءات
+  القديمة بس معاملين تعمل كما كانت تمامًا.
+- `AIConversationEngine` — يمرر رسالة العميل مع حد 12 عنصرًا.
+
+**ج. لغات دولية (المنصة دولية وليست عربية فقط)**
+- القيم الافتراضية للغة غُيّرت من `'ar'` إلى `'en'` في:
+  `KnowledgeBaseService::addEntry`، `AiKnowledgeBaseController::store`،
+  `AIConversationEngine` (fallback)، `AiReplySuggestionsService`.
+- اللغة ما زالت تُكتشف تلقائيًا من نص العميل (`detectLanguage`)؛ الافتراضي
+  الجديد يُستخدم فقط عند غياب أي دليل لغة.
+
+**التحقق**:
+```
+php -l app/Services/AI/LearningLoopService.php app/Services/AI/KnowledgeBaseService.php \
+      app/Services/AI/AIConversationEngine.php app/Controllers/AiLearningController.php \
+      app/routes/api.php public_html/index.php cron/bootstrap.php
+php tests/route_registration_test.php   # 28 passed, 0 failed
+# + فحص تحميل الكلاسات (27 كلاسًا بدون redeclare) + اختبار منطق الـRerank
+#   (عربي/إنجليزي) + اختبار LearningLoop بقاعدة بيانات وهمية (فصل/فجوات/عزل)
+```
+

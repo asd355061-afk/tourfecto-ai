@@ -74,6 +74,7 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Services/AI/AIConversationEngine.php',
     APP_PATH . '/Services/AI/LeadScoringService.php',
     APP_PATH . '/Services/AI/FollowUpAutomationService.php',
+    APP_PATH . '/Services/AI/LearningLoopService.php',
     APP_PATH . '/Models/AiFollowup.php',
     APP_PATH . '/Models/AiFollowupRule.php',
     APP_PATH . '/Models/AiLead.php',

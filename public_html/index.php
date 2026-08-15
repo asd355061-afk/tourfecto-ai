@@ -125,6 +125,9 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/AI/FollowUpAutomationService.php',
     APP_PATH . '/Services/AI/AiAnalyticsService.php',
     APP_PATH . '/Services/AI/AiReplySuggestionsService.php',
+    // Learning Loop (2026-08-16): Resolution Learning + Knowledge Gaps.
+    // لازم يتحمّل قبل AiLearningController وأي Controller بيستخدمه.
+    APP_PATH . '/Services/AI/LearningLoopService.php',
     APP_PATH . '/Models/AiUsageLog.php',
     APP_PATH . '/Models/AiKnowledgeBase.php',
     APP_PATH . '/Models/AiCustomerMemory.php',
@@ -137,6 +140,7 @@ $optionalNewClassFiles = [
     APP_PATH . '/Controllers/AiLeadController.php',
     APP_PATH . '/Controllers/AiFollowupSettingsController.php',
     APP_PATH . '/Controllers/AiAnalyticsController.php',
+    APP_PATH . '/Controllers/AiLearningController.php',
     // OTA Integration: نفس المشكلة بالظبط - الكنترولر ده مش مسجّل في
     // classmap القديم، فأي طلب لـ /api/ota/status كان بيرمي
     // "Controller OTAController not found" (2026-08-09).
