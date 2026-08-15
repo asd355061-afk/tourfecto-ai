@@ -22,13 +22,14 @@ class BusinessController extends Controller {
      * بمجرد تخمين ID، حتى لو الفحص ده مش Policy/Gate حقيقي بمعنى Laravel
      * - المعمارية دي مفهاش نظام Policies جاهز، فالفحص هنا Server-side
      * صريح بدل ما يعتمد على إخفاء الـID فقط).
+     *
+     * Phase 10-11 (Team Management + RBAC): الفحص بقى بيعدي عبر
+     * BusinessAccessService (نقطة الفحص المركزية الوحيدة) بدل isOwnedBy()
+     * - فبيدعم إن فريق كامل (owner/admin/member/viewer) يشتغل على نفس
+     * الـBusiness، مش المالك بس.
      */
     private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
-        $model = new Business();
-        $business = $model->find($businessId);
-        if (!$business || !$business->isOwnedBy($userId)) {
-            return null;
-        }
+        $business = (new BusinessAccessService())->getAccessibleBusiness($businessId, $userId);
         return $business;
     }
 
@@ -39,13 +40,13 @@ class BusinessController extends Controller {
             return $this->error('غير مسجل دخول', 401);
         }
 
-        $businesses = (new Business())->where(['owner_user_id' => (int) $user->getAttribute('id')], ['id' => 'ASC'], 1);
-        if (empty($businesses)) {
+        $business = (new BusinessAccessService())->resolveUserBusiness((int) $user->getAttribute('id'));
+        if (!$business) {
             // مفيش Business لسه - مش خطأ، حالة طبيعية (لسه مكمّلش Onboarding)
             return $this->success(['business' => null]);
         }
 
-        return $this->success(['business' => $businesses[0]->toArray()]);
+        return $this->success(['business' => $business->toArray()]);
     }
 
     /**
@@ -98,8 +99,8 @@ class BusinessController extends Controller {
             return $this->error('غير مسجل دخول', 401);
         }
 
-        $businesses = (new Business())->where(['owner_user_id' => (int) $user->getAttribute('id')], ['id' => 'ASC'], 1);
-        if (empty($businesses)) {
+        $business = (new BusinessAccessService())->resolveUserBusiness((int) $user->getAttribute('id'));
+        if (!$business) {
             return $this->success([
                 'business' => null,
                 'readiness' => null,
@@ -108,7 +109,7 @@ class BusinessController extends Controller {
             ]);
         }
 
-        $businessId = (int) $businesses[0]->getAttribute('id');
+        $businessId = (int) $business->getAttribute('id');
         $context = (new BusinessContextService())->getContext($businessId);
         $readiness = (new BusinessReadinessService())->scoreFromContext($context);
 
@@ -138,11 +139,16 @@ class BusinessController extends Controller {
             return $this->error('غير مسجل دخول', 401);
         }
 
-        $business = $this->loadOwnedBusiness((int) ($params['id'] ?? 0), (int) $user->getAttribute('id'));
+        $access = new BusinessAccessService();
+        $business = $access->getAccessibleBusiness((int) ($params['id'] ?? 0), (int) $user->getAttribute('id'));
         if (!$business) {
             // 404 مش 403 عمدًا: منمنعش معلومة "الـID ده موجود لكن مش بتاعك"
             // - نفس مبدأ عدم كشف وجود موارد لمستخدمين تانيين (IDOR-safe).
             return $this->error('Business Profile غير موجود', 404);
+        }
+        // viewer (عضو للعرض بس) - يشوف لكن مش بيعدّل.
+        if (!$access->canEdit((int) $business->getAttribute('id'), (int) $user->getAttribute('id'))) {
+            return $this->error('ليست لديك صلاحية تعديل بيانات الـBusiness', 403);
         }
 
         $validationError = $this->validateBusinessInput(true);

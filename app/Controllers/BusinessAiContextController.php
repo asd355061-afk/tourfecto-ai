@@ -16,12 +16,7 @@ class BusinessAiContextController extends Controller {
     }
 
     private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
-        $model = new Business();
-        $business = $model->find($businessId);
-        if (!$business || !$business->isOwnedBy($userId)) {
-            return null;
-        }
-        return $business;
+        return (new BusinessAccessService())->getAccessibleBusiness($businessId, $userId);
     }
 
     /** GET /api/business/{businessId}/ai-context */
@@ -78,6 +73,9 @@ class BusinessAiContextController extends Controller {
         $business = $this->loadOwnedBusiness($businessId, (int) $user->getAttribute('id'));
         if (!$business) {
             return $this->error('Business Profile غير موجود', 404);
+        }
+        if (!(new BusinessAccessService())->canEdit($businessId, (int) $user->getAttribute('id'))) {
+            return $this->error('ليست لديك صلاحية تعديل البيانات', 403);
         }
 
         if (!$this->validate([

@@ -16,12 +16,7 @@ class BusinessTargetMarketController extends Controller {
     }
 
     private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
-        $model = new Business();
-        $business = $model->find($businessId);
-        if (!$business || !$business->isOwnedBy($userId)) {
-            return null;
-        }
-        return $business;
+        return (new BusinessAccessService())->getAccessibleBusiness($businessId, $userId);
     }
 
     /** GET /api/business/{businessId}/markets */
@@ -60,6 +55,9 @@ class BusinessTargetMarketController extends Controller {
         $business = $this->loadOwnedBusiness((int) ($params['businessId'] ?? 0), (int) $user->getAttribute('id'));
         if (!$business) {
             return $this->error('Business Profile غير موجود', 404);
+        }
+        if (!(new BusinessAccessService())->canEdit((int) $business->getAttribute('id'), (int) $user->getAttribute('id'))) {
+            return $this->error('ليست لديك صلاحية تعديل البيانات', 403);
         }
 
         if ($this->has('customer_type') && $this->get('customer_type') !== '') {

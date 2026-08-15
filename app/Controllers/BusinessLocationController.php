@@ -15,29 +15,29 @@ class BusinessLocationController extends Controller {
         return $model->find($id);
     }
 
-    /** يتأكد إن الـBusiness موجود وملك المستخدم الحالي - نفس مبدأ IDOR-safety المستخدم في BusinessController */
+    /**
+     * يتأكد إن الـBusiness موجود ومتاح للمستخدم الحالي (RBAC عبر
+     * BusinessAccessService - Phase 10-11) - نفس مبدأ IDOR-safety.
+     */
     private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
-        $model = new Business();
-        $business = $model->find($businessId);
-        if (!$business || !$business->isOwnedBy($userId)) {
-            return null;
-        }
-        return $business;
+        return (new BusinessAccessService())->getAccessibleBusiness($businessId, $userId);
     }
 
     /**
-     * يحمّل Location ويتأكد إن الـBusiness بتاعها ملك المستخدم الحالي.
-     * فحص على مستويين (location -> business -> owner) - مش كفاية نتأكد
-     * إن الـLocation موجودة، لازم نتأكد إن الـBusiness اللي بتتبعها ملك
-     * المستخدم فعليًا.
+     * يحمّل Location ويتأكد إن الـBusiness بتاعها متاح للمستخدم الحالي
+     * مع صلاحية التعديل (canEdit). فحص على مستويين (location -> business
+     * -> role) - مش كفاية نتأكد إن الـLocation موجودة، لازم نتأكد إن
+     * الـBusiness اللي بتتبعها متاح للمستخدم مع صلاحية الكتابة فعلًا
+     * (viewer يشوف بس). مستخدمة في عمليات التعديل/الحذف بس.
      */
     private function loadOwnedLocation(int $locationId, int $userId): ?BusinessLocation {
         $location = (new BusinessLocation())->find($locationId);
         if (!$location) {
             return null;
         }
-        $business = (new Business())->find((int) $location->getAttribute('business_id'));
-        if (!$business || !$business->isOwnedBy($userId)) {
+        $businessId = (int) $location->getAttribute('business_id');
+        $access = new BusinessAccessService();
+        if (!$access->canEdit($businessId, $userId)) {
             return null;
         }
         return $location;
@@ -69,10 +69,14 @@ class BusinessLocationController extends Controller {
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
         }
+        $userId = (int) $user->getAttribute('id');
 
-        $business = $this->loadOwnedBusiness((int) ($params['businessId'] ?? 0), (int) $user->getAttribute('id'));
+        $business = $this->loadOwnedBusiness((int) ($params['businessId'] ?? 0), $userId);
         if (!$business) {
             return $this->error('Business Profile غير موجود', 404);
+        }
+        if (!(new BusinessAccessService())->canEdit((int) $business->getAttribute('id'), $userId)) {
+            return $this->error('ليست لديك صلاحية تعديل البيانات', 403);
         }
 
         $validationError = $this->validateLocationInput();

@@ -290,16 +290,20 @@ $optionalNewClassFiles = [
     APP_PATH . '/Models/BusinessTargetMarket.php',
     APP_PATH . '/Models/BusinessAiContext.php',
     APP_PATH . '/Models/BusinessBrandSettings.php',
+    APP_PATH . '/Models/BusinessMember.php',
     APP_PATH . '/Services/BusinessServiceManager.php',
     APP_PATH . '/Services/BusinessLocationService.php',
     APP_PATH . '/Services/BusinessContextService.php',
     APP_PATH . '/Services/BusinessReadinessService.php',
+    APP_PATH . '/Services/BusinessAccessService.php',
+    APP_PATH . '/Services/BusinessTeamService.php',
     APP_PATH . '/Controllers/BusinessController.php',
     APP_PATH . '/Controllers/BusinessLocationController.php',
     APP_PATH . '/Controllers/BusinessServiceController.php',
     APP_PATH . '/Controllers/BusinessTargetMarketController.php',
     APP_PATH . '/Controllers/BusinessAiContextController.php',
     APP_PATH . '/Controllers/BusinessBrandSettingsController.php',
+    APP_PATH . '/Controllers/BusinessTeamController.php',
 ];
 foreach ($optionalNewClassFiles as $classFile) {
     if (file_exists($classFile)) {

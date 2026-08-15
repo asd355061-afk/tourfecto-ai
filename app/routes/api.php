@@ -86,6 +86,15 @@ $router->get('/api/business/{businessId}/ai-context/full', 'BusinessAiContextCon
 $router->put('/api/business/{businessId}/ai-context', 'BusinessAiContextController', 'upsert', ['AuthMiddleware']);
 $router->get('/api/business/{businessId}/brand', 'BusinessBrandSettingsController', 'show', ['AuthMiddleware']);
 $router->put('/api/business/{businessId}/brand', 'BusinessBrandSettingsController', 'upsert', ['AuthMiddleware']);
+// ============================================
+// Business Control Center - Team Management + RBAC (Phase 10-11)
+// كل المسارات AuthMiddleware-protected + فحص صلاحية عبر BusinessAccessService
+// ============================================
+$router->get('/api/business/{businessId}/team', 'BusinessTeamController', 'index', ['AuthMiddleware']);
+$router->post('/api/business/{businessId}/team/invite', 'BusinessTeamController', 'invite', ['AuthMiddleware']);
+$router->post('/api/business/{businessId}/team/invite/{token}/accept', 'BusinessTeamController', 'acceptInvite', ['AuthMiddleware']);
+$router->delete('/api/business/{businessId}/team/members/{memberId}', 'BusinessTeamController', 'remove', ['AuthMiddleware']);
+$router->put('/api/business/{businessId}/team/members/{memberId}/role', 'BusinessTeamController', 'changeRole', ['AuthMiddleware']);
 
 // ============================================
 // مسارات الذكاء الاصطناعي (AI)

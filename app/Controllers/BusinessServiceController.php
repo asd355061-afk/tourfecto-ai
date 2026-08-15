@@ -16,21 +16,16 @@ class BusinessServiceController extends Controller {
     }
 
     private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
-        $model = new Business();
-        $business = $model->find($businessId);
-        if (!$business || !$business->isOwnedBy($userId)) {
-            return null;
-        }
-        return $business;
+        return (new BusinessAccessService())->getAccessibleBusiness($businessId, $userId);
     }
 
+    /** يحمّل Service مع فحص صلاحية التعديل على الـBusiness التابعة لها (viewer مش بيعدّل) */
     private function loadOwnedService(int $serviceId, int $userId): ?BusinessService {
         $service = (new BusinessService())->find($serviceId);
         if (!$service) {
             return null;
         }
-        $business = (new Business())->find((int) $service->getAttribute('business_id'));
-        if (!$business || !$business->isOwnedBy($userId)) {
+        if (!(new BusinessAccessService())->canEdit((int) $service->getAttribute('business_id'), $userId)) {
             return null;
         }
         return $service;
@@ -66,6 +61,9 @@ class BusinessServiceController extends Controller {
         $business = $this->loadOwnedBusiness((int) ($params['businessId'] ?? 0), (int) $user->getAttribute('id'));
         if (!$business) {
             return $this->error('Business Profile غير موجود', 404);
+        }
+        if (!(new BusinessAccessService())->canEdit((int) $business->getAttribute('id'), (int) $user->getAttribute('id'))) {
+            return $this->error('ليست لديك صلاحية تعديل البيانات', 403);
         }
 
         if (!$this->validate(['name' => 'required|max_length:255', 'description' => 'max_length:2000', 'category' => 'max_length:100'])) {
