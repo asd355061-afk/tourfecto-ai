@@ -2,7 +2,7 @@
 /**
  * Tourfecto - AI Revenue Intelligence Test
  * اختبارات موديول ذكاء الإيرادات (TOURFECTO AI REVENUE INTELLIGENCE)
- * @version 1.0.0
+ * @version 1.3.0
  * @author Tourfecto Team
  * @copyright 2026 Tourfecto
  *
@@ -33,6 +33,7 @@ require_once __DIR__ . '/../../app/Services/RevenueIntelligence/PipelineRevenueS
 require_once __DIR__ . '/../../app/Services/RevenueIntelligence/RevenueInsightService.php';
 require_once __DIR__ . '/../../app/Services/RevenueIntelligence/RevenueActionService.php';
 require_once __DIR__ . '/../../app/Services/RevenueIntelligence/RevenueAssistantService.php';
+require_once __DIR__ . '/../../app/Services/RevenueIntelligence/RevenueCacheService.php';
 
 class RevenueIntelligenceTest {
     /** @var array */
@@ -64,6 +65,10 @@ class RevenueIntelligenceTest {
         $this->testAssistantFollowUpSuggestions();
         $this->testScenarioForecast();
         $this->testPeriodToDays();
+        $this->testSeasonalFactor();
+        $this->testSeasonalForecast();
+        $this->testGraduatedCacheTtl();
+        $this->testAssistantArabicSynonyms();
 
         $this->printSummary();
     }
@@ -348,8 +353,71 @@ class RevenueIntelligenceTest {
     }
 
     // ============================================================
+    // v1.3.0: Seasonality, graduated cache TTL, Arabic synonyms
+    // ============================================================
+
+    private function testSeasonalFactor(): void {
+        $this->startTest('Forecast: seasonal factor compares current period to the prior equivalent period');
+        // نافذتان نظيفتان: الفترة السابقة كل أيامها 100، الحالية كل أيامها 150
+        // (خلال 30 يوم لكل نافذة: السابقة [2026-06-10..2026-07-09]، الحالية [2026-07-10..2026-08-08])
+        $series = self::buildDailySeries('2026-06-10', 30, 100);
+        $series = array_merge($series, self::buildDailySeries('2026-07-10', 30, 150));
+
+        $result = RevenueForecastService::computeSeasonalFactor($series, 'monthly', '2026-08-09');
+        $this->assertTrue($result['seasonal_factor'] !== null, 'Produces a seasonal factor from enough data');
+        $this->assertTrue(abs($result['seasonal_factor'] - 1.5) < 0.05, 'Current period 50% above prior period yields factor ~1.5');
+        $this->assertTrue($result['has_seasonality'] === true, 'Flags seasonality when the deviation exceeds the 20% threshold');
+    }
+
+    private function testSeasonalForecast(): void {
+        $this->startTest('Forecast: seasonal forecast scales the real linear forecast by the seasonal factor');
+        $series = self::buildDailySeries('2026-06-10', 30, 100);
+        $series = array_merge($series, self::buildDailySeries('2026-07-10', 30, 150));
+
+        $base = RevenueForecastService::computeForecast($series, 'monthly', '2026-08-09');
+        $seasonal = RevenueForecastService::seasonalForecast($series, 'monthly', '2026-08-09');
+
+        $this->assertTrue($seasonal['insufficient_data'] === false, 'Seasonal forecast runs on sufficient data');
+        $this->assertTrue($seasonal['seasonal'] === true, 'Flags that a seasonal adjustment was applied');
+        $this->assertTrue($seasonal['seasonal_factor'] > 1, 'Factor above 1 for a high season');
+        $this->assertTrue($seasonal['expected_revenue'] > $base['expected_revenue'], 'Seasonal forecast exceeds the plain linear forecast in a high season');
+        $this->assertTrue($seasonal['forecast_range']['low'] <= $seasonal['expected_revenue'], 'Range low <= expected');
+        $this->assertTrue($seasonal['forecast_range']['high'] >= $seasonal['expected_revenue'], 'Range high >= expected');
+        $this->assertTrue(strpos($seasonal['seasonality_note'], 'not a full multi-year seasonal model') !== false, 'Honest note: simple comparison, not a full seasonal model');
+    }
+
+    private function testGraduatedCacheTtl(): void {
+        $this->startTest('Cache: graduated TTL - shorter for fast-moving periods, longer for expensive ones');
+        $this->assertTrue(RevenueCacheService::ttlForPeriod('daily') < RevenueCacheService::ttlForPeriod('monthly'), 'Daily TTL is shorter than monthly');
+        $this->assertTrue(RevenueCacheService::ttlForPeriod('monthly') < RevenueCacheService::ttlForPeriod('yearly'), 'Monthly TTL is shorter than yearly');
+        $this->assertTrue(RevenueCacheService::ttlForPeriod('quarterly') > RevenueCacheService::ttlForPeriod('weekly'), 'Quarterly TTL is longer than weekly');
+        $this->assertTrue(RevenueCacheService::ttlForPeriod('unknown') === RevenueCacheService::DEFAULT_TTL, 'Unknown period falls back to the default monthly TTL');
+    }
+
+    private function testAssistantArabicSynonyms(): void {
+        $this->startTest('AI Assistant: expanded Arabic synonyms reach the right intent');
+        $this->assertTrue(RevenueAssistantService::matchIntent('أفضل زبون عندي') === 'top_value_customers', 'Matches "best customer" via زبون');
+        $this->assertTrue(RevenueAssistantService::matchIntent('ليه المبيعات نزلت') === 'why_revenue_declined', 'Matches "why sales dropped" via مبيعات');
+        $this->assertTrue(RevenueAssistantService::matchIntent('عايز أزود المبيعات') === 'growth_opportunities', 'Matches "want to grow sales" via المبيعات');
+        $this->assertTrue(RevenueAssistantService::matchIntent('الايراد بييجي منين') === 'top_revenue_sources', 'Matches "where does revenue come from" via منين');
+        $this->assertTrue(RevenueAssistantService::matchIntent('best client') === 'top_value_customers', 'Matches "best client" (English)');
+        $this->assertTrue(RevenueAssistantService::matchIntent('sales forecast') === 'next_month_forecast', 'Matches "sales forecast" (English)');
+    }
+
+    // ============================================================
     // Test harness (نفس نمط باقي ملفات tests/Unit في المشروع)
     // ============================================================
+
+    /** يولّد سلسلة أيام متتالية بقيمة ثابتة - Fixture نظيف للاختبار. */
+    private static function buildDailySeries(string $fromDate, int $days, float $revenue): array {
+        $start = new DateTime($fromDate);
+        $series = [];
+        for ($i = 0; $i < $days; $i++) {
+            $series[] = ['date' => $start->format('Y-m-d'), 'revenue' => $revenue];
+            $start->modify('+1 day');
+        }
+        return $series;
+    }
 
     private function assertTrue(bool $condition, string $message): void {
         if ($condition) {

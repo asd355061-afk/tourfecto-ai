@@ -1,7 +1,7 @@
 <?php
 /**
  * Tourfecto - Revenue Intelligence Cache Service
- * @version 1.0.0
+ * @version 1.1.0
  *
  * Section 18: PERFORMANCE (Caching)
  *
@@ -16,6 +16,21 @@ class RevenueCacheService {
     /** ثواني - كافي لتخفيف الحمل وقت تنقل المستخدم بين التابات بسرعة، وقصير كفاية عشان البيانات تفضل حديثة. */
     public const DEFAULT_TTL = 180;
 
+    /**
+     * TTL متدرّج (v1.3.0): الفترات الأقصر (daily/weekly) تتغير أسرع فيلزم
+     * كاش أقصر، والفترات الأطول (quarterly/yearly) أغلى حسابيًا فيلزم
+     * كاش أطول - بدون ما نفقد حداثة البيانات على مستوى الفترة.
+     */
+    public static function ttlForPeriod(string $period): int {
+        switch ($period) {
+            case 'daily': return 30;
+            case 'weekly': return 90;
+            case 'quarterly': return 600;
+            case 'yearly': return 900;
+            default: return self::DEFAULT_TTL; // monthly
+        }
+    }
+
     /** @var Cache|null */
     private $cache;
 
@@ -24,11 +39,11 @@ class RevenueCacheService {
     }
 
     public function rememberOverview(int $userId, string $period, callable $callback) {
-        return $this->remember(self::overviewKey($userId, $period), $callback);
+        return $this->remember(self::overviewKey($userId, $period), $callback, self::ttlForPeriod($period));
     }
 
     public function rememberForecast(int $userId, string $period, callable $callback) {
-        return $this->remember(self::forecastKey($userId, $period), $callback);
+        return $this->remember(self::forecastKey($userId, $period), $callback, self::ttlForPeriod($period));
     }
 
     public function rememberExecutiveSummary(int $userId, callable $callback) {
@@ -92,11 +107,11 @@ class RevenueCacheService {
         return true;
     }
 
-    private function remember(string $key, callable $callback) {
+    private function remember(string $key, callable $callback, int $ttlSeconds = self::DEFAULT_TTL) {
         if ($this->cache === null) {
             return $callback(); // مفيش كاش متاح - نحسب مباشرة بدل ما نكسر الطلب
         }
-        return $this->cache->remember($key, $callback, self::DEFAULT_TTL);
+        return $this->cache->remember($key, $callback, $ttlSeconds);
     }
 
     /** يبطّل كل الكاش الخاص بمستخدم معيّن - بينادى عليها من listeners الأحداث (revenue.updated / crm.deal.won / crm.deal.lost). */

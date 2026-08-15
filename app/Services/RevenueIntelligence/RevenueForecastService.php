@@ -1,7 +1,7 @@
 <?php
 /**
  * Tourfecto - Revenue Forecast Service
- * @version 1.0.0
+ * @version 1.1.0
  *
  * Section 2: REVENUE FORECASTING
  *
@@ -210,6 +210,101 @@ class RevenueForecastService {
             'method' => 'linear_regression_daily_with_growth_scenario',
             'note' => 'Scenario estimate: base forecast scaled by the assumed growth percentage. Not a guarantee.',
         ];
+    }
+
+    /**
+     * Seasonality adjustment (v1.3.0): مقارنة فترة سابقة مكافئة بنفس الطول
+     * من السلسلة التاريخية الحقيقية لاكتشاف ما إذا كانت الفترة الحالية
+     * موسميًا أعلى أو أقل من المعتاد (مثل موسم حجوزات الصيف). الناتج
+     * factor > 1 يعني أن الفترة الحالية فوق المتوسط الموسمي وfactor < 1
+     * تحت المتوسط - يُطبَّق على التوقع الأساسي. Pure function قابلة
+     * للاختبار مباشرة، وتعتمد فقط على بيانات فعلية (لا اختراع).
+     *
+     * ملاحظة صادقة: هذا مجرّد "مقارنة بنفس الفترة السابقة المكافئة"،
+     * وليس نموذج موسمية كامل (يتطلب سنوات متعددة من التاريخ) - نصرّح
+     * بذلك في المخرجات بدل تقديمه كـ"موسمية حقيقية".
+     *
+     * @param array $dailySeries [['date' => 'Y-m-d', 'revenue' => float], ...]
+     * @param string $periodType daily/weekly/monthly/quarterly/yearly
+     * @param string $todayStr Y-m-d
+     */
+    public static function computeSeasonalFactor(array $dailySeries, string $periodType, string $todayStr): array {
+        $days = RevenueOverviewService::periodToDays($periodType);
+        $today = new DateTime($todayStr);
+        $currentStart = (clone $today)->modify("-{$days} days");
+        $previousStart = (clone $currentStart)->modify("-{$days} days");
+
+        $currentDaily = self::dailyAverages($dailySeries, $currentStart->format('Y-m-d'), $today->format('Y-m-d'));
+        $previousDaily = self::dailyAverages($dailySeries, $previousStart->format('Y-m-d'), $currentStart->format('Y-m-d'));
+
+        if ($previousDaily <= 0) {
+            return [
+                'seasonal_factor' => null,
+                'has_seasonality' => false,
+                'reason' => 'Not enough data',
+                'current_period_daily_avg' => $currentDaily,
+                'previous_period_daily_avg' => $previousDaily,
+            ];
+        }
+
+        $factor = round($currentDaily / $previousDaily, 3);
+        return [
+            'seasonal_factor' => $factor,
+            // نعتبرها "موسمية ملحوظة" فقط إذا انحرفت الفترة الحالية بأكثر من
+            // 20% عن سابقتها - أي أقل من كده هو تشويش عادي مش إشارة موسمية.
+            'has_seasonality' => $factor < 0.8 || $factor > 1.2,
+            'reason' => null,
+            'current_period_daily_avg' => round($currentDaily, 2),
+            'previous_period_daily_avg' => round($previousDaily, 2),
+            'note' => 'Simple same-length prior-period comparison, not a full multi-year seasonal model.',
+        ];
+    }
+
+    /**
+     * توقع مراعٍ للموسمية (v1.3.0): التوقع الخطي الأساسي × عامل الموسمية
+     * المستخرج من الفترة المكافئة السابقة. لو الموسمية غير ملحوظة، الناتج
+     * مطابق للتوقع الأساسي مع factor=1. Pure function قابلة للاختبار.
+     */
+    public static function seasonalForecast(array $dailySeries, string $periodType, string $todayStr): array {
+        $base = self::computeForecast($dailySeries, $periodType, $todayStr);
+        $seasonal = self::computeSeasonalFactor($dailySeries, $periodType, $todayStr);
+
+        if ($base['insufficient_data'] || $seasonal['seasonal_factor'] === null) {
+            return $base + [
+                'seasonal' => false,
+                'seasonal_factor' => $seasonal['seasonal_factor'],
+                'seasonality_note' => 'Not enough data to apply a seasonal adjustment.',
+            ];
+        }
+
+        $factor = $seasonal['seasonal_factor'];
+        return array_merge($base, [
+            'seasonal' => $seasonal['has_seasonality'],
+            'seasonal_factor' => $factor,
+            'expected_revenue' => round($base['expected_revenue'] * $factor, 2),
+            'forecast_range' => [
+                'low' => round($base['forecast_range']['low'] * $factor, 2),
+                'high' => round($base['forecast_range']['high'] * $factor, 2),
+            ],
+            'method' => 'linear_regression_daily_with_seasonality',
+            'seasonality_note' => $seasonal['has_seasonality']
+                ? 'Current period is ' . ($factor > 1 ? 'above' : 'below') . ' the prior equivalent period by ' . abs(round(($factor - 1) * 100, 1)) . '%; forecast adjusted accordingly. Simple prior-period comparison, not a full multi-year seasonal model.'
+                : 'No meaningful seasonality detected vs the prior equivalent period; forecast left unchanged.',
+        ]);
+    }
+
+    /** متوسط الإيراد اليومي ضمن نافذة زمنية من سلسلة يومية فعلية. */
+    private static function dailyAverages(array $dailySeries, string $fromDate, string $toDate): float {
+        $total = 0.0;
+        $count = 0;
+        foreach ($dailySeries as $p) {
+            $d = (string) ($p['date'] ?? '');
+            if ($d >= $fromDate && $d < $toDate && isset($p['revenue'])) {
+                $total += (float) $p['revenue'];
+                $count++;
+            }
+        }
+        return $count > 0 ? $total / $count : 0.0;
     }
 
     /**
