@@ -328,4 +328,80 @@ Feature موجودة يمكن إعادة استخدامها، استخدمها �
   نشط — فالإيميل اليومي يُجدول فعليًا وليس مجرد كلاس غير مستخدم.
 
 
+# Settings Center — الترقية التنافسية v1.2.0 — 2026-08-15
+
+## 1) الخلفية (تحليل تنافسي)
+
+قورن موديول Settings Center ضد أقوى المنصات SaaS العالمية في مجالات
+الأمان والخصوصية: **GitHub** (سجل الجلسات + إلغاء الجلسات البعيدة +
+2FA/تطبيقات المصادقة + مفاتيح API)، **Stripe/Intercom** (audit log
+بفلترة + تصدير)، **Vercel** (صلاحية مفاتيح API بالانتهاء التلقائي)،
+**Notion/Slack** (قاعدة "لا يمكن إزالة آخر Admin في الـWorkspace").
+الموديول كان متفوّقًا في RFC 6238 TOTP وRecovery Codes وRate Limiting،
+ولكن التحليل كشف 6 نقاط ضعف تنافسية تمت معالجتها بالكامل في هذه الترقية.
+
+## 2) التغييرات
+
+### الأمان (GitHub/Stripe parity)
+- `app/Controllers/AuthController.php`:
+  - **2FA Brute-Force Lockout** في `verifyTwoFactor()`: 5 محاولات
+    كحد أقصى خلال 15 دقيقة على نفس المستخدم (`2fa_user_{id}`) أو الـIP
+    (`2fa_ip_{ip}` لو المستخدم لسه مش معروف)، عبر `RateLimiter` الموجود
+    أصلًا في المشروع (جدول `rate_limit_blocks`). العداد يُصفَّر بعد نجاح
+    الكود. كود TOTP من 6 أرقام بدون حد للمحاولات كان سيسمح بتخمينه.
+  - **Password Reset يلغي كل الجلسات القديمة**: بعد إعادة تعيين كلمة
+    المرور، تُلغى كل الـRefresh Tokens على كل الأجهزة (حتى الجلسات
+    المسروقة بكلمة مرور قديمة) - نفس مبدأ GitHub/Stripe.
+- `app/Controllers/UserController.php`:
+  - **تغيير كلمة المرور يلغي باقي الجلسات**: `updatePassword()` يحتفظ
+    فقط بالجلسة الحالية (`$_SESSION['current_refresh_token_id']`) ويلغي
+    كل الجلسات الأخرى على الأجهزة الأخرى.
+  - **2FA Recovery Codes Regeneration (مع Rotation)**: Endpoint جديد
+    `POST /api/user/2fa/recovery-codes/regenerate` يتطلب كلمة المرور +
+    كود TOTP صالح أو كود Recovery قديم، ويلغي الدفعة القديمة فورًا
+    (أي كود Recovery قديم يتوقف عن العمل) - أقوى من نهج GitHub.
+  - **Audit Log Filters + CSV Export**: `GET /api/user/audit-log` يقبل
+    الآن فلترة بالـaction والـresult، و`GET /api/user/audit-log/export`
+    يصدر CSV (حد أقصى 5000 صف، BOM لدعم Excel) - مثل Stripe/Intercom.
+  - **API Key Expiry**: `createApiKey()` يقبل `expires_in_days`
+    (0-365)، والمفاتيح المنتهية تُرفض في `verify()`.
+- `app/Controllers/WorkspaceController.php`:
+  - **Last-Admin Guard Rail**: لا يمكن إنزال/تعليق/إزالة آخر Admin نشط
+    في الـWorkspace (المالك نفسه محمي من الأصل) - مثل Notion/Slack.
+
+### النماذج (Models)
+- `app/Models/RefreshToken.php`: `revokeAllForUserExcept()` و
+  `revokeAllForUser()` (الكل) كطريقة ثابتة نظيفة.
+- `app/Models/UserApiKey.php`: `isExpired()` (Pure static، قابل
+  للاختبار)، `generateFor()` يقبل `$expiresAt` اختياري، و`verify()`
+  يرفض المفاتيح المنتهية. `toSafeArray()` يعرض `expires_at`.
+- `app/Models/AuditLog.php`: `listFor()` و`exportFor()` (استعلام مباشر)
+  يقبلان `action`/`result`.
+
+### الواجهة الأمامية (`renderSettingsPage` في UserController)
+- تبويب الأمان: UI لإعادة توليد أكواد Recovery (كلمة مرور + كود تطبيق)
+  مع صندوق عرض الأكواد الجديدة.
+- تبويب مفاتيح API: إدخال `expires_in_days` مع "لا تنتهي أبدًا"، وعرض
+  تاريخ الانتهاء لكل مفتاح، ومنع إنشاء مفتاح بدون صلاحية صحيحة.
+- تبويب Audit Log: فلترة بالـresult (الكل/نجاح/فشل) والـaction، وزر
+  تصدير CSV مع تنزيل Blob من المتصفح.
+
+### اللغة
+- 16 مفتاحًا جديدًا في `ar`/`en`/`fr`/`de` (متطابقة العد في الأربعة).
+
+## 3) قاعدة البيانات
+
+- Migration جديد: `2026_08_15_000055_add_expires_at_to_user_api_keys.sql`
+  (ALTER TABLE يضيف عمود `expires_at`). **توافقي للخلف**: `generateFor()`
+  يحذف العمود من الـINSERT لو كان `null`، فلا يكسر أي بيئة لم تشغّل
+  الـmigration بعد.
+
+## 4) الاختبارات
+
+- `php -l` على كل الملفات المعدَّلة - لا أخطاء.
+- `php tests/Unit/SettingsCompetitiveTest.php` → 10/10 ✅ (100%)
+  (صلاحية مفاتيح API + تدوير أكواد Recovery وإبطال الدفعة القديمة).
+- `php tests/Unit/TotpServiceTest.php` → 29/29 ✅ (تشمل 5 RFC 6238 vectors).
+- الاختبارات التي تحتاج MySQL (DatabaseTest وفحص الفلترة الفعلية) تُشغَّل
+  على السيرفر حيث يوجد الـDriver.
 
