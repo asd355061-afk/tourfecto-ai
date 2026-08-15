@@ -534,6 +534,8 @@ $router->delete('/api/agency/{id}/clients/{clientId}', 'AgencyController', 'remo
 
 // إدارة الإعلانات
 $router->get('/api/ads/campaigns', 'AdsController', 'list', ['AuthMiddleware']);
+$router->get('/api/ads/campaigns/search', 'AdsController', 'searchCampaigns', ['AuthMiddleware']);
+$router->get('/api/ads/campaigns/{id}', 'AdsController', 'getCampaign', ['AuthMiddleware']);
 $router->post('/api/ads/campaigns', 'AdsController', 'create', ['AuthMiddleware']);
 $router->post('/api/ads/campaigns/ai-generate', 'AdsController', 'aiGenerateCampaign', ['AuthMiddleware']);
 $router->get('/api/ads/campaigns/{id}/copies', 'AdsController', 'listCopies', ['AuthMiddleware']);
@@ -544,6 +546,61 @@ $router->get('/api/ads/meta/status', 'AdsController', 'getMetaConnectionStatus',
 $router->post('/api/ads/meta/choose-account', 'AdsController', 'chooseMetaAdAccount', ['AuthMiddleware']);
 $router->post('/api/ads/meta/sync', 'AdsController', 'syncMetaCampaigns', ['AuthMiddleware']);
 $router->post('/api/ads/meta/disconnect', 'AdsController', 'disconnectMeta', ['AuthMiddleware']);
+
+$router->get('/api/ads/google/status', 'AdsController', 'getGoogleAdsConnectionStatus', ['AuthMiddleware']);
+$router->get('/api/ads/connections/status', 'AdsController', 'getConnectionsStatus', ['AuthMiddleware']);
+$router->post('/api/ads/google/choose-account', 'AdsController', 'chooseGoogleAdsAccount', ['AuthMiddleware']);
+$router->post('/api/ads/google/sync', 'AdsController', 'syncGoogleAdsCampaigns', ['AuthMiddleware']);
+$router->post('/api/ads/google/disconnect', 'AdsController', 'disconnectGoogleAds', ['AuthMiddleware']);
+
+$router->get('/api/ads/autopilot/settings', 'AdsController', 'getAutopilotSettings', ['AuthMiddleware']);
+$router->post('/api/ads/autopilot/settings', 'AdsController', 'saveAutopilotSettings', ['AuthMiddleware']);
+$router->get('/api/ads/autopilot/pending', 'AdsController', 'listPendingActions', ['AuthMiddleware']);
+$router->post('/api/ads/autopilot/pending/{id}/approve', 'AdsController', 'approvePendingAction', ['AuthMiddleware']);
+$router->post('/api/ads/autopilot/pending/{id}/reject', 'AdsController', 'rejectPendingAction', ['AuthMiddleware']);
+$router->get('/api/ads/autopilot/logs', 'AdsController', 'listOptimizationLogs', ['AuthMiddleware']);
+$router->post('/api/ads/autopilot/logs/{id}/rollback', 'AdsController', 'rollbackOptimizationLog', ['AuthMiddleware']);
+$router->post('/api/ads/autopilot/run', 'AdsController', 'runAutopilotNow', ['AuthMiddleware']);
+
+$router->post('/api/ads/copilot/ask', 'AdsController', 'askCopilot', ['AuthMiddleware']);
+
+$router->post('/api/ads/campaigns/{id}/keywords/generate', 'AdsController', 'generateKeywords', ['AuthMiddleware']);
+$router->get('/api/ads/campaigns/{id}/keywords', 'AdsController', 'listKeywords', ['AuthMiddleware']);
+$router->post('/api/ads/keywords/{id}/assign-group', 'AdsController', 'assignKeywordToGroup', ['AuthMiddleware']);
+
+$router->post('/api/ads/campaigns/{id}/ad-groups', 'AdsController', 'createAdGroup', ['AuthMiddleware']);
+$router->get('/api/ads/campaigns/{id}/ad-groups', 'AdsController', 'listAdGroups', ['AuthMiddleware']);
+$router->post('/api/ads/ad-groups/{id}/status', 'AdsController', 'updateAdGroupStatus', ['AuthMiddleware']);
+$router->delete('/api/ads/ad-groups/{id}', 'AdsController', 'deleteAdGroup', ['AuthMiddleware']);
+
+$router->post('/api/ads/market-research', 'AdsController', 'marketResearch', ['AuthMiddleware']);
+$router->get('/api/ads/market-research/history', 'AdsController', 'marketResearchHistory', ['AuthMiddleware']);
+
+$router->post('/api/ads/campaigns/{id}/status', 'AdsController', 'updateCampaignStatus', ['AuthMiddleware']);
+$router->post('/api/ads/campaigns/{id}/publish', 'AdsController', 'publishCampaign', ['AuthMiddleware']);
+$router->post('/api/ads/campaigns/{id}/toggle-status', 'AdsController', 'toggleCampaignStatus', ['AuthMiddleware']);
+$router->post('/api/ads/campaigns/{id}/cancel', 'AdsController', 'cancelCampaign', ['AuthMiddleware']);
+$router->post('/api/ads/campaigns/{id}/update-budget', 'AdsController', 'updateCampaignBudget', ['AuthMiddleware']);
+$router->delete('/api/ads/campaigns/{id}', 'AdsController', 'deleteCampaign', ['AuthMiddleware']);
+$router->post('/api/ads/campaigns/bulk-status', 'AdsController', 'bulkUpdateCampaignStatus', ['AuthMiddleware']);
+$router->post('/api/ads/campaigns/{id}/landing-page/analyze', 'AdsController', 'analyzeLandingPage', ['AuthMiddleware']);
+
+$router->post('/api/ads/campaigns/{id}/utm-links', 'AdsController', 'createUtmLink', ['AuthMiddleware']);
+$router->get('/api/ads/campaigns/{id}/utm-links', 'AdsController', 'listUtmLinks', ['AuthMiddleware']);
+
+$router->get('/api/ads/dashboard/summary', 'AdsController', 'getDashboardSummary', ['AuthMiddleware']);
+$router->get('/api/ads/reports', 'AdsController', 'getReport', ['AuthMiddleware']);
+$router->get('/api/ads/reports/trend', 'AdsController', 'getReportTrend', ['AuthMiddleware']);
+$router->get('/api/ads/reports/comparison', 'AdsController', 'getCampaignComparison', ['AuthMiddleware']);
+
+$router->post('/api/ads/competitors/{id}/analyze', 'AdsController', 'analyzeAdsCompetitor', ['AuthMiddleware']);
+$router->get('/api/ads/competitors/{id}/insights', 'AdsController', 'listAdsCompetitorInsights', ['AuthMiddleware']);
+$router->get('/api/ads/competitors', 'AdsController', 'listMyCompetitors', ['AuthMiddleware']);
+
+$router->get('/api/ads/team', 'AdsController', 'listTeamMembers', ['AuthMiddleware']);
+$router->post('/api/ads/team', 'AdsController', 'addTeamMember', ['AuthMiddleware']);
+$router->post('/api/ads/team/{id}/role', 'AdsController', 'updateTeamMemberRole', ['AuthMiddleware']);
+$router->post('/api/ads/team/{id}/remove', 'AdsController', 'removeTeamMember', ['AuthMiddleware']);
 
 // CRM
 $router->get('/api/crm/overview', 'CrmController', 'overview', ['AuthMiddleware']);
