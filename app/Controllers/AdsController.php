@@ -1210,7 +1210,7 @@ JS;
         if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
 
         $campaign = (new AdCampaign())->find((int) ($params['id'] ?? 0));
-        if (!$campaign || (int) $campaign->getAttribute('user_id') !== (int) $this->user['id']) {
+        if (!$campaign || $campaign->getAttribute('deleted_at') || (int) $campaign->getAttribute('user_id') !== (int) $this->user['id']) {
             return $this->error('الحملة غير موجودة', 404);
         }
 
@@ -1468,7 +1468,7 @@ JS;
      */
     private function loadPublishedCampaignForManagement(int $campaignId): array {
         $campaign = (new AdCampaign())->find($campaignId);
-        if (!$campaign || (int) $campaign->getAttribute('user_id') !== (int) $this->user['id']) {
+        if (!$campaign || $campaign->getAttribute('deleted_at') || (int) $campaign->getAttribute('user_id') !== (int) $this->user['id']) {
             return [null, null, $this->error('الحملة غير موجودة', 404)];
         }
 
@@ -4134,6 +4134,11 @@ JS;
     }
 
     private function resolveCampaignAccess(AdCampaign $campaign, string $minRole = 'viewer'): ?array {
+        // Soft Delete: الحملة المحذوفة غير قابلة للوصول نهائيًا حتى بالرابط المباشر
+        if ($campaign->getAttribute('deleted_at')) {
+            return null;
+        }
+
         $ownerId = (int) $campaign->getAttribute('user_id');
         $currentUserId = (int) $this->user['id'];
 
