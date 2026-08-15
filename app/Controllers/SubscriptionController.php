@@ -182,6 +182,13 @@ class SubscriptionController extends Controller {
             $this->log('Subscription Renewed', [
                 'subscription_id' => $subscription->getAttribute('id')
             ]);
+
+            // Section 13: كانت مفيش أي إشعار عند التجديد خالص - إضافة
+            // بس، مفيش تعديل على منطق renew() نفسه.
+            if (class_exists('Notification')) {
+                Notification::notify((int) $this->user['id'], 'subscription_renewed', 'تم تجديد اشتراكك',
+                    'تم تجديد باقتك بنجاح.', '/subscription');
+            }
             
             return $this->success([
                 'subscription' => $subscription->toArray()
@@ -491,7 +498,31 @@ class SubscriptionController extends Controller {
         $planInfo = $plansData[$sub['plan_name']] ?? null;
         $planLabel = htmlspecialchars($planInfo['name'] ?? $sub['plan_name'], ENT_QUOTES, 'UTF-8');
         $status = htmlspecialchars((string) $sub['status'], ENT_QUOTES, 'UTF-8');
-        $statusLabel = $status === 'active' ? $this->tr('subscription.status.active') : $status;
+        // Section 7: خرائط كل حالات دورة الحياة الحقيقية (مؤكدة من الـ
+        // ENUM الفعلي: active/trialing/past_due/cancelled/paused) - قبل
+        // كده أي حالة غير 'active' كانت بتظهر بالكلمة الإنجليزية الخام
+        // جوه Pill أخضر ثابت (✔) - مضلّل جدًا لعميل past_due (المفروض
+        // يشوف تحذير مش علامة "تمام").
+        $statusMeta = [
+            'active' => ['label' => $this->tr('subscription.status.active'), 'pill' => 'green', 'icon' => '✔'],
+            'trialing' => ['label' => 'فترة تجربة مجانية', 'pill' => 'blue', 'icon' => '🎁'],
+            'past_due' => ['label' => 'متأخر - محتاج تجديد', 'pill' => 'orange', 'icon' => '⚠️'],
+            'cancelled' => ['label' => 'ملغى', 'pill' => 'red', 'icon' => '✖'],
+            'paused' => ['label' => 'موقوف مؤقتًا', 'pill' => 'gray', 'icon' => '⏸'],
+        ];
+        $meta = $statusMeta[$status] ?? ['label' => $status, 'pill' => 'gray', 'icon' => '•'];
+        $statusLabel = $meta['label'];
+        $statusPillColor = $meta['pill'];
+        $statusIcon = $meta['icon'];
+
+        // بانر تحذيري إضافي واضح لو الاشتراك في فترة سماح (past_due) -
+        // عشان العميل يعرف بالظبط إيه اللي محتاج يعمله.
+        $lifecycleBanner = '';
+        if ($status === 'past_due') {
+            $lifecycleBanner = '<div class="alert alert-warning" style="margin-bottom:14px;">⚠️ اشتراكك متأخر عن التجديد - عندك فترة سماح محدودة قبل ما يتوقف تلقائيًا. جدّد دلوقتي من رصيد محفظتك عشان تفادي انقطاع الخدمة.</div>';
+        } elseif ($status === 'trialing') {
+            $lifecycleBanner = '<div class="alert alert-info" style="margin-bottom:14px;">🎁 انت لسه في فترة التجربة المجانية - تقدر تشترك فعليًا في أي وقت قبل ما التجربة تخلص.</div>';
+        }
         $price = htmlspecialchars((string) $sub['price'], ENT_QUOTES, 'UTF-8');
         // تصحيح جذري: بدل ما نثق في $sub['currency'] المخزّنة (ممكن تكون
         // قديمة أو اتسجّلت غلط وقت الإنشاء زي "EGP" لسعر بالدولار فعليًا)،
@@ -552,12 +583,13 @@ HTML;
         $tLoading = $this->tr('common.loading');
 
         $body = <<<HTML
+        {$lifecycleBanner}
         <div class="p-card sub-plan-card">
             <div class="p-card-head">
                 <h3>{$planLabel}</h3>
                 <span class="p-card-sub">{$planType} · {$currencySymbol}{$price}</span>
             </div>
-            <div class="p-kv"><span class="k">{$tStatus}</span><span class="v"><span class="pill green">✔ {$statusLabel}</span></span></div>
+            <div class="p-kv"><span class="k">{$tStatus}</span><span class="v"><span class="pill {$statusPillColor}">{$statusIcon} {$statusLabel}</span></span></div>
             <div class="p-kv"><span class="k">{$tNextRenewal}</span><span class="v">{$expiryLabel}{$daysLeftBadge}</span></div>
             <div style="display:flex;gap:10px;margin-top:16px;">
                 <a href="/plans" class="p-btn outline">⬆️ {$tUpgrade}</a>
@@ -1339,8 +1371,14 @@ HTML;
         $amount = (float) ($inv['amount'] ?? 0);
         $currency = htmlspecialchars((string) ($inv['currency'] ?? 'USD'), ENT_QUOTES, 'UTF-8');
         $status = (string) ($inv['status'] ?? '-');
-        $statusPillClass = ['paid' => 'green', 'pending' => 'orange', 'failed' => 'red', 'cancelled' => 'red'][$status] ?? 'gray';
-        $statusLabelsAr = ['paid' => 'مدفوعة', 'pending' => 'قيد الانتظار', 'failed' => 'فشلت', 'cancelled' => 'ملغاة'];
+        $statusPillClass = [
+            'paid' => 'green', 'pending' => 'orange', 'failed' => 'red', 'cancelled' => 'red',
+            'draft' => 'gray', 'issued' => 'blue', 'partially_paid' => 'orange', 'overdue' => 'red', 'refunded' => 'purple',
+        ][$status] ?? 'gray';
+        $statusLabelsAr = [
+            'paid' => 'مدفوعة', 'pending' => 'قيد الانتظار', 'failed' => 'فشلت', 'cancelled' => 'ملغاة',
+            'draft' => 'مسودة', 'issued' => 'صادرة', 'partially_paid' => 'مدفوعة جزئيًا', 'overdue' => 'متأخرة السداد', 'refunded' => 'مستردة',
+        ];
         $statusLabel = htmlspecialchars($statusLabelsAr[$status] ?? $status, ENT_QUOTES, 'UTF-8');
         $createdDate = !empty($inv['created_at']) ? date('Y-m-d', strtotime($inv['created_at'])) : '-';
         $dueDate = !empty($inv['due_date']) ? date('Y-m-d', strtotime($inv['due_date'])) : '-';
@@ -1358,6 +1396,15 @@ HTML;
         }
 
         $paidRow = $paidDate ? "<div class=\"p-kv\"><span class=\"k\">تاريخ الدفع</span><span class=\"v\">{$paidDate}</span></div>" : '';
+
+        // Section 12: صف ضريبة اختياري - يظهر بس لو فعليًا محسوب ومسجّل
+        // (subtotal معبّى)، مش أي قيمة افتراضية أو "0%" مخترعة.
+        $taxRow = '';
+        if (!empty($inv['tax_amount']) && !empty($inv['tax_type'])) {
+            $taxTypeSafe = htmlspecialchars((string) $inv['tax_type'], ENT_QUOTES, 'UTF-8');
+            $taxAmountSafe = htmlspecialchars((string) $inv['tax_amount'], ENT_QUOTES, 'UTF-8');
+            $taxRow = "<tr><td>{$taxTypeSafe}</td><td class=\"text-end\" dir=\"ltr\">{$taxAmountSafe} {$currency}</td></tr>";
+        }
 
         $body = <<<HTML
         <div class="p-card invoice-detail-card" id="invoicePrintArea">
@@ -1377,7 +1424,7 @@ HTML;
 
             <div class="p-table-scroll" style="margin-top:16px;"><table class="p-table">
                 <thead><tr><th>البند</th><th class="text-end">المبلغ</th></tr></thead>
-                <tbody>{$itemsRows}</tbody>
+                <tbody>{$itemsRows}{$taxRow}</tbody>
                 <tfoot><tr><td style="font-weight:700;">الإجمالي</td><td class="text-end" style="font-weight:700;" dir="ltr">{$amount} {$currency}</td></tr></tfoot>
             </table></div>
 

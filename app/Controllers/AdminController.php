@@ -643,6 +643,27 @@ class AdminController extends Controller {
 
     public function getSubscriptions(array $params = []): array {
         try {
+            // Section 7/15: نفس نمط MRR Snapshot الكسول - مفيش Cron حقيقي
+            // في المشروع، فبنشغّل فحص دورة حياة الاشتراكات (past_due،
+            // انتهاء فترة السماح، تذكيرات التجديد) أول مرة أدمن يفتح
+            // الصفحة دي. لو فيه Cron/Job runner حقيقي متاح مستقبلًا،
+            // الأفضل يستدعي /api/admin/subscriptions/run-lifecycle-checks
+            // بشكل دوري بدل الاعتماد على فتح الصفحة.
+            if (class_exists('SubscriptionLifecycleService')) {
+                try {
+                    (new SubscriptionLifecycleService())->runLifecycleChecks();
+                } catch (Exception $lifecycleError) {
+                    Logger::error('Lazy lifecycle check failed', ['message' => $lifecycleError->getMessage()]);
+                }
+            }
+            if (class_exists('InvoiceLifecycleService')) {
+                try {
+                    (new InvoiceLifecycleService())->runLifecycleChecks();
+                } catch (Exception $invoiceLifecycleError) {
+                    Logger::error('Lazy invoice lifecycle check failed', ['message' => $invoiceLifecycleError->getMessage()]);
+                }
+            }
+
             // تصحيح: subscriptions مفيهاش عمود plan_name - لازم JOIN مع
             // subscription_plans عشان نعرف اسم الباقة الحقيقي
             $sql = "SELECT s.*, u.email, u.company_name,
@@ -657,6 +678,35 @@ class AdminController extends Controller {
         } catch (Exception $e) {
             Logger::error('Admin getSubscriptions Error', ['message' => $e->getMessage()]);
             return $this->error('تعذر جلب الاشتراكات', 500);
+        }
+    }
+
+    /**
+     * POST /api/admin/subscriptions/run-lifecycle-checks
+     * تشغيل يدوي/مجدول لفحوصات دورة حياة الاشتراكات (Section 7/15) -
+     * لو فيه Cron حقيقي هيتضاف مستقبلًا، ده الـ endpoint اللي المفروض
+     * يستدعيه بدل الاعتماد على فتح صفحة الأدمن.
+     */
+    public function runSubscriptionLifecycleChecks(array $params = []): array {
+        try {
+            $result = (new SubscriptionLifecycleService())->runLifecycleChecks();
+            $this->log('Admin Ran Subscription Lifecycle Checks', $result);
+            return $this->success($result, 'تم تشغيل فحوصات دورة حياة الاشتراكات');
+        } catch (Exception $e) {
+            Logger::error('Admin runSubscriptionLifecycleChecks Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر تشغيل الفحوصات', 500);
+        }
+    }
+
+    /** POST /api/admin/invoices/run-lifecycle-checks */
+    public function runInvoiceLifecycleChecks(array $params = []): array {
+        try {
+            $result = (new InvoiceLifecycleService())->runLifecycleChecks();
+            $this->log('Admin Ran Invoice Lifecycle Checks', $result);
+            return $this->success($result, 'تم تشغيل فحوصات دورة حياة الفواتير');
+        } catch (Exception $e) {
+            Logger::error('Admin runInvoiceLifecycleChecks Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر تشغيل الفحوصات', 500);
         }
     }
 
@@ -725,6 +775,20 @@ class AdminController extends Controller {
                 'target_user_id' => $userId,
                 'plan' => $planName,
                 'plan_type' => $planType,
+            ]);
+
+            // Section 13/19: كان المسار ده الوحيد اللي بينشئ اشتراك من
+            // غير أي إشعار للعميل أو سجل تدقيق حقيقي (كان بس $this->log()
+            // اللي بيكتب في ملف اللوج العادي مش activity_logs).
+            if (class_exists('Notification')) {
+                Notification::notify($userId, 'subscription_created', 'تم تفعيل اشتراكك',
+                    'تم تفعيل باقتك بنجاح من فريق الدعم.', '/subscription');
+            }
+            ActivityLog::record('subscription', 'subscription.created_by_admin', [
+                'user_id' => (int) $this->user['id'],
+                'subject_type' => 'subscriptions',
+                'subject_id' => (int) $subscription->getAttribute('id'),
+                'meta' => ['target_user_id' => $userId, 'plan' => $planName, 'plan_type' => $planType],
             ]);
 
             return $this->success(['subscription' => $subscription->toArray()], 'تم تفعيل الاشتراك بنجاح');
