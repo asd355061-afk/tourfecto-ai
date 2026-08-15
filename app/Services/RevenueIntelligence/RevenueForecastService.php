@@ -177,6 +177,42 @@ class RevenueForecastService {
     }
 
     /**
+     * What-if Scenario (ميزة تنافسية - زي ChartMogul "Explore future
+     * scenarios"): بياخد نفس الـ Forecast التاريخي الحقيقي وبيطبّق عليه
+     * نسبة نمو مفترضة (growthPercent) ليعرض "لو حصل كذا، الإيراد المتوقع
+     * هيبقى كام". الرقم الأساسي مش مخترع - مبني على سلسلة إيراد فعلية.
+     * Pure function قابلة للاختبار مباشرة.
+     *
+     * @param array $dailySeries [['date'=>Y-m-d,'revenue'=>float], ...] (نفس شكل computeForecast)
+     * @param string $periodType daily/weekly/monthly/quarterly/yearly
+     * @param string $todayStr Y-m-d
+     * @param float $growthPercent نسبة التغيير المفترضة (20 = زيادة 20%)
+     */
+    public static function scenarioForecast(array $dailySeries, string $periodType, string $todayStr, float $growthPercent = 0.0): array {
+        $base = self::computeForecast($dailySeries, $periodType, $todayStr);
+        if ($base['insufficient_data']) {
+            return $base + ['scenario' => true, 'scenario_growth_percent' => $growthPercent];
+        }
+
+        $factor = 1 + ($growthPercent / 100);
+        return [
+            'scenario' => true,
+            'scenario_growth_percent' => round($growthPercent, 2),
+            'base_expected_revenue' => $base['expected_revenue'],
+            'expected_revenue' => round($base['expected_revenue'] * $factor, 2),
+            'forecast_range' => [
+                'low' => round($base['forecast_range']['low'] * $factor, 2),
+                'high' => round($base['forecast_range']['high'] * $factor, 2),
+            ],
+            'confidence' => $base['confidence'],
+            'period' => $base['period'],
+            'data_points_used' => $base['data_points_used'],
+            'method' => 'linear_regression_daily_with_growth_scenario',
+            'note' => 'Scenario estimate: base forecast scaled by the assumed growth percentage. Not a guarantee.',
+        ];
+    }
+
+    /**
      * Forecast Accuracy (إضافة): يقارن كل توقع قديم (فترته خلصت فعليًا)
      * بالإيراد الحقيقي اللي حصل في نفس الفترة بالظبط - عشان يديك مصداقية
      * حقيقية قابلة للتحقق للـ AI ("توقعنا 5000، حصل فعليًا 4800، دقة 96%")
