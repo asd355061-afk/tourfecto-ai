@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Feature Flag Service
  * التحكم في إتاحة الميزات - إما للموقع كله، أو استثناء لعميل معيّن
@@ -6,11 +7,13 @@
  * Controller::renderPanelPage() فبيغطي كل صفحات اللوحة تلقائيًا.
  * @version 1.0.0
  */
-class FeatureFlagService {
+class FeatureFlagService
+{
     /** @var Database */
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
@@ -24,7 +27,8 @@ class FeatureFlagService {
      * عنصر) - بيرجع map: feature_key => bool. مناسب لبناء القائمة
      * الجانبية اللي فيها 20+ عنصر في كل تحميل صفحة.
      */
-    public function getEnabledMap(int $userId): array {
+    public function getEnabledMap(int $userId): array
+    {
         $map = [];
         try {
             $globals = $this->db->query("SELECT feature_key, is_enabled FROM feature_flags");
@@ -45,7 +49,8 @@ class FeatureFlagService {
         return $map;
     }
 
-    public function isEnabled(string $featureKey, int $userId): bool {
+    public function isEnabled(string $featureKey, int $userId): bool
+    {
         try {
             $override = $this->db->query(
                 "SELECT is_enabled FROM user_feature_overrides WHERE user_id = ? AND feature_key = ? LIMIT 1",
@@ -70,7 +75,8 @@ class FeatureFlagService {
     }
 
     /** كل الميزات وحالتها العامة - لعرضها في لوحة الأدمن */
-    public function getAllGlobal(): array {
+    public function getAllGlobal(): array
+    {
         try {
             return $this->db->query("SELECT * FROM feature_flags ORDER BY label ASC");
         } catch (Exception $e) {
@@ -79,7 +85,8 @@ class FeatureFlagService {
     }
 
     /** تحديث حالة ميزة عامة (للموقع كله) */
-    public function setGlobal(string $featureKey, bool $isEnabled): void {
+    public function setGlobal(string $featureKey, bool $isEnabled): void
+    {
         $this->db->exec(
             "UPDATE feature_flags SET is_enabled = ? WHERE feature_key = ?",
             [$isEnabled ? 1 : 0, $featureKey]
@@ -87,7 +94,8 @@ class FeatureFlagService {
     }
 
     /** كل استثناءات عميل معيّن */
-    public function getUserOverrides(int $userId): array {
+    public function getUserOverrides(int $userId): array
+    {
         try {
             return $this->db->query("SELECT * FROM user_feature_overrides WHERE user_id = ?", [$userId]);
         } catch (Exception $e) {
@@ -96,7 +104,8 @@ class FeatureFlagService {
     }
 
     /** إضافة/تحديث استثناء لعميل معيّن */
-    public function setUserOverride(int $userId, string $featureKey, bool $isEnabled, string $note = ''): void {
+    public function setUserOverride(int $userId, string $featureKey, bool $isEnabled, string $note = ''): void
+    {
         $this->db->exec(
             "INSERT INTO user_feature_overrides (user_id, feature_key, is_enabled, note) VALUES (?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE is_enabled = VALUES(is_enabled), note = VALUES(note)",
@@ -105,7 +114,8 @@ class FeatureFlagService {
     }
 
     /** حذف استثناء عميل (يرجع للإعداد العام تاني) */
-    public function removeUserOverride(int $userId, string $featureKey): void {
+    public function removeUserOverride(int $userId, string $featureKey): void
+    {
         $this->db->exec(
             "DELETE FROM user_feature_overrides WHERE user_id = ? AND feature_key = ?",
             [$userId, $featureKey]

@@ -1,9 +1,11 @@
 <?php
+
 /**
  * Tourfecto - Password Reset Token Model
  * @version 1.0.0
  */
-class PasswordResetToken extends Model {
+class PasswordResetToken extends Model
+{
     protected $table = 'password_reset_tokens';
 
     protected $fillable = [

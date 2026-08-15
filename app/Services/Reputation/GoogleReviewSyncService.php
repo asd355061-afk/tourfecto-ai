@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Google Review Sync Service
  * سحب المراجعات الجديدة من كل حسابات Google Business المربوطة
@@ -8,7 +9,8 @@
  * الرسمية الوحيدة هي polling دوري - السكريبت ده مصمم يتنده من Cron Job
  * (شوف cron/sync_google_reviews.php) كل فترة (مثلاً كل 6 ساعات).
  */
-class GoogleReviewSyncService {
+class GoogleReviewSyncService
+{
     /** @var Database */
     private $db;
     /** @var Encryption */
@@ -16,7 +18,8 @@ class GoogleReviewSyncService {
     private GoogleOAuthClient $oauthClient;
     private ReputationManager $reputationManager;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
         $this->encryption = new Encryption();
         $this->oauthClient = new GoogleOAuthClient();
@@ -27,7 +30,8 @@ class GoogleReviewSyncService {
      * مزامنة كل الاتصالات المربوطة (كل عملاء المنصة دفعة واحدة).
      * @return array ['synced'=>int, 'new_reviews'=>int, 'errors'=>int]
      */
-    public function syncAll(): array {
+    public function syncAll(): array
+    {
         $summary = ['synced' => 0, 'new_reviews' => 0, 'errors' => 0];
 
         try {
@@ -66,11 +70,13 @@ class GoogleReviewSyncService {
      * حوالين syncConnection() الموجودة بالفعل، من غير تكرار منطقها.
      * @since 2026-08-09 (GBP Module Upgrade)
      */
-    public function syncOne(PlatformConnection $connection): array {
+    public function syncOne(PlatformConnection $connection): array
+    {
         return $this->syncConnection($connection);
     }
 
-    private function syncConnection(PlatformConnection $connection): array {
+    private function syncConnection(PlatformConnection $connection): array
+    {
         $accessToken = $this->getValidAccessToken($connection);
 
         $api = new GoogleBusinessAPI(
@@ -143,9 +149,10 @@ class GoogleReviewSyncService {
         return ['new_reviews' => $newCount];
     }
 
-    private function reviewExists(int $websiteId, string $platform, string $platformReviewId): bool {
+    private function reviewExists(int $websiteId, string $platform, string $platformReviewId): bool
+    {
         try {
-            $sql = "SELECT id FROM reviews WHERE website_id = ? AND source_platform = ? AND external_review_id = ? LIMIT 1";
+            $sql = "SELECT id FROM reviews WHERE website_id = ? AND platform = ? AND platform_review_id = ? LIMIT 1";
             $result = $this->db->query($sql, [$websiteId, $platform, $platformReviewId]);
             return !empty($result);
         } catch (Exception $e) {
@@ -159,11 +166,110 @@ class GoogleReviewSyncService {
      * عام (مش private) عشان ReputationController يقدر يستخدمه وقت إرسال
      * رد فعلي على مراجعة، مش بس وقت المزامنة الدورية.
      */
-    public function getValidAccessToken(PlatformConnection $connection): string {
+    /**
+     * Round 8 (2026-08-14 - Phase D): حماية حقيقية من Race Condition لما
+     * أكتر من Job/Request يحاولوا يجدّدوا نفس التوكن في نفس الوقت (مثال
+     * واقعي: مستخدم ضغط "مزامنة الآن" في نفس اللحظة اللي GbpBackgroundSyncJob
+     * شغّال فيها لنفس الاتصال). المشكلة الحقيقية مش بس استدعاء Google
+     * مرتين زيادة - المشكلة إن Model::save() بيكتب كل الـ attributes
+     * الموجودة في الذاكرة، فلو Process B حمّل $connection قبل ما
+     * Process A يحدّثها، Process B ممكن يكتب فوق تحديثات A (status,
+     * last_synced_at...) بقيم قديمة لما يعمل save() بعد كده.
+     *
+     * الحل: SELECT ... FOR UPDATE جوه transaction حقيقي (Database class
+     * بتدعمه فعلاً) - بيقفل الصف لحد ما نخلص. بعد ما ناخد القفل، بنعيد
+     * فحص انتهاء الصلاحية تاني (Double-Checked Locking) - لو حد تاني
+     * جدّد التوكن وإحنا مستنيين القفل، بنستخدم التوكن الجديد بتاعه بدل
+     * ما نعمل تجديد تاني من غير داعي.
+     */
+    public function getValidAccessToken(PlatformConnection $connection): string
+    {
         if (!$connection->isTokenExpired()) {
             return $this->encryption->decrypt((string) $connection->getAttribute('access_token'));
         }
 
+        $connectionId = (int) $connection->getAttribute('id');
+        if (!$connectionId) {
+            // Model لسه معملوش save() قبل كده (مفيش id) - مينفعش نقفل صف مش موجود، رجّع لنفس السلوك القديم
+            return $this->refreshAndPersist($connection);
+        }
+
+        $db = Database::getInstance();
+        $lockedRow = null;
+
+        try {
+            $db->beginTransaction();
+
+            $rows = $db->query(
+                "SELECT access_token, token_expires_at, refresh_token FROM platform_connections WHERE id = ? FOR UPDATE",
+                [$connectionId]
+            );
+            $lockedRow = $rows[0] ?? null;
+
+            if ($lockedRow === null) {
+                $db->rollback();
+                throw new Exception('الاتصال غير موجود');
+            }
+
+            // إعادة فحص انتهاء الصلاحية بعد أخذ القفل - لو حد تاني جدّد
+            // التوكن وإحنا مستنيين، منعملش تجديد تاني من غير داعي
+            $expiresAt = $lockedRow['token_expires_at'] ?? null;
+            $stillExpired = !$expiresAt || strtotime($expiresAt) <= time();
+
+            if (!$stillExpired) {
+                $db->commit();
+                return $this->encryption->decrypt((string) $lockedRow['access_token']);
+            }
+
+            $refreshTokenEncrypted = $lockedRow['refresh_token'];
+            if (!$refreshTokenEncrypted) {
+                $db->query("UPDATE platform_connections SET status = 'error', last_error = ? WHERE id = ?", [
+                    'انتهت صلاحية التوكن ومفيش refresh token - محتاج يعيد الربط يدويًا', $connectionId,
+                ]);
+                $db->commit();
+                throw new Exception('لا يوجد refresh_token صالح');
+            }
+
+            $refreshToken = $this->encryption->decrypt((string) $refreshTokenEncrypted);
+            $result = $this->oauthClient->refreshAccessToken($refreshToken);
+
+            if (!$result['success']) {
+                $db->query("UPDATE platform_connections SET status = 'error', last_error = ? WHERE id = ?", [
+                    'فشل تجديد التوكن: ' . ($result['error'] ?? ''), $connectionId,
+                ]);
+                $db->commit();
+                throw new Exception('فشل تجديد access_token');
+            }
+
+            $newAccessTokenEncrypted = $this->encryption->encrypt($result['access_token']);
+            $newExpiresAt = date('Y-m-d H:i:s', time() + (int) $result['expires_in']);
+
+            $db->query(
+                "UPDATE platform_connections SET access_token = ?, token_expires_at = ? WHERE id = ?",
+                [$newAccessTokenEncrypted, $newExpiresAt, $connectionId]
+            );
+            $db->commit();
+
+            // نحدّث الـ Model في الذاكرة كمان عشان الاستدعاءات اللي بعد
+            // كده في نفس الـ request تشوف القيم الجديدة (مش القديمة اللي
+            // كانت متحمّلة قبل القفل)
+            $connection->setAttribute('access_token', $newAccessTokenEncrypted);
+            $connection->setAttribute('token_expires_at', $newExpiresAt);
+
+            return $result['access_token'];
+        } catch (Throwable $e) {
+            try {
+                $db->rollback();
+            } catch (Throwable $ignored) {
+                // rollback على transaction مش مفتوحة أصلاً - نتجاهل
+            }
+            throw $e;
+        }
+    }
+
+    /** المسار القديم (من غير قفل) - Fallback بس لو الاتصال لسه من غير id */
+    private function refreshAndPersist(PlatformConnection $connection): string
+    {
         $refreshTokenEncrypted = $connection->getAttribute('refresh_token');
         if (!$refreshTokenEncrypted) {
             $connection->setAttribute('status', 'error');

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Site Logo Upload Handler
  * رفع لوجو الموقع من لوحة الأدمن. نفس نمط AvatarUploadHandler.php
@@ -8,7 +9,8 @@
  * الحد الأقصى معقول لأي اتجاه).
  * @version 1.0.0
  */
-class SiteLogoUploadHandler {
+class SiteLogoUploadHandler
+{
     private array $allowedTypes = [
         'jpg' => 'image/jpeg',
         'jpeg' => 'image/jpeg',
@@ -20,7 +22,8 @@ class SiteLogoUploadHandler {
     private int $maxDimension = 600;
 
     /** @return array ['success'=>bool, 'url'=>?string, 'error'=>?string] */
-    public function upload(array $file, ?string $oldLogoUrl = null): array {
+    public function upload(array $file, ?string $oldLogoUrl = null): array
+    {
         if (!isset($file['tmp_name']) || $file['error'] !== UPLOAD_ERR_OK) {
             $messages = [
                 UPLOAD_ERR_INI_SIZE => 'الملف أكبر من الحد المسموح به في إعدادات السيرفر',
@@ -89,7 +92,8 @@ class SiteLogoUploadHandler {
         return ['success' => true, 'url' => '/uploads/branding/' . $filename];
     }
 
-    private function saveResized(string $tmpPath, string $destPath, string $extension, array $imageInfo): bool {
+    private function saveResized(string $tmpPath, string $destPath, string $extension, array $imageInfo): bool
+    {
         if (!extension_loaded('gd')) {
             return false;
         }
@@ -97,9 +101,12 @@ class SiteLogoUploadHandler {
         [$origWidth, $origHeight, $type] = $imageInfo;
 
         switch ($type) {
-            case IMAGETYPE_JPEG: $source = @imagecreatefromjpeg($tmpPath); break;
-            case IMAGETYPE_PNG: $source = @imagecreatefrompng($tmpPath); break;
-            case IMAGETYPE_WEBP: $source = function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($tmpPath) : false; break;
+            case IMAGETYPE_JPEG: $source = @imagecreatefromjpeg($tmpPath);
+                break;
+            case IMAGETYPE_PNG: $source = @imagecreatefrompng($tmpPath);
+                break;
+            case IMAGETYPE_WEBP: $source = function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($tmpPath) : false;
+                break;
             default: $source = false;
         }
 
@@ -120,9 +127,12 @@ class SiteLogoUploadHandler {
 
         $saved = false;
         switch ($type) {
-            case IMAGETYPE_JPEG: $saved = imagejpeg($canvas, $destPath, 90); break;
-            case IMAGETYPE_PNG: $saved = imagepng($canvas, $destPath, 8); break;
-            case IMAGETYPE_WEBP: $saved = function_exists('imagewebp') ? imagewebp($canvas, $destPath, 90) : false; break;
+            case IMAGETYPE_JPEG: $saved = imagejpeg($canvas, $destPath, 90);
+                break;
+            case IMAGETYPE_PNG: $saved = imagepng($canvas, $destPath, 8);
+                break;
+            case IMAGETYPE_WEBP: $saved = function_exists('imagewebp') ? imagewebp($canvas, $destPath, 90) : false;
+                break;
         }
 
         imagedestroy($canvas);

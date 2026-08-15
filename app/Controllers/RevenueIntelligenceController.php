@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Revenue Intelligence Controller
  * @version 1.0.0
@@ -12,7 +13,8 @@
  * (نفس نمط باقي الـ Controllers في المشروع - AuthMiddleware يضمن وجود
  * جلسة صالحة قبل الوصول لأي Action هنا).
  */
-class RevenueIntelligenceController extends Controller {
+class RevenueIntelligenceController extends Controller
+{
     private RevenueOverviewService $overviewService;
     private RevenueForecastService $forecastService;
     private RevenueInsightService $insightService;
@@ -24,7 +26,8 @@ class RevenueIntelligenceController extends Controller {
     private ExecutiveSummaryService $executiveSummaryService;
     private RevenueCacheService $cacheService;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->overviewService = new RevenueOverviewService();
         $this->forecastService = new RevenueForecastService();
@@ -39,7 +42,8 @@ class RevenueIntelligenceController extends Controller {
     }
 
     /** GET /revenue/intelligence - صفحة واحدة بتابات (Tabs) على الـ Client-side. */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $tabs = [
             'executive' => $this->tr('revai.tab.executive'),
             'overview' => $this->tr('revai.tab.overview'),
@@ -50,6 +54,7 @@ class RevenueIntelligenceController extends Controller {
             'pipeline' => $this->tr('revai.tab.pipeline'),
             'sources' => $this->tr('revai.tab.sources'),
             'anomalies' => $this->tr('revai.tab.anomalies'),
+            'retention' => $this->tr('revai.tab.retention'),
             'assistant' => $this->tr('revai.tab.assistant'),
             'reports' => $this->tr('revai.tab.reports'),
         ];
@@ -91,8 +96,11 @@ HTML;
     // ============================================================
 
     /** GET /api/revenue-intelligence/overview */
-    public function apiOverview(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiOverview(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $period = $this->validPeriod($this->get('period', 'monthly'));
         $userId = (int) $this->user['id'];
         try {
@@ -106,8 +114,11 @@ HTML;
     }
 
     /** GET /api/revenue-intelligence/sources */
-    public function apiSources(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiSources(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $period = $this->validPeriod($this->get('period', 'monthly'));
         try {
             return $this->success($this->overviewService->getRevenueBySourceWithGrowth((int) $this->user['id'], $period));
@@ -117,14 +128,20 @@ HTML;
     }
 
     /** GET /api/revenue-intelligence/products - قسم 8: يفصح بصدق أن لا بيانات كافية */
-    public function apiProducts(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiProducts(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         return $this->success($this->overviewService->getRevenueByProduct((int) $this->user['id']));
     }
 
     /** GET /api/revenue-intelligence/forecast */
-    public function apiForecast(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiForecast(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $period = $this->validPeriod($this->get('period', 'monthly'));
         $userId = (int) $this->user['id'];
         try {
@@ -138,8 +155,11 @@ HTML;
     }
 
     /** GET /api/revenue-intelligence/forecast/accuracy - يقارن توقعات سابقة بالإيراد الحقيقي اللي حصل فعلاً */
-    public function apiForecastAccuracy(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiForecastAccuracy(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success($this->forecastService->getAccuracyHistory((int) $this->user['id']));
         } catch (Throwable $e) {
@@ -156,8 +176,11 @@ HTML;
      * دلوقتي: التسجيل بيحصل مرة واحدة فعلية لكل نافذة كاش (نفس مدة
      * Overview/Forecast)، والـ response نفسه بيتحسب لحظيًا برضه.
      */
-    public function apiOpportunities(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiOpportunities(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $userId = (int) $this->user['id'];
         try {
             $opportunities = $this->insightService->getOpportunities($userId);
@@ -173,8 +196,11 @@ HTML;
 
     /** GET /api/revenue-intelligence/risks */
     /** GET /api/revenue-intelligence/risks - نفس منطق تفادي التكرار المستخدم في apiOpportunities. */
-    public function apiRisks(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiRisks(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $userId = (int) $this->user['id'];
         try {
             $risks = $this->insightService->getRisks($userId);
@@ -190,8 +216,11 @@ HTML;
 
     /** GET /api/revenue-intelligence/anomalies */
     /** GET /api/revenue-intelligence/anomalies - نفس منطق تفادي التكرار. */
-    public function apiAnomalies(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiAnomalies(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $userId = (int) $this->user['id'];
         try {
             $result = $this->anomalyService->detect($userId);
@@ -221,8 +250,11 @@ HTML;
      * future optimization could push this down to a paginated SQL query if
      * a tenant's contact base grows very large.
      */
-    public function apiCustomers(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiCustomers(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $result = $this->customerService->getCustomerRevenueIntelligence((int) $this->user['id']);
             if (!empty($result['has_data'])) {
@@ -235,8 +267,11 @@ HTML;
     }
 
     /** GET /api/revenue-intelligence/segments */
-    public function apiSegments(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiSegments(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success($this->customerService->getSegments((int) $this->user['id']));
         } catch (Throwable $e) {
@@ -245,8 +280,11 @@ HTML;
     }
 
     /** GET /api/revenue-intelligence/pipeline */
-    public function apiPipeline(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiPipeline(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success($this->pipelineService->getPipelineIntelligence((int) $this->user['id']));
         } catch (Throwable $e) {
@@ -255,8 +293,11 @@ HTML;
     }
 
     /** GET /api/revenue-intelligence/actions */
-    public function apiActions(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiActions(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $actions = $this->actionService->getNextBestActions((int) $this->user['id']);
             return $this->success(['has_data' => !empty($actions), 'actions' => $actions]);
@@ -266,8 +307,11 @@ HTML;
     }
 
     /** GET /api/revenue-intelligence/executive-summary */
-    public function apiExecutiveSummary(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiExecutiveSummary(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $userId = (int) $this->user['id'];
         try {
             $summary = $this->cacheService->rememberExecutiveSummary($userId, function () use ($userId) {
@@ -281,8 +325,11 @@ HTML;
     }
 
     /** POST /api/revenue-intelligence/assistant/ask { question } */
-    public function apiAssistantAsk(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiAssistantAsk(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $question = trim((string) $this->get('question', ''));
         if ($question === '') {
             return $this->error($this->tr('revai.assistant.empty_question'), 422);
@@ -291,10 +338,27 @@ HTML;
             return $this->error('Question too long (max 500 characters)', 422);
         }
         try {
-            $answer = $this->assistantService->ask((int) $this->user['id'], $question);
+            $lang = (string) $this->get('lang', 'ar');
+            $lang = in_array($lang, ['ar', 'en'], true) ? $lang : 'ar';
+            $answer = $this->assistantService->askWithCopilot((int) $this->user['id'], $question, true, $lang);
             return $this->success($answer);
         } catch (Throwable $e) {
             return $this->serverError('assistant', $e);
+        }
+    }
+
+    /**
+     * GET /api/revenue-intelligence/retention
+     * NRR/GRR-style retention analytics مبنية على بيانات حقيقية
+     * (cohort retention من crm_deals + repeat purchase + recurring stability).
+     */
+    public function apiRetention(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $retention = (new RevenueRetentionService())->getRetentionAnalytics((int) $this->user['id']);
+            return $this->success($retention);
+        } catch (Throwable $e) {
+            return $this->serverError('retention', $e);
         }
     }
 
@@ -304,8 +368,11 @@ HTML;
      * يدعم format=json (افتراضي) أو format=csv (ملف حقيقي قابل للتنزيل)،
      * وDate Range اختياري (from/to بصيغة Y-m-d) لتقرير overview.
      */
-    public function apiExportReport(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiExportReport(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $type = (string) $this->get('type', 'overview');
         $format = (string) $this->get('format', 'json');
         $userId = (int) $this->user['id'];
@@ -319,10 +386,14 @@ HTML;
                 if ($range !== null) {
                     $gateway = new RevenueDataGateway();
                     $series = $gateway->getDailyRevenueSeries($userId, $range['from'] . ' 00:00:00', $range['to'] . ' 23:59:59');
-                    $rows = array_map(static function ($t) { return ['date' => $t['date'], 'revenue' => $t['revenue']]; }, $series);
+                    $rows = array_map(static function ($t) {
+                        return ['date' => $t['date'], 'revenue' => $t['revenue']];
+                    }, $series);
                 } else {
                     $overview = $this->overviewService->getOverview($userId, $this->validPeriod($this->get('period', 'monthly')));
-                    $rows = array_map(static function ($t) { return ['date' => $t['date'], 'revenue' => $t['revenue']]; }, $overview['daily_trend']);
+                    $rows = array_map(static function ($t) {
+                        return ['date' => $t['date'], 'revenue' => $t['revenue']];
+                    }, $overview['daily_trend']);
                 }
                 break;
             case 'opportunities':
@@ -369,7 +440,8 @@ HTML;
     }
 
     /** يقرأ ?from=Y-m-d&to=Y-m-d من الطلب لو الاتنين موجودين وصالحين، وإلا يرجّع null (نرجع لسلوك period الافتراضي). */
-    private function resolveExportDateRange(): ?array {
+    private function resolveExportDateRange(): ?array
+    {
         $from = (string) $this->get('from', '');
         $to = (string) $this->get('to', '');
         if ($from === '' || $to === '') {
@@ -385,7 +457,8 @@ HTML;
     }
 
     /** يبني ملف CSV حقيقي (UTF-8 BOM عشان يفتح صح في Excel) ويبعته كـ Attachment، بدل رد JSON. */
-    private function streamCsv(string $type, array $columns, array $rows): void {
+    private function streamCsv(string $type, array $columns, array $rows): void
+    {
         $filename = 'revenue-' . preg_replace('/[^a-z0-9_-]/i', '-', $type) . '-' . date('Y-m-d') . '.csv';
 
         if (!headers_sent()) {
@@ -419,12 +492,14 @@ HTML;
     // Helpers
     // ============================================================
 
-    private function validPeriod(string $period): string {
+    private function validPeriod(string $period): string
+    {
         return in_array($period, ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'], true) ? $period : 'monthly';
     }
 
     /** Section 18 (Pagination): يقطّع أي مصفوفة داخل $result[$key] ويضيف meta.pagination. */
-    private function paginate(array $result, string $key): array {
+    private function paginate(array $result, string $key): array
+    {
         $page = max(1, (int) $this->get('page', 1));
         $perPage = min(100, max(1, (int) $this->get('per_page', 25)));
 
@@ -442,7 +517,8 @@ HTML;
         return $result;
     }
 
-    private function serverError(string $context, Throwable $e): array {
+    private function serverError(string $context, Throwable $e): array
+    {
         if (class_exists('Logger')) {
             Logger::error("RevenueIntelligence[{$context}] error", ['message' => $e->getMessage()]);
         }
@@ -450,7 +526,8 @@ HTML;
     }
 
     /** JS الخاص بالصفحة - Tabs + Fetch لكل قسم. */
-    private function pageScript(): string {
+    private function pageScript(): string
+    {
         return <<<'JS'
 (function () {
     const P = window.Panel;
@@ -712,6 +789,36 @@ HTML;
         ]);
     }
 
+    async function renderRetention() {
+        panel.innerHTML = loadingHtml();
+        const res = await fetchJSON('/api/revenue-intelligence/retention');
+        if (!res.success) { panel.innerHTML = emptyHtml(res.error); return; }
+        const d = res.data;
+        if (!d.has_data) { panel.innerHTML = emptyHtml(I18N['revai.no_revenue_data']); return; }
+        const rp = d.repeat_purchase_rate || {};
+        const rs = d.recurring_stability || {};
+        panel.innerHTML = `
+            <div class="p-grid cols-3" style="margin-bottom:18px;">
+                <div class="p-card stat-tile"><div class="stat-icon purple">🔁</div><div class="stat-info"><div class="stat-value">${rp.has_data ? rp.repeat_purchase_rate_percent + '%' : '-'}</div><div class="stat-label">${I18N['revai.retention.repeat_purchase']}</div></div></div>
+                <div class="p-card stat-tile"><div class="stat-icon green">🔄</div><div class="stat-info"><div class="stat-value">${rs.has_data ? fmt(rs.average_monthly_recurring) : '-'}</div><div class="stat-label">${I18N['revai.retention.avg_recurring']}</div></div></div>
+                <div class="p-card stat-tile"><div class="stat-icon orange">📉</div><div class="stat-info"><div class="stat-value">${rs.has_data ? rs.monthly_gaps_detected : '-'}</div><div class="stat-label">${I18N['revai.retention.monthly_gaps']}</div></div></div>
+            </div>
+            <div class="p-card" style="margin-bottom:18px;">
+                <h4>${I18N['revai.retention.cohort_retention']}</h4>
+                <p style="font-size:13px;opacity:.8;">${I18N['revai.retention.cohort_hint']}</p>
+                <div class="p-table-scroll"><table class="p-table"><thead><tr><th>${I18N['revai.retention.cohort_month']}</th><th>${I18N['revai.retention.customers']}</th>
+                ${Array.from({length:6}, (_,i)=>`<th>+${i+1}${I18N['revai.retention.month']}</th>`).join('')}
+                </tr></thead><tbody>
+                ${(d.cohort_retention.cohorts || []).map(c => `<tr><td>${esc(c.cohort_month)}</td><td>${c.customers}</td>${Array.from({length:6},(_,i)=>`<td>${c.retention_rates[i+1] !== undefined ? c.retention_rates[i+1] + '%' : '-'}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="8" class="p-cell-muted">${I18N['common.no_records_yet']}</td></tr>`}
+                </tbody></table></div>
+            </div>
+            <div class="p-card"><h4>${I18N['revai.retention.recurring_stability']}</h4>
+                ${(rs.months || []).map(m => `<span style="display:inline-block;margin:4px;padding:4px 10px;border-radius:16px;background:#F3F4F6;font-size:12px;">${esc(m.month)} — ${fmt(m.total)}</span>`).join('') || `<div class="p-empty">${I18N['common.no_records_yet']}</div>`}
+                ${rs.note ? `<p style="margin:10px 0 0;font-size:13px;opacity:.8;">${esc(rs.note)}</p>` : ''}
+            </div>
+            <div class="p-card" style="margin-top:14px;font-size:13px;opacity:.85;">${esc(d.mrr_grr_note || '')}</div>`;
+    }
+
     async function renderAssistant() {
         panel.innerHTML = `
             <div class="p-card">
@@ -813,6 +920,7 @@ HTML;
         executive: renderExecutive, overview: renderOverview, forecast: renderForecast,
         opportunities: renderOpportunities, risks: renderRisks, customers: renderCustomers,
         pipeline: renderPipeline, sources: renderSources, anomalies: renderAnomalies, assistant: renderAssistant,
+        retention: renderRetention,
         reports: renderReports,
     };
 

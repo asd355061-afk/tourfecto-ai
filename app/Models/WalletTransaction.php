@@ -1,9 +1,11 @@
 <?php
+
 /**
  * Tourfecto - Wallet Transaction Model
  * @version 1.0.0
  */
-class WalletTransaction extends Model {
+class WalletTransaction extends Model
+{
     protected $table = 'wallet_transactions';
 
     protected $fillable = [

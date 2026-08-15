@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * AI Analytics Service (بند 18): يجمّع مؤشرات أداء AI Chat من البيانات
@@ -9,12 +10,13 @@
  * @version 1.0.0
  */
 
-class AiAnalyticsService {
-
+class AiAnalyticsService
+{
     /** @var Database */
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
@@ -24,7 +26,8 @@ class AiAnalyticsService {
      * @param string|null $sinceDate 'Y-m-d' - افتراضيًا آخر 30 يوم
      * @return array
      */
-    public function getDashboard(int $websiteId, ?string $sinceDate = null): array {
+    public function getDashboard(int $websiteId, ?string $sinceDate = null): array
+    {
         $sinceDate = $sinceDate ?: date('Y-m-d', strtotime('-30 days'));
 
         return [
@@ -45,7 +48,8 @@ class AiAnalyticsService {
         ];
     }
 
-    private function totalConversations(int $websiteId, string $sinceDate): int {
+    private function totalConversations(int $websiteId, string $sinceDate): int
+    {
         $row = $this->db->query(
             "SELECT COUNT(*) AS c FROM ai_conversations WHERE website_id = ? AND created_at >= ?",
             [$websiteId, $sinceDate]
@@ -53,7 +57,8 @@ class AiAnalyticsService {
         return (int) ($row[0]['c'] ?? 0);
     }
 
-    private function conversationsByAiStatus(int $websiteId, string $sinceDate, string $aiStatus): int {
+    private function conversationsByAiStatus(int $websiteId, string $sinceDate, string $aiStatus): int
+    {
         $row = $this->db->query(
             "SELECT COUNT(*) AS c FROM ai_conversations WHERE website_id = ? AND created_at >= ? AND ai_status = ?",
             [$websiteId, $sinceDate, $aiStatus]
@@ -61,7 +66,8 @@ class AiAnalyticsService {
         return (int) ($row[0]['c'] ?? 0);
     }
 
-    private function leadsGenerated(int $websiteId, string $sinceDate): int {
+    private function leadsGenerated(int $websiteId, string $sinceDate): int
+    {
         $row = $this->db->query(
             "SELECT COUNT(*) AS c FROM ai_leads WHERE website_id = ? AND created_at >= ?",
             [$websiteId, $sinceDate]
@@ -69,7 +75,8 @@ class AiAnalyticsService {
         return (int) ($row[0]['c'] ?? 0);
     }
 
-    private function hotLeads(int $websiteId, string $sinceDate): int {
+    private function hotLeads(int $websiteId, string $sinceDate): int
+    {
         $row = $this->db->query(
             "SELECT COUNT(*) AS c FROM ai_conversations
              WHERE website_id = ? AND created_at >= ? AND lead_status = 'hot_lead'",
@@ -81,7 +88,8 @@ class AiAnalyticsService {
     /**
      * نسبة الـLeads التي وصلت لحالة "won" من إجمالي الـLeads (بند 18).
      */
-    private function conversionRate(int $websiteId, string $sinceDate): float {
+    private function conversionRate(int $websiteId, string $sinceDate): float
+    {
         $row = $this->db->query(
             "SELECT
                 COUNT(*) AS total,
@@ -98,7 +106,8 @@ class AiAnalyticsService {
      * متوسط زمن الرد بالثواني: الفارق بين كل رسالة واردة والرد الصادر
      * التالي مباشرة لها داخل نفس المحادثة (تقدير عملي بدون جدول توقيت مخصص).
      */
-    private function averageResponseTime(int $websiteId, string $sinceDate): ?int {
+    private function averageResponseTime(int $websiteId, string $sinceDate): ?int
+    {
         $rows = $this->db->query(
             "SELECT conversation_id, message_direction, created_at
              FROM chat_messages
@@ -131,7 +140,8 @@ class AiAnalyticsService {
     /**
      * نسبة المحادثات التي انتهت (resolved/closed) دون أي تحويل لموظف إطلاقًا.
      */
-    private function aiResolutionRate(int $websiteId, string $sinceDate): float {
+    private function aiResolutionRate(int $websiteId, string $sinceDate): float
+    {
         $row = $this->db->query(
             "SELECT
                 COUNT(*) AS total_ended,
@@ -145,7 +155,8 @@ class AiAnalyticsService {
         return $total > 0 ? round(($aiOnly / $total) * 100, 1) : 0.0;
     }
 
-    private function humanHandoffRate(int $websiteId, string $sinceDate): float {
+    private function humanHandoffRate(int $websiteId, string $sinceDate): float
+    {
         $row = $this->db->query(
             "SELECT
                 COUNT(*) AS total,
@@ -162,7 +173,8 @@ class AiAnalyticsService {
      * نسبة المتابعات المُرسَلة التي حصلت على رد فعلي من العميل بعدها
      * (مؤشر تقريبي لنجاح المتابعة - بند 18).
      */
-    private function followUpSuccessRate(int $websiteId, string $sinceDate): float {
+    private function followUpSuccessRate(int $websiteId, string $sinceDate): float
+    {
         $row = $this->db->query(
             "SELECT
                 COUNT(*) AS total_sent,
@@ -181,7 +193,8 @@ class AiAnalyticsService {
      * أكثر الوسوم تكرارًا - مؤشر تقريبي لأكثر نوايا/طلبات العملاء
      * شيوعًا (بند 18: Top Customer Intent) بدون الحاجة لتحليل نصي إضافي.
      */
-    private function topTags(int $websiteId, string $sinceDate, int $limit = 10): array {
+    private function topTags(int $websiteId, string $sinceDate, int $limit = 10): array
+    {
         $rows = $this->db->query(
             "SELECT tags FROM ai_conversations WHERE website_id = ? AND created_at >= ? AND tags IS NOT NULL",
             [$websiteId, $sinceDate]
@@ -202,7 +215,8 @@ class AiAnalyticsService {
     /**
      * الخدمات الأكثر طلبًا من واقع الـLeads الفعلية (بند 18).
      */
-    private function mostPopularServices(int $websiteId, string $sinceDate, int $limit = 10): array {
+    private function mostPopularServices(int $websiteId, string $sinceDate, int $limit = 10): array
+    {
         $rows = $this->db->query(
             "SELECT interest, COUNT(*) AS c FROM ai_leads
              WHERE website_id = ? AND created_at >= ? AND interest IS NOT NULL AND interest != ''

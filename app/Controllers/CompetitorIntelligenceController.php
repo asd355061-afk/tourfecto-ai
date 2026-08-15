@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence Controller
  * @version 1.0.0
@@ -13,10 +14,11 @@
  * دائمًا. أي وصول لمنافس/تنبيه/تقرير يتحقق أولاً إنه ملك المستخدم
  * الحالي عبر assertCompetitorOwnership() قبل أي عملية.
  */
-class CompetitorIntelligenceController extends Controller {
-
+class CompetitorIntelligenceController extends Controller
+{
     /** GET /competitor-intelligence */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $body = $this->renderShell();
         $script = $this->renderScript();
 
@@ -30,8 +32,11 @@ class CompetitorIntelligenceController extends Controller {
     // ============================================================
 
     /** GET /api/competitor-intelligence/dashboard */
-    public function apiDashboard(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiDashboard(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $userId = (int) $this->user['id'];
 
         // 6 استعلامات COUNT + Activity Feed على كل فتح للـ Dashboard - Cache
@@ -92,8 +97,11 @@ class CompetitorIntelligenceController extends Controller {
     // ============================================================
 
     /** GET /api/competitor-intelligence/competitors */
-    public function apiListCompetitors(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiListCompetitors(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $userId = (int) $this->user['id'];
 
         $category = (string) $this->get('category', '');
@@ -105,8 +113,15 @@ class CompetitorIntelligenceController extends Controller {
 
         $sql = "SELECT * FROM competitors WHERE user_id = ?";
         $args = [$userId];
-        if ($category !== '') { $sql .= " AND category = ?"; $args[] = $category; }
-        if ($search !== '') { $sql .= " AND (competitor_name LIKE ? OR competitor_domain LIKE ?)"; $args[] = "%{$search}%"; $args[] = "%{$search}%"; }
+        if ($category !== '') {
+            $sql .= " AND category = ?";
+            $args[] = $category;
+        }
+        if ($search !== '') {
+            $sql .= " AND (competitor_name LIKE ? OR competitor_domain LIKE ?)";
+            $args[] = "%{$search}%";
+            $args[] = "%{$search}%";
+        }
 
         $totalRows = $this->db->query("SELECT COUNT(*) c FROM ({$sql}) t", $args);
         $total = (int) ($totalRows[0]['c'] ?? 0);
@@ -120,9 +135,14 @@ class CompetitorIntelligenceController extends Controller {
     }
 
     /** POST /api/competitor-intelligence/competitors */
-    public function apiAddCompetitor(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!CiPermissions::can($this->user, CiPermissions::PERM_ADD)) return $this->error('Forbidden', 403);
+    public function apiAddCompetitor(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!CiPermissions::can($this->user, CiPermissions::PERM_ADD)) {
+            return $this->error('Forbidden', 403);
+        }
         if (!$this->validate(['website_id' => 'required', 'competitor_name' => 'required'])) {
             return $this->error($this->tr('ci.error.missing_fields'), 422);
         }
@@ -186,9 +206,14 @@ class CompetitorIntelligenceController extends Controller {
      * ويرجّع تقرير نجاح/فشل واضح لكل صف بدل ما يفشل كله لأول خطأ.
      * سقف 200 صف لكل استدعاء لمنع استعلامات ضخمة داخل request واحد.
      */
-    public function apiBulkImportCompetitors(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!CiPermissions::can($this->user, CiPermissions::PERM_ADD)) return $this->error('Forbidden', 403);
+    public function apiBulkImportCompetitors(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!CiPermissions::can($this->user, CiPermissions::PERM_ADD)) {
+            return $this->error('Forbidden', 403);
+        }
         if (!$this->validate(['website_id' => 'required', 'rows' => 'required'])) {
             return $this->error($this->tr('ci.error.missing_fields'), 422);
         }
@@ -269,12 +294,19 @@ class CompetitorIntelligenceController extends Controller {
     }
 
     /** PUT /api/competitor-intelligence/competitors/{id} */
-    public function apiUpdateCompetitor(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!CiPermissions::can($this->user, CiPermissions::PERM_EDIT)) return $this->error('Forbidden', 403);
+    public function apiUpdateCompetitor(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!CiPermissions::can($this->user, CiPermissions::PERM_EDIT)) {
+            return $this->error('Forbidden', 403);
+        }
 
         $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
-        if (!$competitor) return $this->error('Not found', 404);
+        if (!$competitor) {
+            return $this->error('Not found', 404);
+        }
 
         $before = $competitor->toArray();
         foreach (['competitor_name', 'notes', 'industry', 'country', 'market_segment', 'category', 'monitoring_frequency', 'monitoring_paused'] as $field) {
@@ -293,12 +325,19 @@ class CompetitorIntelligenceController extends Controller {
     }
 
     /** DELETE /api/competitor-intelligence/competitors/{id} */
-    public function apiDeleteCompetitor(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!CiPermissions::can($this->user, CiPermissions::PERM_DELETE)) return $this->error('Forbidden', 403);
+    public function apiDeleteCompetitor(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!CiPermissions::can($this->user, CiPermissions::PERM_DELETE)) {
+            return $this->error('Forbidden', 403);
+        }
 
         $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
-        if (!$competitor) return $this->error('Not found', 404);
+        if (!$competitor) {
+            return $this->error('Not found', 404);
+        }
 
         ActivityLog::record('competitor_intelligence', 'competitor.deleted', [
             'user_id' => (int) $this->user['id'], 'subject_type' => 'competitors', 'subject_id' => (int) $competitor->getAttribute('id'),
@@ -311,17 +350,23 @@ class CompetitorIntelligenceController extends Controller {
     }
 
     /** GET /api/competitor-intelligence/competitors/{id} */
-    public function apiCompetitorProfile(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiCompetitorProfile(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
-        if (!$competitor) return $this->error('Not found', 404);
+        if (!$competitor) {
+            return $this->error('Not found', 404);
+        }
 
         $competitorId = (int) $competitor->getAttribute('id');
         $latestSnapshots = $this->db->query(
             "SELECT s1.* FROM ci_snapshots s1
              INNER JOIN (SELECT page_type, MAX(captured_at) AS max_date FROM ci_snapshots WHERE competitor_id = ? GROUP BY page_type) s2
              ON s1.page_type = s2.page_type AND s1.captured_at = s2.max_date
-             WHERE s1.competitor_id = ?", [$competitorId, $competitorId]
+             WHERE s1.competitor_id = ?",
+            [$competitorId, $competitorId]
         );
         $recentChanges = $this->db->query("SELECT * FROM ci_changes WHERE competitor_id = ? ORDER BY detected_at DESC LIMIT 20", [$competitorId]);
         $insights = $this->db->query("SELECT * FROM ci_insights WHERE competitor_id = ? ORDER BY created_at DESC LIMIT 20", [$competitorId]);
@@ -337,12 +382,19 @@ class CompetitorIntelligenceController extends Controller {
     }
 
     /** POST /api/competitor-intelligence/competitors/{id}/check-now */
-    public function apiCheckNow(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!CiPermissions::can($this->user, CiPermissions::PERM_MANAGE_MONITORING)) return $this->error('Forbidden', 403);
+    public function apiCheckNow(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!CiPermissions::can($this->user, CiPermissions::PERM_MANAGE_MONITORING)) {
+            return $this->error('Forbidden', 403);
+        }
 
         $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
-        if (!$competitor) return $this->error('Not found', 404);
+        if (!$competitor) {
+            return $this->error('Not found', 404);
+        }
 
         // حد بسيط: مش أكتر من دورة يدوية كل 5 دقايق لنفس المنافس، لمنع
         // استخدام "Check Now" كوسيلة Flooding لموقع المنافس.
@@ -359,10 +411,15 @@ class CompetitorIntelligenceController extends Controller {
     }
 
     /** GET /api/competitor-intelligence/competitors/{id}/timeline */
-    public function apiTimeline(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiTimeline(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
-        if (!$competitor) return $this->error('Not found', 404);
+        if (!$competitor) {
+            return $this->error('Not found', 404);
+        }
 
         $timeline = (new CompetitorTrackingService())->getTimeline((int) $competitor->getAttribute('id'), (int) $this->get('months', 12));
         return $this->success(['timeline' => $timeline]);
@@ -373,23 +430,35 @@ class CompetitorIntelligenceController extends Controller {
     // ============================================================
 
     /** POST /api/competitor-intelligence/discovery/suggest */
-    public function apiDiscoverySuggest(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiDiscoverySuggest(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         if (!$this->validate(['website_id' => 'required', 'competitor_name' => 'required'])) {
             return $this->error($this->tr('ci.error.missing_fields'), 422);
         }
         $service = new CompetitorDiscoveryService();
         $candidate = $service->suggestManualCandidate(
-            (int) $this->user['id'], (int) $this->get('website_id'), (string) $this->get('competitor_name'),
-            (string) $this->get('website', ''), (string) $this->get('industry', ''), (string) $this->get('country', '')
+            (int) $this->user['id'],
+            (int) $this->get('website_id'),
+            (string) $this->get('competitor_name'),
+            (string) $this->get('website', ''),
+            (string) $this->get('industry', ''),
+            (string) $this->get('country', '')
         );
         return $this->success(['candidate' => $candidate->toArray()], $this->tr('common.added'), 201);
     }
 
     /** POST /api/competitor-intelligence/discovery/run */
-    public function apiDiscoveryRun(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!$this->validate(['website_id' => 'required'])) return $this->error($this->tr('ci.error.missing_fields'), 422);
+    public function apiDiscoveryRun(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!$this->validate(['website_id' => 'required'])) {
+            return $this->error($this->tr('ci.error.missing_fields'), 422);
+        }
 
         $websiteId = (int) $this->get('website_id');
         $industry = $this->get('industry');
@@ -420,27 +489,40 @@ class CompetitorIntelligenceController extends Controller {
     }
 
     /** GET /api/competitor-intelligence/discovery */
-    public function apiDiscoveryList(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiDiscoveryList(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $rows = $this->db->query("SELECT * FROM ci_discovery_candidates WHERE user_id = ? ORDER BY discovered_at DESC", [(int) $this->user['id']]);
         return $this->success(['candidates' => $rows]);
     }
 
     /** POST /api/competitor-intelligence/discovery/{id}/approve */
-    public function apiDiscoveryApprove(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiDiscoveryApprove(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $candidate = $this->assertDiscoveryOwnership((int) ($params['id'] ?? 0));
-        if (!$candidate) return $this->error('Not found', 404);
+        if (!$candidate) {
+            return $this->error('Not found', 404);
+        }
 
         $competitor = (new CompetitorDiscoveryService())->approveCandidate($candidate);
         return $this->success(['competitor' => $competitor->toArray()], $this->tr('common.added'));
     }
 
     /** POST /api/competitor-intelligence/discovery/{id}/dismiss */
-    public function apiDiscoveryDismiss(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiDiscoveryDismiss(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $candidate = $this->assertDiscoveryOwnership((int) ($params['id'] ?? 0));
-        if (!$candidate) return $this->error('Not found', 404);
+        if (!$candidate) {
+            return $this->error('Not found', 404);
+        }
 
         (new CompetitorDiscoveryService())->dismissCandidate($candidate);
         return $this->success([], $this->tr('common.updated'));
@@ -451,8 +533,11 @@ class CompetitorIntelligenceController extends Controller {
     // ============================================================
 
     /** GET /api/competitor-intelligence/watchlist */
-    public function apiWatchlist(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiWatchlist(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $rows = $this->db->query(
             "SELECT w.*, c.competitor_name, c.competitor_domain, c.category, c.last_change_at
              FROM ci_watchlist w JOIN competitors c ON c.id = w.competitor_id
@@ -463,24 +548,43 @@ class CompetitorIntelligenceController extends Controller {
     }
 
     /** POST /api/competitor-intelligence/watchlist */
-    public function apiWatchlistUpsert(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!CiPermissions::can($this->user, CiPermissions::PERM_MANAGE_ALERTS)) return $this->error('Forbidden', 403);
-        if (!$this->validate(['competitor_id' => 'required'])) return $this->error($this->tr('ci.error.missing_fields'), 422);
+    public function apiWatchlistUpsert(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!CiPermissions::can($this->user, CiPermissions::PERM_MANAGE_ALERTS)) {
+            return $this->error('Forbidden', 403);
+        }
+        if (!$this->validate(['competitor_id' => 'required'])) {
+            return $this->error($this->tr('ci.error.missing_fields'), 422);
+        }
 
         $competitor = $this->assertCompetitorOwnership((int) $this->get('competitor_id'));
-        if (!$competitor) return $this->error('Not found', 404);
+        if (!$competitor) {
+            return $this->error('Not found', 404);
+        }
 
         $existing = (new CiWatchlistItem())->where(['user_id' => (int) $this->user['id'], 'competitor_id' => (int) $competitor->getAttribute('id')], [], 1);
         $item = $existing[0] ?? new CiWatchlistItem(['user_id' => (int) $this->user['id'], 'competitor_id' => (int) $competitor->getAttribute('id')]);
         $before = $item->toArray();
         $wasPaused = (int) ($before['is_paused'] ?? 0);
 
-        if ($this->get('priority')) $item->setAttribute('priority', $this->get('priority'));
-        if ($this->get('alert_min_severity')) $item->setAttribute('alert_min_severity', $this->get('alert_min_severity'));
-        if ($this->get('alert_channels')) $item->setAttribute('alert_channels', json_encode($this->get('alert_channels')));
-        if ($this->get('keyword_filters') !== null) $item->setAttribute('keyword_filters', json_encode(array_values(array_filter((array) $this->get('keyword_filters')))));
-        if ($this->get('is_paused') !== null) $item->setAttribute('is_paused', (int) $this->get('is_paused'));
+        if ($this->get('priority')) {
+            $item->setAttribute('priority', $this->get('priority'));
+        }
+        if ($this->get('alert_min_severity')) {
+            $item->setAttribute('alert_min_severity', $this->get('alert_min_severity'));
+        }
+        if ($this->get('alert_channels')) {
+            $item->setAttribute('alert_channels', json_encode($this->get('alert_channels')));
+        }
+        if ($this->get('keyword_filters') !== null) {
+            $item->setAttribute('keyword_filters', json_encode(array_values(array_filter((array) $this->get('keyword_filters')))));
+        }
+        if ($this->get('is_paused') !== null) {
+            $item->setAttribute('is_paused', (int) $this->get('is_paused'));
+        }
         $item->save();
 
         $nowPaused = (int) $item->getAttribute('is_paused');
@@ -496,11 +600,16 @@ class CompetitorIntelligenceController extends Controller {
     }
 
     /** DELETE /api/competitor-intelligence/watchlist/{competitorId} */
-    public function apiWatchlistRemove(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiWatchlistRemove(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $competitorId = (int) ($params['id'] ?? 0);
         $competitor = $this->assertCompetitorOwnership($competitorId);
-        if (!$competitor) return $this->error('Not found', 404);
+        if (!$competitor) {
+            return $this->error('Not found', 404);
+        }
 
         $this->db->query("DELETE FROM ci_watchlist WHERE user_id = ? AND competitor_id = ?", [(int) $this->user['id'], $competitorId]);
 
@@ -516,15 +625,21 @@ class CompetitorIntelligenceController extends Controller {
     // ============================================================
 
     /** GET /api/competitor-intelligence/activity */
-    public function apiActivityFeed(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiActivityFeed(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $feed = (new CompetitorTrackingService())->getActivityFeed((int) $this->user['id'], (int) $this->get('limit', 50));
         return $this->success(['activity' => $feed]);
     }
 
     /** POST /api/competitor-intelligence/comparison */
-    public function apiComparison(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiComparison(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         if (!$this->validate(['website_id' => 'required', 'competitor_ids' => 'required'])) {
             return $this->error($this->tr('ci.error.missing_fields'), 422);
         }
@@ -534,21 +649,26 @@ class CompetitorIntelligenceController extends Controller {
             "SELECT id FROM competitors WHERE user_id = ? AND id IN (" . implode(',', array_fill(0, count($ids), '?')) . ")",
             array_merge([(int) $this->user['id']], $ids)
         );
-        $ownedIds = array_map(fn($r) => (int) $r['id'], $owned);
+        $ownedIds = array_map(fn ($r) => (int) $r['id'], $owned);
 
         $comparison = (new BenchmarkingService())->compare((int) $this->get('website_id'), $ownedIds, (int) $this->get('days', 90));
         return $this->success($comparison);
     }
 
     /** GET /api/competitor-intelligence/alerts */
-    public function apiAlerts(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiAlerts(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $onlyUnread = $this->get('unread') === '1';
         [$page, $perPage, $offset] = $this->paginationParams();
 
         $sql = "SELECT a.*, c.competitor_name, c.competitor_domain FROM ci_alerts a JOIN competitors c ON c.id = a.competitor_id WHERE a.user_id = ?";
         $args = [(int) $this->user['id']];
-        if ($onlyUnread) { $sql .= " AND a.is_read = 0"; }
+        if ($onlyUnread) {
+            $sql .= " AND a.is_read = 0";
+        }
 
         $totalRows = $this->db->query("SELECT COUNT(*) c FROM ({$sql}) t", $args);
         $total = (int) ($totalRows[0]['c'] ?? 0);
@@ -561,21 +681,30 @@ class CompetitorIntelligenceController extends Controller {
     }
 
     /** POST /api/competitor-intelligence/alerts/{id}/read */
-    public function apiMarkAlertRead(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiMarkAlertRead(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $this->db->query("UPDATE ci_alerts SET is_read = 1 WHERE id = ? AND user_id = ?", [(int) ($params['id'] ?? 0), (int) $this->user['id']]);
         return $this->success([], $this->tr('common.updated'));
     }
 
     /** GET /api/competitor-intelligence/insights */
-    public function apiInsights(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiInsights(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $type = (string) $this->get('type', '');
         [$page, $perPage, $offset] = $this->paginationParams();
 
         $sql = "SELECT i.*, c.competitor_name, c.competitor_domain FROM ci_insights i LEFT JOIN competitors c ON c.id = i.competitor_id WHERE i.user_id = ?";
         $args = [(int) $this->user['id']];
-        if (in_array($type, ['insight', 'threat', 'opportunity', 'recommendation'], true)) { $sql .= " AND i.type = ?"; $args[] = $type; }
+        if (in_array($type, ['insight', 'threat', 'opportunity', 'recommendation'], true)) {
+            $sql .= " AND i.type = ?";
+            $args[] = $type;
+        }
 
         $totalRows = $this->db->query("SELECT COUNT(*) c FROM ({$sql}) t", $args);
         $total = (int) ($totalRows[0]['c'] ?? 0);
@@ -588,40 +717,60 @@ class CompetitorIntelligenceController extends Controller {
     }
 
     /** POST /api/competitor-intelligence/competitors/{id}/scan-insights */
-    public function apiScanInsights(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiScanInsights(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
-        if (!$competitor) return $this->error('Not found', 404);
+        if (!$competitor) {
+            return $this->error('Not found', 404);
+        }
 
         $insights = (new ThreatOpportunityService())->scanCompetitor($competitor, (int) $this->get('days', 30));
-        return $this->success(['insights' => array_map(fn($i) => $i->toArray(), $insights)]);
+        return $this->success(['insights' => array_map(fn ($i) => $i->toArray(), $insights)]);
     }
 
     /** POST /api/competitor-intelligence/competitors/{id}/analyze-profile */
-    public function apiAnalyzeProfile(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiAnalyzeProfile(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
-        if (!$competitor) return $this->error('Not found', 404);
+        if (!$competitor) {
+            return $this->error('Not found', 404);
+        }
 
         $result = (new AICompetitiveAnalyst())->analyzeProfile($competitor);
         return $this->success($result);
     }
 
     /** POST /api/competitor-intelligence/competitors/{id}/compute-scorecard */
-    public function apiComputeScorecard(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiComputeScorecard(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
-        if (!$competitor) return $this->error('Not found', 404);
+        if (!$competitor) {
+            return $this->error('Not found', 404);
+        }
 
         $scorecard = (new BenchmarkingService())->computeScorecard((int) $competitor->getAttribute('id'), (int) $this->get('days', 30));
         return $this->success(['scorecard' => $scorecard->toArray()], $this->tr('common.updated'));
     }
 
     /** GET /api/competitor-intelligence/competitors/{id}/scorecard-trend */
-    public function apiScorecardTrend(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiScorecardTrend(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
-        if (!$competitor) return $this->error('Not found', 404);
+        if (!$competitor) {
+            return $this->error('Not found', 404);
+        }
 
         $rows = $this->db->query(
             "SELECT computed_at, visibility_score, content_activity_score, offer_activity_score, product_coverage_score, market_presence_score, basis
@@ -632,26 +781,39 @@ class CompetitorIntelligenceController extends Controller {
     }
 
     /** POST /api/competitor-intelligence/ai/ask */
-    public function apiAiAsk(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!$this->validate(['question' => 'required'])) return $this->error($this->tr('ci.error.missing_fields'), 422);
+    public function apiAiAsk(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!$this->validate(['question' => 'required'])) {
+            return $this->error($this->tr('ci.error.missing_fields'), 422);
+        }
 
         $result = (new AICompetitiveAnalyst())->ask((int) $this->user['id'], (string) $this->get('question'), (int) $this->get('days', 30));
         return $this->success($result);
     }
 
     /** GET /api/competitor-intelligence/ai/weekly-summary */
-    public function apiAiWeeklySummary(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!$this->validate(['website_id' => 'required'])) return $this->error($this->tr('ci.error.missing_fields'), 422);
+    public function apiAiWeeklySummary(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!$this->validate(['website_id' => 'required'])) {
+            return $this->error($this->tr('ci.error.missing_fields'), 422);
+        }
 
         $result = (new AICompetitiveAnalyst())->weeklySummary((int) $this->user['id'], (int) $this->get('website_id'));
         return $this->success($result);
     }
 
     /** GET /api/competitor-intelligence/reports */
-    public function apiListReports(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiListReports(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         [$page, $perPage, $offset] = $this->paginationParams();
 
         $total = (int) ($this->db->query("SELECT COUNT(*) c FROM ci_reports WHERE user_id = ?", [(int) $this->user['id']])[0]['c'] ?? 0);
@@ -663,13 +825,22 @@ class CompetitorIntelligenceController extends Controller {
     }
 
     /** POST /api/competitor-intelligence/reports */
-    public function apiGenerateReport(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!CiPermissions::can($this->user, CiPermissions::PERM_EXPORT)) return $this->error('Forbidden', 403);
-        if (!$this->validate(['website_id' => 'required', 'type' => 'required'])) return $this->error($this->tr('ci.error.missing_fields'), 422);
+    public function apiGenerateReport(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!CiPermissions::can($this->user, CiPermissions::PERM_EXPORT)) {
+            return $this->error('Forbidden', 403);
+        }
+        if (!$this->validate(['website_id' => 'required', 'type' => 'required'])) {
+            return $this->error($this->tr('ci.error.missing_fields'), 422);
+        }
 
         $competitorId = $this->get('competitor_id') ? (int) $this->get('competitor_id') : null;
-        if ($competitorId && !$this->assertCompetitorOwnership($competitorId)) return $this->error('Not found', 404);
+        if ($competitorId && !$this->assertCompetitorOwnership($competitorId)) {
+            return $this->error('Not found', 404);
+        }
 
         try {
             $report = (new ReportService())->generate((int) $this->user['id'], (int) $this->get('website_id'), (string) $this->get('type'), [], $competitorId);
@@ -680,10 +851,15 @@ class CompetitorIntelligenceController extends Controller {
     }
 
     /** GET /api/competitor-intelligence/reports/{id} */
-    public function apiGetReport(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiGetReport(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $rows = $this->db->query("SELECT * FROM ci_reports WHERE id = ? AND user_id = ? LIMIT 1", [(int) ($params['id'] ?? 0), (int) $this->user['id']]);
-        if (empty($rows)) return $this->error('Not found', 404);
+        if (empty($rows)) {
+            return $this->error('Not found', 404);
+        }
 
         $report = $rows[0];
         $report['content'] = json_decode($report['content_json'], true);
@@ -696,8 +872,11 @@ class CompetitorIntelligenceController extends Controller {
     // ============================================================
 
     /** GET /api/competitor-intelligence/settings */
-    public function apiGetSettings(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiGetSettings(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $userId = (int) $this->user['id'];
 
         $rows = (new CiUserPreference())->where(['user_id' => $userId], [], 1);
@@ -726,7 +905,7 @@ class CompetitorIntelligenceController extends Controller {
             'granted_permissions' => array_values(array_filter([
                 CiPermissions::PERM_VIEW, CiPermissions::PERM_ADD, CiPermissions::PERM_EDIT, CiPermissions::PERM_DELETE,
                 CiPermissions::PERM_MANAGE_MONITORING, CiPermissions::PERM_MANAGE_ALERTS, CiPermissions::PERM_EXPORT, CiPermissions::PERM_MANAGE_SETTINGS,
-            ], fn($p) => CiPermissions::can($this->user, $p))),
+            ], fn ($p) => CiPermissions::can($this->user, $p))),
             'integrations' => [
                 'google_places_discovery' => $googlePlacesAvailable,
                 'ai_analyst' => defined('GEMINI_API_KEY') && GEMINI_API_KEY !== '',
@@ -736,9 +915,14 @@ class CompetitorIntelligenceController extends Controller {
     }
 
     /** PUT /api/competitor-intelligence/settings */
-    public function apiUpdateSettings(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!CiPermissions::can($this->user, CiPermissions::PERM_MANAGE_SETTINGS)) return $this->error('Forbidden', 403);
+    public function apiUpdateSettings(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!CiPermissions::can($this->user, CiPermissions::PERM_MANAGE_SETTINGS)) {
+            return $this->error('Forbidden', 403);
+        }
 
         $userId = (int) $this->user['id'];
         $rows = (new CiUserPreference())->where(['user_id' => $userId], [], 1);
@@ -780,9 +964,14 @@ class CompetitorIntelligenceController extends Controller {
     }
 
     /** POST /api/competitor-intelligence/settings/pause-all */
-    public function apiPauseAllMonitoring(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!CiPermissions::can($this->user, CiPermissions::PERM_MANAGE_SETTINGS)) return $this->error('Forbidden', 403);
+    public function apiPauseAllMonitoring(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!CiPermissions::can($this->user, CiPermissions::PERM_MANAGE_SETTINGS)) {
+            return $this->error('Forbidden', 403);
+        }
 
         $userId = (int) $this->user['id'];
         $pause = (int) $this->get('pause', 1) === 1 ? 1 : 0;
@@ -808,7 +997,8 @@ class CompetitorIntelligenceController extends Controller {
      * التقرير) - مفيد لفتحه في Excel/Google Sheets مباشرة، منفصل عن
      * صفحة الطباعة/PDF.
      */
-    public function exportReportPrintable(array $params = []): void {
+    public function exportReportPrintable(array $params = []): void
+    {
         if (!$this->isAuthenticated()) {
             header('Location: /login');
             exit;
@@ -839,7 +1029,8 @@ class CompetitorIntelligenceController extends Controller {
         exit;
     }
 
-    private function streamReportCsv(array $report, array $content): void {
+    private function streamReportCsv(array $report, array $content): void
+    {
         $filename = 'competitor-intelligence-' . preg_replace('/[^a-z0-9\-]+/i', '-', (string) $report['type']) . '-' . date('Ymd') . '.csv';
 
         header('Content-Type: text/csv; charset=utf-8');
@@ -867,8 +1058,9 @@ class CompetitorIntelligenceController extends Controller {
         fclose($out);
     }
 
-    private function renderReportPrintableHtml(array $report, array $content): string {
-        $esc = fn($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
+    private function renderReportPrintableHtml(array $report, array $content): string
+    {
+        $esc = fn ($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
         $title = $esc($report['title']);
         $period = $esc(($report['period_start'] ?: '') . ($report['period_end'] ? ' → ' . $report['period_end'] : ''));
         $generatedAt = $esc($report['generated_at']);
@@ -926,14 +1118,16 @@ HTML;
     // ============================================================
 
     /** يفضّي كاش الـ Dashboard لنفس المستخدم بعد أي عملية بتغيّر أرقامه (إضافة/حذف/فحص فوري) */
-    private function invalidateDashboardCache(int $userId): void {
+    private function invalidateDashboardCache(int $userId): void
+    {
         if (class_exists('Cache')) {
             (new Cache())->delete("ci_dashboard:{$userId}");
         }
     }
 
     /** @return array{0:int,1:int,2:int} [page, per_page, offset] */
-    private function paginationParams(): array {
+    private function paginationParams(): array
+    {
         $page = max(1, (int) $this->get('page', 1));
         $perPage = (int) $this->get('per_page', 20);
         $perPage = $perPage > 0 ? min(100, $perPage) : 20; // سقف 100 لكل صفحة لمنع استعلامات ثقيلة
@@ -944,14 +1138,18 @@ HTML;
      * يبني ORDER BY آمن - يقبل بس أعمدة من whitelist صريح، بيمنع أي
      * SQL Injection عبر اسم عمود الترتيب المُرسَل من الواجهة.
      */
-    private function sortClause(string $requestedColumn, string $requestedOrder, array $allowedColumns, string $defaultColumn): string {
+    private function sortClause(string $requestedColumn, string $requestedOrder, array $allowedColumns, string $defaultColumn): string
+    {
         $column = in_array($requestedColumn, $allowedColumns, true) ? $requestedColumn : $defaultColumn;
         $order = strtolower($requestedOrder) === 'asc' ? 'ASC' : 'DESC';
         return "`{$column}` {$order}";
     }
 
-    private function assertCompetitorOwnership(int $id): ?Competitor {
-        if ($id <= 0) return null;
+    private function assertCompetitorOwnership(int $id): ?Competitor
+    {
+        if ($id <= 0) {
+            return null;
+        }
         $competitor = (new Competitor())->find($id);
         if (!$competitor || (int) $competitor->getAttribute('user_id') !== (int) $this->user['id']) {
             return null;
@@ -959,8 +1157,11 @@ HTML;
         return $competitor;
     }
 
-    private function assertDiscoveryOwnership(int $id): ?CiDiscoveryCandidate {
-        if ($id <= 0) return null;
+    private function assertDiscoveryOwnership(int $id): ?CiDiscoveryCandidate
+    {
+        if ($id <= 0) {
+            return null;
+        }
         $candidate = (new CiDiscoveryCandidate())->find($id);
         if (!$candidate || (int) $candidate->getAttribute('user_id') !== (int) $this->user['id']) {
             return null;
@@ -972,7 +1173,8 @@ HTML;
     // Page shell (HTML) + client script (JS)
     // ============================================================
 
-    private function renderShell(): string {
+    private function renderShell(): string
+    {
         $tabs = [
             'dashboard' => $this->tr('ci.tab.dashboard'),
             'competitors' => $this->tr('ci.tab.competitors'),
@@ -1308,7 +1510,8 @@ HTML;
         HTML;
     }
 
-    private function renderScript(): string {
+    private function renderScript(): string
+    {
         $script = <<<'JS'
 (function () {
     let allCompetitors = [];

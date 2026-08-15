@@ -1,20 +1,24 @@
 <?php
+
 /**
  * Tourfecto - AI Assistant Controller
  * مساعد ذكاء اصطناعي عام بواجهة شات، بهوية المنصة بالكامل
  * @version 1.0.0
  */
-class AiAssistantController extends Controller {
+class AiAssistantController extends Controller
+{
     /** @var AiAssistantService */
     private $service;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->service = new AiAssistantService();
     }
 
     /** GET /ai-assistant */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $tNewConv = $this->tr('assistant.new_conversation');
         $tLoading = $this->tr('common.loading');
         $tWelcomeDesc = $this->tr('assistant.welcome_desc');
@@ -484,12 +488,15 @@ JS;
     }
 
     /** GET /api/ai-assistant/conversations */
-    public function listConversations(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listConversations(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         try {
             $conversations = $this->service->getConversations((int) $this->user['id']);
-            return $this->success(['conversations' => array_map(fn($c) => $c->toArray(), $conversations)]);
+            return $this->success(['conversations' => array_map(fn ($c) => $c->toArray(), $conversations)]);
         } catch (Exception $e) {
             Logger::error('listConversations Error', ['message' => $e->getMessage()]);
             return $this->error('تعذر جلب المحادثات', 500);
@@ -497,8 +504,11 @@ JS;
     }
 
     /** POST /api/ai-assistant/conversations */
-    public function createConversation(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function createConversation(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         try {
             $conversation = $this->service->createConversation((int) $this->user['id']);
@@ -510,14 +520,19 @@ JS;
     }
 
     /** GET /api/ai-assistant/conversations/{id}/messages */
-    public function getMessages(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getMessages(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $conversationId = (int) ($params['id'] ?? 0);
-        if (!$this->ownsConversation($conversationId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsConversation($conversationId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         try {
             $messages = $this->service->getMessages($conversationId);
-            return $this->success(['messages' => array_map(fn($m) => $m->toArray(), $messages)]);
+            return $this->success(['messages' => array_map(fn ($m) => $m->toArray(), $messages)]);
         } catch (Exception $e) {
             Logger::error('getMessages Error', ['message' => $e->getMessage()]);
             return $this->error('تعذر جلب الرسائل', 500);
@@ -525,10 +540,15 @@ JS;
     }
 
     /** POST /api/ai-assistant/conversations/{id}/messages */
-    public function sendMessage(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function sendMessage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $conversationId = (int) ($params['id'] ?? 0);
-        if (!$this->ownsConversation($conversationId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsConversation($conversationId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         if (!$this->validate(['message' => 'required'])) {
             return $this->error('اكتب رسالة الأول', 422);
@@ -544,10 +564,15 @@ JS;
     }
 
     /** POST /api/ai-assistant/conversations/{id}/regenerate */
-    public function regenerateMessage(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function regenerateMessage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $conversationId = (int) ($params['id'] ?? 0);
-        if (!$this->ownsConversation($conversationId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsConversation($conversationId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         $result = $this->service->regenerateLastResponse((int) $this->user['id'], $conversationId);
 
@@ -560,10 +585,15 @@ JS;
     }
 
     /** PATCH /api/ai-assistant/conversations/{id} */
-    public function renameConversation(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function renameConversation(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $conversationId = (int) ($params['id'] ?? 0);
-        if (!$this->ownsConversation($conversationId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsConversation($conversationId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         if (!$this->validate(['title' => 'required'])) {
             return $this->error('اكتب اسم صحيح للمحادثة', 422);
@@ -579,10 +609,15 @@ JS;
     }
 
     /** DELETE /api/ai-assistant/conversations/{id} */
-    public function deleteConversation(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function deleteConversation(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $conversationId = (int) ($params['id'] ?? 0);
-        if (!$this->ownsConversation($conversationId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsConversation($conversationId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         try {
             $this->service->deleteConversation($conversationId);
@@ -592,8 +627,11 @@ JS;
         }
     }
 
-    private function ownsConversation(int $conversationId): bool {
-        if (!$conversationId) return false;
+    private function ownsConversation(int $conversationId): bool
+    {
+        if (!$conversationId) {
+            return false;
+        }
         $conversation = (new AiConversation())->find($conversationId);
         return $conversation && (int) $conversation->getAttribute('user_id') === (int) $this->user['id'];
     }

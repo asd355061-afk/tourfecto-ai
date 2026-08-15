@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Social Post Service
  * منطق عمل السوشيال ميديا: إنشاء منشور، توليد نص/هاشتاجات بالذكاء
@@ -7,11 +8,13 @@
  * منصة عبر جدول jobs الموحّد.
  * @version 1.0.0
  */
-class SocialPostService {
+class SocialPostService
+{
     /** @var GeminiClient */
     private $ai;
 
-    public function __construct(?GeminiClient $ai = null) {
+    public function __construct(?GeminiClient $ai = null)
+    {
         $this->ai = $ai ?? new GeminiClient();
     }
 
@@ -19,7 +22,8 @@ class SocialPostService {
      * توليد نص منشور + هاشتاجات مقترحة بالذكاء الاصطناعي.
      * @return array ['success'=>bool,'content'=>string,'hashtags'=>array,'error'=>?string]
      */
-    public function generateCaption(string $topic, string $platform, string $language = 'ar'): array {
+    public function generateCaption(string $topic, string $platform, string $language = 'ar'): array
+    {
         $languageName = $language === 'ar' ? 'العربية' : 'English';
         $prompt = <<<PROMPT
 اكتب منشور سوشيال ميديا قصير وجذاب لمنصة {$platform} عن: "{$topic}".
@@ -55,7 +59,8 @@ PROMPT;
      * @param array $data ['content','website_id','media_item_id','hashtags']
      * @param array $targets كل عنصر: ['platform_connection_id'=>int,'scheduled_at'=>?string]
      */
-    public function createPost(int $userId, array $data, array $targets): SocialPost {
+    public function createPost(int $userId, array $data, array $targets): SocialPost
+    {
         $post = new SocialPost([
             'user_id' => $userId,
             'website_id' => $data['website_id'] ?? null,

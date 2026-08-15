@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Agency Service (White-Label)
  * الوكالة = مساحة عمل مملوكة لمستخدم users حقيقي، وعملاؤها = مستخدمون
@@ -6,8 +7,10 @@
  * جدول مستخدمين منفصل (خلافًا للموديول الأصلي ai-white-label-hub).
  * @version 1.0.0
  */
-class AgencyService {
-    public function createAgency(int $ownerUserId, string $name): Agency {
+class AgencyService
+{
+    public function createAgency(int $ownerUserId, string $name): Agency
+    {
         $slug = $this->uniqueSlug($name);
 
         $agency = new Agency([
@@ -35,7 +38,8 @@ class AgencyService {
         return $agency;
     }
 
-    public function addClient(int $agencyId, int $clientUserId): AgencyClient {
+    public function addClient(int $agencyId, int $clientUserId): AgencyClient
+    {
         $agency = (new Agency())->find($agencyId);
         if (!$agency) {
             throw new Exception('الوكالة غير موجودة');
@@ -65,7 +69,8 @@ class AgencyService {
         return $client;
     }
 
-    private function uniqueSlug(string $name): string {
+    private function uniqueSlug(string $name): string
+    {
         $base = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($name)), '-');
         $base = $base ?: 'agency';
         $slug = $base;

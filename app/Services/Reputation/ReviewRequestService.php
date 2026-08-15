@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Review Request Service
  * جدولة وإرسال طلبات المراجعات التلقائية بعد انتهاء الخدمة، عن طريق
@@ -13,7 +14,8 @@
  * العينة كافية، ومساعد AI لصياغة الرسائل (يستخدم GeminiClient
  * الموجود فعليًا - نفس مفتاح المشروع، مفيش تكامل جديد).
  */
-class ReviewRequestService {
+class ReviewRequestService
+{
     /** @var Database */
     private $db;
     /** @var ChatManager */
@@ -28,13 +30,15 @@ class ReviewRequestService {
     /** أقصى عدد محاولات إرسال (تلقائية + يدوية) قبل ما نمنع أي Retry تاني (Section 19) */
     private const MAX_SEND_ATTEMPTS = 3;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
         $this->chatManager = new ChatManager();
     }
 
     /** إعدادات موقع معيّن - بترجع الافتراضية لو الموقع لسه معملوش إعدادات خاصة */
-    public function getSettings(int $websiteId): array {
+    public function getSettings(int $websiteId): array
+    {
         $rows = (new ReviewRequestSettings())->where(['website_id' => $websiteId], [], 1);
         if (!empty($rows)) {
             return $rows[0]->toArray();
@@ -43,7 +47,8 @@ class ReviewRequestService {
     }
 
     /** حفظ/تحديث إعدادات موقع */
-    public function saveSettings(int $websiteId, array $data): void {
+    public function saveSettings(int $websiteId, array $data): void
+    {
         $existing = (new ReviewRequestSettings())->where(['website_id' => $websiteId], [], 1);
         $settings = !empty($existing) ? $existing[0] : new ReviewRequestSettings();
         $data['website_id'] = $websiteId;
@@ -152,7 +157,8 @@ class ReviewRequestService {
      * إدخال يدوي حقيقي من صاحب الموقع - مفيش توليد رابط Google تلقائي
      * (محتاج Place ID مش متوفر من التكامل الحالي).
      */
-    private function resolveReviewLink(array $settings, string $destinationPlatform): string {
+    private function resolveReviewLink(array $settings, string $destinationPlatform): string
+    {
         if ($destinationPlatform === 'google_business' && !empty($settings['google_review_link'])) {
             return $settings['google_review_link'];
         }
@@ -162,7 +168,8 @@ class ReviewRequestService {
         return $settings['default_review_link'] ?? '';
     }
 
-    private function destinationLabel(string $destinationPlatform): string {
+    private function destinationLabel(string $destinationPlatform): string
+    {
         $labels = ['google_business' => 'Google Business Profile', 'tripadvisor' => 'TripAdvisor', 'other' => 'أخرى'];
         return $labels[$destinationPlatform] ?? $destinationPlatform;
     }
@@ -171,7 +178,8 @@ class ReviewRequestService {
      * هل هذا الضيف (برقم واتساب أو إيميل) موجود في قائمة عدم التواصل
      * الخاصة بالموقع ده؟ لازم واحد منهم على الأقل يتحدد.
      */
-    public function isOptedOut(int $websiteId, ?string $guestPhone, ?string $guestEmail): bool {
+    public function isOptedOut(int $websiteId, ?string $guestPhone, ?string $guestEmail): bool
+    {
         if (empty($guestPhone) && empty($guestEmail)) {
             return false;
         }
@@ -199,7 +207,8 @@ class ReviewRequestService {
      * على نفس الموقع خلال آخر X ساعة ولسه مش ملغي/فاشل؟ (Section 14
      * Duplicate Protection) - بيتفحص قبل أي إنشاء (يدوي أو تلقائي).
      */
-    public function findRecentDuplicate(int $websiteId, ?string $guestPhone, ?string $guestEmail, int $windowHours = self::DUPLICATE_WINDOW_HOURS): ?array {
+    public function findRecentDuplicate(int $websiteId, ?string $guestPhone, ?string $guestEmail, int $windowHours = self::DUPLICATE_WINDOW_HOURS): ?array
+    {
         if (empty($guestPhone) && empty($guestEmail)) {
             return null;
         }
@@ -229,7 +238,8 @@ class ReviewRequestService {
      * (PlatformConnection لواتساب/UltraMsg، Mailer العام للإيميل) -
      * ما فيش "Mock" أو افتراض اتصال غير موجود.
      */
-    public function isChannelConfigured(int $websiteId, string $channel): bool {
+    public function isChannelConfigured(int $websiteId, string $channel): bool
+    {
         if ($channel === 'email') {
             return class_exists('Mailer') ? (new Mailer())->isConfigured() : false;
         }
@@ -247,7 +257,8 @@ class ReviewRequestService {
     }
 
     /** حالة كل القنوات المتاحة لموقع معيّن - لعرضها في واجهة إنشاء الطلب */
-    public function getChannelStatus(int $websiteId): array {
+    public function getChannelStatus(int $websiteId): array
+    {
         return [
             'whatsapp' => $this->isChannelConfigured($websiteId, 'whatsapp') ? 'connected' : 'not_configured',
             'email' => $this->isChannelConfigured($websiteId, 'email') ? 'connected' : 'not_configured',
@@ -259,7 +270,8 @@ class ReviewRequestService {
      * جدول PlatformConnection المستخدم فعليًا في ReputationController،
      * من غير أي تكرار لمنطق OAuth نفسه.
      */
-    public function getDestinationStatus(int $websiteId): array {
+    public function getDestinationStatus(int $websiteId): array
+    {
         $destinations = [];
 
         foreach (['google_business' => 'Google Business Profile', 'tripadvisor' => 'TripAdvisor'] as $platform => $label) {
@@ -287,7 +299,8 @@ class ReviewRequestService {
      * بمطابقة الرقم/الإيميل الحقيقيين في review_requests، من غير أي
      * بيانات وهمية.
      */
-    public function searchCrmContacts(int $userId, string $search = '', int $limit = 20): array {
+    public function searchCrmContacts(int $userId, string $search = '', int $limit = 20): array
+    {
         $limit = max(1, min(50, $limit));
         $where = "user_id = ?";
         $params = [$userId];
@@ -330,7 +343,8 @@ class ReviewRequestService {
      * لمرحلة "reviewed" في تاريخ نفس الموقع - يعطي فكرة استرشادية حقيقية
      * (مش سببية مضمونة) عن الوقت اللي الضيوف بيستجيبوا فيه غالبًا.
      */
-    public function getSmartTimingSuggestion(int $websiteId): array {
+    public function getSmartTimingSuggestion(int $websiteId): array
+    {
         $rows = $this->db->query(
             "SELECT delay_hours FROM review_requests WHERE website_id = ? AND status = 'reviewed'",
             [$websiteId]
@@ -349,7 +363,8 @@ class ReviewRequestService {
     }
 
     /** كل قوالب الرسائل الجاهزة لموقع معيّن - بيزرع القوالب الافتراضية أول مرة لو مفيش أي قالب */
-    public function getTemplates(int $websiteId): array {
+    public function getTemplates(int $websiteId): array
+    {
         $templates = (new ReviewRequestTemplate())->where(['website_id' => $websiteId], ['id' => 'ASC']);
 
         if (empty($templates)) {
@@ -361,11 +376,12 @@ class ReviewRequestService {
             $templates = (new ReviewRequestTemplate())->where(['website_id' => $websiteId], ['id' => 'ASC']);
         }
 
-        return array_map(fn($t) => $t->toArray(), $templates);
+        return array_map(fn ($t) => $t->toArray(), $templates);
     }
 
     /** إنشاء قالب مخصص جديد (Section 9) */
-    public function createTemplate(int $websiteId, string $name, string $messageTemplate, ?string $emailSubject = null): ReviewRequestTemplate {
+    public function createTemplate(int $websiteId, string $name, string $messageTemplate, ?string $emailSubject = null): ReviewRequestTemplate
+    {
         if (trim($name) === '' || trim($messageTemplate) === '') {
             throw new Exception('اسم القالب ونص الرسالة مطلوبين');
         }
@@ -384,7 +400,8 @@ class ReviewRequestService {
     }
 
     /** حذف قالب - بشرط إنه بتاع نفس الموقع (Tenant Isolation) */
-    public function deleteTemplate(int $templateId, int $websiteId): void {
+    public function deleteTemplate(int $templateId, int $websiteId): void
+    {
         $template = (new ReviewRequestTemplate())->find($templateId);
         if (!$template || (int) $template->getAttribute('website_id') !== $websiteId) {
             throw new Exception('القالب غير موجود');
@@ -403,7 +420,8 @@ class ReviewRequestService {
      * الأولوية لقناة واتساب لو الرقم متاح ومهيأ، وإلا الإيميل لو متاح
      * ومهيأ - بدون اختراع قناة تالتة.
      */
-    public function maybeCreateFromCrmDeal(int $userId, string $guestName, ?string $guestPhone, ?string $guestEmail = null, ?int $dealId = null): ?ReviewRequest {
+    public function maybeCreateFromCrmDeal(int $userId, string $guestName, ?string $guestPhone, ?string $guestEmail = null, ?int $dealId = null): ?ReviewRequest
+    {
         if (empty($guestPhone) && empty($guestEmail)) {
             return null;
         }
@@ -433,7 +451,9 @@ class ReviewRequestService {
             }
 
             return $this->createRequest(
-                $userId, $websiteId, $guestName,
+                $userId,
+                $websiteId,
+                $guestName,
                 $channel === 'whatsapp' ? $guestPhone : null,
                 date('Y-m-d H:i:s'),
                 $channel,
@@ -458,7 +478,8 @@ class ReviewRequestService {
      *
      * @param int|null $reviewId معرف السجل الحقيقي في جدول reviews (لو متاح) لربط Attribution.
      */
-    public function markReviewedIfMatching(int $websiteId, string $reviewerName, ?int $reviewId = null): void {
+    public function markReviewedIfMatching(int $websiteId, string $reviewerName, ?int $reviewId = null): void
+    {
         $reviewerName = trim($reviewerName);
         if ($reviewerName === '') {
             return;
@@ -491,7 +512,8 @@ class ReviewRequestService {
      * @param array $filters status, channel, search (اسم/رقم/إيميل), date_from, date_to
      * @return array{items: ReviewRequest[], total:int, page:int, per_page:int}
      */
-    public function getRequestsFiltered(int $websiteId, array $filters = [], int $page = 1, int $perPage = 25): array {
+    public function getRequestsFiltered(int $websiteId, array $filters = [], int $page = 1, int $perPage = 25): array
+    {
         $page = max(1, $page);
         $perPage = max(1, min(200, $perPage));
         $offset = ($page - 1) * $perPage;
@@ -533,13 +555,14 @@ class ReviewRequestService {
             array_merge($params, [$perPage, $offset])
         );
 
-        $items = array_map(fn($row) => new ReviewRequest($row), $rows);
+        $items = array_map(fn ($row) => new ReviewRequest($row), $rows);
 
         return ['items' => $items, 'total' => $total, 'page' => $page, 'per_page' => $perPage];
     }
 
     /** طلب واحد بالتفصيل - مع التأكد إنه بتاع نفس الموقع (Tenant Isolation) */
-    public function getRequest(int $requestId, int $websiteId): ?ReviewRequest {
+    public function getRequest(int $requestId, int $websiteId): ?ReviewRequest
+    {
         $request = (new ReviewRequest())->find($requestId);
         if (!$request || (int) $request->getAttribute('website_id') !== $websiteId) {
             return null;
@@ -552,7 +575,8 @@ class ReviewRequestService {
      * تسجيله في قائمة Opt-Out الدائمة (Section 15) عشان يمنع أي طلب
      * جديد ليه مستقبلاً - مش بس يلغي الطلب الحالي.
      */
-    public function optOut(int $requestId, ?string $reason = null): void {
+    public function optOut(int $requestId, ?string $reason = null): void
+    {
         $request = (new ReviewRequest())->find($requestId);
         if (!$request) {
             throw new Exception('الطلب غير موجود');
@@ -581,7 +605,8 @@ class ReviewRequestService {
      * يدوية) عشان نمنع Infinite Retry. لو نجحت، الحالة بترجع 'sent'
      * وبيتحدث sent_at وerror_message بيتمسح.
      */
-    public function retryRequest(int $requestId, int $websiteId): ReviewRequest {
+    public function retryRequest(int $requestId, int $websiteId): ReviewRequest
+    {
         $request = $this->getRequest($requestId, $websiteId);
         if (!$request) {
             throw new Exception('الطلب غير موجود');
@@ -631,7 +656,8 @@ class ReviewRequestService {
      * حقيقي). بيعيد فحص القناة/التكرار/Opt-Out زي الإنشاء بالظبط، وبيعيد
      * حساب موعد الإرسال لو service_end_date اتغيّر.
      */
-    public function updateRequest(int $requestId, int $websiteId, array $data): ReviewRequest {
+    public function updateRequest(int $requestId, int $websiteId, array $data): ReviewRequest
+    {
         $request = $this->getRequest($requestId, $websiteId);
         if (!$request) {
             throw new Exception('الطلب غير موجود');
@@ -709,7 +735,8 @@ class ReviewRequestService {
      * (واتساب/إيميل) - بتختار المستلم والقناة الصحيحة من عمود channel
      * الفعلي المخزّن مع كل طلب وقت الإنشاء.
      */
-    public function processDueRequests(): array {
+    public function processDueRequests(): array
+    {
         $sentCount = 0;
         $remindedCount = 0;
         $failedCount = 0;
@@ -795,7 +822,8 @@ class ReviewRequestService {
      * القديمة، مع Sanitization بسيط (إزالة أي HTML tags من القيم قبل
      * الحقن، لأن الرسالة ممكن تتبعت كـ HTML عبر قناة الإيميل).
      */
-    private function renderTemplate(string $template, string $name, string $reviewLink): string {
+    private function renderTemplate(string $template, string $name, string $reviewLink): string
+    {
         $safeName = strip_tags($name);
         $safeLink = filter_var($reviewLink, FILTER_VALIDATE_URL) ? $reviewLink : strip_tags($reviewLink);
 
@@ -807,7 +835,8 @@ class ReviewRequestService {
     }
 
     /** إحصائيات سريعة لموقع معيّن (لعرضها في لوحة العميل) */
-    public function getStats(int $websiteId): array {
+    public function getStats(int $websiteId): array
+    {
         $rows = $this->db->query(
             "SELECT status, COUNT(*) AS c FROM review_requests WHERE website_id = ? GROUP BY status",
             [$websiteId]
@@ -825,7 +854,8 @@ class ReviewRequestService {
      * (MIN_SAMPLE_FOR_ANALYTICS) بيترجع not_enough_data:true بدل ما
      * يعرض نسبة مضللة من عدد قليل جدًا من الطلبات.
      */
-    public function getAnalytics(int $websiteId): array {
+    public function getAnalytics(int $websiteId): array
+    {
         $stats = $this->getStats($websiteId);
         $totalSent = $stats['total_sent'];
         $reviewed = $stats['reviewed'];
@@ -890,7 +920,8 @@ class ReviewRequestService {
      *
      * @param string $action generate|rewrite|shorten|professional|translate
      */
-    public function aiAssistMessage(string $action, string $currentText, array $context = []): array {
+    public function aiAssistMessage(string $action, string $currentText, array $context = []): array
+    {
         if (!class_exists('GeminiClient')) {
             return ['success' => false, 'error' => 'خدمة الذكاء الاصطناعي غير متاحة في هذا المشروع'];
         }
@@ -937,8 +968,9 @@ class ReviewRequestService {
      * (Section 23) - بيرجع الصفوف فقط، الـ Controller مسؤول عن الـ
      * headers/streaming (نفس نمط AdminController::exportUsers الموجود).
      */
-    public function getRequestsForExport(int $websiteId, array $filters = []): array {
+    public function getRequestsForExport(int $websiteId, array $filters = []): array
+    {
         $result = $this->getRequestsFiltered($websiteId, $filters, 1, 5000);
-        return array_map(fn(ReviewRequest $r) => $r->toArray(), $result['items']);
+        return array_map(fn (ReviewRequest $r) => $r->toArray(), $result['items']);
     }
 }

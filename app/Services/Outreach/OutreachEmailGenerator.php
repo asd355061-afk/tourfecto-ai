@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Outreach Email Generator
  * Phase 10 (Backlink/Outreach Agent). بيولّد رسالة تواصل مخصصة فعليًا
@@ -8,11 +9,13 @@
  * نكمّلها الأول بدل ما نولّد رسالة عامة ضعيفة.
  * @version 1.0.0
  */
-class OutreachEmailGenerator {
+class OutreachEmailGenerator
+{
     /** @var mixed أي كائن عنده generateContent($prompt,$options):array - عادة AIOrchestrator */
     private $ai;
 
-    public function __construct($ai = null) {
+    public function __construct($ai = null)
+    {
         $this->ai = $ai ?? (class_exists('AIOrchestrator') ? new AIOrchestrator() : new GeminiClient());
     }
 
@@ -22,7 +25,8 @@ class OutreachEmailGenerator {
      * @param int $sequenceNumber 0 = أول رسالة، 1/2/3 = متابعة
      * @return array
      */
-    public function generate(array $prospect, array $myWebsite, int $sequenceNumber = 0): array {
+    public function generate(array $prospect, array $myWebsite, int $sequenceNumber = 0): array
+    {
         if (empty($prospect['domain'])) {
             return ['success' => false, 'error' => 'دومين الـProspect مطلوب'];
         }
@@ -62,7 +66,8 @@ class OutreachEmailGenerator {
         ];
     }
 
-    private function buildInitialPrompt(array $prospect, array $myWebsite): string {
+    private function buildInitialPrompt(array $prospect, array $myWebsite): string
+    {
         $domain = $prospect['domain'];
         $businessType = $prospect['business_type'] ?? 'موقع سياحي';
         $relevantPage = $prospect['relevant_page'] ?? '';
@@ -97,7 +102,8 @@ class OutreachEmailGenerator {
 PROMPT;
     }
 
-    private function buildFollowUpPrompt(array $prospect, array $myWebsite, int $sequenceNumber): string {
+    private function buildFollowUpPrompt(array $prospect, array $myWebsite, int $sequenceNumber): string
+    {
         $domain = $prospect['domain'];
         $myCompany = $myWebsite['company_name'] ?? 'شركتنا';
         $tone = match ($sequenceNumber) {
@@ -116,7 +122,8 @@ PROMPT;
 PROMPT;
     }
 
-    private function extractJson(string $text): ?array {
+    private function extractJson(string $text): ?array
+    {
         if (preg_match('/\{[\s\S]*\}/', $text, $m)) {
             $data = json_decode($m[0], true);
             return json_last_error() === JSON_ERROR_NONE ? $data : null;

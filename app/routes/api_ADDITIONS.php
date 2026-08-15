@@ -1,4 +1,5 @@
 <?php
+
 // ============================================
 // إضافات مسارات جديدة (Batch 7 modules) - لسه مش موجودة في app/routes/api.php الحالي
 // أضف الكتلة دي في آخر الملف الحالي (متستبدلش الملف، ضيف بس السطور دي)
@@ -115,7 +116,7 @@ $router->get('/api/dashboard/activity', 'DashboardController', 'getRecentActivit
 $router->get('/api/dashboard/notifications', 'DashboardController', 'getNotifications', ['AuthMiddleware']);
 $router->post('/api/dashboard/notifications/{id}/read', 'DashboardController', 'markNotificationRead', ['AuthMiddleware']);
 $router->get('/api/dashboard/login-history', 'DashboardController', 'getLoginHistory', ['AuthMiddleware']);
-$router->group('/api/admin', function($router) {
+$router->group('/api/admin', function ($router) {
     $router->get('/users', 'AdminController', 'getUsers', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/users/{id}', 'AdminController', 'getUserById', ['AuthMiddleware', 'AdminMiddleware']);
     $router->post('/broadcast', 'AdminController', 'broadcast', ['AuthMiddleware', 'AdminMiddleware']);
@@ -409,7 +410,7 @@ $router->get('/api/dashboard/activity', 'DashboardController', 'getRecentActivit
 $router->get('/api/dashboard/notifications', 'DashboardController', 'getNotifications', ['AuthMiddleware']);
 $router->post('/api/dashboard/notifications/{id}/read', 'DashboardController', 'markNotificationRead', ['AuthMiddleware']);
 $router->get('/api/dashboard/login-history', 'DashboardController', 'getLoginHistory', ['AuthMiddleware']);
-$router->group('/api/admin', function($router) {
+$router->group('/api/admin', function ($router) {
     $router->get('/users', 'AdminController', 'getUsers', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/users/{id}', 'AdminController', 'getUserById', ['AuthMiddleware', 'AdminMiddleware']);
     $router->post('/broadcast', 'AdminController', 'broadcast', ['AuthMiddleware', 'AdminMiddleware']);
@@ -685,7 +686,7 @@ $router->get('/api/dashboard/activity', 'DashboardController', 'getRecentActivit
 $router->get('/api/dashboard/notifications', 'DashboardController', 'getNotifications', ['AuthMiddleware']);
 $router->post('/api/dashboard/notifications/{id}/read', 'DashboardController', 'markNotificationRead', ['AuthMiddleware']);
 $router->get('/api/dashboard/login-history', 'DashboardController', 'getLoginHistory', ['AuthMiddleware']);
-$router->group('/api/admin', function($router) {
+$router->group('/api/admin', function ($router) {
     $router->get('/users', 'AdminController', 'getUsers', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/users/{id}', 'AdminController', 'getUserById', ['AuthMiddleware', 'AdminMiddleware']);
     $router->post('/broadcast', 'AdminController', 'broadcast', ['AuthMiddleware', 'AdminMiddleware']);
@@ -953,7 +954,7 @@ $router->get('/api/dashboard/activity', 'DashboardController', 'getRecentActivit
 $router->get('/api/dashboard/notifications', 'DashboardController', 'getNotifications', ['AuthMiddleware']);
 $router->post('/api/dashboard/notifications/{id}/read', 'DashboardController', 'markNotificationRead', ['AuthMiddleware']);
 $router->get('/api/dashboard/login-history', 'DashboardController', 'getLoginHistory', ['AuthMiddleware']);
-$router->group('/api/admin', function($router) {
+$router->group('/api/admin', function ($router) {
     $router->get('/users', 'AdminController', 'getUsers', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/users/{id}', 'AdminController', 'getUserById', ['AuthMiddleware', 'AdminMiddleware']);
     $router->post('/broadcast', 'AdminController', 'broadcast', ['AuthMiddleware', 'AdminMiddleware']);

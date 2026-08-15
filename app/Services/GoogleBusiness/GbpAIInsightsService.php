@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - GBP AI Insights & Recommendations Service
  * تحليل AI مبني حصريًا على بيانات حقيقية اتجابت فعلاً من Google
@@ -8,7 +9,8 @@
  * @version 1.0.0
  * @since 2026-08-09 (GBP Module Upgrade)
  */
-class GbpAIInsightsService {
+class GbpAIInsightsService
+{
     /** @var GeminiClient */
     private $ai;
     /** @var GbpInsightsService */
@@ -16,7 +18,8 @@ class GbpAIInsightsService {
     /** @var GbpProfileService */
     private $profile;
 
-    public function __construct(?GeminiClient $ai = null) {
+    public function __construct(?GeminiClient $ai = null)
+    {
         $this->ai = $ai ?? new GeminiClient();
         $this->insights = new GbpInsightsService();
         $this->profile = new GbpProfileService();
@@ -26,7 +29,8 @@ class GbpAIInsightsService {
      * Insight = ملاحظة + Evidence (الرقم الحقيقي اللي بنيت عليه) + Confidence + إجراء مقترح.
      * لو مفيش بيانات كافية، بيرجع مصفوفة فاضية مع سبب واضح بدل ما يخترع.
      */
-    public function generateInsights(int $websiteId, int $userId): array {
+    public function generateInsights(int $websiteId, int $userId): array
+    {
         $insightsData = $this->insights->getInsights($websiteId, $userId, 30, true);
         if (!$insightsData['success']) {
             return ['success' => false, 'error' => $insightsData['error'], 'insights' => []];
@@ -61,7 +65,8 @@ class GbpAIInsightsService {
     }
 
     /** توصيات قابلة للتنفيذ - AI يقترح فقط، أي تنفيذ فعلي لازم تأكيد صريح من المستخدم */
-    public function generateRecommendations(int $websiteId, int $userId): array {
+    public function generateRecommendations(int $websiteId, int $userId): array
+    {
         $profileData = $this->profile->getProfile($websiteId, $userId);
         if (!$profileData['success']) {
             return ['success' => false, 'error' => $profileData['error'], 'recommendations' => []];
@@ -88,19 +93,26 @@ class GbpAIInsightsService {
         // Improve Website CTA) - كل واحدة مبنية على بيانات حقيقية من
         // قاعدة بياناتنا (مراجعات/صور/منشورات منشورة فعليًا)، مش تخمين.
         $unrepliedRec = $this->recommendUnrepliedReviews($websiteId, $userId);
-        if ($unrepliedRec) $recommendations[] = $unrepliedRec;
+        if ($unrepliedRec) {
+            $recommendations[] = $unrepliedRec;
+        }
 
         $photosRec = $this->recommendPhotos($websiteId, $userId);
-        if ($photosRec) $recommendations[] = $photosRec;
+        if ($photosRec) {
+            $recommendations[] = $photosRec;
+        }
 
         $ctaRec = $this->recommendWebsiteCta($websiteId, $userId, $profileData['profile']['website'] ?? null);
-        if ($ctaRec) $recommendations[] = $ctaRec;
+        if ($ctaRec) {
+            $recommendations[] = $ctaRec;
+        }
 
         return ['success' => true, 'recommendations' => array_values(array_filter($recommendations))];
     }
 
     /** Respond to Reviews - مبني على عدد المراجعات الفعلية اللي مفيهاش رد لسه (من جدول reviews الحقيقي) */
-    private function recommendUnrepliedReviews(int $websiteId, int $userId): ?array {
+    private function recommendUnrepliedReviews(int $websiteId, int $userId): ?array
+    {
         try {
             $db = Database::getInstance();
             $rows = $db->query(
@@ -109,7 +121,9 @@ class GbpAIInsightsService {
                 [$websiteId, $userId]
             );
             $count = (int) ($rows[0]['cnt'] ?? 0);
-            if ($count <= 0) return null;
+            if ($count <= 0) {
+                return null;
+            }
 
             return [
                 'action' => 'respond_to_reviews',
@@ -124,13 +138,16 @@ class GbpAIInsightsService {
     }
 
     /** Improve Photos - مبني على عدد الصور الحقيقي المرفوع فعليًا على Google (جدول gbp_photos) */
-    private function recommendPhotos(int $websiteId, int $userId): ?array {
+    private function recommendPhotos(int $websiteId, int $userId): ?array
+    {
         try {
             $db = Database::getInstance();
             $rows = $db->query("SELECT COUNT(*) AS cnt FROM gbp_photos WHERE website_id = ? AND user_id = ?", [$websiteId, $userId]);
             $count = (int) ($rows[0]['cnt'] ?? 0);
             // Google بينصح بـ 10 صور على الأقل لبروفايل قوي - رقم إرشادي معروف، مش مخترع من عندنا
-            if ($count >= 10) return null;
+            if ($count >= 10) {
+                return null;
+            }
 
             return [
                 'action' => 'improve_photos',
@@ -144,8 +161,11 @@ class GbpAIInsightsService {
     }
 
     /** Improve Website CTA - لو الموقع موجود بس مفيش منشور منشور فعليًا بزرار CTA بيوجّه له مؤخرًا */
-    private function recommendWebsiteCta(int $websiteId, int $userId, ?string $website): ?array {
-        if (!$website) return null; // لو الموقع أصلًا مش موجود، دي توصية "update_website" مش دي
+    private function recommendWebsiteCta(int $websiteId, int $userId, ?string $website): ?array
+    {
+        if (!$website) {
+            return null;
+        } // لو الموقع أصلًا مش موجود، دي توصية "update_website" مش دي
 
         try {
             $db = Database::getInstance();
@@ -156,7 +176,9 @@ class GbpAIInsightsService {
                 [$websiteId, $userId]
             );
             $count = (int) ($rows[0]['cnt'] ?? 0);
-            if ($count > 0) return null; // فيه منشور منشور فعلاً - CTA بيظهر بالفعل
+            if ($count > 0) {
+                return null;
+            } // فيه منشور منشور فعلاً - CTA بيظهر بالفعل
 
             return [
                 'action' => 'improve_website_cta',
@@ -169,7 +191,8 @@ class GbpAIInsightsService {
         }
     }
 
-    private function recommendationFor(string $missingField): ?array {
+    private function recommendationFor(string $missingField): ?array
+    {
         $map = [
             'description' => ['action' => 'update_description', 'title' => 'أضف وصفًا للنشاط', 'reason' => 'الوصف غير موجود حاليًا في البروفايل - يساعد العملاء على فهم نشاطك ويحسّن الظهور في البحث', 'priority' => 'high'],
             'phone' => ['action' => 'update_phone', 'title' => 'أضف رقم هاتف', 'reason' => 'رقم الهاتف غير موجود - يقلل فرص تواصل العملاء المباشر', 'priority' => 'high'],
@@ -182,7 +205,8 @@ class GbpAIInsightsService {
         return $map[$missingField] ?? null;
     }
 
-    private function buildEvidenceInsights(array $insightsData, array $profileData): array {
+    private function buildEvidenceInsights(array $insightsData, array $profileData): array
+    {
         $items = [];
         $totals = $insightsData['totals'] ?? [];
         $change = $insightsData['previous_period']['change_percent'] ?? null;
@@ -231,7 +255,8 @@ class GbpAIInsightsService {
         return $items;
     }
 
-    private function actionForMetric(string $key, ?float $changePercent): string {
+    private function actionForMetric(string $key, ?float $changePercent): string
+    {
         if ($changePercent !== null && $changePercent < -10) {
             $actions = [
                 'website_clicks' => 'راجع رابط الموقع وتأكد إنه يعمل، وأضف Call-to-Action في منشور جديد',
@@ -246,8 +271,9 @@ class GbpAIInsightsService {
         return 'استمر بنفس الأداء - النتائج مستقرة أو في تحسن';
     }
 
-    private function buildPrompt(array $evidenceInsights, array $profileData): string {
-        $evidenceLines = array_map(fn($i) => '- ' . ($i['insight_text'] ?? $i['evidence']), $evidenceInsights);
+    private function buildPrompt(array $evidenceInsights, array $profileData): string
+    {
+        $evidenceLines = array_map(fn ($i) => '- ' . ($i['insight_text'] ?? $i['evidence']), $evidenceInsights);
         $evidenceText = implode("\n", $evidenceLines);
 
         return "لخّص أداء صفحة Google Business Profile التالية للعميل بأسلوب مباشر ومشجع باللغة العربية، "

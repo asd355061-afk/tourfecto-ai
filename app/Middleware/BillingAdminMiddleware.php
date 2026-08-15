@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Billing Admin Middleware
  * صلاحيات الفوترة (Billing Admin): بيسمح لـ super_admin/admin (زي أي مكان
@@ -14,11 +15,13 @@
  * @version 1.0.0
  * @date 2026-08-09
  */
-class BillingAdminMiddleware {
+class BillingAdminMiddleware
+{
     /** الأدوار المسموح لها بعمليات الفوترة اليومية */
     private const ALLOWED_ROLES = ['super_admin', 'admin', 'manager'];
 
-    public function handle(): ?array {
+    public function handle(): ?array
+    {
         $user = $_SESSION['user'] ?? null;
 
         if (!$user && isset($_SERVER['auth_user'])) {

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Tax Service
  * @version 1.0.0
@@ -8,18 +9,21 @@
  * الحقل اللي أضفناه في Phase 4). لو مفيش قاعدة ضريبية مُعرَّفة لدولة
  * العميل، الرد صراحةً "Not Configured" - مفيش نسبة افتراضية أبدًا.
  */
-class TaxService {
+class TaxService
+{
     /** @var Database */
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
     /**
      * @return array{configured: bool, country_code: ?string, tax_type: ?string, rate_percent: ?float, tax_amount: ?float}
      */
-    public function computeTax(float $subtotal, ?string $countryCode): array {
+    public function computeTax(float $subtotal, ?string $countryCode): array
+    {
         if (!$countryCode) {
             return ['configured' => false, 'country_code' => null, 'tax_type' => null, 'rate_percent' => null, 'tax_amount' => null];
         }
@@ -52,7 +56,8 @@ class TaxService {
     }
 
     /** كل قواعد الضرائب (لعرضها/تعديلها في لوحة الأدمن) */
-    public function listAll(): array {
+    public function listAll(): array
+    {
         try {
             return $this->db->query("SELECT * FROM tax_rules ORDER BY country_code ASC");
         } catch (Exception $e) {
@@ -60,7 +65,8 @@ class TaxService {
         }
     }
 
-    public function upsertRule(string $countryCode, string $taxType, float $ratePercent, bool $isActive): void {
+    public function upsertRule(string $countryCode, string $taxType, float $ratePercent, bool $isActive): void
+    {
         $this->db->exec(
             "INSERT INTO tax_rules (country_code, tax_type, tax_rate_percent, is_active)
              VALUES (?, ?, ?, ?)

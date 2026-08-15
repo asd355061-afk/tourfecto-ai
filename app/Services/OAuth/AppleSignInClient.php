@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Apple Sign In Client
  * "تسجيل الدخول بواسطة Apple" مختلف عن باقي المنصات: مفيش client_secret
@@ -20,7 +21,8 @@
  *     Apple Developer Portal).
  * @version 1.0.0
  */
-class AppleSignInClient {
+class AppleSignInClient
+{
     private const AUTH_URL = 'https://appleid.apple.com/auth/authorize';
     private const TOKEN_URL = 'https://appleid.apple.com/auth/token';
     private const AUDIENCE = 'https://appleid.apple.com';
@@ -31,7 +33,8 @@ class AppleSignInClient {
     private string $privateKey;
     private string $redirectUri;
 
-    public function __construct() {
+    public function __construct()
+    {
         $settings = class_exists('SystemSettingsService') ? new SystemSettingsService() : null;
         $this->clientId = $settings ? $settings->get('oauth_apple_client_id', '') : '';
         $this->teamId = $settings ? $settings->get('oauth_apple_team_id', '') : '';
@@ -40,16 +43,19 @@ class AppleSignInClient {
         $this->redirectUri = self::redirectUri();
     }
 
-    public static function redirectUri(): string {
+    public static function redirectUri(): string
+    {
         $base = defined('APP_URL') ? rtrim(APP_URL, '/') : '';
         return "{$base}/auth/apple/callback";
     }
 
-    public function isConfigured(): bool {
+    public function isConfigured(): bool
+    {
         return $this->clientId !== '' && $this->teamId !== '' && $this->keyId !== '' && $this->privateKey !== '';
     }
 
-    public function buildAuthUrl(string $state): string {
+    public function buildAuthUrl(string $state): string
+    {
         $params = [
             'client_id' => $this->clientId,
             'redirect_uri' => $this->redirectUri,
@@ -62,7 +68,8 @@ class AppleSignInClient {
     }
 
     /** @return array ['success'=>bool, 'id_token'=>?string, 'error'=>?string] */
-    public function exchangeCodeForToken(string $code): array {
+    public function exchangeCodeForToken(string $code): array
+    {
         $clientSecret = $this->generateClientSecret();
         if ($clientSecret === null) {
             return ['success' => false, 'error' => 'تعذر توليد Apple client secret - تأكد من صحة المفتاح الخاص (.p8) في الإعدادات'];
@@ -115,7 +122,8 @@ class AppleSignInClient {
      * لتعقيد التحقق من التوقيع بمفاتيح Apple العامة هنا).
      * @return array|null ['id'=>string,'email'=>?string]
      */
-    public function decodeIdToken(string $idToken): ?array {
+    public function decodeIdToken(string $idToken): ?array
+    {
         $parts = explode('.', $idToken);
         if (count($parts) !== 3) {
             return null;
@@ -131,7 +139,8 @@ class AppleSignInClient {
     }
 
     /** يولّد client_secret كـ JWT موقّع ES256 صالح لمدة 5 دقايق (كفاية لتبديل كود واحد) */
-    private function generateClientSecret(): ?string {
+    private function generateClientSecret(): ?string
+    {
         if (!$this->isConfigured() || !function_exists('openssl_sign')) {
             return null;
         }
@@ -172,7 +181,8 @@ class AppleSignInClient {
      * صيغة "raw" (r و s متسلسلين، كل واحد بـ padding لطول ثابت). الدالة دي
      * بتفك ترميز DER البسيط ده يدويًا (مفيش أي مكتبة JWT متاحة في المشروع).
      */
-    private static function derToRawEcdsaSignature(string $der, int $partLength): ?string {
+    private static function derToRawEcdsaSignature(string $der, int $partLength): ?string
+    {
         $offset = 0;
         if (($der[$offset++] ?? '') !== "\x30") {
             return null;
@@ -200,11 +210,13 @@ class AppleSignInClient {
         return $r . $s;
     }
 
-    private static function base64UrlEncode(string $data): string {
+    private static function base64UrlEncode(string $data): string
+    {
         return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
     }
 
-    private static function base64UrlDecode(string $data): string {
+    private static function base64UrlDecode(string $data): string
+    {
         $data = strtr($data, '-_', '+/');
         $padding = strlen($data) % 4;
         if ($padding) {

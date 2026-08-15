@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Enterprise Architecture Helpers
  * دوال مساعدة عامة للطبقة المعمارية الجديدة (Container/Events/Queue/Cache)
@@ -14,7 +15,8 @@ if (!function_exists('container')) {
      * @param string|null $abstract لو اتبعت، بيرجع الكائن المطلوب مباشرة
      * @return Container|mixed
      */
-    function container(?string $abstract = null) {
+    function container(?string $abstract = null)
+    {
         $container = Container::getInstance();
         return $abstract === null ? $container : $container->make($abstract);
     }
@@ -26,7 +28,8 @@ if (!function_exists('event')) {
      * @param string $name
      * @param array $payload
      */
-    function event(string $name, array $payload = []): void {
+    function event(string $name, array $payload = []): void
+    {
         if (!class_exists('EventDispatcher')) {
             return;
         }
@@ -40,7 +43,8 @@ if (!function_exists('listen')) {
      * @param string $eventName
      * @param callable|string $listener
      */
-    function listen(string $eventName, $listener): void {
+    function listen(string $eventName, $listener): void
+    {
         if (!class_exists('EventDispatcher')) {
             return;
         }
@@ -57,7 +61,8 @@ if (!function_exists('enqueue')) {
      * @param int $delaySeconds
      * @return int|false
      */
-    function enqueue(string $jobClass, array $payload = [], string $queue = 'default', int $delaySeconds = 0) {
+    function enqueue(string $jobClass, array $payload = [], string $queue = 'default', int $delaySeconds = 0)
+    {
         if (!class_exists('QueueManager')) {
             return false;
         }
@@ -74,7 +79,8 @@ if (!function_exists('cache_remember')) {
      * @param callable $callback
      * @return mixed
      */
-    function cache_remember(string $key, ?int $ttl, callable $callback) {
+    function cache_remember(string $key, ?int $ttl, callable $callback)
+    {
         if (!class_exists('CacheAdapter')) {
             return $callback();
         }

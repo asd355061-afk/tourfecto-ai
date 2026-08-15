@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Assistant Service
  * مساعد ذكاء اصطناعي عام بهوية المنصة بالكامل (مش أي منتج تاني) -
@@ -6,7 +7,8 @@
  * من رصيد المحفظة (ادفع حسب الاستخدام) أو مجانًا لو مفعّل في الباقة.
  * @version 1.1.0
  */
-class AiAssistantService {
+class AiAssistantService
+{
     /** @var GeminiClient */
     private $gemini;
 
@@ -18,12 +20,14 @@ class AiAssistantService {
     /** أقصى طول لعنوان المحادثة اللي بيتولّد تلقائيًا من أول رسالة */
     private const AUTO_TITLE_MAX_LENGTH = 42;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->gemini = new GeminiClient();
     }
 
     /** إنشاء محادثة جديدة لمستخدم */
-    public function createConversation(int $userId, string $title = 'محادثة جديدة'): AiConversation {
+    public function createConversation(int $userId, string $title = 'محادثة جديدة'): AiConversation
+    {
         $conversation = new AiConversation();
         $conversation->fill(['user_id' => $userId, 'title' => $title]);
         $conversation->save();
@@ -31,12 +35,14 @@ class AiAssistantService {
     }
 
     /** كل محادثات مستخدم، الأحدث أولاً */
-    public function getConversations(int $userId, int $limit = 30): array {
+    public function getConversations(int $userId, int $limit = 30): array
+    {
         return (new AiConversation())->where(['user_id' => $userId], ['updated_at' => 'DESC'], $limit);
     }
 
     /** كل رسائل محادثة معيّنة بالترتيب */
-    public function getMessages(int $conversationId): array {
+    public function getMessages(int $conversationId): array
+    {
         return (new AiMessage())->where(['conversation_id' => $conversationId], ['created_at' => 'ASC']);
     }
 
@@ -48,7 +54,8 @@ class AiAssistantService {
      * عشان القائمة الجانبية تبقى مفيدة فعلاً وتساعد العميل يلاقي محادثته
      * تاني من غير ما يفتحها.
      */
-    public function sendMessage(int $userId, int $conversationId, string $userMessage): array {
+    public function sendMessage(int $userId, int $conversationId, string $userMessage): array
+    {
         $walletService = new WalletService();
         $priceCheck = $walletService->canAffordUsage($userId, 'ai_assistant_message');
 
@@ -116,7 +123,8 @@ class AiAssistantService {
      * كفاية). بتمسح آخر رد قديم وتولّد بديل مكانه بنفس سياق المحادثة،
      * وبتتحاسب زي أي رسالة عادية (نفس سعر "ادفع حسب الاستخدام").
      */
-    public function regenerateLastResponse(int $userId, int $conversationId): array {
+    public function regenerateLastResponse(int $userId, int $conversationId): array
+    {
         $walletService = new WalletService();
         $priceCheck = $walletService->canAffordUsage($userId, 'ai_assistant_message');
 
@@ -172,7 +180,8 @@ class AiAssistantService {
     }
 
     /** تعديل عنوان محادثة يدويًا (العميل ضغط على تعديل الاسم من القائمة الجانبية) */
-    public function renameConversation(int $conversationId, string $title): AiConversation {
+    public function renameConversation(int $conversationId, string $title): AiConversation
+    {
         $conversation = (new AiConversation())->find($conversationId);
         if (!$conversation) {
             throw new Exception('المحادثة غير موجودة');
@@ -191,7 +200,8 @@ class AiAssistantService {
     }
 
     /** حذف محادثة (ورسائلها) */
-    public function deleteConversation(int $conversationId): void {
+    public function deleteConversation(int $conversationId): void
+    {
         $db = Database::getInstance();
         $db->exec("DELETE FROM ai_assistant_messages WHERE conversation_id = ?", [$conversationId]);
         $db->exec("DELETE FROM ai_assistant_conversations WHERE id = ?", [$conversationId]);
@@ -202,7 +212,8 @@ class AiAssistantService {
      * الثابتة - بيقطع عند آخر مسافة قبل الحد الأقصى عشان منقصش كلمة
      * نص نص، وبيرجّع نقط "…" لو فعلاً قصّ حاجة.
      */
-    private function deriveTitleFromMessage(string $message): string {
+    private function deriveTitleFromMessage(string $message): string
+    {
         $clean = trim(preg_replace('/\s+/u', ' ', $message) ?? '');
         if ($clean === '') {
             return 'محادثة جديدة';

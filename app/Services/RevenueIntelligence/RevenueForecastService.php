@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Revenue Forecast Service
  * @version 1.1.0
@@ -13,14 +14,16 @@
  * لو البيانات غير كافية لموثوقية معقولة، نرجّع رسالة واضحة:
  * "Not enough data for reliable forecast." - لا نخترع أرقام.
  */
-class RevenueForecastService {
+class RevenueForecastService
+{
     /** أقل عدد أيام فيها إيراد فعلي مسجّل عشان نحاول Forecast أصلاً. */
     public const MIN_DATA_POINTS = 10;
 
     /** @var RevenueDataGateway */
     private $gateway;
 
-    public function __construct(?RevenueDataGateway $gateway = null) {
+    public function __construct(?RevenueDataGateway $gateway = null)
+    {
         $this->gateway = $gateway ?? new RevenueDataGateway();
     }
 
@@ -28,7 +31,8 @@ class RevenueForecastService {
      * يولّد توقع إيراد للفترة القادمة (نفس طول period_type) بناءً على
      * آخر 90 يوم من بيانات فعلية.
      */
-    public function forecast(int $userId, string $periodType = 'monthly', bool $persist = true): array {
+    public function forecast(int $userId, string $periodType = 'monthly', bool $persist = true): array
+    {
         $lookbackDays = 90;
         $now = new DateTime('now');
         $from = (clone $now)->modify("-{$lookbackDays} days");
@@ -78,13 +82,16 @@ class RevenueForecastService {
      * @param string $periodType daily/weekly/monthly/quarterly/yearly
      * @param string $todayStr Y-m-d - نقطة الانطلاق لحساب فترة التوقع القادمة
      */
-    public static function computeForecast(array $dailySeries, string $periodType, string $todayStr): array {
+    public static function computeForecast(array $dailySeries, string $periodType, string $todayStr): array
+    {
         $futureDays = RevenueOverviewService::periodToDays($periodType);
         $today = new DateTime($todayStr);
         $periodFrom = (clone $today)->modify('+1 day');
         $periodTo = (clone $today)->modify('+' . $futureDays . ' days');
 
-        $points = array_values(array_filter($dailySeries, static function ($p) { return isset($p['revenue']); }));
+        $points = array_values(array_filter($dailySeries, static function ($p) {
+            return isset($p['revenue']);
+        }));
         $n = count($points);
 
         $base = [
@@ -107,12 +114,15 @@ class RevenueForecastService {
 
         // انحدار خطي بسيط (least squares) على y=revenue اليومي مقابل x=index اليوم.
         $xs = range(0, $n - 1);
-        $ys = array_map(static function ($p) { return (float) $p['revenue']; }, $points);
+        $ys = array_map(static function ($p) {
+            return (float) $p['revenue'];
+        }, $points);
 
         $meanX = array_sum($xs) / $n;
         $meanY = array_sum($ys) / $n;
 
-        $num = 0.0; $den = 0.0;
+        $num = 0.0;
+        $den = 0.0;
         foreach ($xs as $i => $x) {
             $num += ($x - $meanX) * ($ys[$i] - $meanY);
             $den += ($x - $meanX) ** 2;
@@ -121,7 +131,8 @@ class RevenueForecastService {
         $intercept = $meanY - $slope * $meanX;
 
         // معامل التحديد R^2 لقياس مدى ثبات/انتظام الاتجاه (يستخدم لتحديد Confidence)
-        $ssTot = 0.0; $ssRes = 0.0;
+        $ssTot = 0.0;
+        $ssRes = 0.0;
         foreach ($xs as $i => $x) {
             $predicted = $intercept + $slope * $x;
             $ssRes += ($ys[$i] - $predicted) ** 2;
@@ -188,7 +199,8 @@ class RevenueForecastService {
      * @param string $todayStr Y-m-d
      * @param float $growthPercent نسبة التغيير المفترضة (20 = زيادة 20%)
      */
-    public static function scenarioForecast(array $dailySeries, string $periodType, string $todayStr, float $growthPercent = 0.0): array {
+    public static function scenarioForecast(array $dailySeries, string $periodType, string $todayStr, float $growthPercent = 0.0): array
+    {
         $base = self::computeForecast($dailySeries, $periodType, $todayStr);
         if ($base['insufficient_data']) {
             return $base + ['scenario' => true, 'scenario_growth_percent' => $growthPercent];
@@ -228,7 +240,8 @@ class RevenueForecastService {
      * @param string $periodType daily/weekly/monthly/quarterly/yearly
      * @param string $todayStr Y-m-d
      */
-    public static function computeSeasonalFactor(array $dailySeries, string $periodType, string $todayStr): array {
+    public static function computeSeasonalFactor(array $dailySeries, string $periodType, string $todayStr): array
+    {
         $days = RevenueOverviewService::periodToDays($periodType);
         $today = new DateTime($todayStr);
         $currentStart = (clone $today)->modify("-{$days} days");
@@ -265,7 +278,8 @@ class RevenueForecastService {
      * المستخرج من الفترة المكافئة السابقة. لو الموسمية غير ملحوظة، الناتج
      * مطابق للتوقع الأساسي مع factor=1. Pure function قابلة للاختبار.
      */
-    public static function seasonalForecast(array $dailySeries, string $periodType, string $todayStr): array {
+    public static function seasonalForecast(array $dailySeries, string $periodType, string $todayStr): array
+    {
         $base = self::computeForecast($dailySeries, $periodType, $todayStr);
         $seasonal = self::computeSeasonalFactor($dailySeries, $periodType, $todayStr);
 
@@ -294,7 +308,8 @@ class RevenueForecastService {
     }
 
     /** متوسط الإيراد اليومي ضمن نافذة زمنية من سلسلة يومية فعلية. */
-    private static function dailyAverages(array $dailySeries, string $fromDate, string $toDate): float {
+    private static function dailyAverages(array $dailySeries, string $fromDate, string $toDate): float
+    {
         $total = 0.0;
         $count = 0;
         foreach ($dailySeries as $p) {
@@ -313,7 +328,8 @@ class RevenueForecastService {
      * حقيقية قابلة للتحقق للـ AI ("توقعنا 5000، حصل فعليًا 4800، دقة 96%")
      * بدل ما يفضل التوقع رقم مجرد محدش راجعه بعدين.
      */
-    public function getAccuracyHistory(int $userId, int $limit = 10): array {
+    public function getAccuracyHistory(int $userId, int $limit = 10): array
+    {
         $pastForecasts = $this->gateway->getPastForecasts($userId, $limit);
         if (empty($pastForecasts)) {
             return ['has_data' => false, 'message' => 'Not enough data', 'history' => [], 'average_accuracy_percent' => null];

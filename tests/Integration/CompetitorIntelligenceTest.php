@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence Integration Test
  * @version 1.1.0
@@ -21,7 +22,8 @@
  * (ReportService)، حفظ/استرجاع تفضيلات المستخدم الافتراضية
  * (CiUserPreference)، وعزل الـ Tenant (منافس مستخدم A غير مرئي لمستخدم B).
  */
-class CompetitorIntelligenceTest {
+class CompetitorIntelligenceTest
+{
     private $db;
     private $passed = 0;
     private $failed = 0;
@@ -30,14 +32,16 @@ class CompetitorIntelligenceTest {
     private $testWebsiteId;
     private $testCompetitorId;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
         $this->testUserId = $this->createTestUser('ci_test_a_');
         $this->testUserBId = $this->createTestUser('ci_test_b_');
         $this->testWebsiteId = $this->createTestWebsite($this->testUserId);
     }
 
-    public function runAll(): void {
+    public function runAll(): void
+    {
         echo "\n🕵️‍♂️ Competitor Intelligence Integration Tests\n================================================\n\n";
 
         $this->testAddCompetitorCreatesWatchlistEntry();
@@ -62,7 +66,8 @@ class CompetitorIntelligenceTest {
         $this->printSummary();
     }
 
-    private function testAddCompetitorCreatesWatchlistEntry(): void {
+    private function testAddCompetitorCreatesWatchlistEntry(): void
+    {
         $this->startTest('Adding a competitor + manual watchlist entry');
 
         $competitor = new Competitor([
@@ -92,7 +97,8 @@ class CompetitorIntelligenceTest {
         (int) $watchlist->getAttribute('id') > 0 ? $this->pass('Watchlist entry created') : $this->fail('Watchlist entry was not created');
     }
 
-    private function testWebsiteOnboardingDiscoverySurfacesCandidatesAndSkipsExisting(): void {
+    private function testWebsiteOnboardingDiscoverySurfacesCandidatesAndSkipsExisting(): void
+    {
         $this->startTest('WebsiteOnboardingDiscoverySource surfaces real onboarding URLs, skips already-added ones');
 
         // نحفظ 2 competitor URLs في سجل الموقع نفسه - واحد منهم هو نفس
@@ -107,7 +113,7 @@ class CompetitorIntelligenceTest {
 
         $result['available'] === true ? $this->pass('Onboarding source reports available=true when URLs exist') : $this->fail('Expected available=true');
 
-        $hosts = array_map(fn($c) => parse_url($c['website'], PHP_URL_HOST), $result['candidates']);
+        $hosts = array_map(fn ($c) => parse_url($c['website'], PHP_URL_HOST), $result['candidates']);
         !in_array('example.com', $hosts, true)
             ? $this->pass('Already-added competitor (example.com) correctly excluded from suggestions')
             : $this->fail('Already-added competitor was incorrectly suggested again');
@@ -119,7 +125,8 @@ class CompetitorIntelligenceTest {
         $this->db->query("UPDATE websites SET competitor_1_url = NULL, competitor_2_url = NULL WHERE id = ?", [$this->testWebsiteId]);
     }
 
-    private function testEditCompetitor(): void {
+    private function testEditCompetitor(): void
+    {
         $this->startTest('Editing a competitor updates fields and preserves the audit trail');
 
         $competitor = (new Competitor())->find($this->testCompetitorId);
@@ -145,7 +152,8 @@ class CompetitorIntelligenceTest {
         $this->pass('Audit log entry recorded for the edit (no exception thrown)');
     }
 
-    private function testChangeDetectionDetectsRealDiff(): void {
+    private function testChangeDetectionDetectsRealDiff(): void
+    {
         $this->startTest('ChangeDetectionService detects a real content diff');
 
         $competitor = (new Competitor())->find($this->testCompetitorId);
@@ -179,7 +187,8 @@ class CompetitorIntelligenceTest {
         }
     }
 
-    private function testChangeDetectionIgnoresIdenticalContent(): void {
+    private function testChangeDetectionIgnoresIdenticalContent(): void
+    {
         $this->startTest('ChangeDetectionService reports Nothing Changed for identical hash');
 
         $competitor = (new Competitor())->find($this->testCompetitorId);
@@ -194,7 +203,8 @@ class CompetitorIntelligenceTest {
         $change === null ? $this->pass('No change correctly reported for identical content hash') : $this->fail('False positive change reported for identical content');
     }
 
-    private function testChangeDetectionNeverTreatsFailureAsNoChange(): void {
+    private function testChangeDetectionNeverTreatsFailureAsNoChange(): void
+    {
         $this->startTest('A failed fetch is never silently treated as "no change"');
 
         $competitor = (new Competitor())->find($this->testCompetitorId);
@@ -210,7 +220,8 @@ class CompetitorIntelligenceTest {
         $failed->getAttribute('fetch_status') === 'failed' ? $this->pass('Snapshot fetch_status explicitly stored as failed') : $this->fail('fetch_status was not stored as failed');
     }
 
-    private function testAlertRespectsMinSeverity(): void {
+    private function testAlertRespectsMinSeverity(): void
+    {
         $this->startTest('AlertService only alerts when severity meets watchlist minimum');
 
         $competitor = (new Competitor())->find($this->testCompetitorId);
@@ -237,7 +248,8 @@ class CompetitorIntelligenceTest {
         $afterHigh === $beforeCount + 1 ? $this->pass('High-severity change correctly generated exactly one alert') : $this->fail('Expected exactly one new alert for high-severity change, delta=' . ($afterHigh - $beforeCount));
     }
 
-    private function testAlertSkippedWhenWatchlistPaused(): void {
+    private function testAlertSkippedWhenWatchlistPaused(): void
+    {
         $this->startTest('AlertService skips alerts when watchlist entry is paused');
 
         $competitor = (new Competitor())->find($this->testCompetitorId);
@@ -258,7 +270,8 @@ class CompetitorIntelligenceTest {
         $this->db->query("UPDATE ci_watchlist SET is_paused = 0 WHERE competitor_id = ?", [$this->testCompetitorId]);
     }
 
-    private function testKeywordAlertBypassesSeverityThreshold(): void {
+    private function testKeywordAlertBypassesSeverityThreshold(): void
+    {
         $this->startTest('Keyword match forces an alert even below the watchlist severity threshold');
 
         $competitor = (new Competitor())->find($this->testCompetitorId);
@@ -301,7 +314,8 @@ class CompetitorIntelligenceTest {
         $this->db->query("UPDATE ci_watchlist SET alert_min_severity = 'medium', keyword_filters = NULL WHERE competitor_id = ?", [$this->testCompetitorId]);
     }
 
-    private function testWebhookJobRejectsUnsafeUrl(): void {
+    private function testWebhookJobRejectsUnsafeUrl(): void
+    {
         $this->startTest('SendCompetitorAlertWebhookJob refuses to deliver to a private/unsafe URL');
 
         $job = new SendCompetitorAlertWebhookJob();
@@ -336,7 +350,8 @@ class CompetitorIntelligenceTest {
             : $this->fail('Webhook job did not reject a missing url');
     }
 
-    private function testThreatOpportunityScanProducesEvidence(): void {
+    private function testThreatOpportunityScanProducesEvidence(): void
+    {
         $this->startTest('ThreatOpportunityService produces evidence-linked insights');
 
         $competitor = (new Competitor())->find($this->testCompetitorId);
@@ -359,7 +374,8 @@ class CompetitorIntelligenceTest {
         $found ? $this->pass('At least one threat insight generated with non-empty evidence') : $this->fail('No evidence-linked threat insight was generated');
     }
 
-    private function testBenchmarkingComparison(): void {
+    private function testBenchmarkingComparison(): void
+    {
         $this->startTest('BenchmarkingService compares my business vs competitor using only real signals');
 
         $result = (new BenchmarkingService())->compare($this->testWebsiteId, [$this->testCompetitorId], 90);
@@ -376,7 +392,8 @@ class CompetitorIntelligenceTest {
         }
     }
 
-    private function testReportGeneration(): void {
+    private function testReportGeneration(): void
+    {
         $this->startTest('ReportService generates a real weekly report from stored ci_changes');
 
         $report = (new ReportService())->generate($this->testUserId, $this->testWebsiteId, 'weekly');
@@ -396,7 +413,8 @@ class CompetitorIntelligenceTest {
         }
     }
 
-    private function testUserPreferencesRoundTrip(): void {
+    private function testUserPreferencesRoundTrip(): void
+    {
         $this->startTest('CiUserPreference saves and round-trips default settings correctly');
 
         $prefs = new CiUserPreference([
@@ -415,7 +433,8 @@ class CompetitorIntelligenceTest {
         $this->db->query("DELETE FROM ci_user_preferences WHERE user_id = ?", [$this->testUserId]);
     }
 
-    private function testDeleteCompetitor(): void {
+    private function testDeleteCompetitor(): void
+    {
         $this->startTest('Deleting a competitor removes it and cascades its watchlist entry');
 
         // منافس مؤقت خاص بالاختبار ده بس - عشان مايمسّش $this->testCompetitorId
@@ -442,14 +461,16 @@ class CompetitorIntelligenceTest {
             : $this->fail('Watchlist entry was left orphaned after competitor delete');
     }
 
-    private function testTenantIsolation(): void {
+    private function testTenantIsolation(): void
+    {
         $this->startTest('Tenant isolation: user B cannot see user A competitor via user_id filter');
 
         $rows = $this->db->query("SELECT id FROM competitors WHERE id = ? AND user_id = ?", [$this->testCompetitorId, $this->testUserBId]);
         empty($rows) ? $this->pass('User B query correctly returns zero rows for user A competitor') : $this->fail('Tenant isolation violated: user B could see user A competitor');
     }
 
-    private function testCiPermissionsIntegration(): void {
+    private function testCiPermissionsIntegration(): void
+    {
         $this->startTest('CiPermissions correctly gates destructive actions by role');
 
         require_once dirname(__DIR__, 2) . '/app/Services/CompetitorIntelligence/CiPermissions.php';
@@ -458,11 +479,13 @@ class CompetitorIntelligenceTest {
     }
 
     // ------------------------------------------------------------
-    private function countAlerts(): int {
+    private function countAlerts(): int
+    {
         return (int) ($this->db->query("SELECT COUNT(*) c FROM ci_alerts WHERE competitor_id = ?", [$this->testCompetitorId])[0]['c'] ?? 0);
     }
 
-    private function createTestUser(string $prefix): int {
+    private function createTestUser(string $prefix): int
+    {
         return (int) $this->db->query(
             "INSERT INTO users (company_name, email, password, phone, role, is_active) VALUES (:company_name, :email, :password, :phone, :role, :is_active)",
             [
@@ -473,14 +496,16 @@ class CompetitorIntelligenceTest {
         );
     }
 
-    private function createTestWebsite(int $userId): int {
+    private function createTestWebsite(int $userId): int
+    {
         return (int) $this->db->query(
             "INSERT INTO websites (user_id, main_url, company_name, industry, is_verified) VALUES (:user_id, :main_url, :company_name, :industry, :is_verified)",
             [':user_id' => $userId, ':main_url' => 'https://ci-test-' . uniqid() . '.com', ':company_name' => 'CI Test Website', ':industry' => 'tourism', ':is_verified' => 1]
         );
     }
 
-    private function cleanup(): void {
+    private function cleanup(): void
+    {
         $this->db->query("DELETE FROM ci_alerts WHERE competitor_id = ?", [$this->testCompetitorId]);
         $this->db->query("DELETE FROM ci_insights WHERE competitor_id = ?", [$this->testCompetitorId]);
         $this->db->query("DELETE FROM ci_changes WHERE competitor_id = ?", [$this->testCompetitorId]);
@@ -491,11 +516,23 @@ class CompetitorIntelligenceTest {
         $this->db->query("DELETE FROM users WHERE id IN (?, ?)", [$this->testUserId, $this->testUserBId]);
     }
 
-    private function startTest(string $name): void { echo "\n  ▶ {$name}\n"; }
-    private function pass(string $message): void { echo "    ✅ {$message}\n"; $this->passed++; }
-    private function fail(string $message): void { echo "    ❌ {$message}\n"; $this->failed++; }
+    private function startTest(string $name): void
+    {
+        echo "\n  ▶ {$name}\n";
+    }
+    private function pass(string $message): void
+    {
+        echo "    ✅ {$message}\n";
+        $this->passed++;
+    }
+    private function fail(string $message): void
+    {
+        echo "    ❌ {$message}\n";
+        $this->failed++;
+    }
 
-    private function printSummary(): void {
+    private function printSummary(): void
+    {
         $total = $this->passed + $this->failed;
         $percentage = $total > 0 ? round(($this->passed / $total) * 100, 2) : 0;
         echo "\n" . str_repeat('=', 50) . "\n";

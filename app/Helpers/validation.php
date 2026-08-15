@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Validation Helper
  * دوال التحقق من صحة البيانات
@@ -13,19 +14,20 @@ if (!function_exists('validate_required')) {
      * @param mixed $value
      * @return bool
      */
-    function validate_required($value): bool {
+    function validate_required($value): bool
+    {
         if (is_null($value)) {
             return false;
         }
-        
+
         if (is_string($value)) {
             return trim($value) !== '';
         }
-        
+
         if (is_array($value)) {
             return !empty($value);
         }
-        
+
         return true;
     }
 }
@@ -36,7 +38,8 @@ if (!function_exists('validate_email')) {
      * @param string $email
      * @return bool
      */
-    function validate_email(string $email): bool {
+    function validate_email(string $email): bool
+    {
         return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
     }
 }
@@ -48,11 +51,12 @@ if (!function_exists('validate_url')) {
      * @param bool $allowRelative
      * @return bool
      */
-    function validate_url(string $url, bool $allowRelative = false): bool {
+    function validate_url(string $url, bool $allowRelative = false): bool
+    {
         if ($allowRelative && strpos($url, '/') === 0) {
             return true;
         }
-        
+
         return filter_var($url, FILTER_VALIDATE_URL) !== false;
     }
 }
@@ -63,7 +67,8 @@ if (!function_exists('validate_phone')) {
      * @param string $phone
      * @return bool
      */
-    function validate_phone(string $phone): bool {
+    function validate_phone(string $phone): bool
+    {
         $phone = preg_replace('/[^0-9+]/', '', $phone);
         return strlen($phone) >= 8 && strlen($phone) <= 15;
     }
@@ -75,7 +80,8 @@ if (!function_exists('validate_numeric')) {
      * @param mixed $value
      * @return bool
      */
-    function validate_numeric($value): bool {
+    function validate_numeric($value): bool
+    {
         return is_numeric($value);
     }
 }
@@ -86,7 +92,8 @@ if (!function_exists('validate_integer')) {
      * @param mixed $value
      * @return bool
      */
-    function validate_integer($value): bool {
+    function validate_integer($value): bool
+    {
         return filter_var($value, FILTER_VALIDATE_INT) !== false;
     }
 }
@@ -97,7 +104,8 @@ if (!function_exists('validate_float')) {
      * @param mixed $value
      * @return bool
      */
-    function validate_float($value): bool {
+    function validate_float($value): bool
+    {
         return filter_var($value, FILTER_VALIDATE_FLOAT) !== false;
     }
 }
@@ -108,7 +116,8 @@ if (!function_exists('validate_boolean')) {
      * @param mixed $value
      * @return bool
      */
-    function validate_boolean($value): bool {
+    function validate_boolean($value): bool
+    {
         return is_bool($value) || in_array($value, ['true', 'false', '1', '0', 1, 0], true);
     }
 }
@@ -119,7 +128,8 @@ if (!function_exists('validate_string')) {
      * @param mixed $value
      * @return bool
      */
-    function validate_string($value): bool {
+    function validate_string($value): bool
+    {
         return is_string($value);
     }
 }
@@ -130,7 +140,8 @@ if (!function_exists('validate_array')) {
      * @param mixed $value
      * @return bool
      */
-    function validate_array($value): bool {
+    function validate_array($value): bool
+    {
         return is_array($value);
     }
 }
@@ -142,19 +153,20 @@ if (!function_exists('validate_min')) {
      * @param int $min
      * @return bool
      */
-    function validate_min($value, int $min): bool {
+    function validate_min($value, int $min): bool
+    {
         if (is_numeric($value)) {
             return $value >= $min;
         }
-        
+
         if (is_string($value)) {
             return mb_strlen($value) >= $min;
         }
-        
+
         if (is_array($value)) {
             return count($value) >= $min;
         }
-        
+
         return false;
     }
 }
@@ -166,19 +178,20 @@ if (!function_exists('validate_max')) {
      * @param int $max
      * @return bool
      */
-    function validate_max($value, int $max): bool {
+    function validate_max($value, int $max): bool
+    {
         if (is_numeric($value)) {
             return $value <= $max;
         }
-        
+
         if (is_string($value)) {
             return mb_strlen($value) <= $max;
         }
-        
+
         if (is_array($value)) {
             return count($value) <= $max;
         }
-        
+
         return false;
     }
 }
@@ -191,21 +204,22 @@ if (!function_exists('validate_between')) {
      * @param int $max
      * @return bool
      */
-    function validate_between($value, int $min, int $max): bool {
+    function validate_between($value, int $min, int $max): bool
+    {
         if (is_numeric($value)) {
             return $value >= $min && $value <= $max;
         }
-        
+
         if (is_string($value)) {
             $len = mb_strlen($value);
             return $len >= $min && $len <= $max;
         }
-        
+
         if (is_array($value)) {
             $count = count($value);
             return $count >= $min && $count <= $max;
         }
-        
+
         return false;
     }
 }
@@ -217,7 +231,8 @@ if (!function_exists('validate_in')) {
      * @param array $allowed
      * @return bool
      */
-    function validate_in($value, array $allowed): bool {
+    function validate_in($value, array $allowed): bool
+    {
         return in_array($value, $allowed, true);
     }
 }
@@ -229,7 +244,8 @@ if (!function_exists('validate_not_in')) {
      * @param array $forbidden
      * @return bool
      */
-    function validate_not_in($value, array $forbidden): bool {
+    function validate_not_in($value, array $forbidden): bool
+    {
         return !in_array($value, $forbidden, true);
     }
 }
@@ -241,7 +257,8 @@ if (!function_exists('validate_regex')) {
      * @param string $pattern
      * @return bool
      */
-    function validate_regex(string $value, string $pattern): bool {
+    function validate_regex(string $value, string $pattern): bool
+    {
         return preg_match($pattern, $value) === 1;
     }
 }
@@ -252,7 +269,8 @@ if (!function_exists('validate_alpha')) {
      * @param string $value
      * @return bool
      */
-    function validate_alpha(string $value): bool {
+    function validate_alpha(string $value): bool
+    {
         return preg_match('/^[\p{L}]+$/u', $value) === 1;
     }
 }
@@ -263,7 +281,8 @@ if (!function_exists('validate_alpha_num')) {
      * @param string $value
      * @return bool
      */
-    function validate_alpha_num(string $value): bool {
+    function validate_alpha_num(string $value): bool
+    {
         return preg_match('/^[\p{L}\p{N}]+$/u', $value) === 1;
     }
 }
@@ -274,7 +293,8 @@ if (!function_exists('validate_alpha_dash')) {
      * @param string $value
      * @return bool
      */
-    function validate_alpha_dash(string $value): bool {
+    function validate_alpha_dash(string $value): bool
+    {
         return preg_match('/^[\p{L}\p{N}\-]+$/u', $value) === 1;
     }
 }
@@ -286,7 +306,8 @@ if (!function_exists('validate_date')) {
      * @param string $format
      * @return bool
      */
-    function validate_date(string $date, string $format = 'Y-m-d'): bool {
+    function validate_date(string $date, string $format = 'Y-m-d'): bool
+    {
         $d = DateTime::createFromFormat($format, $date);
         return $d && $d->format($format) === $date;
     }
@@ -299,7 +320,8 @@ if (!function_exists('validate_datetime')) {
      * @param string $format
      * @return bool
      */
-    function validate_datetime(string $datetime, string $format = 'Y-m-d H:i:s'): bool {
+    function validate_datetime(string $datetime, string $format = 'Y-m-d H:i:s'): bool
+    {
         $d = DateTime::createFromFormat($format, $datetime);
         return $d && $d->format($format) === $datetime;
     }
@@ -312,7 +334,8 @@ if (!function_exists('validate_ip')) {
      * @param int $type
      * @return bool
      */
-    function validate_ip(string $ip, int $type = FILTER_FLAG_IPV4 | FILTER_FLAG_IPV6): bool {
+    function validate_ip(string $ip, int $type = FILTER_FLAG_IPV4 | FILTER_FLAG_IPV6): bool
+    {
         return filter_var($ip, FILTER_VALIDATE_IP, $type) !== false;
     }
 }
@@ -323,30 +346,31 @@ if (!function_exists('validate_credit_card')) {
      * @param string $number
      * @return bool
      */
-    function validate_credit_card(string $number): bool {
+    function validate_credit_card(string $number): bool
+    {
         $number = preg_replace('/[^0-9]/', '', $number);
-        
+
         if (strlen($number) < 13 || strlen($number) > 19) {
             return false;
         }
-        
+
         $sum = 0;
         $alternate = false;
-        
+
         for ($i = strlen($number) - 1; $i >= 0; $i--) {
             $digit = (int) $number[$i];
-            
+
             if ($alternate) {
                 $digit *= 2;
                 if ($digit > 9) {
                     $digit -= 9;
                 }
             }
-            
+
             $sum += $digit;
             $alternate = !$alternate;
         }
-        
+
         return $sum % 10 === 0;
     }
 }
@@ -359,7 +383,8 @@ if (!function_exists('validate_password_strength')) {
      * @param int $minComplexity
      * @return bool|array
      */
-    function validate_password_strength(string $password, int $minLength = 8, int $minComplexity = 3): bool|array {
+    function validate_password_strength(string $password, int $minLength = 8, int $minComplexity = 3): bool|array
+    {
         $checks = [
             'length' => strlen($password) >= $minLength,
             'uppercase' => preg_match('/[A-Z]/', $password) === 1,
@@ -367,13 +392,13 @@ if (!function_exists('validate_password_strength')) {
             'number' => preg_match('/[0-9]/', $password) === 1,
             'special' => preg_match('/[^A-Za-z0-9]/', $password) === 1
         ];
-        
+
         $score = array_sum($checks);
-        
+
         if ($score >= $minComplexity) {
             return true;
         }
-        
+
         return [
             'valid' => false,
             'score' => $score,

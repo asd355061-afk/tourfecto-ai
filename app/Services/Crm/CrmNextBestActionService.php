@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Next Best Action Service (بند 10)
  * @version 1.0.0
@@ -9,11 +10,13 @@
  * خارجي تلقائيًا إلا إذا كان هناك Integration رسمي وصلاحية واضحة" - ولا
  * يوجد تكامل رسمي فعلي مُفعّل بعد في هذا الموديول).
  */
-class CrmNextBestActionService {
+class CrmNextBestActionService
+{
     /** الإجراءات الممكنة كما وردت حرفيًا في الطلب الأصلي */
     private const ACTIONS = ['call', 'send_message', 'send_email', 'schedule_meeting', 'follow_up', 'send_proposal', 'wait', 'close'];
 
-    public function forLead(int $leadId): array {
+    public function forLead(int $leadId): array
+    {
         $lead = (new CrmLead())->find($leadId);
         if (!$lead) {
             throw new Exception('Lead غير موجود', 404);
@@ -48,7 +51,8 @@ class CrmNextBestActionService {
         return $this->result('follow_up', 'لا توجد إشارة كافية لاقتراح إجراء أدق - المتابعة الدورية هي الأنسب حاليًا');
     }
 
-    public function forDeal(int $dealId, int $ownerUserId): array {
+    public function forDeal(int $dealId, int $ownerUserId): array
+    {
         $deal = (new CrmDeal())->find($dealId);
         if (!$deal || (int) $deal->getAttribute('owner_user_id') !== $ownerUserId) {
             throw new Exception('الصفقة غير موجودة', 404);
@@ -75,7 +79,8 @@ class CrmNextBestActionService {
         return $this->result('send_message', 'متابعة دورية لإبقاء الصفقة نشطة');
     }
 
-    private function result(string $action, string $reason): array {
+    private function result(string $action, string $reason): array
+    {
         return ['action' => $action, 'reason' => $reason];
     }
 }

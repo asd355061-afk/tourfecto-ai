@@ -1,19 +1,23 @@
 <?php
+
 /**
  * Tourfecto - Marketing Assistant Controller
  * @version 1.0.0
  */
-class MarketingAssistantController extends Controller {
+class MarketingAssistantController extends Controller
+{
     /** @var MarketingAssistantService */
     private $service;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->service = new MarketingAssistantService();
     }
 
     /** GET /marketing-assistant */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $tools = [
             'ad_copy' => ['نص إعلان', '📢', 'نص جاهز لإعلانات Google/Meta - عنوان جذاب ودعوة واضحة للعميل'],
             'slogan' => ['شعار تسويقي', '✨', 'جملة قصيرة ولافتة تلخّص هوية شركتك أو عرضك المميز'],
@@ -90,9 +94,14 @@ JS;
     }
 
     /** POST /api/marketing-assistant/run */
-    public function run(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!$this->validate(['type' => 'required', 'input' => 'required'])) return $this->error('بيانات ناقصة', 422);
+    public function run(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!$this->validate(['type' => 'required', 'input' => 'required'])) {
+            return $this->error('بيانات ناقصة', 422);
+        }
 
         try {
             $interaction = $this->service->run((int) $this->user['id'], (string) $this->get('type'), (string) $this->get('input'));
@@ -106,9 +115,12 @@ JS;
     }
 
     /** GET /api/marketing-assistant/history */
-    public function history(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function history(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $items = (new AIAssistantInteraction())->where(['user_id' => $this->user['id']], ['created_at' => 'DESC'], 30);
-        return $this->success(['history' => array_map(fn($i) => $i->toArray(), $items)]);
+        return $this->success(['history' => array_map(fn ($i) => $i->toArray(), $items)]);
     }
 }

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Visitor Tracking Middleware
  * تتبع زوار الموقع التسويقي وأيضًا تصفح العملاء داخل المنصة بعد تسجيل الدخول
@@ -11,8 +12,8 @@
  * أي فشل هنا (قاعدة بيانات، جدول ناقص...) لازم ميوقفش الموقع، فكل حاجة محاطة بـ try/catch.
  */
 
-class VisitorTrackingMiddleware {
-
+class VisitorTrackingMiddleware
+{
     /** @var array المسارات المستثناة من التتبع (أصول ثابتة، API، فحوصات صحية) */
     private $excludedPrefixes = [
         '/assets', '/favicon.ico', '/robots.txt', '/sitemap.xml', '/.well-known',
@@ -22,7 +23,8 @@ class VisitorTrackingMiddleware {
     /** @var string اسم كوكي معرّف الزائر الثابت */
     private const VISITOR_COOKIE = 'tf_visitor_id';
 
-    public function handle(): ?array {
+    public function handle(): ?array
+    {
         try {
             $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
             if ($method !== 'GET') {
@@ -51,7 +53,8 @@ class VisitorTrackingMiddleware {
      * تسجيل الزيارة في جدول visitor_logs
      * @param string $path
      */
-    private function track(string $path): void {
+    private function track(string $path): void
+    {
         $visitorId = $_COOKIE[self::VISITOR_COOKIE] ?? null;
 
         if (!$visitorId) {

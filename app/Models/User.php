@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - User Model
  * نموذج المستخدم مع إدارة المصادقة والصلاحيات
@@ -21,7 +22,8 @@
  *     استخدام له من هذا الملف (كان بيكسر create() و logout()).
  */
 
-class User extends Model {
+class User extends Model
+{
     /**
      * @var string $table - اسم الجدول
      */
@@ -96,7 +98,8 @@ class User extends Model {
     /**
      * Constructor
      */
-    public function __construct(array $attributes = []) {
+    public function __construct(array $attributes = [])
+    {
         parent::__construct($attributes);
         $this->encryption = new Encryption();
     }
@@ -106,7 +109,8 @@ class User extends Model {
      * @param array $data يجب أن يحتوي على 'password' (نص عادي) وسيتم تشفيره تلقائيًا
      * @return User|false
      */
-    public static function create(array $data) {
+    public static function create(array $data)
+    {
         try {
             // تشفير كلمة المرور وتخزينها في العمود الصحيح password_hash
             if (isset($data['password'])) {
@@ -143,7 +147,8 @@ class User extends Model {
      * توليد توكن API
      * @return string
      */
-    public static function generateApiToken(): string {
+    public static function generateApiToken(): string
+    {
         return bin2hex(random_bytes(32));
     }
 
@@ -152,7 +157,8 @@ class User extends Model {
      * @param string $password
      * @return bool
      */
-    public function verifyPassword(string $password): bool {
+    public function verifyPassword(string $password): bool
+    {
         return password_verify($password, $this->attributes['password_hash'] ?? '');
     }
 
@@ -161,7 +167,8 @@ class User extends Model {
      * @param string $newPassword
      * @return bool
      */
-    public function updatePassword(string $newPassword): bool {
+    public function updatePassword(string $newPassword): bool
+    {
         $this->attributes['password_hash'] = password_hash(
             $newPassword,
             PASSWORD_ARGON2ID,
@@ -175,7 +182,8 @@ class User extends Model {
      * الحصول على الاشتراك النشط
      * @return Subscription|null
      */
-    public function getActiveSubscription(): ?Subscription {
+    public function getActiveSubscription(): ?Subscription
+    {
         // تصحيح: expiry_date مش اسم العمود الحقيقي في قاعدة البيانات المنشورة،
         // فبنستخدم Subscription::expiryColumn() لاكتشاف الاسم الصحيح بدل ما
         // نفترضه، وإلا الاستعلام يفشل بالكامل ("Unknown column").
@@ -201,11 +209,12 @@ class User extends Model {
      * الحصول على جميع المواقع
      * @return array
      */
-    public function getWebsites(): array {
+    public function getWebsites(): array
+    {
         $sql = "SELECT * FROM websites WHERE user_id = ? ORDER BY created_at DESC";
         $result = $this->db->query($sql, [$this->attributes['id']]);
 
-        return array_map(function($data) {
+        return array_map(function ($data) {
             return new Website($data);
         }, $result);
     }
@@ -214,7 +223,8 @@ class User extends Model {
      * الحصول على عدد المواقع
      * @return int
      */
-    public function getWebsitesCount(): int {
+    public function getWebsitesCount(): int
+    {
         $sql = "SELECT COUNT(*) as count FROM websites WHERE user_id = ?";
         $result = $this->db->query($sql, [$this->attributes['id']]);
         return (int) ($result[0]['count'] ?? 0);
@@ -225,7 +235,8 @@ class User extends Model {
      * @param int $limit
      * @return array
      */
-    public function getReports(int $limit = 10): array {
+    public function getReports(int $limit = 10): array
+    {
         $sql = "SELECT * FROM ai_reports 
                 WHERE user_id = ? 
                 ORDER BY created_at DESC 
@@ -236,7 +247,7 @@ class User extends Model {
             $limit
         ]);
 
-        return array_map(function($data) {
+        return array_map(function ($data) {
             return new AIReport($data);
         }, $result);
     }
@@ -246,7 +257,8 @@ class User extends Model {
      * @param string $permission
      * @return bool
      */
-    public function hasPermission(string $permission): bool {
+    public function hasPermission(string $permission): bool
+    {
         // تعريف صلاحيات الأدوار (مطابقة لقيم enum الفعلية في الجدول:
         // super_admin, admin, manager, agent — لا توجد قيمة 'user')
         $rolePermissions = [
@@ -276,7 +288,8 @@ class User extends Model {
      * تحديث آخر نشاط
      * @return bool
      */
-    public function updateLastActivity(): bool {
+    public function updateLastActivity(): bool
+    {
         $sql = "UPDATE users SET updated_at = NOW() WHERE id = ?";
         return $this->db->query($sql, [$this->attributes['id']]) !== false;
     }
@@ -285,7 +298,8 @@ class User extends Model {
      * تسجيل الخروج
      * @return bool
      */
-    public function logout(): bool {
+    public function logout(): bool
+    {
         // لا يوجد عمود remember_token في الجدول، فيتم إبطال api_token فقط
         $sql = "UPDATE users SET api_token = NULL WHERE id = ?";
         return $this->db->query($sql, [$this->attributes['id']]) !== false;
@@ -296,7 +310,8 @@ class User extends Model {
      * @param string $email
      * @return User|null
      */
-    public static function findByEmail(string $email): ?User {
+    public static function findByEmail(string $email): ?User
+    {
         $db = Database::getInstance();
         $sql = "SELECT * FROM users WHERE email = ? LIMIT 1";
         $result = $db->query($sql, [$email]);
@@ -313,7 +328,8 @@ class User extends Model {
      * @param string $token
      * @return User|null
      */
-    public static function findByApiToken(string $token): ?User {
+    public static function findByApiToken(string $token): ?User
+    {
         $db = Database::getInstance();
         $sql = "SELECT * FROM users WHERE api_token = ? AND status = 'active' LIMIT 1";
         $result = $db->query($sql, [$token]);
@@ -329,7 +345,8 @@ class User extends Model {
      * الحصول على إحصائيات المستخدم
      * @return array
      */
-    public function getStats(): array {
+    public function getStats(): array
+    {
         $stats = [
             'total_websites' => $this->getWebsitesCount(),
             'total_reports' => 0,
@@ -359,7 +376,8 @@ class User extends Model {
      * تحويل إلى مصفوفة مع إخفاء البيانات الحساسة
      * @return array
      */
-    public function toArray(): array {
+    public function toArray(): array
+    {
         $data = parent::toArray();
 
         // إزالة الحقول الحساسة

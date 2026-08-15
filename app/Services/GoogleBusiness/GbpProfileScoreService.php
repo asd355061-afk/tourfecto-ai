@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Google Business Profile Completeness Score
  * Phase 9 (Google Business Agent): درجة حتمية (deterministic) 0-100 مبنية
@@ -8,13 +9,14 @@
  * التوسيع في Phase 9) وترجّع Score + قايمة عناصر ناقصة + توصية لكل واحدة.
  * @version 1.0.0
  */
-class GbpProfileScoreService {
-
+class GbpProfileScoreService
+{
     /**
      * @param array $location نفس شكل ['location' => [...]] الراجع من GoogleBusinessAPI::getLocation()
      * @return array{score:int, max_score:int, missing:array, complete:array}
      */
-    public function calculateCompletenessScore(array $location): array {
+    public function calculateCompletenessScore(array $location): array
+    {
         $checks = [
             'name' => ['weight' => 15, 'label' => 'اسم النشاط', 'recommendation' => 'أضف اسم النشاط الرسمي - أول حاجة يشوفها العميل.'],
             'address' => ['weight' => 15, 'label' => 'العنوان', 'recommendation' => 'أضف العنوان الكامل - ضروري لظهورك في نتائج البحث المحلي (Local Pack).'],
@@ -53,7 +55,7 @@ class GbpProfileScoreService {
         }
 
         // أولوية الناقصين حسب الوزن (الأكبر تأثيرًا أولًا) - يجاوب على "أنهي حاجة أعملها الأول"
-        usort($missing, fn($a, $b) => $b['weight'] <=> $a['weight']);
+        usort($missing, fn ($a, $b) => $b['weight'] <=> $a['weight']);
 
         return [
             'score' => $score,

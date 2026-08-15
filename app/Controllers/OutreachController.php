@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Outreach Controller
  * Phase 10 (Backlink/Outreach Agent). بيدير الـPipeline الكامل:
@@ -13,29 +14,41 @@
  * الأول)، مش إرسال جماعي تلقائي.
  * @version 1.0.0
  */
-class OutreachController extends Controller {
+class OutreachController extends Controller
+{
     private $subscription;
     private $emailGenerator;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->subscription = new SubscriptionValidator();
         $this->emailGenerator = new OutreachEmailGenerator();
     }
 
     /** GET /api/outreach/prospects?website_id=X */
-    public function listProspects(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listProspects(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $websiteId = (int) $this->get('website_id');
-        if (!$websiteId) return $this->error('website_id مطلوب', 422);
+        if (!$websiteId) {
+            return $this->error('website_id مطلوب', 422);
+        }
 
-        if (!$this->ownsWebsite($websiteId)) return $this->error('الموقع غير موجود', 404);
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('الموقع غير موجود', 404);
+        }
 
         $status = $this->get('status');
         $sql = "SELECT * FROM outreach_prospects WHERE website_id = ? AND user_id = ?";
         $bindings = [$websiteId, $this->user['id']];
-        if ($status) { $sql .= " AND status = ?"; $bindings[] = $status; }
+        if ($status) {
+            $sql .= " AND status = ?";
+            $bindings[] = $status;
+        }
         $sql .= " ORDER BY id DESC";
 
         $prospects = $this->db->query($sql, $bindings);
@@ -43,13 +56,20 @@ class OutreachController extends Controller {
     }
 
     /** POST /api/outreach/prospects  { website_id, domain, contact_name?, contact_email?, business_type?, relevant_page?, collaboration_idea?, notes? } */
-    public function addProspect(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function addProspect(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $websiteId = (int) $this->get('website_id');
         $domain = trim((string) $this->get('domain', ''));
-        if (!$websiteId || $domain === '') return $this->error('website_id و domain مطلوبين', 422);
-        if (!$this->ownsWebsite($websiteId)) return $this->error('الموقع غير موجود', 404);
+        if (!$websiteId || $domain === '') {
+            return $this->error('website_id و domain مطلوبين', 422);
+        }
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('الموقع غير موجود', 404);
+        }
 
         $prospect = new OutreachProspect([
             'user_id' => (int) $this->user['id'],
@@ -70,16 +90,23 @@ class OutreachController extends Controller {
     }
 
     /** POST /api/outreach/prospects/{id}/status  { status, link_url? } */
-    public function updateProspectStatus(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function updateProspectStatus(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $prospectId = (int) ($params['id'] ?? 0);
         $status = (string) $this->get('status', '');
         $allowed = ['prospect', 'researched', 'contacted', 'replied', 'negotiating', 'link_acquired', 'declined'];
-        if (!$prospectId || !in_array($status, $allowed, true)) return $this->error('بيانات غير صالحة', 422);
+        if (!$prospectId || !in_array($status, $allowed, true)) {
+            return $this->error('بيانات غير صالحة', 422);
+        }
 
         $prospect = $this->ownedProspect($prospectId);
-        if (!$prospect) return $this->error('المرشّح غير موجود', 404);
+        if (!$prospect) {
+            return $this->error('المرشّح غير موجود', 404);
+        }
 
         $prospect->setAttribute('status', $status);
         if ($status === 'link_acquired' && $this->get('link_url')) {
@@ -91,15 +118,22 @@ class OutreachController extends Controller {
     }
 
     /** POST /api/outreach/emails/generate  { prospect_id, sequence_number? } */
-    public function generateEmail(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function generateEmail(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $prospectId = (int) $this->get('prospect_id');
         $sequenceNumber = (int) $this->get('sequence_number', 0);
-        if (!$prospectId) return $this->error('prospect_id مطلوب', 422);
+        if (!$prospectId) {
+            return $this->error('prospect_id مطلوب', 422);
+        }
 
         $prospect = $this->ownedProspect($prospectId);
-        if (!$prospect) return $this->error('المرشّح غير موجود', 404);
+        if (!$prospect) {
+            return $this->error('المرشّح غير موجود', 404);
+        }
 
         $creditsCheck = $this->subscription->checkAICredits((int) $this->user['id'], 1);
         if (!$creditsCheck['available']) {
@@ -134,12 +168,19 @@ class OutreachController extends Controller {
     }
 
     /** GET /api/outreach/emails?prospect_id=X */
-    public function listEmails(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listEmails(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $prospectId = (int) $this->get('prospect_id');
-        if (!$prospectId) return $this->error('prospect_id مطلوب', 422);
-        if (!$this->ownedProspect($prospectId)) return $this->error('المرشّح غير موجود', 404);
+        if (!$prospectId) {
+            return $this->error('prospect_id مطلوب', 422);
+        }
+        if (!$this->ownedProspect($prospectId)) {
+            return $this->error('المرشّح غير موجود', 404);
+        }
 
         $emails = $this->db->query(
             "SELECT * FROM outreach_emails WHERE prospect_id = ? ORDER BY sequence_number ASC, id ASC",
@@ -152,31 +193,45 @@ class OutreachController extends Controller {
      * POST /api/outreach/emails/{id}/edit  { subject?, body? }
      * تعديل يدوي قبل الموافقة/الإرسال - العميل ممكن يعدّل أي حاجة في المسودة.
      */
-    public function editEmail(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function editEmail(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $emailId = (int) ($params['id'] ?? 0);
         $email = $this->ownedEmail($emailId);
-        if (!$email) return $this->error('الرسالة غير موجودة', 404);
+        if (!$email) {
+            return $this->error('الرسالة غير موجودة', 404);
+        }
 
         if ($email->getAttribute('status') === 'sent') {
             return $this->error('الرسالة اتبعتت بالفعل - مينفعش تتعدل', 422);
         }
 
-        if ($this->get('subject') !== null) $email->setAttribute('subject', (string) $this->get('subject'));
-        if ($this->get('body') !== null) $email->setAttribute('body', (string) $this->get('body'));
+        if ($this->get('subject') !== null) {
+            $email->setAttribute('subject', (string) $this->get('subject'));
+        }
+        if ($this->get('body') !== null) {
+            $email->setAttribute('body', (string) $this->get('body'));
+        }
         $email->save();
 
         return $this->success(['email' => $email->toArray()], 'تم التحديث');
     }
 
     /** POST /api/outreach/emails/{id}/approve */
-    public function approveEmail(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function approveEmail(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $emailId = (int) ($params['id'] ?? 0);
         $email = $this->ownedEmail($emailId);
-        if (!$email) return $this->error('الرسالة غير موجودة', 404);
+        if (!$email) {
+            return $this->error('الرسالة غير موجودة', 404);
+        }
 
         if ($email->getAttribute('status') === 'sent') {
             return $this->error('الرسالة اتبعتت بالفعل', 422);
@@ -193,12 +248,17 @@ class OutreachController extends Controller {
      * إرسال فعلي حقيقي - رسالة واحدة بس في كل نداء (مش Bulk)، وبيرفض
      * الإرسال لو الرسالة مش status='approved' الأول (خطوة موافقة إجبارية).
      */
-    public function sendEmail(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function sendEmail(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $emailId = (int) ($params['id'] ?? 0);
         $email = $this->ownedEmail($emailId);
-        if (!$email) return $this->error('الرسالة غير موجودة', 404);
+        if (!$email) {
+            return $this->error('الرسالة غير موجودة', 404);
+        }
 
         if ($email->getAttribute('status') !== 'approved') {
             return $this->error('لازم توافق على الرسالة الأول قبل الإرسال', 422);
@@ -213,7 +273,9 @@ class OutreachController extends Controller {
             return $this->error('مفيش إيميل تواصل مسجّل للمرشّح ده - أضفه الأول', 422);
         }
 
-        if (!class_exists('Mailer')) return $this->error('خدمة البريد غير متاحة', 500);
+        if (!class_exists('Mailer')) {
+            return $this->error('خدمة البريد غير متاحة', 500);
+        }
         $mailer = new Mailer();
         if (!$mailer->isConfigured()) {
             return $this->error('إعدادات البريد (MAIL_USERNAME/MAIL_PASSWORD) مش متظبطة على السيرفر - كلم الأدمن', 503);
@@ -243,12 +305,14 @@ class OutreachController extends Controller {
         return $this->success(['email' => $email->toArray()], 'تم إرسال الرسالة');
     }
 
-    private function ownsWebsite(int $websiteId): bool {
+    private function ownsWebsite(int $websiteId): bool
+    {
         $website = (new Website())->find($websiteId);
         return $website && (int) $website->getAttribute('user_id') === (int) $this->user['id'];
     }
 
-    private function ownedProspect(int $prospectId): ?OutreachProspect {
+    private function ownedProspect(int $prospectId): ?OutreachProspect
+    {
         $prospect = (new OutreachProspect())->find($prospectId);
         if (!$prospect || (int) $prospect->getAttribute('user_id') !== (int) $this->user['id']) {
             return null;
@@ -256,9 +320,12 @@ class OutreachController extends Controller {
         return $prospect;
     }
 
-    private function ownedEmail(int $emailId): ?OutreachEmail {
+    private function ownedEmail(int $emailId): ?OutreachEmail
+    {
         $email = (new OutreachEmail())->find($emailId);
-        if (!$email) return null;
+        if (!$email) {
+            return null;
+        }
         $prospect = $this->ownedProspect((int) $email->getAttribute('prospect_id'));
         return $prospect ? $email : null;
     }

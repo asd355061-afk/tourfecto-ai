@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Chat Controller
  * متحكم الشات الذكي مع نظام الموافقات
@@ -7,45 +8,48 @@
  * @copyright 2026 Tourfecto
  */
 
-class ChatController extends Controller {
+class ChatController extends Controller
+{
     /**
      * @var ChatManager $chatManager - مدير الشات
      */
     private $chatManager;
-    
+
     /**
      * @var SubscriptionValidator $subscription - مدقق الاشتراكات
      */
     private $subscription;
-    
+
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->chatManager = new ChatManager();
         $this->subscription = new SubscriptionValidator();
     }
-    
+
     /**
      * معالجة رسالة واردة (Webhook)
      * POST /api/chat/webhook
      * @param array $params
      * @return array
      */
-    public function webhook(array $params = []): array {
+    public function webhook(array $params = []): array
+    {
         try {
             // التحقق من صحة الـ Webhook
             $verifyToken = $this->get('verify_token');
             if (!$this->validateWebhook($verifyToken)) {
                 return $this->error('Invalid webhook token', 401);
             }
-            
+
             // معالجة الرسالة
             $result = $this->chatManager->processIncomingMessage($this->all());
-            
+
             return $result;
-            
+
         } catch (Exception $e) {
             Logger::error('Chat Webhook Error', [
                 'message' => $e->getMessage()
@@ -53,71 +57,73 @@ class ChatController extends Controller {
             return $this->error('Webhook processing failed', 500);
         }
     }
-    
+
     /**
      * التحقق من Webhook (لـ WhatsApp)
      * GET /api/chat/webhook
      * @param array $params
      * @return array
      */
-    public function verifyWebhook(array $params = []): array {
+    public function verifyWebhook(array $params = []): array
+    {
         $mode = $this->get('hub.mode');
         $token = $this->get('hub.verify_token');
         $challenge = $this->get('hub.challenge');
-        
+
         if ($mode === 'subscribe' && $token === WHATSAPP_WEBHOOK_VERIFY_TOKEN) {
             return [
                 'success' => true,
                 'challenge' => $challenge
             ];
         }
-        
+
         return $this->error('Invalid verification token', 401);
     }
-    
+
     /**
      * الحصول على رسائل المحادثة
      * GET /api/chat/messages
      * @param array $params
      * @return array
      */
-    public function getMessages(array $params = []): array {
+    public function getMessages(array $params = []): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('Unauthorized', 401);
             }
-            
+
             $websiteId = $this->get('website_id');
             $sessionId = $this->get('session_id');
             $status = $this->get('status');
             $page = (int) ($this->get('page', 1));
             $limit = (int) ($this->get('limit', 20));
             $offset = ($page - 1) * $limit;
-            
+
             $sql = "SELECT * FROM chat_messages WHERE user_id = ?";
             $params = [$this->user['id']];
-            
+
             if ($websiteId) {
                 $sql .= " AND website_id = ?";
                 $params[] = $websiteId;
             }
-            
+
             if ($sessionId) {
                 $sql .= " AND session_id = ?";
                 $params[] = $sessionId;
             }
-            
+
             if ($status) {
                 $sql .= " AND bot_status = ?";
                 $params[] = $status;
             }
-            
+
             $sql .= " ORDER BY created_at DESC LIMIT ? OFFSET ?";
             $params[] = $limit;
             $params[] = $offset;
-            
+
             $messages = $this->db->query($sql, $params);
-            
+
             // فك تشفير البيانات الحساسة
             foreach ($messages as &$msg) {
                 if (!empty($msg['encrypted_phone'])) {
@@ -130,13 +136,13 @@ class ChatController extends Controller {
                 unset($msg['encrypted_phone']);
                 unset($msg['encrypted_email']);
             }
-            
+
             // جلب العدد الإجمالي
             $sqlCount = str_replace("SELECT *", "SELECT COUNT(*) as total", $sql);
             $sqlCount = substr($sqlCount, 0, strpos($sqlCount, "ORDER BY"));
             $countResult = $this->db->query($sqlCount, array_slice($params, 0, -2));
             $total = (int) ($countResult[0]['total'] ?? 0);
-            
+
             return $this->success([
                 'messages' => $messages,
                 'pagination' => [
@@ -146,7 +152,7 @@ class ChatController extends Controller {
                     'pages' => ceil($total / $limit)
                 ]
             ]);
-            
+
         } catch (Exception $e) {
             Logger::error('Get Messages Error', [
                 'message' => $e->getMessage()
@@ -154,19 +160,20 @@ class ChatController extends Controller {
             return $this->error('Failed to get messages', 500);
         }
     }
-    
+
     /**
      * الحصول على رسائل في انتظار الموافقة
      * GET /api/chat/pending
      * @param array $params
      * @return array
      */
-    public function getPendingApprovals(array $params = []): array {
+    public function getPendingApprovals(array $params = []): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('Unauthorized', 401);
             }
-            
+
             $limit = (int) ($this->get('limit', 50));
             $messages = ChatMessage::getPendingApprovals($this->user['id'], $limit);
 
@@ -175,11 +182,11 @@ class ChatController extends Controller {
                 // json_encode بيحوّل أي object لـ "{}" فاضي لأن كل الخصائص
                 // protected، يعني الـ frontend كان بيستلم صفوف فاضية تمامًا
                 // (مفيش message_text ولا ai_reply_generated ولا أي حاجة).
-                'pending' => array_map(fn($m) => $m->toArray(), $messages),
+                'pending' => array_map(fn ($m) => $m->toArray(), $messages),
                 'count' => count($messages),
                 'total_unread' => ChatMessage::getUnreadCount($this->user['id'])
             ]);
-            
+
         } catch (Exception $e) {
             Logger::error('Get Pending Approvals Error', [
                 'message' => $e->getMessage()
@@ -187,19 +194,20 @@ class ChatController extends Controller {
             return $this->error('Failed to get pending approvals', 500);
         }
     }
-    
+
     /**
      * الموافقة على رد البوت
      * POST /api/chat/approve
      * @param array $params
      * @return array
      */
-    public function approveReply(array $params = []): array {
+    public function approveReply(array $params = []): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('Unauthorized', 401);
             }
-            
+
             $messageId = $this->get('message_id');
             $action = $this->get('action', 'approve');
             $editedReply = $this->get('edited_reply');
@@ -224,18 +232,18 @@ class ChatController extends Controller {
                 $this->user['id'],
                 $action
             );
-            
+
             if (!$result['success']) {
                 return $this->error($result['error'], 400);
             }
-            
+
             $this->log('Chat Approval', [
                 'message_id' => $messageId,
                 'action' => $action
             ]);
 
             return $this->success($result, $result['message'] ?? ($action === 'approve' ? 'تمت الموافقة' : 'تم الرفض'));
-            
+
         } catch (Exception $e) {
             Logger::error('Approve Reply Error', [
                 'message' => $e->getMessage()
@@ -243,29 +251,30 @@ class ChatController extends Controller {
             return $this->error('Failed to process approval', 500);
         }
     }
-    
+
     /**
      * إرسال رسالة يدوياً
      * POST /api/chat/send
      * @param array $params
      * @return array
      */
-    public function sendMessage(array $params = []): array {
+    public function sendMessage(array $params = []): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('Unauthorized', 401);
             }
-            
+
             $phoneNumber = $this->get('phone_number');
             $message = $this->get('message');
             $websiteId = $this->get('website_id');
             $sessionId = $this->get('session_id');
             $platform = $this->get('platform', 'ultramsg');
-            
+
             if (!$phoneNumber || !$message) {
                 return $this->error('Phone number and message are required', 400);
             }
-            
+
             // التحقق من صلاحية الاشتراك
             $subscription = $this->subscription->validateSubscription($this->user['id']);
             if (!$subscription['valid']) {
@@ -284,29 +293,29 @@ class ChatController extends Controller {
                     $websiteId = $existing[0]['website_id'];
                 }
             }
-            
+
             // إرسال الرسالة
             if ($platform === 'ultramsg' && $websiteId) {
                 $sent = $this->chatManager->sendMessageForWebsite((int) $websiteId, $phoneNumber, $message);
             } else {
                 $sent = $this->chatManager->sendMessage($phoneNumber, $message, $platform);
             }
-            
+
             if (!$sent) {
                 return $this->error('Failed to send message', 500);
             }
-            
+
             // حفظ الرسالة الصادرة
             $encryption = new Encryption();
             $encryptedPhone = $encryption->encryptCustomerData($phoneNumber, $phoneNumber);
-            
+
             $sql = "INSERT INTO chat_messages (
                         website_id, user_id, platform, customer_phone, encrypted_phone,
                         message_direction, message_text, bot_status, sent_at, created_at
                     ) VALUES (
                         ?, ?, ?, ?, ?, 'outgoing', ?, 'sent', NOW(), NOW()
                     )";
-            
+
             $this->db->query($sql, [
                 $websiteId ?? 0,
                 $this->user['id'],
@@ -315,17 +324,17 @@ class ChatController extends Controller {
                 $encryptedPhone,
                 $message
             ]);
-            
+
             $this->log('Manual Message Sent', [
                 'phone' => $phoneNumber,
                 'platform' => $platform
             ]);
-            
+
             return $this->success([
                 'phone_number' => $phoneNumber,
                 'message' => $message
             ], 'Message sent successfully');
-            
+
         } catch (Exception $e) {
             Logger::error('Send Message Error', [
                 'message' => $e->getMessage()
@@ -333,32 +342,33 @@ class ChatController extends Controller {
             return $this->error('Failed to send message', 500);
         }
     }
-    
+
     /**
      * الحصول على إعدادات البوت
      * GET /api/chat/settings
      * @param array $params
      * @return array
      */
-    public function getSettings(array $params = []): array {
+    public function getSettings(array $params = []): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('Unauthorized', 401);
             }
-            
+
             $websiteId = $this->get('website_id');
             $platform = $this->get('platform', 'all');
-            
+
             if (!$websiteId) {
                 return $this->error('Website ID is required', 400);
             }
-            
+
             $settings = BotSetting::getSettings($this->user['id'], $websiteId, $platform);
-            
+
             return $this->success([
                 'settings' => $settings->toArray()
             ]);
-            
+
         } catch (Exception $e) {
             Logger::error('Get Settings Error', [
                 'message' => $e->getMessage()
@@ -366,39 +376,40 @@ class ChatController extends Controller {
             return $this->error('Failed to get settings', 500);
         }
     }
-    
+
     /**
      * تحديث إعدادات البوت
      * PUT /api/chat/settings
      * @param array $params
      * @return array
      */
-    public function updateSettings(array $params = []): array {
+    public function updateSettings(array $params = []): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('Unauthorized', 401);
             }
-            
+
             $websiteId = $this->get('website_id');
             $platform = $this->get('platform', 'all');
             $settings = $this->get('settings');
-            
+
             if (!$websiteId || !$settings) {
                 return $this->error('Website ID and settings are required', 400);
             }
-            
+
             $botSettings = BotSetting::getSettings($this->user['id'], $websiteId, $platform);
             $botSettings->updateSettings($settings);
-            
+
             $this->log('Bot Settings Updated', [
                 'website_id' => $websiteId,
                 'platform' => $platform
             ]);
-            
+
             return $this->success([
                 'settings' => $botSettings->toArray()
             ], 'Settings updated successfully');
-            
+
         } catch (Exception $e) {
             Logger::error('Update Settings Error', [
                 'message' => $e->getMessage()
@@ -406,13 +417,14 @@ class ChatController extends Controller {
             return $this->error('Failed to update settings', 500);
         }
     }
-    
+
     /**
      * التحقق من صحة Webhook
      * @param string|null $token
      * @return bool
      */
-    private function validateWebhook(?string $token): bool {
+    private function validateWebhook(?string $token): bool
+    {
         $verifyToken = WHATSAPP_WEBHOOK_VERIFY_TOKEN;
         return hash_equals($verifyToken, $token ?? '');
     }
@@ -435,7 +447,8 @@ class ChatController extends Controller {
      * التصميم والـCSS classes وطريقة الصفحة (Panel/panel.js) اتحافظ
      * عليها 100% زي ما هي - نفس نظام `.p-toolbar`/`.p-card`/`.p-table`.
      */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $body = <<<'HTML'
         <div class="p-toolbar" style="flex-wrap:wrap;gap:8px;align-items:center;">
             <input type="text" id="ucSearch" class="form-control" placeholder="ابحث بالاسم أو الهاتف أو الإيميل..." style="max-width:240px;flex:1;min-width:180px;">
@@ -630,7 +643,8 @@ JS;
      * Deal، وقائمة موظفين للتعيين) اتوثّقت بمكانها بدل ما تُختلق - راجع
      * CHANGELOG.
      */
-    public function showConversation(array $params): array {
+    public function showConversation(array $params): array
+    {
         $conversationId = (int) ($params['id'] ?? $params['session_id'] ?? 0);
         $currentUserId = (int) ($this->user['id'] ?? 0);
 
@@ -894,7 +908,8 @@ JS;
         exit;
     }
 
-    public function getConversation(array $params): array {
+    public function getConversation(array $params): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -915,7 +930,8 @@ JS;
     }
 
     /** GET /chat/pending */
-    public function showPending(array $params = []): array {
+    public function showPending(array $params = []): array
+    {
         $tLoading = $this->tr('common.loading');
 
         $body = <<<HTML
@@ -1032,7 +1048,8 @@ JS;
     }
 
     /** GET /chat/settings */
-    public function showSettings(array $params = []): array {
+    public function showSettings(array $params = []): array
+    {
         $tSelectWebsite = $this->tr('chat.settings.select_website');
         $tLoadingWebsites = $this->tr('chat.settings.loading_websites');
         $tWhatsappTitle = $this->tr('chat.settings.whatsapp_title');
@@ -1374,7 +1391,8 @@ JS;
      * (AiKnowledgeBaseController: index/store/update/destroy/preview) -
      * صفر Endpoint جديد.
      */
-    public function showKnowledgeBase(array $params = []): array {
+    public function showKnowledgeBase(array $params = []): array
+    {
         $body = <<<'HTML'
         <div class="p-toolbar">
             <a href="/chat" class="p-btn outline xs">← الرجوع لصندوق الوارد</a>
@@ -1586,7 +1604,8 @@ JS;
      * واجهة إعدادات المتابعة التلقائية (بند 7) - تستخدم Endpoint موجود
      * من المرحلة 3 (AiFollowupSettingsController) - صفر Endpoint جديد.
      */
-    public function showFollowupSettings(array $params = []): array {
+    public function showFollowupSettings(array $params = []): array
+    {
         $body = <<<'HTML'
         <div class="p-toolbar">
             <a href="/chat" class="p-btn outline xs">← صندوق الوارد</a>
@@ -1704,7 +1723,8 @@ JS;
      * لوحة تحليلات AI Chat (بند 18) - تستخدم Endpoint موجود من المرحلة 4
      * (AiAnalyticsController) - صفر Endpoint جديد.
      */
-    public function showAnalytics(array $params = []): array {
+    public function showAnalytics(array $params = []): array
+    {
         $body = <<<'HTML'
         <div class="p-toolbar">
             <a href="/chat" class="p-btn outline xs">← صندوق الوارد</a>
@@ -1824,7 +1844,8 @@ JS;
      * للفلترة بالحالة. تستخدم Endpoint موجود من المرحلة 3
      * (AiLeadController) - صفر Endpoint جديد.
      */
-    public function showLeads(array $params = []): array {
+    public function showLeads(array $params = []): array
+    {
         $body = <<<'HTML'
         <div class="p-toolbar">
             <a href="/chat" class="p-btn outline xs">← صندوق الوارد</a>
@@ -1934,7 +1955,8 @@ JS;
     }
 
     /** DELETE /api/chat/message/{id} */
-    public function deleteMessage(array $params): array {
+    public function deleteMessage(array $params): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -1955,7 +1977,8 @@ JS;
      * ما يرجّع 501. مفيد لما العميل عايز "يجرّب رد تاني" قبل ما يوافق.
      * POST /api/chat/generate-reply  { message_id: number }
      */
-    public function generateReply(array $params = []): array {
+    public function generateReply(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -2001,13 +2024,15 @@ JS;
      * توكن سري لكل موقع خاص برابط الـ webhook، عشان محدش يقدر يبعت
      * رسائل واردة مزيّفة لموقع مش بتاعه لو عرف رقم الـ website_id بس.
      */
-    private function ultraMsgWebhookSecret(int $websiteId): string {
+    private function ultraMsgWebhookSecret(int $websiteId): string
+    {
         $secretKey = (defined('ENCRYPTION_KEY') && ENCRYPTION_KEY) ? ENCRYPTION_KEY : 'tourfecto-fallback-secret';
         return substr(hash_hmac('sha256', 'ultramsg-webhook:' . $websiteId, $secretKey), 0, 24);
     }
 
     /** GET /api/chat/ultramsg/status?website_id= */
-    public function getUltraMsgStatus(array $params = []): array {
+    public function getUltraMsgStatus(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -2035,7 +2060,8 @@ JS;
     }
 
     /** POST /api/chat/connect/ultramsg */
-    public function connectUltraMsg(array $params = []): array {
+    public function connectUltraMsg(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -2095,7 +2121,8 @@ JS;
     }
 
     /** POST /api/chat/disconnect/ultramsg/{website_id} */
-    public function disconnectUltraMsg(array $params = []): array {
+    public function disconnectUltraMsg(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -2126,7 +2153,8 @@ JS;
      * متاح من توثيقهم العام - يُفضّل التأكد منه بإرسال رسالة تجريبية
      * حقيقية بعد الربط والتأكد من اللوج، لأنه معنديش بيئة أختبره فيها فعليًا.
      */
-    public function ultraMsgWebhook(array $params = []): array {
+    public function ultraMsgWebhook(array $params = []): array
+    {
         $websiteId = (int) ($params['website_id'] ?? 0);
         $secret = $this->get('secret');
 
@@ -2186,7 +2214,8 @@ JS;
      * @param string $platform
      * @return string
      */
-    private function channelWebhookSecret(int $websiteId, string $platform): string {
+    private function channelWebhookSecret(int $websiteId, string $platform): string
+    {
         $secretKey = (defined('ENCRYPTION_KEY') && ENCRYPTION_KEY) ? ENCRYPTION_KEY : 'tourfecto-fallback-secret';
         return substr(hash_hmac('sha256', $platform . '-webhook:' . $websiteId, $secretKey), 0, 24);
     }
@@ -2199,7 +2228,8 @@ JS;
      * @param int|null $websiteId
      * @return bool
      */
-    private function isNewWebhookEvent(string $channel, string $externalEventId, ?int $websiteId): bool {
+    private function isNewWebhookEvent(string $channel, string $externalEventId, ?int $websiteId): bool
+    {
         if ($externalEventId === '') {
             return true; // لا معرف فريد نتحقق منه - نكمل المعالجة بدل ما نرفضها بالخطأ
         }
@@ -2220,12 +2250,14 @@ JS;
     }
 
     /** POST /api/chat/connect/messenger */
-    public function connectMessenger(array $params = []): array {
+    public function connectMessenger(array $params = []): array
+    {
         return $this->connectMetaChannel('messenger');
     }
 
     /** POST /api/chat/connect/instagram */
-    public function connectInstagram(array $params = []): array {
+    public function connectInstagram(array $params = []): array
+    {
         return $this->connectMetaChannel('instagram');
     }
 
@@ -2235,7 +2267,8 @@ JS;
      * @param string $platform messenger|instagram
      * @return array
      */
-    private function connectMetaChannel(string $platform): array {
+    private function connectMetaChannel(string $platform): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -2295,7 +2328,8 @@ JS;
      * GET /api/chat/webhook/messenger/{website_id}?hub.mode=subscribe&hub.verify_token=...&hub.challenge=...
      * GET /api/chat/webhook/instagram/{website_id}?hub.mode=subscribe&hub.verify_token=...&hub.challenge=...
      */
-    public function verifyMetaChannelWebhook(array $params = [], string $platform = 'messenger'): array {
+    public function verifyMetaChannelWebhook(array $params = [], string $platform = 'messenger'): array
+    {
         $websiteId = (int) ($params['website_id'] ?? 0);
         $mode = $this->get('hub_mode') ?: $this->get('hub.mode');
         $token = $this->get('hub_verify_token') ?: $this->get('hub.verify_token');
@@ -2309,12 +2343,14 @@ JS;
     }
 
     /** GET /api/chat/webhook/messenger/{website_id} (Meta verification handshake) */
-    public function verifyMessengerWebhook(array $params = []): array {
+    public function verifyMessengerWebhook(array $params = []): array
+    {
         return $this->verifyMetaChannelWebhook($params, 'messenger');
     }
 
     /** GET /api/chat/webhook/instagram/{website_id} (Meta verification handshake) */
-    public function verifyInstagramWebhook(array $params = []): array {
+    public function verifyInstagramWebhook(array $params = []): array
+    {
         return $this->verifyMetaChannelWebhook($params, 'instagram');
     }
 
@@ -2324,7 +2360,8 @@ JS;
      * يُفضّل التأكد منه بربط صفحة تجريبية حقيقية بعد الرفع، لأنه لا توجد
      * بيئة اختبار حقيقية متاحة هنا لمزود Meta.
      */
-    public function messengerWebhook(array $params = []): array {
+    public function messengerWebhook(array $params = []): array
+    {
         return $this->handleMetaChannelWebhook($params, 'messenger');
     }
 
@@ -2333,7 +2370,8 @@ JS;
      * هيكل بيانات Instagram Messaging مطابق تقريبًا لـMessenger عبر نفس
      * Graph API - يُفضّل التأكد منه بربط حساب تجريبي حقيقي بعد الرفع.
      */
-    public function instagramWebhook(array $params = []): array {
+    public function instagramWebhook(array $params = []): array
+    {
         return $this->handleMetaChannelWebhook($params, 'instagram');
     }
 
@@ -2344,7 +2382,8 @@ JS;
      * @param string $platform messenger|instagram
      * @return array
      */
-    private function handleMetaChannelWebhook(array $params, string $platform): array {
+    private function handleMetaChannelWebhook(array $params, string $platform): array
+    {
         $websiteId = (int) ($params['website_id'] ?? 0);
         $secret = $this->get('secret');
 
@@ -2404,10 +2443,11 @@ JS;
      * Inbound Parse، Mailgun Routes، إلخ) - لأن الشركة لم تحدد مزودًا
      * بعد. عند اختيار مزود حقيقي، يلزم فقط تعديل استخراج الحقول من
      * $this->all() في بداية الدالة لتطابق صيغته - باقي التدفق
-     * (idempotency + processIncomingMessage) يبقى كما هو (بند 1: 
+     * (idempotency + processIncomingMessage) يبقى كما هو (بند 1:
      * Integration Architecture كاملة بدون افتراض مزود بعينه).
      */
-    public function emailWebhook(array $params = []): array {
+    public function emailWebhook(array $params = []): array
+    {
         $websiteId = (int) ($params['website_id'] ?? 0);
         $secret = $this->get('secret');
 

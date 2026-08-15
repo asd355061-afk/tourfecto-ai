@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Avatar Upload Handler
  * رفع الصورة الشخصية للمستخدم.
@@ -12,7 +13,8 @@
  * فعليًا، بدل ما نصلّح UploadManager العام ونخاطر بكسر استخدامات تانية
  * ليه (تقارير/مستندات) مش جزء من المهمة دي.
  */
-class AvatarUploadHandler {
+class AvatarUploadHandler
+{
     private array $allowedTypes = [
         'jpg' => 'image/jpeg',
         'jpeg' => 'image/jpeg',
@@ -28,7 +30,8 @@ class AvatarUploadHandler {
      * @param string|null $oldAvatarUrl الرابط القديم (لو موجود) عشان نحذف الملف القديم بعد نجاح الرفع
      * @return array ['success'=>bool, 'url'=>?string, 'error'=>?string]
      */
-    public function upload(array $file, int $userId, ?string $oldAvatarUrl = null): array {
+    public function upload(array $file, int $userId, ?string $oldAvatarUrl = null): array
+    {
         if (!isset($file['tmp_name']) || $file['error'] !== UPLOAD_ERR_OK) {
             $messages = [
                 UPLOAD_ERR_INI_SIZE => 'الصورة أكبر من الحد المسموح به في إعدادات السيرفر',
@@ -87,7 +90,8 @@ class AvatarUploadHandler {
         return ['success' => true, 'url' => '/uploads/avatars/' . $filename];
     }
 
-    private function saveResized(string $tmpPath, string $destPath, string $extension, array $imageInfo): bool {
+    private function saveResized(string $tmpPath, string $destPath, string $extension, array $imageInfo): bool
+    {
         if (!extension_loaded('gd')) {
             return false;
         }

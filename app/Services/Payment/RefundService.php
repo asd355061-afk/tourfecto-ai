@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Refund Service
  * @version 1.0.0
@@ -10,11 +11,13 @@
  * دايمًا بيحدّث حالة refunds و payment_transactions من النتيجة
  * الحقيقية بس، مش افتراض.
  */
-class RefundService {
+class RefundService
+{
     /** @var Database */
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
@@ -22,7 +25,8 @@ class RefundService {
      * @param int $paymentTransactionId معاملة الدفع الأصلية المطلوب استرجاعها
      * @param float $amount المبلغ المطلوب استرجاعه (كامل أو جزء من قيمة المعاملة)
      */
-    public function createRefund(int $paymentTransactionId, float $amount, string $reason, int $adminId): array {
+    public function createRefund(int $paymentTransactionId, float $amount, string $reason, int $adminId): array
+    {
         $ptx = (new PaymentTransaction())->find($paymentTransactionId);
         if (!$ptx) {
             return ['success' => false, 'error' => 'معاملة الدفع غير موجودة'];
@@ -81,8 +85,11 @@ class RefundService {
 
             if (class_exists('Notification')) {
                 Notification::notify(
-                    (int) $ptx->getAttribute('user_id'), 'refund_completed', 'تم استرجاع مبلغ لمحفظتك',
-                    "تم استرجاع {$amount}$ بنجاح.", '/subscription'
+                    (int) $ptx->getAttribute('user_id'),
+                    'refund_completed',
+                    'تم استرجاع مبلغ لمحفظتك',
+                    "تم استرجاع {$amount}$ بنجاح.",
+                    '/subscription'
                 );
             }
 
@@ -100,7 +107,8 @@ class RefundService {
         return ['success' => false, 'error' => $result['error'] ?? 'تعذر تنفيذ الاسترجاع'];
     }
 
-    private function totalRefundedFor(int $paymentTransactionId): float {
+    private function totalRefundedFor(int $paymentTransactionId): float
+    {
         $rows = $this->db->query(
             "SELECT COALESCE(SUM(amount), 0) AS total FROM refunds WHERE payment_transaction_id = ? AND status = 'succeeded'",
             [$paymentTransactionId]
@@ -108,7 +116,8 @@ class RefundService {
         return (float) ($rows[0]['total'] ?? 0);
     }
 
-    private function resolveGatewayFor(string $gatewayKey): ?PaymentGatewayInterface {
+    private function resolveGatewayFor(string $gatewayKey): ?PaymentGatewayInterface
+    {
         // حاليًا المحفظة بس مفعّلة فعليًا. أي بوابة حقيقية جديدة (Stripe
         // مثلاً) تتضاف هنا لما توجد Credentials حقيقية - من غير أي
         // تعديل على باقي RefundService.
@@ -119,7 +128,8 @@ class RefundService {
     }
 
     /** كل الاسترجاعات (لعرضها في لوحة الأدمن) */
-    public function listAll(int $limit = 200): array {
+    public function listAll(int $limit = 200): array
+    {
         return $this->db->query(
             "SELECT r.*, u.email AS user_email, u.company_name
              FROM refunds r

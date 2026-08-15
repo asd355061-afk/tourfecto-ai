@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Test Bootstrap
  * تهيئة بيئة الاختبار
@@ -77,7 +78,8 @@ foreach ($testDirs as $dir) {
  * إنشاء مستخدم اختباري
  * @return array
  */
-function createTestUser(): array {
+function createTestUser(): array
+{
     return [
         'company_name' => 'Test Company',
         'email' => 'test_' . uniqid() . '@example.com',
@@ -95,7 +97,8 @@ function createTestUser(): array {
  * @param int $userId
  * @return array
  */
-function createTestWebsite(int $userId): array {
+function createTestWebsite(int $userId): array
+{
     return [
         'user_id' => $userId,
         'main_url' => 'https://test-' . uniqid() . '.com',
@@ -112,7 +115,8 @@ function createTestWebsite(int $userId): array {
  * @param string $table
  * @param string $condition
  */
-function cleanTestData(string $table, string $condition = '1=1'): void {
+function cleanTestData(string $table, string $condition = '1=1'): void
+{
     $db = Database::getInstance();
     $sql = "DELETE FROM {$table} WHERE {$condition}";
     $db->query($sql);
@@ -122,7 +126,8 @@ function cleanTestData(string $table, string $condition = '1=1'): void {
  * الحصول على وقت التنفيذ
  * @return float
  */
-function getExecutionTime(): float {
+function getExecutionTime(): float
+{
     static $startTime;
     if ($startTime === null) {
         $startTime = microtime(true);
@@ -139,7 +144,8 @@ function getExecutionTime(): float {
  * @param float $time
  * @return string
  */
-function formatExecutionTime(float $time): string {
+function formatExecutionTime(float $time): string
+{
     if ($time < 1) {
         return round($time * 1000, 2) . 'ms';
     }

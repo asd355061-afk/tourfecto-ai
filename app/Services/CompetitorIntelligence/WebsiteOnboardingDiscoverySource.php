@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Website Onboarding Discovery Source
  * @version 1.0.0
@@ -10,8 +11,10 @@
  * مُضافة لجدول competitors، بيقترحها كمرشّحين بثقة عالية (المستخدم نفسه
  * قال إنهم منافسين).
  */
-class WebsiteOnboardingDiscoverySource implements CompetitorDiscoverySourceInterface {
-    public function discover(array $context): array {
+class WebsiteOnboardingDiscoverySource implements CompetitorDiscoverySourceInterface
+{
+    public function discover(array $context): array
+    {
         $websiteId = (int) ($context['website_id'] ?? 0);
         $userId = (int) ($context['user_id'] ?? 0);
 
@@ -77,7 +80,8 @@ class WebsiteOnboardingDiscoverySource implements CompetitorDiscoverySourceInter
         ];
     }
 
-    public function sourceName(): string {
+    public function sourceName(): string
+    {
         return 'website_onboarding';
     }
 }

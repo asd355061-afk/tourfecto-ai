@@ -1,11 +1,13 @@
 <?php
+
 /**
  * Tourfecto - Review Request Template Model
  * قوالب رسائل جاهزة قابلة للتخصيص لكل موقع (Friendly/Professional/
  * Short/Thank You/Custom).
  * @version 1.0.0
  */
-class ReviewRequestTemplate extends Model {
+class ReviewRequestTemplate extends Model
+{
     protected $table = 'review_request_templates';
 
     protected $fillable = [
@@ -17,7 +19,8 @@ class ReviewRequestTemplate extends Model {
      * بتتزرع تلقائيًا لأي موقع أول مرة يفتح فيها صفحة القوالب من غير
      * ما يكون عنده قوالب أصلاً.
      */
-    public static function defaultPresets(): array {
+    public static function defaultPresets(): array
+    {
         return [
             [
                 'name' => 'ودود', 'preset_type' => 'friendly',

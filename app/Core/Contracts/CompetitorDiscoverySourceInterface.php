@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Discovery Source Contract
  * @version 1.0.0
@@ -10,7 +11,8 @@
  * Key حقيقي غير متوفر - انظر "External Integrations Requiring
  * Credentials" في CHANGELOG).
  */
-interface CompetitorDiscoverySourceInterface {
+interface CompetitorDiscoverySourceInterface
+{
     /**
      * @param array $context ['industry' => ?string, 'country' => ?string, 'my_domain' => ?string]
      * @return array{available:bool, reason:?string, candidates:array} كل عنصر candidate:

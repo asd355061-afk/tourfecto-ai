@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Subscription Lifecycle Service
  * @version 1.0.0
@@ -19,7 +20,8 @@
  * فعلي يستدعي runLifecycleChecks() دوريًا - مش موجود في نطاق المشروع
  * الحالي.
  */
-class SubscriptionLifecycleService {
+class SubscriptionLifecycleService
+{
     /** فترة السماح بعد انتهاء current_period_end قبل ما الاشتراك يتلغي نهائيًا */
     private const GRACE_PERIOD_DAYS = 7;
 
@@ -38,7 +40,8 @@ class SubscriptionLifecycleService {
     /** @var Database */
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
@@ -55,7 +58,8 @@ class SubscriptionLifecycleService {
      *
      * @return array{moved_to_past_due: int, moved_to_cancelled: int, cancelled_at_period_end: int, trials_ended: int, renewal_reminders_sent: int, early_renewal_reminders_sent: int, dunning_final_notices_sent: int, auto_renewals: array}
      */
-    public function runLifecycleChecks(): array {
+    public function runLifecycleChecks(): array
+    {
         return [
             'auto_renewals' => $this->attemptAutoRenewals(),
             'cancelled_at_period_end' => $this->transitionCancelledAtPeriodEnd(),
@@ -122,15 +126,21 @@ class SubscriptionLifecycleService {
     }
 
     /** active + current_period_end انتهت → past_due (بداية فترة السماح) */
-    private function transitionExpiredActiveToPastDue(): int {
+    private function transitionExpiredActiveToPastDue(): int
+    {
         try {
             $rows = $this->db->query(
                 "SELECT id, user_id FROM subscriptions WHERE status = 'active' AND current_period_end <= NOW()"
             );
             foreach ($rows as $row) {
                 $this->db->exec("UPDATE subscriptions SET status = 'past_due', updated_at = NOW() WHERE id = ?", [(int) $row['id']]);
-                $this->notifyAndLog((int) $row['id'], (int) $row['user_id'], 'past_due',
-                    'انتهت فترة اشتراكك', 'حصل تأخير في تجديد اشتراكك - عندك 7 أيام لتجديده قبل ما يتوقف تلقائيًا.');
+                $this->notifyAndLog(
+                    (int) $row['id'],
+                    (int) $row['user_id'],
+                    'past_due',
+                    'انتهت فترة اشتراكك',
+                    'حصل تأخير في تجديد اشتراكك - عندك 7 أيام لتجديده قبل ما يتوقف تلقائيًا.'
+                );
             }
             return count($rows);
         } catch (Exception $e) {
@@ -166,15 +176,21 @@ class SubscriptionLifecycleService {
     }
 
     /** trialing + trial_ends_at انتهت → past_due (التجربة خلصت، محتاج دفع) */
-    private function transitionExpiredTrialsToPastDue(): int {
+    private function transitionExpiredTrialsToPastDue(): int
+    {
         try {
             $rows = $this->db->query(
                 "SELECT id, user_id FROM subscriptions WHERE status = 'trialing' AND trial_ends_at IS NOT NULL AND trial_ends_at <= NOW()"
             );
             foreach ($rows as $row) {
                 $this->db->exec("UPDATE subscriptions SET status = 'past_due', updated_at = NOW() WHERE id = ?", [(int) $row['id']]);
-                $this->notifyAndLog((int) $row['id'], (int) $row['user_id'], 'trial_ended',
-                    'انتهت فترة التجربة المجانية', 'خلصت فترة تجربتك المجانية - جدّد اشتراكك عشان تستمر في استخدام الباقة.');
+                $this->notifyAndLog(
+                    (int) $row['id'],
+                    (int) $row['user_id'],
+                    'trial_ended',
+                    'انتهت فترة التجربة المجانية',
+                    'خلصت فترة تجربتك المجانية - جدّد اشتراكك عشان تستمر في استخدام الباقة.'
+                );
             }
             return count($rows);
         } catch (Exception $e) {
@@ -184,7 +200,8 @@ class SubscriptionLifecycleService {
     }
 
     /** past_due + فترة السماح خلصت (GRACE_PERIOD_DAYS يوم) → cancelled */
-    private function transitionExpiredGraceToCancelled(): int {
+    private function transitionExpiredGraceToCancelled(): int
+    {
         try {
             $rows = $this->db->query(
                 "SELECT id, user_id FROM subscriptions
@@ -193,8 +210,13 @@ class SubscriptionLifecycleService {
             );
             foreach ($rows as $row) {
                 $this->db->exec("UPDATE subscriptions SET status = 'cancelled', updated_at = NOW() WHERE id = ?", [(int) $row['id']]);
-                $this->notifyAndLog((int) $row['id'], (int) $row['user_id'], 'expired',
-                    'انتهى اشتراكك', 'انتهت فترة السماح ({$this::GRACE_PERIOD_DAYS} أيام) من غير تجديد - اشتراكك بقى غير فعّال.');
+                $this->notifyAndLog(
+                    (int) $row['id'],
+                    (int) $row['user_id'],
+                    'expired',
+                    'انتهى اشتراكك',
+                    'انتهت فترة السماح ({$this::GRACE_PERIOD_DAYS} أيام) من غير تجديد - اشتراكك بقى غير فعّال.'
+                );
             }
             return count($rows);
         } catch (Exception $e) {
@@ -204,7 +226,8 @@ class SubscriptionLifecycleService {
     }
 
     /** تذكير "التجديد قريب" - مرة واحدة بس لكل اشتراك (dedup عبر activity_logs) */
-    private function sendRenewalReminders(): int {
+    private function sendRenewalReminders(): int
+    {
         return $this->sendTieredReminder(
             self::RENEWAL_REMINDER_DAYS,
             'renewal_reminder',
@@ -220,7 +243,8 @@ class SubscriptionLifecycleService {
      * رصيده قبل التجديد، والـ Dedup منفصل عن التذكير العادي (العميل
      * يقدر يستلم الاتنين بشكل متدرج، مش تكرار لنفس الرسالة).
      */
-    private function sendEarlyRenewalReminders(): int {
+    private function sendEarlyRenewalReminders(): int
+    {
         return $this->sendTieredReminder(
             self::RENEWAL_REMINDER_EARLY_DAYS,
             'early_renewal_reminder',
@@ -236,7 +260,8 @@ class SubscriptionLifecycleService {
      * للاشتراكات اللي فعلاً في past_due (دفعة فشلت/مفيهاش رصيد كافي)
      * مش اللي لسه شغالة عادي. Dedup منفصل بنفس نمط باقي التذكيرات.
      */
-    private function sendDunningFinalNotices(): int {
+    private function sendDunningFinalNotices(): int
+    {
         try {
             // نافذة الإنذار: الاشتراك في past_due وبقى في آخر DUNNING_FINAL_NOTICE_DAYS
             // أيام من فترة السماح (يعني elapsed_days من لحظة انتهاء الفترة
@@ -264,9 +289,13 @@ class SubscriptionLifecycleService {
                 if (!empty($already)) {
                     continue;
                 }
-                $this->notifyAndLog($subId, (int) $row['user_id'], 'dunning_final_notice',
+                $this->notifyAndLog(
+                    $subId,
+                    (int) $row['user_id'],
+                    'dunning_final_notice',
                     'إشتراكك هيتم إلغاؤه',
-                    'باقي ' . self::DUNNING_FINAL_NOTICE_DAYS . ' يومين فقط قبل إلغاء اشتراكك نهائيًا - جدّد رصيدك الآن عشان تحافظ على خدماتك.');
+                    'باقي ' . self::DUNNING_FINAL_NOTICE_DAYS . ' يومين فقط قبل إلغاء اشتراكك نهائيًا - جدّد رصيدك الآن عشان تحافظ على خدماتك.'
+                );
                 $sent++;
             }
             return $sent;
@@ -277,7 +306,8 @@ class SubscriptionLifecycleService {
     }
 
     /** مساعد مشترك للتذكيرات المتدرجة (7 أيام / 3 أيام) - Dedup لكل نافذة لوحدها */
-    private function sendTieredReminder(int $days, string $eventKey, string $actionKey, string $title, string $body): int {
+    private function sendTieredReminder(int $days, string $eventKey, string $actionKey, string $title, string $body): int
+    {
         try {
             $rows = $this->db->query(
                 "SELECT id, user_id FROM subscriptions
@@ -306,7 +336,8 @@ class SubscriptionLifecycleService {
         }
     }
 
-    private function notifyAndLog(int $subscriptionId, int $userId, string $eventKey, string $title, string $body): void {
+    private function notifyAndLog(int $subscriptionId, int $userId, string $eventKey, string $title, string $body): void
+    {
         if (class_exists('Notification')) {
             Notification::notify($userId, 'subscription_' . $eventKey, $title, $body, '/subscription');
         }

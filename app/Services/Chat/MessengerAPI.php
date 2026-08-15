@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * تكامل Facebook Messenger (بند 1: Integration Architecture كاملة بدون
@@ -11,8 +12,8 @@
  * @version 1.0.0
  */
 
-class MessengerAPI {
-
+class MessengerAPI
+{
     /** @var string */
     private $pageAccessToken;
 
@@ -22,14 +23,16 @@ class MessengerAPI {
     /**
      * @param string $pageAccessToken Page Access Token الخاص بصفحة الشركة على فيسبوك
      */
-    public function __construct(string $pageAccessToken) {
+    public function __construct(string $pageAccessToken)
+    {
         $this->pageAccessToken = $pageAccessToken;
     }
 
     /**
      * @return bool
      */
-    public function isConfigured(): bool {
+    public function isConfigured(): bool
+    {
         return !empty($this->pageAccessToken);
     }
 
@@ -39,7 +42,8 @@ class MessengerAPI {
      * @param string $message
      * @return bool
      */
-    public function sendMessage(string $recipientPsid, string $message): bool {
+    public function sendMessage(string $recipientPsid, string $message): bool
+    {
         if (!$this->isConfigured()) {
             Logger::warning('MessengerAPI: not configured, skipping send');
             return false;

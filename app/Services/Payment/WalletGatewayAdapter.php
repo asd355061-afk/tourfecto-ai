@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Wallet Gateway Adapter
  * @version 1.0.0
@@ -15,22 +16,26 @@
  * عشان أي تقرير/Refund مستقبلي يقدر يتعامل مع كل طرق الدفع بشكل واحد،
  * بغض النظر لو كانت محفظة أو بوابة حقيقية بكرة.
  */
-class WalletGatewayAdapter implements PaymentGatewayInterface {
+class WalletGatewayAdapter implements PaymentGatewayInterface
+{
     /** @var WalletService */
     private $walletService;
     /** @var Database */
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->walletService = new WalletService();
         $this->db = Database::getInstance();
     }
 
-    public function key(): string {
+    public function key(): string
+    {
         return 'wallet';
     }
 
-    public function isConfigured(): bool {
+    public function isConfigured(): bool
+    {
         // المحفظة دايمًا متاحة - مفيش Credentials خارجية مطلوبة (الدفع
         // نفسه يدوي بموافقة أدمن، مش API خارجي).
         return true;
@@ -42,7 +47,8 @@ class WalletGatewayAdapter implements PaymentGatewayInterface {
      * موثّق). بترجع internal_transaction_id فورًا قبل أي خصم فعلي،
      * مطابقة لمتطلب "متعتبرش الدفع ناجح غير من Redirect".
      */
-    public function createPaymentIntent(int $userId, float $amount, string $currency, array $metadata = []): array {
+    public function createPaymentIntent(int $userId, float $amount, string $currency, array $metadata = []): array
+    {
         $internalId = function_exists('generate_uuid') ? generate_uuid() : bin2hex(random_bytes(16));
 
         $tx = new PaymentTransaction();
@@ -71,7 +77,8 @@ class WalletGatewayAdapter implements PaymentGatewayInterface {
      * حقيقي من المحفظة (يُستدعى من WalletService بعد نجاح/فشل الخصم
      * الفعلي - مش قبله).
      */
-    public function markSettled(string $internalTransactionId, bool $success, ?int $relatedWalletTxId = null, ?string $failureReason = null): void {
+    public function markSettled(string $internalTransactionId, bool $success, ?int $relatedWalletTxId = null, ?string $failureReason = null): void
+    {
         try {
             $rows = (new PaymentTransaction())->where(['internal_transaction_id' => $internalTransactionId], [], 1);
             if (empty($rows)) {
@@ -98,12 +105,14 @@ class WalletGatewayAdapter implements PaymentGatewayInterface {
      * فمفيش توقيع يتحقق منه. بترجع true دايمًا لأن مصدر الحدث داخلي
      * بالكامل (موافقة الأدمن نفسه، مش نداء من الإنترنت).
      */
-    public function verifyWebhookSignature(string $rawPayload, array $headers): bool {
+    public function verifyWebhookSignature(string $rawPayload, array $headers): bool
+    {
         return true;
     }
 
     /** مفيش أحداث Webhook خارجية للمحفظة - الدالة دي مش متوقّع تتنده لبوابة المحفظة */
-    public function handleWebhookEvent(array $eventPayload): array {
+    public function handleWebhookEvent(array $eventPayload): array
+    {
         return ['internal_transaction_id' => null, 'status' => 'not_applicable', 'event_type' => 'n/a'];
     }
 
@@ -112,7 +121,8 @@ class WalletGatewayAdapter implements PaymentGatewayInterface {
      * يتصل بيه - الاسترجاع داخلي 100%). بيستخدم adminAddBalance
      * الموجودة بالفعل بدل ما يخترع منطق خصم/إضافة جديد.
      */
-    public function refund(string $gatewayTransactionId, float $amount, string $reason = ''): array {
+    public function refund(string $gatewayTransactionId, float $amount, string $reason = ''): array
+    {
         // gatewayTransactionId هنا هو internal_transaction_id بتاعنا
         // (مفيش معرّف بوابة خارجي للمحفظة).
         try {

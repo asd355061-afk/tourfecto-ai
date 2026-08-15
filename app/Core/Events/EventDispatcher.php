@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Event Dispatcher
  * @version 1.0.0
@@ -15,7 +16,8 @@
  *   $dispatcher->listen('website.verified', SomeListenerClass::class);
  *   $dispatcher->dispatch(new AppEvent('website.verified', ['website_id' => 5]));
  */
-class EventDispatcher {
+class EventDispatcher
+{
     /** @var array<string, array<callable|string>> */
     private $listeners = [];
 
@@ -24,7 +26,8 @@ class EventDispatcher {
      * @param string $eventName
      * @param callable|string $listener دالة، أو اسم كلاس بيعمل implements EventListenerInterface
      */
-    public function listen(string $eventName, $listener): void {
+    public function listen(string $eventName, $listener): void
+    {
         $this->listeners[$eventName][] = $listener;
     }
 
@@ -32,7 +35,8 @@ class EventDispatcher {
      * إطلاق الحدث لكل المستمعين المسجلين له. أي listener بيفشل (Exception)
      * بيتسجل في الـ log ومكمّلش يمنع باقي الـ listeners من التنفيذ.
      */
-    public function dispatch(AppEvent $event): void {
+    public function dispatch(AppEvent $event): void
+    {
         $listeners = $this->listeners[$event->name] ?? [];
 
         foreach ($listeners as $listener) {
@@ -57,7 +61,8 @@ class EventDispatcher {
         }
     }
 
-    public function hasListeners(string $eventName): bool {
+    public function hasListeners(string $eventName): bool
+    {
         return !empty($this->listeners[$eventName]);
     }
 }

@@ -1,21 +1,25 @@
 <?php
+
 /**
  * Tourfecto - Social Media Controller
  * لوحة إدارة السوشيال ميديا (من ai-marketing-automation-hub، مُعاد بناؤها
  * فوق platform_connections/social_posts/social_post_targets الموحّدة)
  * @version 1.0.0
  */
-class SocialMediaController extends Controller {
+class SocialMediaController extends Controller
+{
     /** @var SocialPostService */
     private $service;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->service = new SocialPostService();
     }
 
     /** GET /social */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $body = <<<HTML
         <div class="p-toolbar">
             <button class="p-btn" onclick="document.getElementById('newPostModal').classList.add('open')">+ منشور جديد</button>
@@ -131,8 +135,11 @@ JS;
     }
 
     /** GET /api/social/connections - صفحات فيسبوك/انستجرام المتاحة للنشر عليها */
-    public function listConnections(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listConnections(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         try {
             $rows = $this->db->query(
@@ -150,17 +157,25 @@ JS;
     }
 
     /** GET /api/social/posts */
-    public function listPosts(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listPosts(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $posts = (new SocialPost())->where(['user_id' => $this->user['id']], ['created_at' => 'DESC'], 50);
-        return $this->success(['posts' => array_map(fn($p) => $p->toArray(), $posts)]);
+        return $this->success(['posts' => array_map(fn ($p) => $p->toArray(), $posts)]);
     }
 
     /** POST /api/social/posts */
-    public function createPost(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!$this->validate(['content' => 'required'])) return $this->error('بيانات ناقصة', 422, $this->getErrors());
+    public function createPost(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!$this->validate(['content' => 'required'])) {
+            return $this->error('بيانات ناقصة', 422, $this->getErrors());
+        }
 
         try {
             $post = $this->service->createPost(
@@ -182,8 +197,11 @@ JS;
      * content_calendar المنفصل اللي كان في موديول content-studio -
      * مفيش داعي لتكراره لأن البيانات موجودة أصلًا هنا.
      */
-    public function getCalendar(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getCalendar(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         try {
             $rows = $this->db->query(
@@ -203,9 +221,14 @@ JS;
     }
 
     /** POST /api/social/generate-caption */
-    public function generateCaption(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!$this->validate(['topic' => 'required'])) return $this->error('الموضوع مطلوب', 422);
+    public function generateCaption(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!$this->validate(['topic' => 'required'])) {
+            return $this->error('الموضوع مطلوب', 422);
+        }
 
         $result = $this->service->generateCaption(
             (string) $this->get('topic'),

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Base Controller Class
  * كلاس التحكم الأساسي لجميع المتحكمات
@@ -7,41 +8,43 @@
  * @copyright 2026 Tourfecto
  */
 
-abstract class Controller {
+abstract class Controller
+{
     /**
      * @var Database $db - اتصال قاعدة البيانات
      */
     protected $db;
-    
+
     /**
      * @var array $data - بيانات الطلب
      */
     protected $data = [];
-    
+
     /**
      * @var array $input - بيانات الإدخال (JSON)
      */
     protected $input = [];
-    
+
     /**
      * @var array $errors - أخطاء التحقق
      */
     protected $errors = [];
-    
+
     /**
      * @var bool $authenticated - حالة المصادقة
      */
     protected $authenticated = false;
-    
+
     /**
      * @var array $user - بيانات المستخدم الحالي
      */
     protected $user = [];
-    
+
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
         $this->parseInput();
         $this->loadAuthenticatedUser();
@@ -57,7 +60,8 @@ abstract class Controller {
      * المتحكمات، فكانت $this->isAuthenticated() ترجع false دائمًا حتى مع
      * تسجيل دخول صحيح، ما يعطّل كل مسارات AI/Chat/Dashboard/Reputation/Subscription.
      */
-    protected function loadAuthenticatedUser(): void {
+    protected function loadAuthenticatedUser(): void
+    {
         $user = $_SESSION['user'] ?? ($_SERVER['auth_user'] ?? null);
 
         if (is_array($user) && !empty($user)) {
@@ -65,24 +69,25 @@ abstract class Controller {
             $this->authenticated = true;
         }
     }
-    
+
     /**
      * تحليل بيانات الإدخال
      */
-    protected function parseInput(): void {
+    protected function parseInput(): void
+    {
         $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
-        
+
         if (strpos($contentType, 'application/json') !== false) {
             $input = file_get_contents('php://input');
             $this->input = json_decode($input, true) ?? [];
         } else {
             $this->input = $_POST;
         }
-        
+
         // دمج مع بيانات GET
         $this->data = array_merge($this->input, $_GET);
     }
-    
+
     /**
      * إرسال استجابة ناجحة
      * @param array $data
@@ -90,7 +95,8 @@ abstract class Controller {
      * @param int $code
      * @return array
      */
-    protected function success(array $data = [], string $message = 'Success', int $code = 200): array {
+    protected function success(array $data = [], string $message = 'Success', int $code = 200): array
+    {
         return [
             'success' => true,
             'message' => $message,
@@ -98,7 +104,7 @@ abstract class Controller {
             'code' => $code
         ];
     }
-    
+
     /**
      * إرسال استجابة خطأ
      * @param string $error
@@ -106,7 +112,8 @@ abstract class Controller {
      * @param array $details
      * @return array
      */
-    protected function error(string $error, int $code = 400, array $details = []): array {
+    protected function error(string $error, int $code = 400, array $details = []): array
+    {
         return [
             'success' => false,
             'error' => $error,
@@ -114,121 +121,151 @@ abstract class Controller {
             'details' => $details
         ];
     }
-    
+
+    /**
+     * فحص CSRF اختياري (Opt-in) - بيتنادى من أي Controller/Method بيقرر
+     * يستخدمه بنفسه صراحة. بيستثني عملاء الـ Bearer Token (API Keys
+     * الشخصية، JWT، مفاتيح الشركاء) لأنهم مش معتمدين على كوكي الجلسة.
+     * @return array|null يرجع مصفوفة خطأ (419) لو فشل الفحص، أو null لو ناجح
+     */
+    protected function verifyCsrf(): ?array
+    {
+        $headers = function_exists('getallheaders') ? (getallheaders() ?: []) : [];
+        if (!empty($headers['Authorization']) || !empty($headers['authorization'])) {
+            return null;
+        }
+
+        $submitted = (string) $this->get('csrf_token');
+        if (!class_exists('Csrf') || !Csrf::verify($submitted)) {
+            return $this->error('انتهت صلاحية الجلسة، حدّث الصفحة وحاول تاني', 419);
+        }
+        return null;
+    }
+
     /**
      * الحصول على قيمة من الإدخال
      * @param string $key
      * @param mixed $default
      * @return mixed
      */
-    protected function get(string $key, $default = null) {
+    protected function get(string $key, $default = null)
+    {
         return $this->data[$key] ?? $default;
     }
-    
+
     /**
      * الحصول على جميع قيم الإدخال
      * @return array
      */
-    protected function all(): array {
+    protected function all(): array
+    {
         return $this->data;
     }
-    
+
     /**
      * التحقق من وجود قيمة في الإدخال
      * @param string $key
      * @return bool
      */
-    protected function has(string $key): bool {
+    protected function has(string $key): bool
+    {
         return isset($this->data[$key]);
     }
-    
+
     /**
      * التحقق من البيانات
      * @param array $rules
      * @return bool
      */
-    protected function validate(array $rules): bool {
+    protected function validate(array $rules): bool
+    {
         $validator = new Validator();
         $result = $validator->validate($this->data, $rules);
-        
+
         if (!$result['valid']) {
             $this->errors = $result['errors'];
             return false;
         }
-        
+
         return true;
     }
-    
+
     /**
      * الحصول على أخطاء التحقق
      * @return array
      */
-    protected function getErrors(): array {
+    protected function getErrors(): array
+    {
         return $this->errors;
     }
-    
+
     /**
      * مصادقة المستخدم
      * @param string $token
      * @return bool
      */
-    protected function authenticate(string $token): bool {
+    protected function authenticate(string $token): bool
+    {
         try {
             // التحقق من التوكن في قاعدة البيانات
             // تصحيح: لا يوجد عمود is_active، العمود الفعلي هو status='active'
             $sql = "SELECT * FROM users WHERE api_token = :token AND status = 'active' LIMIT 1";
             $result = $this->db->query($sql, [':token' => $token]);
-            
+
             if (empty($result)) {
                 return false;
             }
-            
+
             $this->user = $result[0];
             $this->authenticated = true;
             return true;
-            
+
         } catch (Exception $e) {
             return false;
         }
     }
-    
+
     /**
      * التحقق من المصادقة
      * @return bool
      */
-    protected function isAuthenticated(): bool {
+    protected function isAuthenticated(): bool
+    {
         return $this->authenticated;
     }
-    
+
     /**
      * الحصول على بيانات المستخدم الحالي
      * @return array
      */
-    protected function getUser(): array {
+    protected function getUser(): array
+    {
         return $this->user;
     }
-    
+
     /**
      * التحقق من صلاحية المستخدم
      * @param string $permission
      * @return bool
      */
-    protected function hasPermission(string $permission): bool {
+    protected function hasPermission(string $permission): bool
+    {
         if (!$this->isAuthenticated()) {
             return false;
         }
-        
+
         // التحقق من صلاحيات المستخدم
         // يمكن توسيع هذا حسب نظام الصلاحيات
         return true;
     }
-    
+
     /**
      * تسجيل نشاط
      * @param string $action
      * @param array $data
      */
-    protected function log(string $action, array $data = []): void {
+    protected function log(string $action, array $data = []): void
+    {
         Logger::info('User Action: ' . $action, [
             'user_id' => $this->user['id'] ?? null,
             'data' => $data,
@@ -260,11 +297,13 @@ abstract class Controller {
      * @param string $key
      * @return string
      */
-    protected function trJs(string $key): string {
+    protected function trJs(string $key): string
+    {
         return json_encode(t($key), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS);
     }
 
-    protected function tr(string $key): string {
+    protected function tr(string $key): string
+    {
         return htmlspecialchars(t($key), ENT_QUOTES, 'UTF-8');
     }
 
@@ -276,11 +315,13 @@ abstract class Controller {
      * يفهمها غلط كمتغير).
      * @return string
      */
-    protected function i18nJson(): string {
+    protected function i18nJson(): string
+    {
         return json_encode(load_translations(current_lang()), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS);
     }
 
-    protected function renderPanelSidebar(string $activeTab): string {
+    protected function renderPanelSidebar(string $activeTab): string
+    {
         $isAdmin = in_array($this->user['role'] ?? 'user', ['admin', 'super_admin'], true);
 
         $groups = [
@@ -291,6 +332,7 @@ abstract class Controller {
             t('sidebar.group.main') => [
                 'overview' => [t('sidebar.overview'), '📊', '/dashboard'],
                 'executive' => [t('sidebar.executive'), '🧭', '/dashboard/executive'],
+                'growth' => [t('sidebar.growth'), '🚀', '/dashboard/growth'],
                 'analytics' => [t('sidebar.analytics'), '📈', '/dashboard/analytics'],
                 'activity' => [t('sidebar.activity'), '🕓', '/dashboard/activity'],
             ],
@@ -389,7 +431,8 @@ abstract class Controller {
      * @param string $scriptJs كود JS بيتنفذ بعد تحميل الصفحة (من غير <script> tags)
      * @return string
      */
-    protected function renderPanelPage(string $activeTab, string $pageTitle, string $pageSubtitle, string $bodyHtml, string $scriptJs = ''): string {
+    protected function renderPanelPage(string $activeTab, string $pageTitle, string $pageSubtitle, string $bodyHtml, string $scriptJs = ''): string
+    {
         // تصحيح مهم: الصفحات دي فيها بيانات مستخدم شخصية (شات/تقارير/إعدادات)
         // ومحتاجة تفضل ديناميكية دايمًا. من غير الهيدرز دي، أي كاش على
         // مستوى السيرفر (زي LiteSpeed LSCache اللي شفناه في اللوج) ممكن

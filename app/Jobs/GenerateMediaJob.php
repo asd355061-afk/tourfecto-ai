@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Generate Media Job (Creative Studio)
  * @version 2.0.0
@@ -7,8 +8,10 @@
  * gemini-2.5-flash-image / "Nano Banana") بنفس GEMINI_API_KEY الموجود
  * فعلاً في .env - مفيش أي مفتاح API جديد أو حساب خارجي مطلوب.
  */
-class GenerateMediaJob implements QueueJobInterface {
-    public function handle(array $payload): void {
+class GenerateMediaJob implements QueueJobInterface
+{
+    public function handle(array $payload): void
+    {
         $itemId = (int) ($payload['media_item_id'] ?? 0);
         $item = (new MediaItem())->find($itemId);
 

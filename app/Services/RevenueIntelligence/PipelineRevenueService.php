@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Deal & Pipeline Revenue Intelligence Service
  * @version 1.0.0
@@ -10,15 +11,18 @@
  * (rev_revenue_records) كما ينص section 6 صراحةً؛ "Pipeline Revenue"
  * لا يُعامَل أبدًا كإيراد محقق.
  */
-class PipelineRevenueService {
+class PipelineRevenueService
+{
     /** @var RevenueDataGateway */
     private $gateway;
 
-    public function __construct(?RevenueDataGateway $gateway = null) {
+    public function __construct(?RevenueDataGateway $gateway = null)
+    {
         $this->gateway = $gateway ?? new RevenueDataGateway();
     }
 
-    public function getPipelineIntelligence(int $userId): array {
+    public function getPipelineIntelligence(int $userId): array
+    {
         $openDeals = $this->gateway->getDeals($userId, 'open');
         $wonRecent = $this->gateway->getWonDealsByContact(
             $userId,
@@ -40,7 +44,8 @@ class PipelineRevenueService {
      * @param array $openDeals صفقات مفتوحة (من getDeals(status='open'))
      * @param float|null $avgActualRevenuePerMonth متوسط إيراد فعلي شهري حديث (للمقارنة/Coverage) - null لو غير متاح
      */
-    public static function computePipeline(array $openDeals, ?float $avgActualRevenuePerMonth, ?string $nowStr = null): array {
+    public static function computePipeline(array $openDeals, ?float $avgActualRevenuePerMonth, ?string $nowStr = null): array
+    {
         $now = new DateTime($nowStr ?? 'now');
 
         $pipelineValue = 0.0;
@@ -83,8 +88,12 @@ class PipelineRevenueService {
             }
         }
 
-        usort($atRiskDeals, static function ($a, $b) { return $b['days_overdue'] <=> $a['days_overdue']; });
-        usort($likelyWins, static function ($a, $b) { return $b['value'] <=> $a['value']; });
+        usort($atRiskDeals, static function ($a, $b) {
+            return $b['days_overdue'] <=> $a['days_overdue'];
+        });
+        usort($likelyWins, static function ($a, $b) {
+            return $b['value'] <=> $a['value'];
+        });
 
         $coverage = null;
         if ($avgActualRevenuePerMonth !== null && $avgActualRevenuePerMonth > 0) {
