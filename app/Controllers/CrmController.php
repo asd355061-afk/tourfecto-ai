@@ -188,11 +188,15 @@ JS;
         }
 
         try {
-            $lead = $this->leadService->updateStatus((int) ($params['id'] ?? 0), (string) $this->get('status'));
+            $lead = $this->leadService->updateStatus((int) ($params['id'] ?? 0), (string) $this->get('status'), $this->tenantId());
             return $this->success(['lead' => $lead->toArray()], 'تم التحديث');
         } catch (Exception $e) {
             Logger::error('updateLeadStatus Error', ['message' => $e->getMessage()]);
-            return $this->error($e->getMessage(), 500);
+            // إصلاح المرحلة 9: استخدام كود الخطأ الفعلي (404 لو Lead مش
+            // موجود/مش ملك الحساب) بدل 500 ثابت دايمًا - يتماشى مع تصحيح
+            // ثغرة التحقق من الملكية.
+            $code = $e->getCode() >= 400 && $e->getCode() < 600 ? $e->getCode() : 500;
+            return $this->error($e->getMessage(), $code);
         }
     }
 
@@ -313,9 +317,7 @@ JS;
                         (new ReviewRequestService())->maybeCreateFromCrmDeal(
                             $this->tenantId(),
                             (string) $contact->getAttribute('name'),
-                            $contact->getAttribute('phone'),
-                            $contact->getAttribute('email'),
-                            (int) $deal->getAttribute('id')
+                            $contact->getAttribute('phone')
                         );
                     }
                 } catch (Exception $e) {
@@ -356,7 +358,20 @@ JS;
         $tabsHtml = $this->crmTabsHtml('leads');
         $body = <<<HTML
         {$tabsHtml}
-        <div class="p-toolbar">
+        <div class="p-toolbar" style="flex-wrap:wrap;gap:8px;">
+            <input type="text" id="leadSearch" class="form-control" style="max-width:200px;" placeholder="{$this->tr('crm.contacts.search_placeholder')}">
+            <select id="leadFilterStatus" class="form-control" style="max-width:150px;">
+                <option value="">{$this->tr('crm.filters.status_any')}</option>
+                <option value="new">{$this->tr('crm.leads.status.new')}</option>
+                <option value="nurturing">{$this->tr('crm.leads.status.nurturing')}</option>
+                <option value="qualified">{$this->tr('crm.leads.status.qualified')}</option>
+                <option value="disqualified">{$this->tr('crm.leads.status.disqualified')}</option>
+                <option value="converted">{$this->tr('crm.leads.status.converted')}</option>
+            </select>
+            <button class="p-btn xs" onclick="applyLeadFilters()">{$this->tr('crm.filters.apply')}</button>
+            <button class="p-btn xs" onclick="clearLeadFilters()">{$this->tr('crm.filters.clear')}</button>
+            <span style="flex:1;"></span>
+            <a class="p-btn xs" href="/api/crm/leads/export">{$this->tr('crm.export.button')}</a>
             <button class="p-btn" onclick="document.getElementById('newLeadModal').classList.add('open')">+ {$this->tr('crm.leads.new')}</button>
         </div>
         <div class="p-card no-pad">
@@ -364,6 +379,13 @@ JS;
                 <thead><tr><th>{$this->tr('crm.leads.col.name')}</th><th>{$this->tr('crm.leads.col.email')}</th><th>{$this->tr('crm.leads.col.phone')}</th><th>{$this->tr('crm.leads.col.status')}</th><th>{$this->tr('crm.leads.col.last_engagement')}</th></tr></thead>
                 <tbody><tr class="p-loading-row"><td colspan="5">{$this->tr('common.loading')}</td></tr></tbody>
             </table></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+            <div id="leadsPaginationInfo" class="p-cell-muted" style="font-size:12.5px;"></div>
+            <div>
+                <button class="p-btn xs" id="leadsPrevBtn" onclick="changeLeadsPage(-1)">‹ {$this->tr('crm.pagination.prev')}</button>
+                <button class="p-btn xs" id="leadsNextBtn" onclick="changeLeadsPage(1)">{$this->tr('crm.pagination.next')} ›</button>
+            </div>
         </div>
 
         <div class="p-modal-overlay" id="newLeadModal">
@@ -393,6 +415,8 @@ HTML;
 (function () {
     const P = window.Panel;
     const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast, formatDate = P.formatDate;
+    let currentPage = 1;
+    let totalPages = 1;
 
     const statusLabels = {
         new: I18N['crm.leads.status.new'], nurturing: I18N['crm.leads.status.nurturing'], qualified: I18N['crm.leads.status.qualified'],
@@ -426,11 +450,31 @@ HTML;
         else toast(res.error || I18N['crm.leads.add_failed'], 'error');
     };
 
+    window.applyLeadFilters = function () { currentPage = 1; load(); };
+    window.clearLeadFilters = function () {
+        document.getElementById('leadSearch').value = '';
+        document.getElementById('leadFilterStatus').value = '';
+        currentPage = 1;
+        load();
+    };
+    window.changeLeadsPage = function (delta) {
+        const next = currentPage + delta;
+        if (next < 1 || next > totalPages) return;
+        currentPage = next;
+        load();
+    };
+
     async function load() {
-        const res = await fetchJSON('/api/crm/leads');
+        const params = new URLSearchParams({ page: currentPage, per_page: 25 });
+        const search = document.getElementById('leadSearch').value.trim();
+        const status = document.getElementById('leadFilterStatus').value;
+        if (search) params.set('search', search);
+        if (status) params.set('status', status);
+
+        const res = await fetchJSON('/api/crm/leads/search?' + params.toString());
         const tbody = document.querySelector('#leadsTable tbody');
-        if (res.success && res.data.leads && res.data.leads.length) {
-            tbody.innerHTML = res.data.leads.map(l => `
+        if (res.success && res.data.items && res.data.items.length) {
+            tbody.innerHTML = res.data.items.map(l => `
                 <tr>
                     <td>${esc(l.contact_name || '-')}</td>
                     <td style="direction:ltr;text-align:left;">${esc(l.contact_email || '-')}</td>
@@ -438,8 +482,14 @@ HTML;
                     <td><select class="p-select xs" onchange="changeLeadStatus(${l.id}, this.value)">${statusOptions.replace(`value="${l.status}"`, `value="${l.status}" selected`)}</select></td>
                     <td class="p-cell-muted">${l.last_engagement_at ? formatDate(l.last_engagement_at) : '-'}</td>
                 </tr>`).join('');
+            totalPages = res.data.total_pages || 1;
+            document.getElementById('leadsPaginationInfo').textContent =
+                I18N['crm.pagination.page_of'].replace('{page}', res.data.page).replace('{total}', totalPages) + ' · ' + res.data.total;
+            document.getElementById('leadsPrevBtn').disabled = res.data.page <= 1;
+            document.getElementById('leadsNextBtn').disabled = res.data.page >= totalPages;
         } else {
             tbody.innerHTML = `<tr><td colspan="5" class="p-cell-muted text-center">${I18N['crm.leads.none_yet']}</td></tr>`;
+            document.getElementById('leadsPaginationInfo').textContent = '';
         }
     }
     load();
@@ -456,10 +506,43 @@ JS;
         $tabsHtml = $this->crmTabsHtml('deals');
         $body = <<<HTML
         {$tabsHtml}
-        <div class="p-toolbar">
+        <div class="p-toolbar" style="flex-wrap:wrap;gap:8px;">
+            <button class="p-btn xs" id="viewToggleKanban" onclick="switchView('kanban')">{$this->tr('crm.deals.view_kanban')}</button>
+            <button class="p-btn xs" id="viewToggleList" onclick="switchView('list')">{$this->tr('crm.deals.view_list')}</button>
+            <span style="flex:1;"></span>
+            <a class="p-btn xs" href="/api/crm/deals/export">{$this->tr('crm.export.button')}</a>
             <button class="p-btn" onclick="document.getElementById('newDealModal').classList.add('open')">+ {$this->tr('crm.deals.new')}</button>
         </div>
         <div id="dealsBoard" style="display:flex;gap:14px;overflow-x:auto;padding-bottom:10px;">{$this->tr('common.loading')}</div>
+
+        <div id="dealsListView" style="display:none;">
+            <div class="p-toolbar" style="flex-wrap:wrap;gap:8px;">
+                <input type="text" id="dealSearch" class="form-control" style="max-width:200px;" placeholder="{$this->tr('crm.contacts.search_placeholder')}">
+                <select id="dealFilterStatus" class="form-control" style="max-width:150px;">
+                    <option value="">{$this->tr('crm.filters.status_any')}</option>
+                    <option value="open">{$this->tr('crm.deals.status.open')}</option>
+                    <option value="won">{$this->tr('crm.deals.status.won')}</option>
+                    <option value="lost">{$this->tr('crm.deals.status.lost')}</option>
+                </select>
+                <input type="number" id="dealMinValue" class="form-control" style="max-width:120px;" placeholder="{$this->tr('crm.deals.min_value')}">
+                <input type="number" id="dealMaxValue" class="form-control" style="max-width:120px;" placeholder="{$this->tr('crm.deals.max_value')}">
+                <button class="p-btn xs" onclick="applyDealFilters()">{$this->tr('crm.filters.apply')}</button>
+                <button class="p-btn xs" onclick="clearDealFilters()">{$this->tr('crm.filters.clear')}</button>
+            </div>
+            <div class="p-card no-pad">
+                <div class="p-table-scroll"><table class="p-table" id="dealsTable">
+                    <thead><tr><th>{$this->tr('crm.deals.title_label')}</th><th>{$this->tr('crm.deals.stage')}</th><th>{$this->tr('crm.deals.value')}</th><th>{$this->tr('crm.leads.col.status')}</th></tr></thead>
+                    <tbody><tr class="p-loading-row"><td colspan="4">{$this->tr('common.loading')}</td></tr></tbody>
+                </table></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+                <div id="dealsPaginationInfo" class="p-cell-muted" style="font-size:12.5px;"></div>
+                <div>
+                    <button class="p-btn xs" id="dealsPrevBtn" onclick="changeDealsPage(-1)">‹ {$this->tr('crm.pagination.prev')}</button>
+                    <button class="p-btn xs" id="dealsNextBtn" onclick="changeDealsPage(1)">{$this->tr('crm.pagination.next')} ›</button>
+                </div>
+            </div>
+        </div>
 
         <div class="p-modal-overlay" id="newDealModal">
             <div class="p-modal">
@@ -489,6 +572,9 @@ HTML;
     const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast;
     let stages = [];
     let dragDealId = null;
+    let currentView = 'kanban';
+    let listPage = 1;
+    let listTotalPages = 1;
 
     async function loadStages() {
         const res = await fetchJSON('/api/crm/pipeline-stages');
@@ -509,7 +595,7 @@ HTML;
             }),
         });
         document.getElementById('newDealModal').classList.remove('open');
-        if (res.success) { toast(I18N['crm.deals.created'], 'success'); load(); }
+        if (res.success) { toast(I18N['crm.deals.created'], 'success'); loadCurrentView(); }
         else toast(res.error || I18N['crm.deals.create_failed'], 'error');
     };
 
@@ -523,6 +609,8 @@ HTML;
         if (res.success) load();
         else toast(res.error || I18N['crm.deals.move_failed'], 'error');
     };
+
+    // ================= Kanban (الأصلية - لم تتغيّر) =================
 
     async function load() {
         const res = await fetchJSON('/api/crm/deals');
@@ -545,6 +633,68 @@ HTML;
                     </div>`).join('') || `<p class="p-cell-muted" style="font-size:12.5px;">${I18N['crm.deals.empty_column']}</p>`}
             </div>`;
         }).join('');
+    }
+
+    // ================= List View جديدة (بند 29، 37) - بديل اختياري للـKanban =================
+
+    window.switchView = function (view) {
+        currentView = view;
+        document.getElementById('dealsBoard').style.display = view === 'kanban' ? 'flex' : 'none';
+        document.getElementById('dealsListView').style.display = view === 'list' ? 'block' : 'none';
+        document.getElementById('viewToggleKanban').classList.toggle('primary', view === 'kanban');
+        document.getElementById('viewToggleList').classList.toggle('primary', view === 'list');
+        loadCurrentView();
+    };
+
+    window.applyDealFilters = function () { listPage = 1; loadListView(); };
+    window.clearDealFilters = function () {
+        document.getElementById('dealSearch').value = '';
+        document.getElementById('dealFilterStatus').value = '';
+        document.getElementById('dealMinValue').value = '';
+        document.getElementById('dealMaxValue').value = '';
+        listPage = 1;
+        loadListView();
+    };
+    window.changeDealsPage = function (delta) {
+        const next = listPage + delta;
+        if (next < 1 || next > listTotalPages) return;
+        listPage = next;
+        loadListView();
+    };
+
+    async function loadListView() {
+        const params = new URLSearchParams({ page: listPage, per_page: 25 });
+        const search = document.getElementById('dealSearch').value.trim();
+        const status = document.getElementById('dealFilterStatus').value;
+        const minValue = document.getElementById('dealMinValue').value;
+        const maxValue = document.getElementById('dealMaxValue').value;
+        if (search) params.set('search', search);
+        if (status) params.set('status', status);
+        if (minValue) params.set('min_value', minValue);
+        if (maxValue) params.set('max_value', maxValue);
+
+        const res = await fetchJSON('/api/crm/deals/search?' + params.toString());
+        const tbody = document.querySelector('#dealsTable tbody');
+        const list = res.success ? res.data.items : [];
+        tbody.innerHTML = list.length ? list.map(d => `
+            <tr>
+                <td>${esc(d.title)}</td>
+                <td><span class="p-badge" style="background:${esc(d.stage_color || '#6366f1')};color:#fff;">${esc(d.stage_name)}</span></td>
+                <td>${esc(d.value)} ${esc(d.currency)}</td>
+                <td><span class="p-badge">${esc(d.status)}</span></td>
+            </tr>`).join('') : `<tr><td colspan="4" class="p-cell-muted text-center">${I18N['crm.deals.empty_column']}</td></tr>`;
+
+        if (res.success) {
+            listTotalPages = res.data.total_pages || 1;
+            document.getElementById('dealsPaginationInfo').textContent =
+                I18N['crm.pagination.page_of'].replace('{page}', res.data.page).replace('{total}', listTotalPages) + ' · ' + res.data.total;
+            document.getElementById('dealsPrevBtn').disabled = res.data.page <= 1;
+            document.getElementById('dealsNextBtn').disabled = res.data.page >= listTotalPages;
+        }
+    }
+
+    function loadCurrentView() {
+        if (currentView === 'kanban') load(); else loadListView();
     }
 
     loadStages().then(load);
@@ -979,7 +1129,11 @@ JS;
         $tabsHtml = $this->crmTabsHtml('companies');
         $body = <<<HTML
         {$tabsHtml}
-        <div class="p-toolbar">
+        <div class="p-toolbar" style="flex-wrap:wrap;gap:8px;">
+            <input type="text" id="companySearch" class="form-control" style="max-width:220px;" placeholder="{$this->tr('crm.contacts.search_placeholder')}">
+            <button class="p-btn xs" onclick="applyCompanyFilters()">{$this->tr('crm.filters.apply')}</button>
+            <button class="p-btn xs" onclick="clearCompanyFilters()">{$this->tr('crm.filters.clear')}</button>
+            <span style="flex:1;"></span>
             <button class="p-btn" onclick="document.getElementById('newCompanyModal').classList.add('open')">+ {$this->tr('crm.companies.new')}</button>
         </div>
         <div class="p-card no-pad">
@@ -987,6 +1141,13 @@ JS;
                 <thead><tr><th>{$this->tr('crm.companies.col.name')}</th><th>{$this->tr('crm.companies.col.industry')}</th><th>{$this->tr('crm.companies.col.website')}</th><th>{$this->tr('crm.companies.col.phone')}</th></tr></thead>
                 <tbody><tr class="p-loading-row"><td colspan="4">{$this->tr('common.loading')}</td></tr></tbody>
             </table></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+            <div id="companiesPaginationInfo" class="p-cell-muted" style="font-size:12.5px;"></div>
+            <div>
+                <button class="p-btn xs" id="companiesPrevBtn" onclick="changeCompaniesPage(-1)">‹ {$this->tr('crm.pagination.prev')}</button>
+                <button class="p-btn xs" id="companiesNextBtn" onclick="changeCompaniesPage(1)">{$this->tr('crm.pagination.next')} ›</button>
+            </div>
         </div>
         <div class="p-modal-overlay" id="newCompanyModal">
             <div class="p-modal">
@@ -1010,6 +1171,8 @@ HTML;
 (function () {
     const P = window.Panel;
     const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast;
+    let currentPage = 1;
+    let totalPages = 1;
 
     window.addCompany = async function () {
         const name = document.getElementById('coName').value.trim();
@@ -1028,13 +1191,34 @@ HTML;
         else toast(res.error || I18N['crm.leads.add_failed'], 'error');
     };
 
+    window.applyCompanyFilters = function () { currentPage = 1; load(); };
+    window.clearCompanyFilters = function () { document.getElementById('companySearch').value = ''; currentPage = 1; load(); };
+    window.changeCompaniesPage = function (delta) {
+        const next = currentPage + delta;
+        if (next < 1 || next > totalPages) return;
+        currentPage = next;
+        load();
+    };
+
     async function load() {
-        const res = await fetchJSON('/api/crm/companies');
+        const params = new URLSearchParams({ page: currentPage, per_page: 25 });
+        const search = document.getElementById('companySearch').value.trim();
+        if (search) params.set('search', search);
+
+        const res = await fetchJSON('/api/crm/companies/search?' + params.toString());
         const tbody = document.querySelector('#companiesTable tbody');
-        const list = res.success ? res.data.companies : [];
+        const list = res.success ? res.data.items : [];
         tbody.innerHTML = list.length ? list.map(c => `
             <tr><td>${esc(c.name)}</td><td>${esc(c.industry || '-')}</td><td style="direction:ltr;text-align:left;">${esc(c.website || '-')}</td><td style="direction:ltr;text-align:left;">${esc(c.phone || '-')}</td></tr>
         `).join('') : `<tr><td colspan="4" class="p-cell-muted text-center">${I18N['crm.companies.none_yet']}</td></tr>`;
+
+        if (res.success) {
+            totalPages = res.data.total_pages || 1;
+            document.getElementById('companiesPaginationInfo').textContent =
+                I18N['crm.pagination.page_of'].replace('{page}', res.data.page).replace('{total}', totalPages) + ' · ' + res.data.total;
+            document.getElementById('companiesPrevBtn').disabled = res.data.page <= 1;
+            document.getElementById('companiesNextBtn').disabled = res.data.page >= totalPages;
+        }
     }
     load();
 })();
@@ -1050,7 +1234,25 @@ JS;
         $tabsHtml = $this->crmTabsHtml('tasks');
         $body = <<<HTML
         {$tabsHtml}
-        <div class="p-toolbar">
+        <div class="p-toolbar" style="flex-wrap:wrap;gap:8px;">
+            <input type="text" id="taskSearch" class="form-control" style="max-width:200px;" placeholder="{$this->tr('crm.contacts.search_placeholder')}">
+            <select id="taskFilterStatus" class="form-control" style="max-width:150px;">
+                <option value="">{$this->tr('crm.filters.status_any')}</option>
+                <option value="open">{$this->tr('crm.tasks.status.open')}</option>
+                <option value="in_progress">{$this->tr('crm.tasks.status.in_progress')}</option>
+                <option value="done">{$this->tr('crm.tasks.status.done')}</option>
+                <option value="cancelled">{$this->tr('crm.tasks.status.cancelled')}</option>
+            </select>
+            <select id="taskFilterPriority" class="form-control" style="max-width:150px;">
+                <option value="">{$this->tr('crm.filters.priority_any')}</option>
+                <option value="low">{$this->tr('crm.priority.low')}</option>
+                <option value="medium">{$this->tr('crm.priority.medium')}</option>
+                <option value="high">{$this->tr('crm.priority.high')}</option>
+            </select>
+            <button class="p-btn xs" onclick="applyTaskFilters()">{$this->tr('crm.filters.apply')}</button>
+            <button class="p-btn xs" onclick="clearTaskFilters()">{$this->tr('crm.filters.clear')}</button>
+            <span style="flex:1;"></span>
+            <a class="p-btn xs" href="/api/crm/tasks/export">{$this->tr('crm.export.button')}</a>
             <button class="p-btn" onclick="document.getElementById('newTaskModal').classList.add('open')">+ {$this->tr('crm.tasks.new')}</button>
         </div>
         <div class="p-card no-pad">
@@ -1058,6 +1260,13 @@ JS;
                 <thead><tr><th>{$this->tr('crm.tasks.col.title')}</th><th>{$this->tr('crm.tasks.col.due')}</th><th>{$this->tr('crm.tasks.col.priority')}</th><th>{$this->tr('crm.tasks.col.status')}</th></tr></thead>
                 <tbody><tr class="p-loading-row"><td colspan="4">{$this->tr('common.loading')}</td></tr></tbody>
             </table></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+            <div id="tasksPaginationInfo" class="p-cell-muted" style="font-size:12.5px;"></div>
+            <div>
+                <button class="p-btn xs" id="tasksPrevBtn" onclick="changeTasksPage(-1)">‹ {$this->tr('crm.pagination.prev')}</button>
+                <button class="p-btn xs" id="tasksNextBtn" onclick="changeTasksPage(1)">{$this->tr('crm.pagination.next')} ›</button>
+            </div>
         </div>
         <div class="p-modal-overlay" id="newTaskModal">
             <div class="p-modal">
@@ -1083,6 +1292,8 @@ HTML;
 (function () {
     const P = window.Panel;
     const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast, formatDate = P.formatDate;
+    let currentPage = 1;
+    let totalPages = 1;
 
     window.addTask = async function () {
         const title = document.getElementById('tTitle').value.trim();
@@ -1107,10 +1318,33 @@ HTML;
         if (res.success) load(); else toast(res.error, 'error');
     };
 
+    window.applyTaskFilters = function () { currentPage = 1; load(); };
+    window.clearTaskFilters = function () {
+        document.getElementById('taskSearch').value = '';
+        document.getElementById('taskFilterStatus').value = '';
+        document.getElementById('taskFilterPriority').value = '';
+        currentPage = 1;
+        load();
+    };
+    window.changeTasksPage = function (delta) {
+        const next = currentPage + delta;
+        if (next < 1 || next > totalPages) return;
+        currentPage = next;
+        load();
+    };
+
     async function load() {
-        const res = await fetchJSON('/api/crm/tasks');
+        const params = new URLSearchParams({ page: currentPage, per_page: 25 });
+        const search = document.getElementById('taskSearch').value.trim();
+        const status = document.getElementById('taskFilterStatus').value;
+        const priority = document.getElementById('taskFilterPriority').value;
+        if (search) params.set('search', search);
+        if (status) params.set('status', status);
+        if (priority) params.set('priority', priority);
+
+        const res = await fetchJSON('/api/crm/tasks/search?' + params.toString());
         const tbody = document.querySelector('#tasksTable tbody');
-        const list = res.success ? res.data.tasks : [];
+        const list = res.success ? res.data.items : [];
         tbody.innerHTML = list.length ? list.map(t => {
             const overdue = t.due_date && new Date(t.due_date) < new Date() && t.status !== 'done';
             return `<tr>
@@ -1120,6 +1354,14 @@ HTML;
                 <td><span class="p-badge ${t.status === 'done' ? 'green' : ''}">${esc(t.status)}</span></td>
             </tr>`;
         }).join('') : `<tr><td colspan="4" class="p-cell-muted text-center">${I18N['crm.tasks.none_yet']}</td></tr>`;
+
+        if (res.success) {
+            totalPages = res.data.total_pages || 1;
+            document.getElementById('tasksPaginationInfo').textContent =
+                I18N['crm.pagination.page_of'].replace('{page}', res.data.page).replace('{total}', totalPages) + ' · ' + res.data.total;
+            document.getElementById('tasksPrevBtn').disabled = res.data.page <= 1;
+            document.getElementById('tasksNextBtn').disabled = res.data.page >= totalPages;
+        }
     }
     load();
 })();
@@ -1135,7 +1377,19 @@ JS;
         $tabsHtml = $this->crmTabsHtml('appointments');
         $body = <<<HTML
         {$tabsHtml}
-        <div class="p-toolbar">
+        <div class="p-toolbar" style="flex-wrap:wrap;gap:8px;">
+            <input type="text" id="apptSearch" class="form-control" style="max-width:200px;" placeholder="{$this->tr('crm.contacts.search_placeholder')}">
+            <select id="apptFilterStatus" class="form-control" style="max-width:150px;">
+                <option value="">{$this->tr('crm.filters.status_any')}</option>
+                <option value="scheduled">{$this->tr('crm.appointments.status.scheduled')}</option>
+                <option value="confirmed">{$this->tr('crm.appointments.status.confirmed')}</option>
+                <option value="completed">{$this->tr('crm.appointments.status.completed')}</option>
+                <option value="cancelled">{$this->tr('crm.appointments.status.cancelled')}</option>
+                <option value="no_show">{$this->tr('crm.appointments.status.no_show')}</option>
+            </select>
+            <button class="p-btn xs" onclick="applyApptFilters()">{$this->tr('crm.filters.apply')}</button>
+            <button class="p-btn xs" onclick="clearApptFilters()">{$this->tr('crm.filters.clear')}</button>
+            <span style="flex:1;"></span>
             <button class="p-btn" onclick="document.getElementById('newApptModal').classList.add('open')">+ {$this->tr('crm.appointments.new')}</button>
         </div>
         <div class="p-card no-pad">
@@ -1143,6 +1397,13 @@ JS;
                 <thead><tr><th>{$this->tr('crm.appointments.col.title')}</th><th>{$this->tr('crm.appointments.col.when')}</th><th>{$this->tr('crm.appointments.col.status')}</th></tr></thead>
                 <tbody><tr class="p-loading-row"><td colspan="3">{$this->tr('common.loading')}</td></tr></tbody>
             </table></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+            <div id="apptsPaginationInfo" class="p-cell-muted" style="font-size:12.5px;"></div>
+            <div>
+                <button class="p-btn xs" id="apptsPrevBtn" onclick="changeApptsPage(-1)">‹ {$this->tr('crm.pagination.prev')}</button>
+                <button class="p-btn xs" id="apptsNextBtn" onclick="changeApptsPage(1)">{$this->tr('crm.pagination.next')} ›</button>
+            </div>
         </div>
         <div class="p-modal-overlay" id="newApptModal">
             <div class="p-modal">
@@ -1164,6 +1425,8 @@ HTML;
 (function () {
     const P = window.Panel;
     const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast, formatDate = P.formatDate;
+    let currentPage = 1;
+    let totalPages = 1;
 
     window.addAppt = async function () {
         const title = document.getElementById('aTitle').value.trim();
@@ -1178,13 +1441,41 @@ HTML;
         else toast(res.error || I18N['crm.leads.add_failed'], 'error');
     };
 
+    window.applyApptFilters = function () { currentPage = 1; load(); };
+    window.clearApptFilters = function () {
+        document.getElementById('apptSearch').value = '';
+        document.getElementById('apptFilterStatus').value = '';
+        currentPage = 1;
+        load();
+    };
+    window.changeApptsPage = function (delta) {
+        const next = currentPage + delta;
+        if (next < 1 || next > totalPages) return;
+        currentPage = next;
+        load();
+    };
+
     async function load() {
-        const res = await fetchJSON('/api/crm/appointments');
+        const params = new URLSearchParams({ page: currentPage, per_page: 25 });
+        const search = document.getElementById('apptSearch').value.trim();
+        const status = document.getElementById('apptFilterStatus').value;
+        if (search) params.set('search', search);
+        if (status) params.set('status', status);
+
+        const res = await fetchJSON('/api/crm/appointments/search?' + params.toString());
         const tbody = document.querySelector('#apptsTable tbody');
-        const list = res.success ? res.data.appointments : [];
+        const list = res.success ? res.data.items : [];
         tbody.innerHTML = list.length ? list.map(a => `
             <tr><td>${esc(a.title)}</td><td class="p-cell-muted">${formatDate(a.starts_at)}</td><td><span class="p-badge">${esc(a.status)}</span></td></tr>
         `).join('') : `<tr><td colspan="3" class="p-cell-muted text-center">${I18N['crm.appointments.none_yet']}</td></tr>`;
+
+        if (res.success) {
+            totalPages = res.data.total_pages || 1;
+            document.getElementById('apptsPaginationInfo').textContent =
+                I18N['crm.pagination.page_of'].replace('{page}', res.data.page).replace('{total}', totalPages) + ' · ' + res.data.total;
+            document.getElementById('apptsPrevBtn').disabled = res.data.page <= 1;
+            document.getElementById('apptsNextBtn').disabled = res.data.page >= totalPages;
+        }
     }
     load();
 })();

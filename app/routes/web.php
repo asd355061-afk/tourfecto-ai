@@ -90,6 +90,14 @@ $router->get('/ads/connect/google-ads/choose', 'AdsController', 'showGoogleAdsAc
 $router->get('/crm', 'CrmController', 'index', ['AuthMiddleware']);
 $router->get('/crm/leads', 'CrmController', 'showLeads', ['AuthMiddleware']);
 $router->get('/crm/deals', 'CrmController', 'showDeals', ['AuthMiddleware']);
+$router->get('/crm/contacts', 'CrmController', 'showContacts', ['AuthMiddleware']);
+$router->get('/crm/contacts/{id}', 'CrmController', 'showContactProfile', ['AuthMiddleware']);
+$router->get('/crm/companies', 'CrmController', 'showCompanies', ['AuthMiddleware']);
+$router->get('/crm/tasks', 'CrmController', 'showTasks', ['AuthMiddleware']);
+$router->get('/crm/appointments', 'CrmController', 'showAppointments', ['AuthMiddleware']);
+$router->get('/crm/automation', 'CrmController', 'showAutomation', ['AuthMiddleware']);
+$router->get('/crm/team', 'CrmController', 'showTeam', ['AuthMiddleware']);
+$router->get('/crm/reports', 'CrmController', 'showReports', ['AuthMiddleware']);
 $router->get('/gbp-content', 'GoogleBusinessContentController', 'index', ['AuthMiddleware']);
 $router->get('/review-requests', 'ReviewRequestController', 'index', ['AuthMiddleware']);
 $router->get('/ai-assistant', 'AiAssistantController', 'index', ['AuthMiddleware']);

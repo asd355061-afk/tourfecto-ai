@@ -1,6 +1,8 @@
 <?php
-/** Tourfecto - CRM Company Service @version 1.0.0 */
+/** Tourfecto - CRM Company Service @version 1.1.0 */
 class CrmCompanyService {
+    use CrmPaginationHelper;
+
     public function create(int $userId, array $data): CrmCompany {
         if (empty($data['name'])) {
             throw new Exception('اسم الشركة مطلوب');
@@ -54,5 +56,21 @@ class CrmCompanyService {
 
     public function listForUser(int $userId, int $limit = 200): array {
         return (new CrmCompany())->allForUser($userId, $limit);
+    }
+
+    /** Filters + Pagination حقيقي (بند 29، 37) */
+    public function search(int $userId, array $filters = [], int $page = 1, int $perPage = 25): array {
+        $where = ['user_id = ?'];
+        $params = [$userId];
+
+        if (!empty($filters['industry'])) { $where[] = 'industry = ?'; $params[] = $filters['industry']; }
+        if (!empty($filters['country'])) { $where[] = 'country = ?'; $params[] = $filters['country']; }
+        if (!empty($filters['search'])) {
+            $where[] = '(name LIKE ? OR email LIKE ? OR website LIKE ?)';
+            $like = '%' . $filters['search'] . '%';
+            array_push($params, $like, $like, $like);
+        }
+
+        return $this->paginateQuery('crm_companies', implode(' AND ', $where), $params, $page, $perPage);
     }
 }
