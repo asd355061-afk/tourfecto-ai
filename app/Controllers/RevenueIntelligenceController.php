@@ -738,8 +738,17 @@ HTML;
             const block = document.createElement('div');
             block.className = 'p-card';
             block.style.marginBottom = '10px';
-            block.innerHTML = `<p style="font-weight:600;">${esc(q)}</p><p>${esc(d.finding)}</p>${d.recommended_action ? `<p style="font-size:13px;opacity:.8;"><b>${I18N['revai.recommended_action']}:</b> ${esc(d.recommended_action)}</p>` : ''}`;
+            let followUpsHtml = '';
+            if (d.follow_up_questions && d.follow_up_questions.length) {
+                followUpsHtml = '<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;">' + d.follow_up_questions.map(function (fq) {
+                    return '<button type="button" class="p-btn" data-followup="' + esc(fq) + '" style="font-size:12px;padding:4px 10px;">' + esc(fq) + '</button>';
+                }).join('') + '</div>';
+            }
+            block.innerHTML = `<p style="font-weight:600;">${esc(q)}</p><p>${esc(d.finding)}</p>${d.recommended_action ? `<p style="font-size:13px;opacity:.8;"><b>${I18N['revai.recommended_action']}:</b> ${esc(d.recommended_action)}</p>` : ''}${followUpsHtml}`;
             answers.prepend(block);
+            block.querySelectorAll('[data-followup]').forEach(function (btn) {
+                btn.addEventListener('click', function () { input.value = btn.getAttribute('data-followup'); ask(); });
+            });
             input.value = '';
         }
         btn.addEventListener('click', ask);

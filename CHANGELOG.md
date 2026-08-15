@@ -126,3 +126,58 @@ Feature موجودة يمكن إعادة استخدامها، استخدمها �
 (Left: قائمة محادثات / Center: الشات / Right: بيانات العميل والـLead)
 تستهلك كل الـAPIs المبنية في المراحل 1-5 مباشرة، لتصبح المنصة قابلة
 للاستخدام الفعلي من فريقكم بدل التعامل معها عبر API فقط.
+
+---
+
+# AI Revenue Assistant — الترقية التنافسية v1.2.0 — 2026-08-15
+
+## 1) الخلفية (تحليل تنافسي)
+
+قورن الموديول بأقوى المنصات العالمية في فئة Revenue Intelligence:
+**Clari** (forecast automation + Copilot أسئلة متابعة)، **Gong**
+(NLP متعدد اللغات)، **Baremetrics** (forecast/benchmarks)،
+**ChartMogul** (Explore future scenarios). الاستنتاج: الموديول
+متفوّق في مبدأ "no invented answers" لكنه كان أقل في ثلاث نقاط:
+مرونة اللغة العربية، مرونة الفترة (كان monthly ثابتة دائمًا)،
+وقدرة "What-if / ماذا لو" التنبؤية. هذه الترقية تعالج الثلاث نقاط
+دون المساس بقاعدة الموديول الصارمة (كل رقم من بيانات حقيقية).
+
+## 2) التغييرات
+
+- `app/Services/RevenueIntelligence/RevenueAssistantService.php` (v1.2.0):
+  - **Arabic Normalization** (`normalizeArabic`): أ/ا/إ → ا، ى/ئ → ي،
+    ة → ه، يُطبَّق على السؤال والأنماط معًا، فجملة "اكبر مصدر للايراد"
+    توصل لنفس Intent مثل "أكبر مصدر للإيرادات".
+  - **Period-aware questions** (`detectPeriod`): "الشهر ده"/"الأسبوع
+    ده"/"الربع ده"/"السنة دي"/"this week" تغيّر فترة حساب
+    overview/trend/sources/forecast بدل monthly الثابتة.
+  - **What-if scenario intent** (`what_if_scenario` + `extractGrowthPercent`):
+    "ماذا لو زادت الإيرادات 20%؟" يحسب سيناريو مبني على نفس الاتجاه
+    التاريخي الحقيقي × النسبة المذكورة - لا رقم مخترع.
+  - **Follow-up suggestions** (`suggestFollowUps`): كل إجابة ترجع 3
+    أسئلة متابعة منطقية (Clari Copilot-style) تظهر كأزرار في الواجهة.
+  - توسيع أنماط النوايا بالعربي (تهجئة عامية) والإنجليزي.
+
+- `app/Services/RevenueIntelligence/RevenueForecastService.php` (v1.1.0):
+  - **`scenarioForecast()`**: Pure function - يطبّق نسبة نمو مفترضة على
+    الـForecast الحقيقي ويعيد Expected + Range، مع إفصاح واضح أنها
+    تقدير سيناريو وليست ضمانًا.
+
+- `app/Controllers/RevenueIntelligenceController.php`:
+  - عرض `follow_up_questions` في تبويب الـAssistant كأزرار قابلة
+    للنقر تعيد إرسال السؤال مباشرة (بدون بيانات جديدة).
+
+- `tests/Unit/RevenueIntelligenceTest.php` (v1.1.0): 25 اختبارًا جديدًا
+  (Normalization، Period detection، What-if، Scenario forecast،
+  Follow-up suggestions). الإجمالي: **81 اختبارًا، 100% نجاح**.
+
+## 3) قاعدة البيانات
+
+لا تغيير على قاعدة البيانات - كل الميزات الجديدة فوق البنية الحالية
+(revai_* + rev_revenue_records + crm_*).
+
+## 4) الاختبارات
+
+- `php -l` على كل الملفات المعدَّلة - لا أخطاء.
+- `php tests/Unit/RevenueIntelligenceTest.php` → 81/81 ✅ (100%).
+
