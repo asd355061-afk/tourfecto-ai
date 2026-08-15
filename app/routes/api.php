@@ -891,3 +891,41 @@ $router->get('/api/outreach/emails', 'OutreachController', 'listEmails', ['AuthM
 $router->post('/api/outreach/emails/{id}/edit', 'OutreachController', 'editEmail', ['AuthMiddleware']);
 $router->post('/api/outreach/emails/{id}/approve', 'OutreachController', 'approveEmail', ['AuthMiddleware']);
 $router->post('/api/outreach/emails/{id}/send', 'OutreachController', 'sendEmail', ['AuthMiddleware']);
+
+// ============================================
+// AI Chat & Customer Communication Platform (2026-08-08)
+// Unified Inbox / AI Sales Agent / Knowledge Base / Leads /
+// Follow-up Automation / Analytics / Messenger+Instagram+Email
+// ============================================
+// Unified Inbox - المحادثات
+$router->get('/api/ai-chat/websites/{id}/conversations', 'ChatInboxController', 'index', ['AuthMiddleware']);
+$router->get('/api/ai-chat/websites/{id}/conversations/{conversationId}', 'ChatInboxController', 'show', ['AuthMiddleware']);
+$router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/reply', 'ChatInboxController', 'reply', ['AuthMiddleware']);
+$router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/handoff', 'ChatInboxController', 'handoff', ['AuthMiddleware']);
+$router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/resume-ai', 'ChatInboxController', 'resumeAI', ['AuthMiddleware']);
+$router->put('/api/ai-chat/websites/{id}/conversations/{conversationId}', 'ChatInboxController', 'update', ['AuthMiddleware']);
+$router->get('/api/ai-chat/websites/{id}/conversations/{conversationId}/reply-suggestions', 'ChatInboxController', 'suggestReplies', ['AuthMiddleware']);
+// Knowledge Base
+$router->get('/api/ai-chat/websites/{id}/knowledge-base', 'AiKnowledgeBaseController', 'index', ['AuthMiddleware']);
+$router->post('/api/ai-chat/websites/{id}/knowledge-base', 'AiKnowledgeBaseController', 'store', ['AuthMiddleware']);
+$router->get('/api/ai-chat/websites/{id}/knowledge-base/preview', 'AiKnowledgeBaseController', 'preview', ['AuthMiddleware']);
+$router->put('/api/ai-chat/websites/{id}/knowledge-base/{entryId}', 'AiKnowledgeBaseController', 'update', ['AuthMiddleware']);
+$router->delete('/api/ai-chat/websites/{id}/knowledge-base/{entryId}', 'AiKnowledgeBaseController', 'destroy', ['AuthMiddleware']);
+// Leads
+$router->get('/api/ai-chat/websites/{id}/leads', 'AiLeadController', 'index', ['AuthMiddleware']);
+$router->get('/api/ai-chat/websites/{id}/leads/{leadId}', 'AiLeadController', 'show', ['AuthMiddleware']);
+$router->put('/api/ai-chat/websites/{id}/leads/{leadId}', 'AiLeadController', 'update', ['AuthMiddleware']);
+// Follow-up Automation
+$router->get('/api/ai-chat/websites/{id}/followup-settings', 'AiFollowupSettingsController', 'show', ['AuthMiddleware']);
+$router->put('/api/ai-chat/websites/{id}/followup-settings', 'AiFollowupSettingsController', 'update', ['AuthMiddleware']);
+// AI Analytics
+$router->get('/api/ai-chat/websites/{id}/analytics', 'AiAnalyticsController', 'index', ['AuthMiddleware']);
+// ربط قنوات Messenger/Instagram (بيحتاج AuthMiddleware - بيكلم Meta Graph API)
+$router->post('/api/chat/connect/messenger', 'ChatController', 'connectMessenger', ['AuthMiddleware']);
+$router->post('/api/chat/connect/instagram', 'ChatController', 'connectInstagram', ['AuthMiddleware']);
+// Webhooks للقنوات الجديدة - من غير AuthMiddleware (بتتيجي من Meta/SMTP servers)
+$router->get('/api/chat/webhook/messenger/{website_id}', 'ChatController', 'verifyMessengerWebhook');
+$router->get('/api/chat/webhook/instagram/{website_id}', 'ChatController', 'verifyInstagramWebhook');
+$router->post('/api/chat/webhook/messenger/{website_id}', 'ChatController', 'messengerWebhook');
+$router->post('/api/chat/webhook/instagram/{website_id}', 'ChatController', 'instagramWebhook');
+$router->post('/api/chat/webhook/email/{website_id}', 'ChatController', 'emailWebhook');

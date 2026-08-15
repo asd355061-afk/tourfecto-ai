@@ -52,6 +52,34 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Services/GoogleBusiness/GbpInsightsService.php',
     APP_PATH . '/Services/GoogleBusiness/GbpAIInsightsService.php',
     APP_PATH . '/Services/GoogleBusiness/GbpAuditLogger.php',
+    // AI Chat Platform (2026-08-08) - process_ai_followups.php محتاج
+    // FollowUpAutomationService + ChatManager + UnifiedInboxService
+    // (بالترتيب: ChatManager بينادي new UnifiedInboxService في
+    // __construct، وUnifiedInboxService بينادي new AiChatConversation).
+    // Providers لازم تتحمّل قبل AIProviderManager (الـ interface أولًا).
+    APP_PATH . '/Services/Chat/ChatManager.php',
+    APP_PATH . '/Services/Chat/UnifiedInboxService.php',
+    APP_PATH . '/Services/Chat/MessengerAPI.php',
+    APP_PATH . '/Services/Chat/InstagramAPI.php',
+    APP_PATH . '/Services/Chat/EmailChannelAPI.php',
+    APP_PATH . '/Models/AiChatConversation.php',
+    APP_PATH . '/Services/AI/Providers/AIProviderInterface.php',
+    APP_PATH . '/Services/AI/Providers/OpenAICompatibleProvider.php',
+    APP_PATH . '/Services/AI/Providers/OpenAIProvider.php',
+    APP_PATH . '/Services/AI/Providers/DeepSeekProvider.php',
+    APP_PATH . '/Services/AI/Providers/KimiProvider.php',
+    APP_PATH . '/Services/AI/Providers/GeminiProvider.php',
+    APP_PATH . '/Services/AI/Providers/AIProviderManager.php',
+    APP_PATH . '/Services/AI/KnowledgeBaseService.php',
+    APP_PATH . '/Services/AI/AIConversationEngine.php',
+    APP_PATH . '/Services/AI/LeadScoringService.php',
+    APP_PATH . '/Services/AI/FollowUpAutomationService.php',
+    APP_PATH . '/Models/AiFollowup.php',
+    APP_PATH . '/Models/AiFollowupRule.php',
+    APP_PATH . '/Models/AiLead.php',
+    APP_PATH . '/Models/AiCustomerMemory.php',
+    APP_PATH . '/Models/AiKnowledgeBase.php',
+    APP_PATH . '/Models/AiUsageLog.php',
 ];
 foreach ($optionalJobDependencyFiles as $depFile) {
     if (file_exists($depFile)) {

@@ -36,8 +36,13 @@ class AiAnalyticsController extends Controller {
             return $this->error('since must be in Y-m-d format', 422);
         }
 
+        // Observability: لوحة صحة مزودي الـAI (استجابة لتحليل المنافسين
+        // Zendesk/Gorgias). تُرجع المزودين المهيّئين + ملخص آخر 24 ساعة.
+        $health = (new AIProviderManager())->health((int) $website->getAttribute('id'));
+
         return $this->success([
             'dashboard' => $this->analytics->getDashboard((int) $website->getAttribute('id'), $since),
+            'provider_health' => $health,
         ]);
     }
 
