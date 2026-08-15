@@ -230,6 +230,9 @@ $optionalNewClassFiles = [
     APP_PATH . '/Controllers/CrmWhatsAppWebhookController.php',
     APP_PATH . '/Controllers/CrmSmsWebhookController.php',
     APP_PATH . '/Controllers/CrmEmailWebhookController.php',
+    APP_PATH . '/Models/CrmImportBatch.php',
+    APP_PATH . '/Services/Crm/CrmPaginationHelper.php',
+    APP_PATH . '/Jobs/CrmImportContactsJob.php',
     // GBP Module Upgrade (2026-08-09/10) - Setup Wizard/Connection Center/
     // Sync/Profile/Photos/Insights/AI/Attributes. نفس السبب زي كل
     // الكلاسات فوق: مش مسجّلة في classmap القديم بتاع composer.

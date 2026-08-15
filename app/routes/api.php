@@ -625,6 +625,143 @@ $router->get('/api/crm/pipeline-stages', 'CrmController', 'listPipelineStages', 
 $router->get('/api/crm/deals', 'CrmController', 'listDeals', ['AuthMiddleware']);
 $router->post('/api/crm/deals', 'CrmController', 'createDeal', ['AuthMiddleware']);
 $router->post('/api/crm/deals/{id}/stage', 'CrmController', 'updateDealStage', ['AuthMiddleware']);
+$router->get('/api/crm/leads/search', 'CrmApiController', 'searchLeads', ['AuthMiddleware']);
+$router->get('/api/crm/leads/export', 'CrmApiController', 'exportLeads', ['AuthMiddleware']);
+$router->get('/api/crm/deals/search', 'CrmApiController', 'searchDeals', ['AuthMiddleware']);
+$router->get('/api/crm/deals/export', 'CrmApiController', 'exportDeals', ['AuthMiddleware']);
+
+// ============================================================
+// موديول AI CRM - نقاط API إضافية (CrmApiController) - بند 41/45
+// ============================================================
+// Companies
+$router->get('/api/crm/companies', 'CrmApiController', 'listCompanies', ['AuthMiddleware']);
+$router->get('/api/crm/companies/search', 'CrmApiController', 'searchCompanies', ['AuthMiddleware']);
+$router->post('/api/crm/companies', 'CrmApiController', 'createCompany', ['AuthMiddleware']);
+$router->put('/api/crm/companies/{id}', 'CrmApiController', 'updateCompany', ['AuthMiddleware']);
+
+// Contacts
+$router->get('/api/crm/contacts', 'CrmApiController', 'listContacts', ['AuthMiddleware']);
+// إصلاح المرحلة 8: مسارات GET الحرفية (export/search) لازم تُسجَّل قبل
+// GET /api/crm/contacts/{id} - الـRouter بيطابق بترتيب التسجيل (أول Pattern
+// يطابق يكسب)، وPattern الـ{id} بيطابق أي جزء واحد بعد /contacts/ بما فيها
+// "export"/"search" حرفيًا. كانت /api/crm/contacts/export (بند 20 من
+// المرحلة 1) فعليًا مسار ميت (Shadowed) من غير ما يُكتشف - تم اكتشافه
+// وإصلاحه الآن أثناء إضافة /search.
+$router->get('/api/crm/contacts/export', 'CrmApiController', 'exportContacts', ['AuthMiddleware']);
+$router->get('/api/crm/contacts/search', 'CrmApiController', 'searchContacts', ['AuthMiddleware']);
+$router->get('/api/crm/contacts/{id}', 'CrmApiController', 'getContact', ['AuthMiddleware']);
+$router->post('/api/crm/contacts', 'CrmApiController', 'createContact', ['AuthMiddleware']);
+$router->put('/api/crm/contacts/{id}', 'CrmApiController', 'updateContact', ['AuthMiddleware']);
+$router->get('/api/crm/contacts/{id}/duplicates', 'CrmApiController', 'contactDuplicates', ['AuthMiddleware']);
+$router->post('/api/crm/contacts/merge', 'CrmApiController', 'mergeContacts', ['AuthMiddleware']);
+$router->get('/api/crm/contacts/{id}/360', 'CrmApiController', 'customer360', ['AuthMiddleware']);
+
+// Leads - عمليات إضافية
+$router->post('/api/crm/leads/{id}/assign', 'CrmApiController', 'assignLead', ['AuthMiddleware']);
+$router->post('/api/crm/leads/{id}/convert', 'CrmApiController', 'convertLead', ['AuthMiddleware']);
+$router->post('/api/crm/leads/{id}/archive', 'CrmApiController', 'archiveLead', ['AuthMiddleware']);
+
+// Deals - عمليات إضافية
+$router->put('/api/crm/deals/{id}', 'CrmApiController', 'updateDeal', ['AuthMiddleware']);
+$router->delete('/api/crm/deals/{id}', 'CrmApiController', 'deleteDeal', ['AuthMiddleware']);
+$router->get('/api/crm/deals/at-risk', 'CrmApiController', 'dealsAtRisk', ['AuthMiddleware']);
+
+// Pipelines متعددة
+$router->get('/api/crm/pipelines', 'CrmApiController', 'listPipelines', ['AuthMiddleware']);
+$router->post('/api/crm/pipelines', 'CrmApiController', 'createPipeline', ['AuthMiddleware']);
+$router->get('/api/crm/pipelines/{id}/stages', 'CrmApiController', 'pipelineStages', ['AuthMiddleware']);
+$router->post('/api/crm/pipelines/{id}/stages', 'CrmApiController', 'createPipelineStage', ['AuthMiddleware']);
+
+// Tasks / Follow-ups
+$router->get('/api/crm/tasks', 'CrmApiController', 'listTasks', ['AuthMiddleware']);
+$router->get('/api/crm/tasks/search', 'CrmApiController', 'searchTasks', ['AuthMiddleware']);
+$router->get('/api/crm/tasks/export', 'CrmApiController', 'exportTasks', ['AuthMiddleware']);
+$router->get('/api/crm/tasks/overdue', 'CrmApiController', 'overdueTasks', ['AuthMiddleware']);
+$router->post('/api/crm/tasks', 'CrmApiController', 'createTask', ['AuthMiddleware']);
+$router->post('/api/crm/tasks/{id}/status', 'CrmApiController', 'updateTaskStatus', ['AuthMiddleware']);
+
+// Notes
+$router->post('/api/crm/notes', 'CrmApiController', 'createNote', ['AuthMiddleware']);
+
+// Appointments
+$router->get('/api/crm/appointments', 'CrmApiController', 'listAppointments', ['AuthMiddleware']);
+$router->get('/api/crm/appointments/search', 'CrmApiController', 'searchAppointments', ['AuthMiddleware']);
+$router->post('/api/crm/appointments', 'CrmApiController', 'createAppointment', ['AuthMiddleware']);
+$router->post('/api/crm/appointments/{id}/status', 'CrmApiController', 'updateAppointmentStatus', ['AuthMiddleware']);
+
+// Dashboard / Reports
+$router->get('/api/crm/dashboard/stats', 'CrmApiController', 'dashboardStats', ['AuthMiddleware']);
+
+// Global Search
+$router->get('/api/crm/search', 'CrmApiController', 'globalSearch', ['AuthMiddleware']);
+
+// Lead Sources قابلة للتخصيص
+$router->get('/api/crm/lead-sources', 'CrmApiController', 'listLeadSources', ['AuthMiddleware']);
+$router->post('/api/crm/lead-sources', 'CrmApiController', 'createLeadSource', ['AuthMiddleware']);
+
+// Import / Export
+$router->post('/api/crm/contacts/import/preview', 'CrmApiController', 'importPreview', ['AuthMiddleware']);
+$router->post('/api/crm/contacts/import/commit', 'CrmApiController', 'importCommit', ['AuthMiddleware']);
+$router->post('/api/crm/contacts/import/commit-async', 'CrmApiController', 'importCommitAsync', ['AuthMiddleware']);
+$router->get('/api/crm/contacts/import/status/{id}', 'CrmApiController', 'importBatchStatus', ['AuthMiddleware']);
+
+// المرحلة 8: Segments (بند 19) - استكمال لهذه القائمة
+$router->get('/api/crm/segments', 'CrmApiController', 'listSegments', ['AuthMiddleware']);
+$router->post('/api/crm/segments', 'CrmApiController', 'createSegment', ['AuthMiddleware']);
+$router->delete('/api/crm/segments/{id}', 'CrmApiController', 'deleteSegment', ['AuthMiddleware']);
+$router->get('/api/crm/segments/{id}/run', 'CrmApiController', 'runSegment', ['AuthMiddleware']);
+
+// ============================================================
+// موديول AI CRM - المرحلة 2 (AI Lead Scoring / Next Best Action /
+// Forecasting / AI Sales Assistant / AI Summary) - بند 8/9/10/25/27
+// ============================================================
+$router->post('/api/crm/leads/{id}/score', 'CrmApiController', 'scoreLead', ['AuthMiddleware']);
+$router->get('/api/crm/leads/{id}/next-best-action', 'CrmApiController', 'leadNextBestAction', ['AuthMiddleware']);
+$router->get('/api/crm/deals/{id}/next-best-action', 'CrmApiController', 'dealNextBestAction', ['AuthMiddleware']);
+$router->get('/api/crm/forecast', 'CrmApiController', 'forecast', ['AuthMiddleware']);
+// نقطتا الـAPI التاليتان فقط هما اللي بيستدعوا GeminiClient فعليًا (توليد
+// نص) - لذلك مربوطتين بنفس بوابة استهلاك AI Credits المستخدمة في باقي
+// ميزات الذكاء الاصطناعي بالمشروع (راجع /api/ai/* أعلاه في نفس الملف).
+$router->post('/api/crm/assistant/ask', 'CrmApiController', 'assistantAsk', [
+    'AuthMiddleware',
+    'SubscriptionMiddleware:require_ai_credits'
+]);
+$router->get('/api/crm/contacts/{id}/ai-summary', 'CrmApiController', 'contactAiSummary', [
+    'AuthMiddleware',
+    'SubscriptionMiddleware:require_ai_credits'
+]);
+
+// ============================================================
+// المرحلة 3: Automation Workflows + WhatsApp/Email Communication (بند 12/15/16/17/36)
+// ============================================================
+$router->get('/api/crm/automation/rules', 'CrmApiController', 'listAutomationRules', ['AuthMiddleware']);
+$router->get('/api/crm/automation/templates', 'CrmApiController', 'automationTemplates', ['AuthMiddleware']);
+$router->get('/api/crm/automation/schema', 'CrmApiController', 'automationSchema', ['AuthMiddleware']);
+$router->post('/api/crm/automation/rules', 'CrmApiController', 'createAutomationRule', ['AuthMiddleware']);
+$router->put('/api/crm/automation/rules/{id}', 'CrmApiController', 'updateAutomationRule', ['AuthMiddleware']);
+$router->post('/api/crm/automation/rules/from-template', 'CrmApiController', 'createAutomationRuleFromTemplate', ['AuthMiddleware']);
+$router->post('/api/crm/automation/rules/{id}/toggle', 'CrmApiController', 'toggleAutomationRule', ['AuthMiddleware']);
+$router->delete('/api/crm/automation/rules/{id}', 'CrmApiController', 'deleteAutomationRule', ['AuthMiddleware']);
+
+$router->get('/api/crm/conversations', 'CrmApiController', 'listConversations', ['AuthMiddleware']);
+$router->get('/api/crm/conversations/{id}/messages', 'CrmApiController', 'conversationMessages', ['AuthMiddleware']);
+$router->post('/api/crm/contacts/{id}/send-whatsapp', 'CrmApiController', 'sendWhatsApp', ['AuthMiddleware']);
+$router->post('/api/crm/contacts/{id}/send-email', 'CrmApiController', 'sendEmail', ['AuthMiddleware']);
+$router->post('/api/crm/contacts/{id}/send-sms', 'CrmApiController', 'sendSms', ['AuthMiddleware']);
+$router->get('/api/crm/communication/status', 'CrmApiController', 'communicationStatus', ['AuthMiddleware']);
+
+// المرحلة 5: Team & Roles/Permissions (بند 30)
+$router->get('/api/crm/team', 'CrmApiController', 'listTeam', ['AuthMiddleware']);
+$router->post('/api/crm/team', 'CrmApiController', 'addTeamMember', ['AuthMiddleware']);
+$router->put('/api/crm/team/{id}', 'CrmApiController', 'updateTeamMemberRole', ['AuthMiddleware']);
+$router->delete('/api/crm/team/{id}', 'CrmApiController', 'removeTeamMember', ['AuthMiddleware']);
+
+// Webhook عام (بدون AuthMiddleware عمدًا - Meta هي اللي بتنادي عليه، راجع
+// تعليق CrmWhatsAppWebhookController للتفاصيل الأمنية).
+$router->get('/webhooks/crm/whatsapp', 'CrmWhatsAppWebhookController', 'verify', []);
+$router->post('/webhooks/crm/whatsapp', 'CrmWhatsAppWebhookController', 'receive', []);
+$router->post('/webhooks/crm/sms', 'CrmSmsWebhookController', 'receive', []);
+$router->post('/webhooks/crm/email-inbound', 'CrmEmailWebhookController', 'receive', []);
 
 // ============================================
 // Consolidated Multi-Phase Module (2026-08-08) - إضافات جديدة فقط

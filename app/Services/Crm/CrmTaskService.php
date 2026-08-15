@@ -1,14 +1,22 @@
 <?php
-/** Tourfecto - CRM Task / Follow-up Service (بند 11 و13) @version 1.0.0 */
+/** Tourfecto - CRM Task / Follow-up Service (بند 11 و13) @version 1.1.0 */
 class CrmTaskService {
-    public function create(int $userId, array $data): CrmTask {
+    use CrmPaginationHelper;
+
+    /**
+     * $actorUserId اختياري (بند 30 - استكمال): الهوية الحقيقية لمن أنشأ
+     * المهمة فعليًا، منفصلة عن $userId (الـTenant). لو مش مُمرَّرة، تتساوى
+     * بـ$userId (نفس السلوك القديم قبل الإصلاح - توافق خلفي كامل).
+     */
+    public function create(int $userId, array $data, ?int $actorUserId = null): CrmTask {
         if (empty($data['title'])) {
             throw new Exception('عنوان المهمة مطلوب');
         }
+        $actorUserId = $actorUserId ?? $userId;
         $task = new CrmTask([
             'user_id' => $userId,
-            'created_by_user_id' => $userId,
-            'assigned_to_user_id' => $data['assigned_to_user_id'] ?? $userId,
+            'created_by_user_id' => $actorUserId,
+            'assigned_to_user_id' => $data['assigned_to_user_id'] ?? $actorUserId,
             'related_type' => $data['related_type'] ?? null,
             'related_id' => $data['related_id'] ?? null,
             'title' => $data['title'],
@@ -20,7 +28,7 @@ class CrmTaskService {
         $task->save();
 
         ActivityLog::record('crm', 'task.created', [
-            'user_id' => $userId, 'subject_type' => 'crm_tasks', 'subject_id' => (int) $task->getAttribute('id'),
+            'user_id' => $actorUserId, 'subject_type' => 'crm_tasks', 'subject_id' => (int) $task->getAttribute('id'),
         ]);
 
         return $task;
@@ -57,5 +65,24 @@ class CrmTaskService {
 
     public function overdue(int $userId): array {
         return (new CrmTask())->overdue($userId);
+    }
+
+    /**
+     * نسخة بـFilters + Pagination حقيقي (بند 29، 37) - listForUser() القديمة
+     * لسه موجودة (مُستخدَمة في overdue/dashboard وغيرهم).
+     * $filters المدعومة: status, priority, related_type, due_before, due_after.
+     */
+    public function search(int $userId, array $filters = [], int $page = 1, int $perPage = 25): array {
+        $where = ['user_id = ?'];
+        $params = [$userId];
+
+        if (!empty($filters['status'])) { $where[] = 'status = ?'; $params[] = $filters['status']; }
+        if (!empty($filters['priority'])) { $where[] = 'priority = ?'; $params[] = $filters['priority']; }
+        if (!empty($filters['related_type'])) { $where[] = 'related_type = ?'; $params[] = $filters['related_type']; }
+        if (!empty($filters['due_before'])) { $where[] = 'due_date <= ?'; $params[] = $filters['due_before'] . ' 23:59:59'; }
+        if (!empty($filters['due_after'])) { $where[] = 'due_date >= ?'; $params[] = $filters['due_after'] . ' 00:00:00'; }
+        if (!empty($filters['search'])) { $where[] = 'title LIKE ?'; $params[] = '%' . $filters['search'] . '%'; }
+
+        return $this->paginateQuery('crm_tasks', implode(' AND ', $where), $params, $page, $perPage, 'due_date ASC');
     }
 }

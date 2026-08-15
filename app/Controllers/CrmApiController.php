@@ -92,6 +92,19 @@ class CrmApiController extends Controller {
         }
     }
 
+    /** GET /api/crm/companies/search - Filters + Pagination (بند 29، 37) */
+    public function searchCompanies(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $filters = array_filter([
+                'industry' => $this->get('industry'), 'country' => $this->get('country'), 'search' => $this->get('search'),
+            ], fn($v) => $v !== null && $v !== '');
+            return $this->success($this->companyService->search($this->tenantId(), $filters, (int) $this->get('page', 1), (int) $this->get('per_page', 25)));
+        } catch (Exception $e) {
+            return $this->handleException($e, 'searchCompanies');
+        }
+    }
+
     /** POST /api/crm/companies */
     public function createCompany(array $params = []): array {
         if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
@@ -287,12 +300,28 @@ class CrmApiController extends Controller {
     // Leads - عمليات إضافية (assign/convert/archive) فوق CrmController الحالي
     // ============================================================
 
+    /** GET /api/crm/leads/search - Filters + Pagination (بند 29، 37) */
+    public function searchLeads(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $filters = array_filter([
+                'status' => $this->get('status'), 'source' => $this->get('source'),
+                'priority' => $this->get('priority'), 'owner_user_id' => $this->get('owner_user_id'),
+                'min_score' => $this->get('min_score'), 'search' => $this->get('search'),
+            ], fn($v) => $v !== null && $v !== '');
+            return $this->success($this->leadService->search($this->tenantId(), $filters, (int) $this->get('page', 1), (int) $this->get('per_page', 25)));
+        } catch (Exception $e) {
+            return $this->handleException($e, 'searchLeads');
+        }
+    }
+
     /** POST /api/crm/leads/{id}/assign {owner_user_id} */
     public function assignLead(array $params = []): array {
         if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('assign')) return $denied;
         if (!$this->validate(['owner_user_id' => 'required'])) return $this->error('المسؤول مطلوب', 422);
         try {
-            $lead = $this->leadService->assignOwner((int) ($params['id'] ?? 0), (int) $this->get('owner_user_id'));
+            $lead = $this->leadService->assignOwner((int) ($params['id'] ?? 0), (int) $this->get('owner_user_id'), $this->tenantId());
             return $this->success(['lead' => $lead->toArray()], 'تم التعيين');
         } catch (Exception $e) {
             return $this->handleException($e, 'assignLead');
@@ -316,8 +345,9 @@ class CrmApiController extends Controller {
     /** POST /api/crm/leads/{id}/archive */
     public function archiveLead(array $params = []): array {
         if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('delete')) return $denied;
         try {
-            $lead = $this->leadService->archive((int) ($params['id'] ?? 0));
+            $lead = $this->leadService->archive((int) ($params['id'] ?? 0), $this->tenantId());
             return $this->success(['lead' => $lead->toArray()], 'تمت الأرشفة');
         } catch (Exception $e) {
             return $this->handleException($e, 'archiveLead');
@@ -327,6 +357,21 @@ class CrmApiController extends Controller {
     // ============================================================
     // Deals - عمليات إضافية (update/delete/at-risk) فوق CrmController الحالي
     // ============================================================
+
+    /** GET /api/crm/deals/search - Filters + Pagination (بند 29، 37) */
+    public function searchDeals(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $filters = array_filter([
+                'status' => $this->get('status'), 'stage_id' => $this->get('stage_id'),
+                'pipeline_id' => $this->get('pipeline_id'), 'min_value' => $this->get('min_value'),
+                'max_value' => $this->get('max_value'), 'search' => $this->get('search'),
+            ], fn($v) => $v !== null && $v !== '');
+            return $this->success($this->dealService->search($this->tenantId(), $filters, (int) $this->get('page', 1), (int) $this->get('per_page', 25)));
+        } catch (Exception $e) {
+            return $this->handleException($e, 'searchDeals');
+        }
+    }
 
     /** PUT /api/crm/deals/{id} */
     public function updateDeal(array $params = []): array {
@@ -442,6 +487,21 @@ class CrmApiController extends Controller {
         }
     }
 
+    /** GET /api/crm/tasks/search - Filters + Pagination (بند 29، 37) */
+    public function searchTasks(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $filters = array_filter([
+                'status' => $this->get('status'), 'priority' => $this->get('priority'),
+                'related_type' => $this->get('related_type'), 'due_before' => $this->get('due_before'),
+                'due_after' => $this->get('due_after'), 'search' => $this->get('search'),
+            ], fn($v) => $v !== null && $v !== '');
+            return $this->success($this->taskService->search($this->tenantId(), $filters, (int) $this->get('page', 1), (int) $this->get('per_page', 25)));
+        } catch (Exception $e) {
+            return $this->handleException($e, 'searchTasks');
+        }
+    }
+
     /** GET /api/crm/tasks/overdue */
     public function overdueTasks(array $params = []): array {
         if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
@@ -458,7 +518,7 @@ class CrmApiController extends Controller {
         if ($denied = $this->requirePermission('create')) return $denied;
         if (!$this->validate(['title' => 'required'])) return $this->error('عنوان المهمة مطلوب', 422);
         try {
-            $task = $this->taskService->create($this->tenantId(), $this->data);
+            $task = $this->taskService->create($this->tenantId(), $this->data, $this->uid());
             return $this->success(['task' => $task->toArray()], 'تم إنشاء المهمة', 201);
         } catch (Exception $e) {
             return $this->handleException($e, 'createTask');
@@ -488,7 +548,7 @@ class CrmApiController extends Controller {
         if ($denied = $this->requirePermission('create')) return $denied;
         if (!$this->validate(['body' => 'required'])) return $this->error('نص الملاحظة مطلوب', 422);
         try {
-            $note = $this->noteService->create($this->tenantId(), $this->data);
+            $note = $this->noteService->create($this->tenantId(), $this->data, $this->uid());
             return $this->success(['note' => $note->toArray()], 'تمت الإضافة', 201);
         } catch (Exception $e) {
             return $this->handleException($e, 'createNote');
@@ -510,13 +570,27 @@ class CrmApiController extends Controller {
         }
     }
 
+    /** GET /api/crm/appointments/search - Filters + Pagination (بند 29، 37) */
+    public function searchAppointments(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $filters = array_filter([
+                'status' => $this->get('status'), 'from' => $this->get('from'),
+                'to' => $this->get('to'), 'search' => $this->get('search'),
+            ], fn($v) => $v !== null && $v !== '');
+            return $this->success($this->appointmentService->search($this->tenantId(), $filters, (int) $this->get('page', 1), (int) $this->get('per_page', 25)));
+        } catch (Exception $e) {
+            return $this->handleException($e, 'searchAppointments');
+        }
+    }
+
     /** POST /api/crm/appointments */
     public function createAppointment(array $params = []): array {
         if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
         if ($denied = $this->requirePermission('create')) return $denied;
         if (!$this->validate(['title' => 'required', 'starts_at' => 'required'])) return $this->error('بيانات ناقصة', 422);
         try {
-            $meeting = $this->appointmentService->create($this->tenantId(), $this->data);
+            $meeting = $this->appointmentService->create($this->tenantId(), $this->data, $this->uid());
             return $this->success(['appointment' => $meeting->toArray()], 'تم حجز الموعد', 201);
         } catch (Exception $e) {
             return $this->handleException($e, 'createAppointment');
@@ -633,6 +707,37 @@ class CrmApiController extends Controller {
         }
     }
 
+    /**
+     * POST /api/crm/contacts/import/commit-async {rows, skip_duplicates} (بند 37)
+     * بديل Background للاستيراد الكبير - يرجّع batch_id فورًا بدل ما ينتظر
+     * المستخدم لحد ما الاستيراد يخلص بالكامل.
+     */
+    public function importCommitAsync(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('create')) return $denied;
+        if (!$this->validate(['rows' => 'required'])) return $this->error('لا توجد صفوف للاستيراد', 422);
+        try {
+            $rows = $this->get('rows');
+            $rows = is_array($rows) ? $rows : json_decode((string) $rows, true);
+            $batch = $this->importExportService->commitAsync($this->tenantId(), $rows ?? [], $this->get('skip_duplicates', true) ? true : false);
+            return $this->success(['batch' => $batch->toArray()], 'بدأ الاستيراد في الخلفية', 202);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'importCommitAsync');
+        }
+    }
+
+    /** GET /api/crm/contacts/import/status/{id} (بند 37) */
+    public function importBatchStatus(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $batch = $this->importExportService->importBatchStatus($this->tenantId(), (int) ($params['id'] ?? 0));
+            if (!$batch) return $this->error('الدفعة غير موجودة', 404);
+            return $this->success(['batch' => $batch->toArray()]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'importBatchStatus');
+        }
+    }
+
     /** GET /api/crm/contacts/export */
     public function exportContacts(array $params = []): array {
         if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
@@ -645,6 +750,54 @@ class CrmApiController extends Controller {
             exit;
         } catch (Exception $e) {
             Logger::error('exportContacts Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر التصدير', 500);
+        }
+    }
+
+    /** GET /api/crm/deals/export (بند 20 - استكمال المرحلة 9) */
+    public function exportDeals(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('export')) return $denied;
+        try {
+            $csv = $this->importExportService->exportDealsCsv($this->tenantId());
+            header('Content-Type: text/csv; charset=utf-8');
+            header('Content-Disposition: attachment; filename="crm_deals.csv"');
+            echo "\xEF\xBB\xBF" . $csv;
+            exit;
+        } catch (Exception $e) {
+            Logger::error('exportDeals Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر التصدير', 500);
+        }
+    }
+
+    /** GET /api/crm/tasks/export (بند 20) */
+    public function exportTasks(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('export')) return $denied;
+        try {
+            $csv = $this->importExportService->exportTasksCsv($this->tenantId());
+            header('Content-Type: text/csv; charset=utf-8');
+            header('Content-Disposition: attachment; filename="crm_tasks.csv"');
+            echo "\xEF\xBB\xBF" . $csv;
+            exit;
+        } catch (Exception $e) {
+            Logger::error('exportTasks Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر التصدير', 500);
+        }
+    }
+
+    /** GET /api/crm/leads/export (بند 20) */
+    public function exportLeads(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('export')) return $denied;
+        try {
+            $csv = $this->importExportService->exportLeadsCsv($this->tenantId());
+            header('Content-Type: text/csv; charset=utf-8');
+            header('Content-Disposition: attachment; filename="crm_leads.csv"');
+            echo "\xEF\xBB\xBF" . $csv;
+            exit;
+        } catch (Exception $e) {
+            Logger::error('exportLeads Error', ['message' => $e->getMessage()]);
             return $this->error('تعذر التصدير', 500);
         }
     }
