@@ -1,13 +1,23 @@
 <?php
 /**
  * Tourfecto - CRM Dashboard & Analytics Service (بند 23/24)
- * @version 1.0.0
+ * @version 1.1.0
  *
  * كل رقم هنا محسوب مباشرة من بيانات القاعدة الفعلية للحساب - لا توجد أي
  * قيمة افتراضية/وهمية. لو مفيش بيانات كافية لحساب مقياس معيّن (مثال:
  * متوسط دورة البيع بدون صفقات مغلقة)، تُرجع القيمة null صراحة (بند 39).
+ *
+ * Caching (استكمال بند 37): المشروع عنده نظام Cache حقيقي جاهز بالفعل
+ * (`Core/Cache.php` + `Traits/CacheableTrait.php`) - لم يكن مُستخدَمًا في
+ * موديول CRM قبل كده. `stats()` هي أغلى استعلام في كل الموديول (10+
+ * استعلامات SQL مجمّعة لكل تحميل صفحة Reports) وبتتحمّل التخزين المؤقت
+ * القصير المدى بأمان (بيانات تحليلية، مش حرجة للحظة بالثانية). الـTrait
+ * نفسه Fail-open: لو الكاش مش متاح لأي سبب، بينفّذ الاستعلامات مباشرة
+ * زي ما كان يحصل قبل كده بالظبط - لا فشل صامت للميزة الأساسية.
  */
 class CrmDashboardService {
+    use CacheableTrait;
+
     private $db;
 
     public function __construct() {
@@ -15,6 +25,13 @@ class CrmDashboardService {
     }
 
     public function stats(int $userId): array {
+        return $this->cached("crm:dashboard_stats:{$userId}", 90, function () use ($userId) {
+            return $this->computeStats($userId);
+        });
+    }
+
+    /** الحساب الفعلي - اتفصلت عن stats() بس عشان cached() تقدر تغلّفها */
+    private function computeStats(int $userId): array {
         $totalLeads = $this->scalar(
             "SELECT COUNT(*) FROM crm_leads l JOIN crm_contacts c ON c.id = l.contact_id WHERE c.user_id = ?",
             [$userId]

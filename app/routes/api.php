@@ -62,6 +62,32 @@ $router->get('/api/workspace/invite/{token}', 'WorkspaceController', 'showInvite
 $router->post('/api/workspace/invite/{token}/accept', 'WorkspaceController', 'acceptInvite');
 
 // ============================================
+// Business Control Center (Phases 1-7, 2026-08-14)
+// Business Profile منفصل عن User Profile + Locations + Services +
+// Target Markets + AI Business Context + Brand Settings.
+// كل المسارات AuthMiddleware-protected (زي باقي /api/user/*).
+// ============================================
+$router->get('/api/business', 'BusinessController', 'show', ['AuthMiddleware']);
+$router->get('/api/business/overview', 'BusinessController', 'overview', ['AuthMiddleware']);
+$router->post('/api/business', 'BusinessController', 'store', ['AuthMiddleware']);
+$router->put('/api/business/{id}', 'BusinessController', 'update', ['AuthMiddleware']);
+$router->get('/api/business/{businessId}/locations', 'BusinessLocationController', 'index', ['AuthMiddleware']);
+$router->post('/api/business/{businessId}/locations', 'BusinessLocationController', 'store', ['AuthMiddleware']);
+$router->put('/api/business/locations/{id}', 'BusinessLocationController', 'update', ['AuthMiddleware']);
+$router->delete('/api/business/locations/{id}', 'BusinessLocationController', 'destroy', ['AuthMiddleware']);
+$router->get('/api/business/{businessId}/services', 'BusinessServiceController', 'index', ['AuthMiddleware']);
+$router->post('/api/business/{businessId}/services', 'BusinessServiceController', 'store', ['AuthMiddleware']);
+$router->put('/api/business/services/{id}', 'BusinessServiceController', 'update', ['AuthMiddleware']);
+$router->delete('/api/business/services/{id}', 'BusinessServiceController', 'destroy', ['AuthMiddleware']);
+$router->get('/api/business/{businessId}/markets', 'BusinessTargetMarketController', 'show', ['AuthMiddleware']);
+$router->put('/api/business/{businessId}/markets', 'BusinessTargetMarketController', 'upsert', ['AuthMiddleware']);
+$router->get('/api/business/{businessId}/ai-context', 'BusinessAiContextController', 'show', ['AuthMiddleware']);
+$router->get('/api/business/{businessId}/ai-context/full', 'BusinessAiContextController', 'full', ['AuthMiddleware']);
+$router->put('/api/business/{businessId}/ai-context', 'BusinessAiContextController', 'upsert', ['AuthMiddleware']);
+$router->get('/api/business/{businessId}/brand', 'BusinessBrandSettingsController', 'show', ['AuthMiddleware']);
+$router->put('/api/business/{businessId}/brand', 'BusinessBrandSettingsController', 'upsert', ['AuthMiddleware']);
+
+// ============================================
 // مسارات الذكاء الاصطناعي (AI)
 // ============================================
 $router->post('/api/ai/analyze', 'AIController', 'analyze', [
@@ -365,6 +391,8 @@ $router->group('/api/admin', function($router) {
     $router->get('/subscriptions', 'AdminController', 'getSubscriptions', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/subscriptions/{id}', 'AdminController', 'getSubscription', ['AuthMiddleware', 'AdminMiddleware']);
     $router->post('/subscriptions/{id}/cancel', 'AdminController', 'cancelSubscription', ['AuthMiddleware', 'AdminMiddleware']);
+    $router->post('/subscriptions/run-lifecycle-checks', 'AdminController', 'runSubscriptionLifecycleChecks', ['AuthMiddleware', 'BillingAdminMiddleware']);
+    $router->post('/invoices/run-lifecycle-checks', 'AdminController', 'runInvoiceLifecycleChecks', ['AuthMiddleware', 'BillingAdminMiddleware']);
     
     // رسائل التواصل
     $router->get('/contact-messages', 'AdminController', 'getContactMessages', ['AuthMiddleware', 'AdminMiddleware']);
@@ -376,6 +404,7 @@ $router->group('/api/admin', function($router) {
     $router->get('/wallet/cards', 'WalletController', 'listCards', ['AuthMiddleware', 'BillingViewerMiddleware']);
     $router->get('/wallet/stats', 'WalletController', 'getAdminStats', ['AuthMiddleware', 'BillingViewerMiddleware']);
     $router->get('/wallet/mrr-trend', 'WalletController', 'getMrrTrend', ['AuthMiddleware', 'BillingViewerMiddleware']);
+    $router->get('/wallet/usage-revenue', 'WalletController', 'getUsageRevenueBreakdown', ['AuthMiddleware', 'BillingViewerMiddleware']);
     $router->post('/wallet/{id}/approve', 'WalletController', 'approveDeposit', ['AuthMiddleware', 'BillingAdminMiddleware']);
     $router->post('/wallet/{id}/reject', 'WalletController', 'rejectDeposit', ['AuthMiddleware', 'BillingAdminMiddleware']);
     // getPaymentSettingsAdmin بيكشف تفاصيل IBAN/PayPal الحقيقية اللي
@@ -389,6 +418,10 @@ $router->group('/api/admin', function($router) {
     $router->put('/wallet/settings', 'WalletController', 'updatePaymentSettingsAdmin', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/wallet/usage-pricing', 'WalletController', 'listUsagePricingAdmin', ['AuthMiddleware', 'BillingAdminMiddleware']);
     $router->put('/wallet/usage-pricing/{id}', 'WalletController', 'updateUsagePricingAdmin', ['AuthMiddleware', 'BillingAdminMiddleware']);
+    $router->get('/refunds', 'WalletController', 'listRefunds', ['AuthMiddleware', 'BillingAdminMiddleware']);
+    $router->post('/refunds', 'WalletController', 'createRefund', ['AuthMiddleware', 'BillingAdminMiddleware']);
+    $router->get('/tax-rules', 'WalletController', 'listTaxRules', ['AuthMiddleware', 'BillingAdminMiddleware']);
+    $router->post('/tax-rules', 'WalletController', 'upsertTaxRule', ['AuthMiddleware', 'BillingAdminMiddleware']);
     $router->put('/plans/{id}', 'AdminController', 'updatePlan', ['AuthMiddleware', 'AdminMiddleware']);
     
     // النظام
@@ -501,6 +534,8 @@ $router->delete('/api/agency/{id}/clients/{clientId}', 'AgencyController', 'remo
 
 // إدارة الإعلانات
 $router->get('/api/ads/campaigns', 'AdsController', 'list', ['AuthMiddleware']);
+$router->get('/api/ads/campaigns/search', 'AdsController', 'searchCampaigns', ['AuthMiddleware']);
+$router->get('/api/ads/campaigns/{id}', 'AdsController', 'getCampaign', ['AuthMiddleware']);
 $router->post('/api/ads/campaigns', 'AdsController', 'create', ['AuthMiddleware']);
 $router->post('/api/ads/campaigns/ai-generate', 'AdsController', 'aiGenerateCampaign', ['AuthMiddleware']);
 $router->get('/api/ads/campaigns/{id}/copies', 'AdsController', 'listCopies', ['AuthMiddleware']);
@@ -511,6 +546,61 @@ $router->get('/api/ads/meta/status', 'AdsController', 'getMetaConnectionStatus',
 $router->post('/api/ads/meta/choose-account', 'AdsController', 'chooseMetaAdAccount', ['AuthMiddleware']);
 $router->post('/api/ads/meta/sync', 'AdsController', 'syncMetaCampaigns', ['AuthMiddleware']);
 $router->post('/api/ads/meta/disconnect', 'AdsController', 'disconnectMeta', ['AuthMiddleware']);
+
+$router->get('/api/ads/google/status', 'AdsController', 'getGoogleAdsConnectionStatus', ['AuthMiddleware']);
+$router->get('/api/ads/connections/status', 'AdsController', 'getConnectionsStatus', ['AuthMiddleware']);
+$router->post('/api/ads/google/choose-account', 'AdsController', 'chooseGoogleAdsAccount', ['AuthMiddleware']);
+$router->post('/api/ads/google/sync', 'AdsController', 'syncGoogleAdsCampaigns', ['AuthMiddleware']);
+$router->post('/api/ads/google/disconnect', 'AdsController', 'disconnectGoogleAds', ['AuthMiddleware']);
+
+$router->get('/api/ads/autopilot/settings', 'AdsController', 'getAutopilotSettings', ['AuthMiddleware']);
+$router->post('/api/ads/autopilot/settings', 'AdsController', 'saveAutopilotSettings', ['AuthMiddleware']);
+$router->get('/api/ads/autopilot/pending', 'AdsController', 'listPendingActions', ['AuthMiddleware']);
+$router->post('/api/ads/autopilot/pending/{id}/approve', 'AdsController', 'approvePendingAction', ['AuthMiddleware']);
+$router->post('/api/ads/autopilot/pending/{id}/reject', 'AdsController', 'rejectPendingAction', ['AuthMiddleware']);
+$router->get('/api/ads/autopilot/logs', 'AdsController', 'listOptimizationLogs', ['AuthMiddleware']);
+$router->post('/api/ads/autopilot/logs/{id}/rollback', 'AdsController', 'rollbackOptimizationLog', ['AuthMiddleware']);
+$router->post('/api/ads/autopilot/run', 'AdsController', 'runAutopilotNow', ['AuthMiddleware']);
+
+$router->post('/api/ads/copilot/ask', 'AdsController', 'askCopilot', ['AuthMiddleware']);
+
+$router->post('/api/ads/campaigns/{id}/keywords/generate', 'AdsController', 'generateKeywords', ['AuthMiddleware']);
+$router->get('/api/ads/campaigns/{id}/keywords', 'AdsController', 'listKeywords', ['AuthMiddleware']);
+$router->post('/api/ads/keywords/{id}/assign-group', 'AdsController', 'assignKeywordToGroup', ['AuthMiddleware']);
+
+$router->post('/api/ads/campaigns/{id}/ad-groups', 'AdsController', 'createAdGroup', ['AuthMiddleware']);
+$router->get('/api/ads/campaigns/{id}/ad-groups', 'AdsController', 'listAdGroups', ['AuthMiddleware']);
+$router->post('/api/ads/ad-groups/{id}/status', 'AdsController', 'updateAdGroupStatus', ['AuthMiddleware']);
+$router->delete('/api/ads/ad-groups/{id}', 'AdsController', 'deleteAdGroup', ['AuthMiddleware']);
+
+$router->post('/api/ads/market-research', 'AdsController', 'marketResearch', ['AuthMiddleware']);
+$router->get('/api/ads/market-research/history', 'AdsController', 'marketResearchHistory', ['AuthMiddleware']);
+
+$router->post('/api/ads/campaigns/{id}/status', 'AdsController', 'updateCampaignStatus', ['AuthMiddleware']);
+$router->post('/api/ads/campaigns/{id}/publish', 'AdsController', 'publishCampaign', ['AuthMiddleware']);
+$router->post('/api/ads/campaigns/{id}/toggle-status', 'AdsController', 'toggleCampaignStatus', ['AuthMiddleware']);
+$router->post('/api/ads/campaigns/{id}/cancel', 'AdsController', 'cancelCampaign', ['AuthMiddleware']);
+$router->post('/api/ads/campaigns/{id}/update-budget', 'AdsController', 'updateCampaignBudget', ['AuthMiddleware']);
+$router->delete('/api/ads/campaigns/{id}', 'AdsController', 'deleteCampaign', ['AuthMiddleware']);
+$router->post('/api/ads/campaigns/bulk-status', 'AdsController', 'bulkUpdateCampaignStatus', ['AuthMiddleware']);
+$router->post('/api/ads/campaigns/{id}/landing-page/analyze', 'AdsController', 'analyzeLandingPage', ['AuthMiddleware']);
+
+$router->post('/api/ads/campaigns/{id}/utm-links', 'AdsController', 'createUtmLink', ['AuthMiddleware']);
+$router->get('/api/ads/campaigns/{id}/utm-links', 'AdsController', 'listUtmLinks', ['AuthMiddleware']);
+
+$router->get('/api/ads/dashboard/summary', 'AdsController', 'getDashboardSummary', ['AuthMiddleware']);
+$router->get('/api/ads/reports', 'AdsController', 'getReport', ['AuthMiddleware']);
+$router->get('/api/ads/reports/trend', 'AdsController', 'getReportTrend', ['AuthMiddleware']);
+$router->get('/api/ads/reports/comparison', 'AdsController', 'getCampaignComparison', ['AuthMiddleware']);
+
+$router->post('/api/ads/competitors/{id}/analyze', 'AdsController', 'analyzeAdsCompetitor', ['AuthMiddleware']);
+$router->get('/api/ads/competitors/{id}/insights', 'AdsController', 'listAdsCompetitorInsights', ['AuthMiddleware']);
+$router->get('/api/ads/competitors', 'AdsController', 'listMyCompetitors', ['AuthMiddleware']);
+
+$router->get('/api/ads/team', 'AdsController', 'listTeamMembers', ['AuthMiddleware']);
+$router->post('/api/ads/team', 'AdsController', 'addTeamMember', ['AuthMiddleware']);
+$router->post('/api/ads/team/{id}/role', 'AdsController', 'updateTeamMemberRole', ['AuthMiddleware']);
+$router->post('/api/ads/team/{id}/remove', 'AdsController', 'removeTeamMember', ['AuthMiddleware']);
 
 // CRM
 $router->get('/api/crm/overview', 'CrmController', 'overview', ['AuthMiddleware']);
@@ -625,6 +715,143 @@ $router->get('/api/crm/pipeline-stages', 'CrmController', 'listPipelineStages', 
 $router->get('/api/crm/deals', 'CrmController', 'listDeals', ['AuthMiddleware']);
 $router->post('/api/crm/deals', 'CrmController', 'createDeal', ['AuthMiddleware']);
 $router->post('/api/crm/deals/{id}/stage', 'CrmController', 'updateDealStage', ['AuthMiddleware']);
+$router->get('/api/crm/leads/search', 'CrmApiController', 'searchLeads', ['AuthMiddleware']);
+$router->get('/api/crm/leads/export', 'CrmApiController', 'exportLeads', ['AuthMiddleware']);
+$router->get('/api/crm/deals/search', 'CrmApiController', 'searchDeals', ['AuthMiddleware']);
+$router->get('/api/crm/deals/export', 'CrmApiController', 'exportDeals', ['AuthMiddleware']);
+
+// ============================================================
+// موديول AI CRM - نقاط API إضافية (CrmApiController) - بند 41/45
+// ============================================================
+// Companies
+$router->get('/api/crm/companies', 'CrmApiController', 'listCompanies', ['AuthMiddleware']);
+$router->get('/api/crm/companies/search', 'CrmApiController', 'searchCompanies', ['AuthMiddleware']);
+$router->post('/api/crm/companies', 'CrmApiController', 'createCompany', ['AuthMiddleware']);
+$router->put('/api/crm/companies/{id}', 'CrmApiController', 'updateCompany', ['AuthMiddleware']);
+
+// Contacts
+$router->get('/api/crm/contacts', 'CrmApiController', 'listContacts', ['AuthMiddleware']);
+// إصلاح المرحلة 8: مسارات GET الحرفية (export/search) لازم تُسجَّل قبل
+// GET /api/crm/contacts/{id} - الـRouter بيطابق بترتيب التسجيل (أول Pattern
+// يطابق يكسب)، وPattern الـ{id} بيطابق أي جزء واحد بعد /contacts/ بما فيها
+// "export"/"search" حرفيًا. كانت /api/crm/contacts/export (بند 20 من
+// المرحلة 1) فعليًا مسار ميت (Shadowed) من غير ما يُكتشف - تم اكتشافه
+// وإصلاحه الآن أثناء إضافة /search.
+$router->get('/api/crm/contacts/export', 'CrmApiController', 'exportContacts', ['AuthMiddleware']);
+$router->get('/api/crm/contacts/search', 'CrmApiController', 'searchContacts', ['AuthMiddleware']);
+$router->get('/api/crm/contacts/{id}', 'CrmApiController', 'getContact', ['AuthMiddleware']);
+$router->post('/api/crm/contacts', 'CrmApiController', 'createContact', ['AuthMiddleware']);
+$router->put('/api/crm/contacts/{id}', 'CrmApiController', 'updateContact', ['AuthMiddleware']);
+$router->get('/api/crm/contacts/{id}/duplicates', 'CrmApiController', 'contactDuplicates', ['AuthMiddleware']);
+$router->post('/api/crm/contacts/merge', 'CrmApiController', 'mergeContacts', ['AuthMiddleware']);
+$router->get('/api/crm/contacts/{id}/360', 'CrmApiController', 'customer360', ['AuthMiddleware']);
+
+// Leads - عمليات إضافية
+$router->post('/api/crm/leads/{id}/assign', 'CrmApiController', 'assignLead', ['AuthMiddleware']);
+$router->post('/api/crm/leads/{id}/convert', 'CrmApiController', 'convertLead', ['AuthMiddleware']);
+$router->post('/api/crm/leads/{id}/archive', 'CrmApiController', 'archiveLead', ['AuthMiddleware']);
+
+// Deals - عمليات إضافية
+$router->put('/api/crm/deals/{id}', 'CrmApiController', 'updateDeal', ['AuthMiddleware']);
+$router->delete('/api/crm/deals/{id}', 'CrmApiController', 'deleteDeal', ['AuthMiddleware']);
+$router->get('/api/crm/deals/at-risk', 'CrmApiController', 'dealsAtRisk', ['AuthMiddleware']);
+
+// Pipelines متعددة
+$router->get('/api/crm/pipelines', 'CrmApiController', 'listPipelines', ['AuthMiddleware']);
+$router->post('/api/crm/pipelines', 'CrmApiController', 'createPipeline', ['AuthMiddleware']);
+$router->get('/api/crm/pipelines/{id}/stages', 'CrmApiController', 'pipelineStages', ['AuthMiddleware']);
+$router->post('/api/crm/pipelines/{id}/stages', 'CrmApiController', 'createPipelineStage', ['AuthMiddleware']);
+
+// Tasks / Follow-ups
+$router->get('/api/crm/tasks', 'CrmApiController', 'listTasks', ['AuthMiddleware']);
+$router->get('/api/crm/tasks/search', 'CrmApiController', 'searchTasks', ['AuthMiddleware']);
+$router->get('/api/crm/tasks/export', 'CrmApiController', 'exportTasks', ['AuthMiddleware']);
+$router->get('/api/crm/tasks/overdue', 'CrmApiController', 'overdueTasks', ['AuthMiddleware']);
+$router->post('/api/crm/tasks', 'CrmApiController', 'createTask', ['AuthMiddleware']);
+$router->post('/api/crm/tasks/{id}/status', 'CrmApiController', 'updateTaskStatus', ['AuthMiddleware']);
+
+// Notes
+$router->post('/api/crm/notes', 'CrmApiController', 'createNote', ['AuthMiddleware']);
+
+// Appointments
+$router->get('/api/crm/appointments', 'CrmApiController', 'listAppointments', ['AuthMiddleware']);
+$router->get('/api/crm/appointments/search', 'CrmApiController', 'searchAppointments', ['AuthMiddleware']);
+$router->post('/api/crm/appointments', 'CrmApiController', 'createAppointment', ['AuthMiddleware']);
+$router->post('/api/crm/appointments/{id}/status', 'CrmApiController', 'updateAppointmentStatus', ['AuthMiddleware']);
+
+// Dashboard / Reports
+$router->get('/api/crm/dashboard/stats', 'CrmApiController', 'dashboardStats', ['AuthMiddleware']);
+
+// Global Search
+$router->get('/api/crm/search', 'CrmApiController', 'globalSearch', ['AuthMiddleware']);
+
+// Lead Sources قابلة للتخصيص
+$router->get('/api/crm/lead-sources', 'CrmApiController', 'listLeadSources', ['AuthMiddleware']);
+$router->post('/api/crm/lead-sources', 'CrmApiController', 'createLeadSource', ['AuthMiddleware']);
+
+// Import / Export
+$router->post('/api/crm/contacts/import/preview', 'CrmApiController', 'importPreview', ['AuthMiddleware']);
+$router->post('/api/crm/contacts/import/commit', 'CrmApiController', 'importCommit', ['AuthMiddleware']);
+$router->post('/api/crm/contacts/import/commit-async', 'CrmApiController', 'importCommitAsync', ['AuthMiddleware']);
+$router->get('/api/crm/contacts/import/status/{id}', 'CrmApiController', 'importBatchStatus', ['AuthMiddleware']);
+
+// المرحلة 8: Segments (بند 19) - استكمال لهذه القائمة
+$router->get('/api/crm/segments', 'CrmApiController', 'listSegments', ['AuthMiddleware']);
+$router->post('/api/crm/segments', 'CrmApiController', 'createSegment', ['AuthMiddleware']);
+$router->delete('/api/crm/segments/{id}', 'CrmApiController', 'deleteSegment', ['AuthMiddleware']);
+$router->get('/api/crm/segments/{id}/run', 'CrmApiController', 'runSegment', ['AuthMiddleware']);
+
+// ============================================================
+// موديول AI CRM - المرحلة 2 (AI Lead Scoring / Next Best Action /
+// Forecasting / AI Sales Assistant / AI Summary) - بند 8/9/10/25/27
+// ============================================================
+$router->post('/api/crm/leads/{id}/score', 'CrmApiController', 'scoreLead', ['AuthMiddleware']);
+$router->get('/api/crm/leads/{id}/next-best-action', 'CrmApiController', 'leadNextBestAction', ['AuthMiddleware']);
+$router->get('/api/crm/deals/{id}/next-best-action', 'CrmApiController', 'dealNextBestAction', ['AuthMiddleware']);
+$router->get('/api/crm/forecast', 'CrmApiController', 'forecast', ['AuthMiddleware']);
+// نقطتا الـAPI التاليتان فقط هما اللي بيستدعوا GeminiClient فعليًا (توليد
+// نص) - لذلك مربوطتين بنفس بوابة استهلاك AI Credits المستخدمة في باقي
+// ميزات الذكاء الاصطناعي بالمشروع (راجع /api/ai/* أعلاه في نفس الملف).
+$router->post('/api/crm/assistant/ask', 'CrmApiController', 'assistantAsk', [
+    'AuthMiddleware',
+    'SubscriptionMiddleware:require_ai_credits'
+]);
+$router->get('/api/crm/contacts/{id}/ai-summary', 'CrmApiController', 'contactAiSummary', [
+    'AuthMiddleware',
+    'SubscriptionMiddleware:require_ai_credits'
+]);
+
+// ============================================================
+// المرحلة 3: Automation Workflows + WhatsApp/Email Communication (بند 12/15/16/17/36)
+// ============================================================
+$router->get('/api/crm/automation/rules', 'CrmApiController', 'listAutomationRules', ['AuthMiddleware']);
+$router->get('/api/crm/automation/templates', 'CrmApiController', 'automationTemplates', ['AuthMiddleware']);
+$router->get('/api/crm/automation/schema', 'CrmApiController', 'automationSchema', ['AuthMiddleware']);
+$router->post('/api/crm/automation/rules', 'CrmApiController', 'createAutomationRule', ['AuthMiddleware']);
+$router->put('/api/crm/automation/rules/{id}', 'CrmApiController', 'updateAutomationRule', ['AuthMiddleware']);
+$router->post('/api/crm/automation/rules/from-template', 'CrmApiController', 'createAutomationRuleFromTemplate', ['AuthMiddleware']);
+$router->post('/api/crm/automation/rules/{id}/toggle', 'CrmApiController', 'toggleAutomationRule', ['AuthMiddleware']);
+$router->delete('/api/crm/automation/rules/{id}', 'CrmApiController', 'deleteAutomationRule', ['AuthMiddleware']);
+
+$router->get('/api/crm/conversations', 'CrmApiController', 'listConversations', ['AuthMiddleware']);
+$router->get('/api/crm/conversations/{id}/messages', 'CrmApiController', 'conversationMessages', ['AuthMiddleware']);
+$router->post('/api/crm/contacts/{id}/send-whatsapp', 'CrmApiController', 'sendWhatsApp', ['AuthMiddleware']);
+$router->post('/api/crm/contacts/{id}/send-email', 'CrmApiController', 'sendEmail', ['AuthMiddleware']);
+$router->post('/api/crm/contacts/{id}/send-sms', 'CrmApiController', 'sendSms', ['AuthMiddleware']);
+$router->get('/api/crm/communication/status', 'CrmApiController', 'communicationStatus', ['AuthMiddleware']);
+
+// المرحلة 5: Team & Roles/Permissions (بند 30)
+$router->get('/api/crm/team', 'CrmApiController', 'listTeam', ['AuthMiddleware']);
+$router->post('/api/crm/team', 'CrmApiController', 'addTeamMember', ['AuthMiddleware']);
+$router->put('/api/crm/team/{id}', 'CrmApiController', 'updateTeamMemberRole', ['AuthMiddleware']);
+$router->delete('/api/crm/team/{id}', 'CrmApiController', 'removeTeamMember', ['AuthMiddleware']);
+
+// Webhook عام (بدون AuthMiddleware عمدًا - Meta هي اللي بتنادي عليه، راجع
+// تعليق CrmWhatsAppWebhookController للتفاصيل الأمنية).
+$router->get('/webhooks/crm/whatsapp', 'CrmWhatsAppWebhookController', 'verify', []);
+$router->post('/webhooks/crm/whatsapp', 'CrmWhatsAppWebhookController', 'receive', []);
+$router->post('/webhooks/crm/sms', 'CrmSmsWebhookController', 'receive', []);
+$router->post('/webhooks/crm/email-inbound', 'CrmEmailWebhookController', 'receive', []);
 
 // ============================================
 // Consolidated Multi-Phase Module (2026-08-08) - إضافات جديدة فقط

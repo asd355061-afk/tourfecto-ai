@@ -232,6 +232,9 @@ $optionalNewClassFiles = [
     APP_PATH . '/Controllers/CrmWhatsAppWebhookController.php',
     APP_PATH . '/Controllers/CrmSmsWebhookController.php',
     APP_PATH . '/Controllers/CrmEmailWebhookController.php',
+    APP_PATH . '/Models/CrmImportBatch.php',
+    APP_PATH . '/Services/Crm/CrmPaginationHelper.php',
+    APP_PATH . '/Jobs/CrmImportContactsJob.php',
     // GBP Module Upgrade (2026-08-09/10) - Setup Wizard/Connection Center/
     // Sync/Profile/Photos/Insights/AI/Attributes. نفس السبب زي كل
     // الكلاسات فوق: مش مسجّلة في classmap القديم بتاع composer.
@@ -278,6 +281,30 @@ $optionalNewClassFiles = [
     // يعني الميزتين دول كانوا معطّلين بصمت. إضافة الكلاسين دول بس تفعّلهم.
     APP_PATH . '/Models/BillingProfile.php',
     APP_PATH . '/Services/Subscription/UsageAlertService.php',
+    // ============================================
+    // Business Control Center (Phases 1-7, 2026-08-14)
+    // نفس المبدأ زي كل الكلاسات فوق: كلاسات جديدة مش موجودة في classmap
+    // القديم بتاع composer، فلازم تتحمّل يدويًا هنا وإلا هتقع "Class not
+    // found" على أي API من /api/business/* (نفس سبب بيقية الموديولات).
+    // الترتيب مهم: الـModels قبل الـServices قبل الـControllers (كل
+    // Controller بينادي Services، وكل Service بينادي Models).
+    // ============================================
+    APP_PATH . '/Models/Business.php',
+    APP_PATH . '/Models/BusinessLocation.php',
+    APP_PATH . '/Models/BusinessService.php',
+    APP_PATH . '/Models/BusinessTargetMarket.php',
+    APP_PATH . '/Models/BusinessAiContext.php',
+    APP_PATH . '/Models/BusinessBrandSettings.php',
+    APP_PATH . '/Services/BusinessServiceManager.php',
+    APP_PATH . '/Services/BusinessLocationService.php',
+    APP_PATH . '/Services/BusinessContextService.php',
+    APP_PATH . '/Services/BusinessReadinessService.php',
+    APP_PATH . '/Controllers/BusinessController.php',
+    APP_PATH . '/Controllers/BusinessLocationController.php',
+    APP_PATH . '/Controllers/BusinessServiceController.php',
+    APP_PATH . '/Controllers/BusinessTargetMarketController.php',
+    APP_PATH . '/Controllers/BusinessAiContextController.php',
+    APP_PATH . '/Controllers/BusinessBrandSettingsController.php',
 ];
 foreach ($optionalNewClassFiles as $classFile) {
     if (file_exists($classFile)) {

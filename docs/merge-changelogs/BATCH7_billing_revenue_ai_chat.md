@@ -142,3 +142,48 @@ middleware مجموعة `/wallet/*` الإدارية من `AdminMiddleware` ال
 Migrations الجديدة الست (`database/migrations/2026_08_08_*.sql` و
 `2026_08_09_0000{41..45}_*.sql`) لازم تتشغّل مرة واحدة على قاعدة
 البيانات قبل أي استخدام للموديولات التلاتة.
+
+---
+
+## 5) Phase 17 — تحديثات تنافسية (Stripe/Chargebee/Paddle) — 2026-08-15
+
+تحليل تنافسي عالمي لثلاثة أقوى منصات فوترة (Stripe Billing، Chargebee
+هجين Billing للذكاء الاصطناعي، Paddle كـ Merchant of Record) → تطبيق
+أهم ما يميزهم على موديول الفوترة الحالي.
+
+### 5.1 Prorated Downgrade Credit (WalletService)
+
+- ثابت `ALLOW_PRORATED_DOWNGRADE_CREDIT` (افتراضيًا `false`).
+- عند تفعيله: التخفيض من باقة لأرخص بيرجّع فرق السعر رصيدًا موجبة
+  (`type = 'subscription_credit'`) لمحفظة العميل + إشعار + ActivityLog
+  (`wallet.downgrade_credited`). Idempotent عبر نفس `idempotency_key`.
+- ⚠️ **قرار مالي**: قيمته الحالية `false` — تفعيله قرار لمالك المنصة
+  (فيه migration لازم تتشغّل الأول، شوف 5.4).
+
+### 5.2 تذكيرات تجديد متدرجة + إنذار Dunning أخير (SubscriptionLifecycleService)
+
+- تذكير مبكر 7 أيام قبل التجديد (`sendEarlyRenewalReminders`) متدرج مع
+  التذكير العادي 3 أيام، كل واحد بـ Dedup مستقل في `activity_logs`.
+- إنذار أخير (`sendDunningFinalNotices`) في آخر يومين من فترة السماح
+  للاشتراكات `past_due` — بيمنع الإلغاء الصامت (نمط Stripe Dunning).
+- `runLifecycleChecks()` راجع عدّادين إضافيين في نتيجته:
+  `early_renewal_reminders_sent`, `dunning_final_notices_sent`.
+
+### 5.3 الإيراد لكل ميزة (Usage Revenue Breakdown)
+
+- عمود `feature_key` جديد على `wallet_transactions` بيتعبى تلقائيًا من
+  `chargeForUsage()` (كانت الميزة بتختفي قبل كده).
+- دالة `WalletService::getUsageRevenueBreakdown($year, $month)` + endpoint
+  `GET /api/admin/wallet/usage-revenue` (BillingViewer).
+- الصفوف القديمة (feature_key = NULL) بتتجمع تحت `_legacy_unmapped`
+  عشان مفيش إيراد يضيع صامتًا.
+
+### 5.4 Migrations جديدة (تشغيلها مرة واحدة على قاعدة البيانات)
+
+- `2026_08_15_000052_add_subscription_credit_to_wallet_transactions_type.sql`
+  → إضافة `'subscription_credit'` لقيم `type` ENUM.
+- `2026_08_15_000053_add_feature_key_to_wallet_transactions.sql`
+  → عمود `feature_key` (اختياري، NULL للحركات القديمة).
+
+> ملاحظة: الـ migrations دي إضافية بالكامل (non-destructive) — مش بتحذف
+> ولا بتعدّل أي عمود/قيمة موجودة.
