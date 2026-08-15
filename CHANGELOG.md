@@ -126,3 +126,107 @@ Feature موجودة يمكن إعادة استخدامها، استخدمها �
 (Left: قائمة محادثات / Center: الشات / Right: بيانات العميل والـLead)
 تستهلك كل الـAPIs المبنية في المراحل 1-5 مباشرة، لتصبح المنصة قابلة
 للاستخدام الفعلي من فريقكم بدل التعامل معها عبر API فقط.
+
+---
+
+# AI Revenue Assistant — الترقية التنافسية v1.2.0 — 2026-08-15
+
+## 1) الخلفية (تحليل تنافسي)
+
+قورن الموديول بأقوى المنصات العالمية في فئة Revenue Intelligence:
+**Clari** (forecast automation + Copilot أسئلة متابعة)، **Gong**
+(NLP متعدد اللغات)، **Baremetrics** (forecast/benchmarks)،
+**ChartMogul** (Explore future scenarios). الاستنتاج: الموديول
+متفوّق في مبدأ "no invented answers" لكنه كان أقل في ثلاث نقاط:
+مرونة اللغة العربية، مرونة الفترة (كان monthly ثابتة دائمًا)،
+وقدرة "What-if / ماذا لو" التنبؤية. هذه الترقية تعالج الثلاث نقاط
+دون المساس بقاعدة الموديول الصارمة (كل رقم من بيانات حقيقية).
+
+## 2) التغييرات
+
+- `app/Services/RevenueIntelligence/RevenueAssistantService.php` (v1.2.0):
+  - **Arabic Normalization** (`normalizeArabic`): أ/ا/إ → ا، ى/ئ → ي،
+    ة → ه، يُطبَّق على السؤال والأنماط معًا، فجملة "اكبر مصدر للايراد"
+    توصل لنفس Intent مثل "أكبر مصدر للإيرادات".
+  - **Period-aware questions** (`detectPeriod`): "الشهر ده"/"الأسبوع
+    ده"/"الربع ده"/"السنة دي"/"this week" تغيّر فترة حساب
+    overview/trend/sources/forecast بدل monthly الثابتة.
+  - **What-if scenario intent** (`what_if_scenario` + `extractGrowthPercent`):
+    "ماذا لو زادت الإيرادات 20%؟" يحسب سيناريو مبني على نفس الاتجاه
+    التاريخي الحقيقي × النسبة المذكورة - لا رقم مخترع.
+  - **Follow-up suggestions** (`suggestFollowUps`): كل إجابة ترجع 3
+    أسئلة متابعة منطقية (Clari Copilot-style) تظهر كأزرار في الواجهة.
+  - توسيع أنماط النوايا بالعربي (تهجئة عامية) والإنجليزي.
+
+- `app/Services/RevenueIntelligence/RevenueForecastService.php` (v1.1.0):
+  - **`scenarioForecast()`**: Pure function - يطبّق نسبة نمو مفترضة على
+    الـForecast الحقيقي ويعيد Expected + Range، مع إفصاح واضح أنها
+    تقدير سيناريو وليست ضمانًا.
+
+- `app/Controllers/RevenueIntelligenceController.php`:
+  - عرض `follow_up_questions` في تبويب الـAssistant كأزرار قابلة
+    للنقر تعيد إرسال السؤال مباشرة (بدون بيانات جديدة).
+
+- `tests/Unit/RevenueIntelligenceTest.php` (v1.1.0): 25 اختبارًا جديدًا
+  (Normalization، Period detection، What-if، Scenario forecast،
+  Follow-up suggestions). الإجمالي: **81 اختبارًا، 100% نجاح**.
+
+## 3) قاعدة البيانات
+
+لا تغيير على قاعدة البيانات - كل الميزات الجديدة فوق البنية الحالية
+(revai_* + rev_revenue_records + crm_*).
+
+## 4) الاختبارات
+
+- `php -l` على كل الملفات المعدَّلة - لا أخطاء.
+- `php tests/Unit/RevenueIntelligenceTest.php` → 81/81 ✅ (100%).
+
+---
+
+# AI Revenue Assistant — الترقية v1.3.0 (Seasonality + NLP + Cache TTL) — 2026-08-15
+
+## 1) ما الذي أُضيف ولماذا
+
+- **Seasonality** (Forecast): `RevenueForecastService::computeSeasonalFactor()`
+  + `seasonalForecast()` - مقارنة الفترة الحالية بالفترة السابقة المكافئة
+  بنفس الطول من البيانات الحقيقية لاكتشاف مواسم (الحجوزات/البيع الصيفي...).
+  التوقع الموسمي = التوقع الخطي الحقيقي × العامل الموسمي. **مُصرَّح**
+  صراحة أنها مقارنة بسيطة بنفس الفترة السابقة وليست نموذج موسمية كامل
+  متعدد السنوات - لا ادعاء يتجاوز البيانات.
+- **Graduated Cache TTL** (Performance): `RevenueCacheService::ttlForPeriod()`
+  - daily=30s، weekly=90s، monthly=180s، quarterly=600s، yearly=900s.
+  الفترات الأسرع حركةً تكاش أقل، والأغلى حسابيًا تكاش أطول.
+- **توسيع الـNLP العربي** (Assistant v1.3.0): مرادفات أوسع (زبون، مبيعات،
+  دخل، منين، الجاية، الأولوية...) تصل لنفس النوايا، ومكافئات إنجليزية
+  (client، sales forecast، sales pipeline، outlier...).
+
+## 2) الملفات المعدَّلة
+
+- `app/Services/RevenueIntelligence/RevenueForecastService.php` (v1.1.0):
+  `computeSeasonalFactor()` + `seasonalForecast()` pure functions.
+- `app/Services/RevenueIntelligence/RevenueCacheService.php` (v1.1.0):
+  `ttlForPeriod()` + استخدامه في rememberOverview/rememberForecast.
+- `app/Services/RevenueIntelligence/RevenueAssistantService.php` (v1.3.0):
+  توسيع intentPatterns() بالمرادفات الجديدة.
+- `tests/Unit/RevenueIntelligenceTest.php` (v1.3.0): 20 اختبارًا جديدًا
+  (SeasonalFactor، SeasonalForecast، GraduatedCacheTtl، ArabicSynonyms).
+  الإجمالي: **101 اختبارًا، 100% نجاح**.
+
+## 3) قاعدة البيانات
+
+لا تغيير على قاعدة البيانات إطلاقًا.
+
+## 4) لماذا لم تُدمج بيانات `invoices`/`wallet_transactions` في الإيرادات؟
+
+فحصنا `invoices` و`wallet_transactions` فوجدناهما **فوترة منصة Tourfecto
+نفسها** (المستخدم يدفع لـ Tourfecto مقابل الاشتراك) - وليست إيراد أعمال
+العميل. دمجها في `total_revenue` سيكون خطأً دلاليًا (مزج إيراد المنصة
+بإيراد العميل) وينتهك قاعدة "لا بيانات صامتة خاطئة" - لذلك تُرك الإيراد
+معتمدًا على `rev_revenue_records` (المصدر الصحيح الوحيد)، وهذا موثّق
+كقرار تصميم وليس إغفالًا.
+
+## 5) الاختبارات
+
+- `php -l` على كل الملفات المعدَّلة - لا أخطاء.
+- `php tests/Unit/RevenueIntelligenceTest.php` → 101/101 ✅ (100%).
+
