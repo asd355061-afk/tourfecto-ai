@@ -648,6 +648,9 @@ $router->post('/api/gbp/location', 'GoogleBusinessContentController', 'saveLocat
 $router->get('/api/gbp/status', 'GbpProfileController', 'status', ['AuthMiddleware']);
 $router->get('/api/gbp/health', 'GbpProfileController', 'health', ['AuthMiddleware', 'AdminMiddleware']);
 $router->get('/api/gbp/competitors', 'GbpProfileController', 'competitors', ['AuthMiddleware']);
+$router->get('/api/gbp/analytics', 'GbpProfileController', 'analytics', ['AuthMiddleware']);
+$router->get('/api/gbp/risk-signals', 'GbpProfileController', 'riskSignals', ['AuthMiddleware']);
+$router->get('/api/gbp/share-of-voice', 'GbpProfileController', 'shareOfVoice', ['AuthMiddleware']);
 $router->post('/api/gbp/sync/{website_id}', 'GbpProfileController', 'sync', ['AuthMiddleware']);
 $router->get('/api/gbp/profile', 'GbpProfileController', 'getProfile', ['AuthMiddleware']);
 $router->post('/api/gbp/profile', 'GbpProfileController', 'updateProfile', ['AuthMiddleware']);

@@ -33,6 +33,7 @@ class GbpProfileController extends Controller {
         $this->photoService = new GbpPhotoService();
         $this->insightsService = new GbpInsightsService();
         $this->aiInsightsService = new GbpAIInsightsService();
+        $this->analyticsService = new GbpReputationAnalyticsService();
     }
 
     // ============================================
@@ -90,6 +91,62 @@ class GbpProfileController extends Controller {
             Logger::error('GBP competitor benchmark error', ['message' => $e->getMessage()]);
             return $this->error('تعذر تنفيذ المقارنة التنافسية', 500);
         }
+    }
+
+    /**
+     * GET /api/gbp/analytics - لوحة Reputation Intelligence:
+     * KPIs (Response Rate/First Response Time/Review Velocity) + اتجاهات
+     * 90 يوم + توزيع التقييمات + مزيج المشاعر. على مستوى Birdeye/Chatmeter.
+     * @since 2026-08-15
+     */
+    public function analytics(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+
+        $websiteId = (int) $this->get('website_id');
+        if (!$websiteId) return $this->error('website_id مطلوب', 422);
+
+        $days = (int) $this->get('days', 90);
+        $result = $this->analyticsService->getAnalytics($websiteId, (int) $this->user['id'], $days);
+        if (!$result['success']) {
+            return $this->error($result['error'], 502);
+        }
+        return $this->success($result);
+    }
+
+    /**
+     * GET /api/gbp/risk-signals - مراقبة المخاطر (PulseAi-style):
+     * هبوط تقييم، قفزة مراجعات، قفزة سلبية، نمط مشبوه.
+     * @since 2026-08-15
+     */
+    public function riskSignals(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+
+        $websiteId = (int) $this->get('website_id');
+        if (!$websiteId) return $this->error('website_id مطلوب', 422);
+
+        $result = $this->analyticsService->getRiskSignals($websiteId, (int) $this->user['id']);
+        if (!$result['success']) {
+            return $this->error($result['error'], 502);
+        }
+        return $this->success($result);
+    }
+
+    /**
+     * GET /api/gbp/share-of-voice - حصة الظهور المحلية مقارنة بالمنافسين
+     * في Google Places (review share + ranks).
+     * @since 2026-08-15
+     */
+    public function shareOfVoice(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+
+        $websiteId = (int) $this->get('website_id');
+        if (!$websiteId) return $this->error('website_id مطلوب', 422);
+
+        $result = $this->analyticsService->getShareOfVoice($websiteId, (int) $this->user['id']);
+        if (!$result['success']) {
+            return $this->error($result['error'] ?? 'تعذر حساب حصة الظهور', 502);
+        }
+        return $this->success($result);
     }
 
     /** POST /api/gbp/sync/{website_id} - مزامنة يدوية فورية */
