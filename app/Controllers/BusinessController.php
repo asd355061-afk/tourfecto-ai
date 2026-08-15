@@ -83,6 +83,54 @@ class BusinessController extends Controller {
         return $this->success(['business' => $business->toArray()], 'تم إنشاء Business Profile', 201);
     }
 
+    /**
+     * GET /api/business/overview - لوحة ملخص موحدة للـBusiness (نفس فكرة
+     * SOCi Visibility Dashboard / Yext single pane). استجابة واحدة بتجمع:
+     * السياق الكامل (BusinessContextService - الـSingle Source of Truth)،
+     * درجة الجاهزية (AI Audit score)، وإحصائيات سريعة (عدد المواقع/
+     * الخدمات/الأسواق)، وأهم 5 خطوات تالية. ده بيمثل الربط مع الـDashboard
+     * المطلوب في الـSpec (Phase 19) - من غير ما يحتاج الـFrontend يلم
+     * 6 Endpoints مختلفة ويعيد تركيب الصورة بنفسه.
+     */
+    public function overview(array $params = []): array {
+        $user = $this->currentUser();
+        if (!$user) {
+            return $this->error('غير مسجل دخول', 401);
+        }
+
+        $businesses = (new Business())->where(['owner_user_id' => (int) $user->getAttribute('id')], ['id' => 'ASC'], 1);
+        if (empty($businesses)) {
+            return $this->success([
+                'business' => null,
+                'readiness' => null,
+                'stats' => null,
+                'next_steps' => [],
+            ]);
+        }
+
+        $businessId = (int) $businesses[0]->getAttribute('id');
+        $context = (new BusinessContextService())->getContext($businessId);
+        $readiness = (new BusinessReadinessService())->scoreFromContext($context);
+
+        $stats = [
+            'locations_count' => count($context['locations'] ?? []),
+            'active_services_count' => count($context['services'] ?? []),
+            'target_countries_count' => count($context['target_markets']['countries'] ?? []),
+            'target_cities_count' => count($context['target_markets']['cities'] ?? []),
+            'target_languages_count' => count($context['target_markets']['languages'] ?? []),
+            'competitors_count' => count($context['ai_context']['competitors'] ?? []),
+            'has_ai_context' => !empty($context['ai_context']['business_summary']),
+            'has_brand_settings' => !empty($context['brand_settings']),
+        ];
+
+        return $this->success([
+            'business' => $context['business'],
+            'readiness' => $readiness,
+            'stats' => $stats,
+            'next_steps' => array_slice($readiness['recommendations'], 0, 5),
+        ]);
+    }
+
     /** PUT /api/business/{id} - تحديث. Authorization: Owner فقط */
     public function update(array $params = []): array {
         $user = $this->currentUser();

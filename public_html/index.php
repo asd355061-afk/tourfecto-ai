@@ -293,6 +293,7 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/BusinessServiceManager.php',
     APP_PATH . '/Services/BusinessLocationService.php',
     APP_PATH . '/Services/BusinessContextService.php',
+    APP_PATH . '/Services/BusinessReadinessService.php',
     APP_PATH . '/Controllers/BusinessController.php',
     APP_PATH . '/Controllers/BusinessLocationController.php',
     APP_PATH . '/Controllers/BusinessServiceController.php',

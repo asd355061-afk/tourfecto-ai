@@ -68,6 +68,7 @@ $router->post('/api/workspace/invite/{token}/accept', 'WorkspaceController', 'ac
 // كل المسارات AuthMiddleware-protected (زي باقي /api/user/*).
 // ============================================
 $router->get('/api/business', 'BusinessController', 'show', ['AuthMiddleware']);
+$router->get('/api/business/overview', 'BusinessController', 'overview', ['AuthMiddleware']);
 $router->post('/api/business', 'BusinessController', 'store', ['AuthMiddleware']);
 $router->put('/api/business/{id}', 'BusinessController', 'update', ['AuthMiddleware']);
 $router->get('/api/business/{businessId}/locations', 'BusinessLocationController', 'index', ['AuthMiddleware']);

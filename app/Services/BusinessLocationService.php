@@ -102,24 +102,44 @@ class BusinessLocationService {
      * حذف موقع. لو كان هو الـPrimary وفيه مواقع تانية، بنخلي أقدم موقع
      * متبقي هو الـPrimary الجديد تلقائيًا - عشان الـBusiness مايفضلش
      * من غير أي موقع Primary خالص من غير قصد.
+     *
+     * Competitive fix (2026-08-15): الحذف + إعادة الترقية للـPrimary الجديد
+     * بيتنفذوا دلوقتي في Transaction واحدة - قبل كده الحذف كان بيتم وبعدين
+     * الـPrimary الجديد بيتحفظ برة الـTransaction، فلو فشل الـsave بتاع
+     * الترقية (أو حصل خطأ اتصال)، الـBusiness كان ممكن يفضل من غير أي موقع
+     * Primary خالص - كسر للـInvariant اللي الخدمة دي مكلفة بضمانه. دلوقتي
+     * لو فشل أي جزء، كله بيتراجع والحذف نفسه مش بيحصل.
      */
     public function delete(BusinessLocation $location): bool {
+        $db = Database::getInstance();
         $businessId = (int) $location->getAttribute('business_id');
         $wasPrimary = (bool) $location->getAttribute('is_primary');
 
-        if (!$location->delete()) {
-            return false;
-        }
+        try {
+            $db->beginTransaction();
 
-        if ($wasPrimary) {
-            $remaining = (new BusinessLocation())->where(['business_id' => $businessId], ['id' => 'ASC'], 1);
-            if (!empty($remaining)) {
-                $remaining[0]->setAttribute('is_primary', 1);
-                $remaining[0]->save();
+            if (!$location->delete()) {
+                $db->rollback();
+                return false;
             }
-        }
 
-        return true;
+            if ($wasPrimary) {
+                $remaining = (new BusinessLocation())->where(['business_id' => $businessId], ['id' => 'ASC'], 1);
+                if (!empty($remaining)) {
+                    $remaining[0]->setAttribute('is_primary', 1);
+                    if ($remaining[0]->save() === false) {
+                        $db->rollback();
+                        return false;
+                    }
+                }
+            }
+
+            $db->commit();
+            return true;
+        } catch (\Throwable $e) {
+            $db->rollback();
+            throw $e;
+        }
     }
 
     private function clearPrimaryFlag(int $businessId): void {

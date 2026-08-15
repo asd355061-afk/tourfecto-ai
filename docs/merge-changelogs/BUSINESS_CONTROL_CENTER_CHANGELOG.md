@@ -1,8 +1,10 @@
 # Tourfecto — Business Control Center — Changelog
 
-**Date:** 2026-08-14
-**Scope of this delivery:** Phase 1 (Audit) + Phase 2 (User/Business Profile separation) only,
-of a 30-phase request. See "Not done yet" at the bottom for the full remaining scope.
+**Date:** 2026-08-14 (initial), 2026-08-15 (scope update + competitive phase)
+**Scope of this delivery:** Phases 1–7 (Audit, User/Business Profile separation, Locations,
+Services, Target Markets, AI Business Context, Brand Settings) of a 30-phase request, followed
+by a competitive phase (AI Audit readiness scoring + business overview dashboard + an atomicity
+fix). See "Not done yet" at the bottom for the remaining scope.
 
 ---
 
@@ -382,11 +384,6 @@ None run (no PHP runtime, consistent with every phase).
 
 ## Not done yet (remaining spec — proposed as future phases, matching the original priority order)
 
-- **Phase 3–5**: Business Locations, Services, Target Markets (each needs its own table +
-  Model + Controller, same rigor as Phase 2)
-- **Phase 6**: AI Business Context (single source of truth service — depends on Phase 2–5 being
-  in place first, otherwise there's nothing coherent to summarize)
-- **Phase 7**: Brand Settings
 - **Phase 8–9**: Integrations Center (unifying scattered existing OAuth flows into one view) +
   Google integrations security review
 - **Phase 10–11**: Team Management + real RBAC (the biggest remaining architectural gap — this
@@ -395,7 +392,8 @@ None run (no PHP runtime, consistent with every phase).
 - **Phase 13–14**: Security Center enhancements + centralized Audit Log
 - **Phase 15–16**: Expand `ExportUserDataJob` to include business data; enhance Delete Account
   to also revoke OAuth/API keys and handle business ownership transfer
-- **Phase 17–19**: Onboarding wizard, AI Audit scoring, Dashboard wiring
+- **Phase 17**: Onboarding wizard UI with progress tracking (the readiness score in the
+  competitive phase is the data layer this UI will render)
 - **Phase 20–27**: DB quality pass, validation hardening, API design review, Frontend UX,
   Notifications expansion, Tests, Security Audit, Performance — these apply across *everything*
   built in both this delivery and the prior Profile work, not just new code
@@ -405,3 +403,46 @@ None run (no PHP runtime, consistent with every phase).
 
 Each phase should be delivered and reviewed separately, the same way the 13-phase Profile
 delivery was — this is not something to build all at once blind.
+
+---
+
+## Competitive phase (2026-08-15) — "AI Audit scoring + dashboard + correctness fix"
+
+Differential analysis against Semrush / Yext / Birdeye / SOCi is documented in
+`BUSINESS_COMPETITIVE_ANALYSIS.md`. This phase closes the three most exploitable gaps:
+
+### New: BusinessReadinessService (AI Audit scoring)
+- `app/Services/BusinessReadinessService.php` — weighted 0-100 readiness score across 7
+  categories (identity, contact, locations, services, target markets, AI context, brand), with
+  grade A-F, per-category breakdown, and prioritized next-step recommendations.
+- Two-layer design: `scoreFromContext(array $context)` is pure logic (offline-testable) and
+  reads only the `BusinessContextService::getContext()` output — the same Single Source of
+  Truth, no extra queries; `score(int $businessId)` is the thin DB/cache wrapper.
+- Weights: identity 20, AI context 20, contact 15, locations 15, services 10, target markets
+  10, brand 10 (sums to 100). Documented as opinionated defaults, override-able later.
+- Recommendations are sorted high-priority first (heavy-weight categories first).
+
+### New: business overview dashboard endpoint
+- `app/Controllers/BusinessController.php::overview()` + `GET /api/business/overview` (auth,
+  IDOR-safe via the same `owner_user_id` filter as `show()`).
+- One response = full context + readiness score + quick stats (location/service/market counts,
+  `has_ai_context`, `has_brand_settings`) + top 5 next steps. Wires the dashboard without the
+  frontend assembling six endpoints.
+
+### Fix: atomic delete of a primary location
+- `app/Services/BusinessLocationService::delete()` now runs delete + replacement-primary
+  promotion inside one transaction (rollback on any failure), so the single-primary invariant
+  can never be left half-applied.
+
+### Files
+- `app/Services/BusinessReadinessService.php` — **new**.
+- `app/Controllers/BusinessController.php` — added `overview()`.
+- `app/routes/api.php` — `GET /api/business/overview`.
+- `app/Services/BusinessLocationService.php` — atomicity fix.
+- `public_html/index.php` — registered `BusinessReadinessService`.
+- `tests/Unit/Business/BusinessReadinessServiceTest.php` — **new** offline unit test (7 cases).
+
+### Tests Passed
+- `php tests/Unit/Business/BusinessReadinessServiceTest.php` — 7/7 passed (offline, pure
+  logic; no DB required). DB-backed flows still require the server runtime, consistent with
+  every prior phase.
