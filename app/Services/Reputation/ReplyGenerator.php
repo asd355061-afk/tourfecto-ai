@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Reply Generator
  * توليد ردود ذكية على المراجعات
@@ -7,25 +8,27 @@
  * @copyright 2026 Tourfecto
  */
 
-class ReplyGenerator {
+class ReplyGenerator
+{
     /**
      * @var TourfectoAIEngine $aiEngine - محرك الذكاء الاصطناعي
      */
     private $aiEngine;
-    
+
     /**
      * @var array $templates - قوالب الردود
      */
     private $templates = [];
-    
+
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         $this->aiEngine = new TourfectoAIEngine();
         $this->loadTemplates();
     }
-    
+
     /**
      * توليد رد على مراجعة
      * @param string $reviewText - نص المراجعة
@@ -48,14 +51,14 @@ class ReplyGenerator {
                 $platform,
                 $userId
             );
-            
+
             if ($aiReply) {
                 return $this->postProcessReply($aiReply, $sentiment);
             }
-            
+
             // استخدام القوالب كـ Fallback
             return $this->generateFromTemplate($reviewText, $sentiment, $platform);
-            
+
         } catch (Exception $e) {
             Logger::error('Generate Reply Error', [
                 'error' => $e->getMessage()
@@ -63,7 +66,7 @@ class ReplyGenerator {
             return $this->generateFromTemplate($reviewText, $sentiment, $platform);
         }
     }
-    
+
     /**
      * توليد رد من قالب
      * @param string $reviewText
@@ -71,52 +74,55 @@ class ReplyGenerator {
      * @param string $platform
      * @return string
      */
-    private function generateFromTemplate(string $reviewText, array $sentiment, string $platform): string {
+    private function generateFromTemplate(string $reviewText, array $sentiment, string $platform): string
+    {
         $template = $this->selectTemplate($sentiment['label'], $platform);
-        
+
         $placeholders = [
             '{reviewer_name}' => '',
             '{platform}' => $platform,
             '{sentiment}' => $sentiment['label'],
             '{rating}' => '5'
         ];
-        
+
         $reply = str_replace(
             array_keys($placeholders),
             array_values($placeholders),
             $template
         );
-        
+
         return $reply;
     }
-    
+
     /**
      * معالجة الرد بعد التوليد
      * @param string $reply
      * @param array $sentiment
      * @return string
      */
-    private function postProcessReply(string $reply, array $sentiment): string {
+    private function postProcessReply(string $reply, array $sentiment): string
+    {
         $reply = preg_replace('/\s+/', ' ', $reply);
-        
+
         if (!preg_match('/[.!?…]$/', $reply)) {
             $reply .= '.';
         }
-        
+
         $keywords = $this->getKeywords($sentiment['label']);
         if (!empty($keywords)) {
             $reply .= ' ' . $keywords[array_rand($keywords)];
         }
-        
+
         return $reply;
     }
-    
+
     /**
      * الحصول على كلمات مفتاحية حسب المشاعر
      * @param string $sentiment
      * @return array
      */
-    private function getKeywords(string $sentiment): array {
+    private function getKeywords(string $sentiment): array
+    {
         $keywords = [
             'positive' => [
                 'نتمنى رؤيتك مرة أخرى',
@@ -137,25 +143,27 @@ class ReplyGenerator {
                 'نتطلع لخدمتكم'
             ]
         ];
-        
+
         return $keywords[$sentiment] ?? $keywords['neutral'];
     }
-    
+
     /**
      * اختيار قالب مناسب
      * @param string $sentiment
      * @param string $platform
      * @return string
      */
-    private function selectTemplate(string $sentiment, string $platform): string {
+    private function selectTemplate(string $sentiment, string $platform): string
+    {
         $templates = $this->templates[$platform] ?? $this->templates['default'];
         return $templates[$sentiment] ?? $templates['neutral'] ?? $templates['default'];
     }
-    
+
     /**
      * تحميل القوالب
      */
-    private function loadTemplates(): void {
+    private function loadTemplates(): void
+    {
         $this->templates = [
             'default' => [
                 'positive' => "شكراً جزيلاً لك على تقييمك الإيجابي. يسعدنا جداً أنك استمتعت بتجربتك معنا. نتطلع دائماً لتقديم الأفضل لعملائنا الكرام. نتمنى رؤيتك مرة أخرى قريباً!",

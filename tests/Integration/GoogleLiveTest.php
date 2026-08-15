@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - GBP LIVE Google Integration Test Harness
  * @version 1.0.0
@@ -47,7 +48,8 @@ foreach ([
     }
 }
 
-class GoogleLiveTest {
+class GoogleLiveTest
+{
     private $passed = 0;
     private $failed = 0;
     private $skipped = 0;
@@ -59,13 +61,15 @@ class GoogleLiveTest {
     /** @var GoogleBusinessAPI|null */
     private $api;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->enabled = (env('GBP_LIVE_TEST') === 'true' || getenv('GBP_LIVE_TEST') === 'true');
         $this->websiteId = (int) (env('GBP_LIVE_TEST_WEBSITE_ID') ?: getenv('GBP_LIVE_TEST_WEBSITE_ID') ?: 0);
         $this->userId = (int) (env('GBP_LIVE_TEST_USER_ID') ?: getenv('GBP_LIVE_TEST_USER_ID') ?: 0);
     }
 
-    public function runAll(): void {
+    public function runAll(): void
+    {
         echo "\n🔴 GBP LIVE Google Integration Test\n";
         echo "=====================================\n";
 
@@ -92,9 +96,13 @@ class GoogleLiveTest {
         $this->printSummary();
     }
 
-    private function testOAuthConfigured(): void {
+    private function testOAuthConfigured(): void
+    {
         $this->start('OAuth Client Configured');
-        if (!$this->enabled) { $this->skip('GBP_LIVE_TEST != true'); return; }
+        if (!$this->enabled) {
+            $this->skip('GBP_LIVE_TEST != true');
+            return;
+        }
 
         $oauth = new GoogleOAuthClient();
         if ($oauth->isConfigured()) {
@@ -104,10 +112,17 @@ class GoogleLiveTest {
         }
     }
 
-    private function testConnectionExists(): void {
+    private function testConnectionExists(): void
+    {
         $this->start('Real Connection Exists');
-        if (!$this->enabled) { $this->skip('GBP_LIVE_TEST != true'); return; }
-        if (!$this->websiteId || !$this->userId) { $this->skip('GBP_LIVE_TEST_WEBSITE_ID/USER_ID غير مضبوطين'); return; }
+        if (!$this->enabled) {
+            $this->skip('GBP_LIVE_TEST != true');
+            return;
+        }
+        if (!$this->websiteId || !$this->userId) {
+            $this->skip('GBP_LIVE_TEST_WEBSITE_ID/USER_ID غير مضبوطين');
+            return;
+        }
 
         $sync = new GbpSyncService();
         $this->connection = $sync->findConnection($this->websiteId, $this->userId);
@@ -119,9 +134,13 @@ class GoogleLiveTest {
         }
     }
 
-    private function testTokenRefresh(): void {
+    private function testTokenRefresh(): void
+    {
         $this->start('Token Refresh (Live)');
-        if (!$this->enabled || !$this->connection) { $this->skip('محتاج اتصال حقيقي من الاختبار اللي فات'); return; }
+        if (!$this->enabled || !$this->connection) {
+            $this->skip('محتاج اتصال حقيقي من الاختبار اللي فات');
+            return;
+        }
 
         try {
             $reviewSync = new GoogleReviewSyncService();
@@ -142,9 +161,13 @@ class GoogleLiveTest {
         }
     }
 
-    private function testAccountDiscovery(): void {
+    private function testAccountDiscovery(): void
+    {
         $this->start('Account Discovery (accounts.list)');
-        if (!$this->enabled || !$this->api) { $this->skip('محتاج API client جاهز من اختبار Token Refresh'); return; }
+        if (!$this->enabled || !$this->api) {
+            $this->skip('محتاج API client جاهز من اختبار Token Refresh');
+            return;
+        }
 
         $result = $this->api->listAccounts();
         if ($result['success'] ?? false) {
@@ -154,9 +177,13 @@ class GoogleLiveTest {
         }
     }
 
-    private function testProfileRead(): void {
+    private function testProfileRead(): void
+    {
         $this->start('Profile Read (locations.get)');
-        if (!$this->enabled || !$this->api) { $this->skip('محتاج API client جاهز'); return; }
+        if (!$this->enabled || !$this->api) {
+            $this->skip('محتاج API client جاهز');
+            return;
+        }
 
         $result = $this->api->getLocation();
         if ($result['success'] ?? false) {
@@ -166,9 +193,13 @@ class GoogleLiveTest {
         }
     }
 
-    private function testAttributesDiscovery(): void {
+    private function testAttributesDiscovery(): void
+    {
         $this->start('Attributes Discovery (attributes.list) — الجزء اللي معملوش Live Test قبل كده');
-        if (!$this->enabled || !$this->api) { $this->skip('محتاج API client جاهز'); return; }
+        if (!$this->enabled || !$this->api) {
+            $this->skip('محتاج API client جاهز');
+            return;
+        }
 
         $result = $this->api->listAvailableAttributes();
         if ($result['success'] ?? false) {
@@ -179,9 +210,13 @@ class GoogleLiveTest {
         }
     }
 
-    private function testInsightsRead(): void {
+    private function testInsightsRead(): void
+    {
         $this->start('Insights Read (fetchMultiDailyMetricsTimeSeries)');
-        if (!$this->enabled || !$this->api) { $this->skip('محتاج API client جاهز'); return; }
+        if (!$this->enabled || !$this->api) {
+            $this->skip('محتاج API client جاهز');
+            return;
+        }
 
         $result = $this->api->fetchDailyMetrics(
             null,
@@ -196,9 +231,13 @@ class GoogleLiveTest {
         }
     }
 
-    private function testReviewsRead(): void {
+    private function testReviewsRead(): void
+    {
         $this->start('Reviews Read (accounts.locations.reviews.list)');
-        if (!$this->enabled || !$this->api) { $this->skip('محتاج API client جاهز'); return; }
+        if (!$this->enabled || !$this->api) {
+            $this->skip('محتاج API client جاهز');
+            return;
+        }
 
         $result = $this->api->getReviews();
         if ($result['success'] ?? false) {
@@ -208,7 +247,8 @@ class GoogleLiveTest {
         }
     }
 
-    private function testWriteOperationsGate(): void {
+    private function testWriteOperationsGate(): void
+    {
         $this->start('Write Operations (Photo Upload / Post Create / Delete)');
         $allowWrites = (env('GBP_LIVE_TEST_ALLOW_WRITES') === 'true' || getenv('GBP_LIVE_TEST_ALLOW_WRITES') === 'true');
 
@@ -226,12 +266,28 @@ class GoogleLiveTest {
         $this->skip('منطق الكتابة الفعلي (Upload/Publish/Delete اختباري) لسه محتاج تنفيذ مباشر مع حساب اختباري حقيقي متاح وقت الاختبار - مش هنخمّنه هنا');
     }
 
-    private function start(string $name): void { echo "\n  ▶ {$name}\n"; }
-    private function pass(string $msg): void { echo "    ✅ EXECUTION VERIFIED: {$msg}\n"; $this->passed++; }
-    private function fail(string $msg): void { echo "    ❌ FAILED: {$msg}\n"; $this->failed++; }
-    private function skip(string $reason): void { echo "    ⏭️  SKIP: {$reason}\n"; $this->skipped++; }
+    private function start(string $name): void
+    {
+        echo "\n  ▶ {$name}\n";
+    }
+    private function pass(string $msg): void
+    {
+        echo "    ✅ EXECUTION VERIFIED: {$msg}\n";
+        $this->passed++;
+    }
+    private function fail(string $msg): void
+    {
+        echo "    ❌ FAILED: {$msg}\n";
+        $this->failed++;
+    }
+    private function skip(string $reason): void
+    {
+        echo "    ⏭️  SKIP: {$reason}\n";
+        $this->skipped++;
+    }
 
-    private function printSummary(): void {
+    private function printSummary(): void
+    {
         echo "\n" . str_repeat('=', 50) . "\n";
         echo "📊 Live Google Test Summary\n";
         echo str_repeat('=', 50) . "\n";

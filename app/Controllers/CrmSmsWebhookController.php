@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM SMS Webhook Controller (Twilio) (بند 15)
  * @version 1.0.0
@@ -6,9 +7,11 @@
  * نفس نمط CrmWhatsAppWebhookController بالضبط - نقطة عامة بدون Auth، الأمان
  * عبر التحقق من توقيع Twilio الرسمي (X-Twilio-Signature) بدل جلسة مستخدم.
  */
-class CrmSmsWebhookController extends Controller {
+class CrmSmsWebhookController extends Controller
+{
     /** POST /webhooks/crm/sms - رسالة SMS واردة من Twilio */
-    public function receive(array $params = []): array {
+    public function receive(array $params = []): array
+    {
         $sms = new CrmSmsService();
 
         $fullUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://' : 'http://')
@@ -39,7 +42,8 @@ class CrmSmsWebhookController extends Controller {
         exit;
     }
 
-    private function handleIncomingSms(string $phone, string $body, string $messageSid): void {
+    private function handleIncomingSms(string $phone, string $body, string $messageSid): void
+    {
         $contactRows = $this->db->query("SELECT * FROM crm_contacts WHERE phone LIKE ? LIMIT 1", ['%' . substr($phone, -9)]);
         if (empty($contactRows)) {
             Logger::info('CrmSmsWebhookController: رسالة واردة من رقم غير مسجّل', ['phone' => $phone]);

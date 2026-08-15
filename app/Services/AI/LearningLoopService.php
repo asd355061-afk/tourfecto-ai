@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * Learning Loop Service (Learning Loop - مستوحى من Resolution Learning Loop
@@ -17,10 +18,10 @@
  * @version 1.0.0
  */
 
-class LearningLoopService {
-
+class LearningLoopService
+{
     /** أسباب التحويل المرتبطة بفجوة معرفة (الـAI لم يجد الإجابة) */
-    const KNOWLEDGE_GAP_HANDOFF_REASONS = [
+    public const KNOWLEDGE_GAP_HANDOFF_REASONS = [
         'outside_knowledge_base',
         'low_ai_confidence',
         'ai_requested_handoff',
@@ -32,7 +33,8 @@ class LearningLoopService {
     /** @var AiChatConversation */
     private $conversationModel;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
         $this->conversationModel = new AiChatConversation();
     }
@@ -45,7 +47,8 @@ class LearningLoopService {
      * @param string|null $handoffReason سبب التحويل لو outcome=human_resolved
      * @return bool
      */
-    public function recordResolution(int $conversationId, string $outcome, ?string $handoffReason = null): bool {
+    public function recordResolution(int $conversationId, string $outcome, ?string $handoffReason = null): bool
+    {
         $valid = ['ai_resolved', 'human_resolved', 'abandoned', 'reopened'];
         if (!in_array($outcome, $valid, true)) {
             return false;
@@ -84,7 +87,8 @@ class LearningLoopService {
      * @param int $conversationId
      * @return bool
      */
-    public function recordResolutionForClosedConversation(int $conversationId): bool {
+    public function recordResolutionForClosedConversation(int $conversationId): bool
+    {
         $conversation = $this->conversationModel->find($conversationId);
         if (!$conversation) {
             return false;
@@ -106,7 +110,8 @@ class LearningLoopService {
      * @param string|null $handoffReason
      * @return bool
      */
-    public function recordKnowledgeGap(int $websiteId, int $conversationId, string $question, ?string $language = null, ?string $handoffReason = null): bool {
+    public function recordKnowledgeGap(int $websiteId, int $conversationId, string $question, ?string $language = null, ?string $handoffReason = null): bool
+    {
         $question = trim($question);
         if ($question === '' || $conversationId <= 0) {
             return false;
@@ -160,7 +165,8 @@ class LearningLoopService {
      * @param int $limit
      * @return int عدد الفجوات الجديدة المسجّلة
      */
-    public function scanKnowledgeGaps(int $websiteId, ?string $sinceDate = null, int $limit = 50): int {
+    public function scanKnowledgeGaps(int $websiteId, ?string $sinceDate = null, int $limit = 50): int
+    {
         $sinceDate = $sinceDate ?: date('Y-m-d', strtotime('-30 days'));
         $reasons = implode(',', array_map(function ($r) {
             return "'" . addslashes($r) . "'";
@@ -207,7 +213,8 @@ class LearningLoopService {
      * @param string|null $handoffAt
      * @return string|null
      */
-    private function lastCustomerMessageBefore(int $conversationId, ?string $handoffAt): ?string {
+    private function lastCustomerMessageBefore(int $conversationId, ?string $handoffAt): ?string
+    {
         try {
             $rows = $this->db->query(
                 "SELECT message_text FROM chat_messages
@@ -228,7 +235,8 @@ class LearningLoopService {
      * @param string $question
      * @return string
      */
-    private function normalizeQuestion(string $question): string {
+    private function normalizeQuestion(string $question): string
+    {
         $text = mb_strtolower(trim($question));
         $text = preg_replace('/[\x{064B}-\x{0652}\x{0640}]/u', '', $text); // تشكيل عربي + تطويل
         $text = preg_replace('/[\p{P}\p{S}]/u', ' ', $text); // ترقيم ورموز
@@ -244,7 +252,8 @@ class LearningLoopService {
      * @param string|null $sinceDate 'Y-m-d'
      * @return array
      */
-    public function getLearningInsights(int $websiteId, ?string $sinceDate = null): array {
+    public function getLearningInsights(int $websiteId, ?string $sinceDate = null): array
+    {
         $sinceDate = $sinceDate ?: date('Y-m-d', strtotime('-30 days'));
 
         return [
@@ -255,7 +264,8 @@ class LearningLoopService {
         ];
     }
 
-    private function resolutionBreakdown(int $websiteId, string $sinceDate): array {
+    private function resolutionBreakdown(int $websiteId, string $sinceDate): array
+    {
         try {
             $rows = $this->db->query(
                 "SELECT outcome, COUNT(*) AS c FROM ai_resolution_events
@@ -278,7 +288,8 @@ class LearningLoopService {
      * AI Resolution Rate: نسبة المحادثات التي حلها الـAI بالكامل
      * (outcome=ai_resolved) من كل الأحداث المسجّلة خلال الفترة.
      */
-    private function aiResolutionRate(int $websiteId, string $sinceDate): float {
+    private function aiResolutionRate(int $websiteId, string $sinceDate): float
+    {
         $breakdown = $this->resolutionBreakdown($websiteId, $sinceDate);
         $total = array_sum($breakdown);
         if ($total <= 0) {
@@ -288,7 +299,8 @@ class LearningLoopService {
         return round(($aiResolved / $total) * 100, 1);
     }
 
-    private function escalationReasons(int $websiteId, string $sinceDate, int $limit = 10): array {
+    private function escalationReasons(int $websiteId, string $sinceDate, int $limit = 10): array
+    {
         try {
             $rows = $this->db->query(
                 "SELECT handoff_reason, COUNT(*) AS c FROM ai_resolution_events
@@ -315,7 +327,8 @@ class LearningLoopService {
      * @param int $limit
      * @return array
      */
-    public function topKnowledgeGaps(int $websiteId, string $sinceDate, int $limit = 10): array {
+    public function topKnowledgeGaps(int $websiteId, string $sinceDate, int $limit = 10): array
+    {
         try {
             $rows = $this->db->query(
                 "SELECT id, question, normalized_question, language, handoff_reason, occurrence_count, status, last_seen_at
@@ -339,7 +352,8 @@ class LearningLoopService {
      * @param string $status
      * @return bool
      */
-    public function updateGapStatus(int $gapId, int $websiteId, string $status): bool {
+    public function updateGapStatus(int $gapId, int $websiteId, string $status): bool
+    {
         $valid = ['acknowledged', 'added_to_kb', 'dismissed'];
         if (!in_array($status, $valid, true)) {
             return false;

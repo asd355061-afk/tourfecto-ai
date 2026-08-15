@@ -1,26 +1,36 @@
 <?php
+
 /**
  * Tourfecto - SEO Strategy Controller
  * Phase 14 (SEO Strategy Agent - خطة 30/60/90 يوم)
  * @version 1.0.0
  */
-class SeoStrategyController extends Controller {
+class SeoStrategyController extends Controller
+{
     private $subscription;
     private $strategyService;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->subscription = new SubscriptionValidator();
         $this->strategyService = new SeoStrategyService();
     }
 
     /** POST /api/seo-strategy/generate  { website_id } */
-    public function generate(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function generate(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $websiteId = (int) $this->get('website_id');
-        if (!$websiteId) return $this->error('website_id مطلوب', 422);
-        if (!$this->ownsWebsite($websiteId)) return $this->error('الموقع غير موجود', 404);
+        if (!$websiteId) {
+            return $this->error('website_id مطلوب', 422);
+        }
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('الموقع غير موجود', 404);
+        }
 
         $creditsCheck = $this->subscription->checkAICredits((int) $this->user['id'], 1);
         if (!$creditsCheck['available']) {
@@ -58,18 +68,27 @@ class SeoStrategyController extends Controller {
     }
 
     /** GET /api/seo-strategy/latest?website_id=X */
-    public function getLatestPlan(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getLatestPlan(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $websiteId = (int) $this->get('website_id');
-        if (!$websiteId) return $this->error('website_id مطلوب', 422);
-        if (!$this->ownsWebsite($websiteId)) return $this->error('الموقع غير موجود', 404);
+        if (!$websiteId) {
+            return $this->error('website_id مطلوب', 422);
+        }
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('الموقع غير موجود', 404);
+        }
 
         $plans = $this->db->query(
             "SELECT * FROM seo_strategy_plans WHERE website_id = ? AND user_id = ? ORDER BY generated_at DESC LIMIT 1",
             [$websiteId, $this->user['id']]
         );
-        if (empty($plans)) return $this->error('مفيش خطة اتولدت لسه لهذا الموقع', 404);
+        if (empty($plans)) {
+            return $this->error('مفيش خطة اتولدت لسه لهذا الموقع', 404);
+        }
 
         $tasks = $this->db->query(
             "SELECT * FROM seo_strategy_tasks WHERE plan_id = ? ORDER BY FIELD(phase,'30_days','60_days','90_days'), FIELD(priority,'high','medium','low')",
@@ -80,8 +99,11 @@ class SeoStrategyController extends Controller {
     }
 
     /** POST /api/seo-strategy/tasks/{id}/status  { status } */
-    public function updateTaskStatus(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function updateTaskStatus(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $taskId = (int) ($params['id'] ?? 0);
         $status = (string) $this->get('status', '');
@@ -95,14 +117,17 @@ class SeoStrategyController extends Controller {
              WHERE t.id = ? AND p.user_id = ? LIMIT 1",
             [$taskId, $this->user['id']]
         );
-        if (empty($rows)) return $this->error('المهمة غير موجودة', 404);
+        if (empty($rows)) {
+            return $this->error('المهمة غير موجودة', 404);
+        }
 
         $this->db->exec("UPDATE seo_strategy_tasks SET status = ? WHERE id = ?", [$status, $taskId]);
 
         return $this->success(['id' => $taskId, 'status' => $status], 'تم التحديث');
     }
 
-    private function ownsWebsite(int $websiteId): bool {
+    private function ownsWebsite(int $websiteId): bool
+    {
         $website = (new Website())->find($websiteId);
         return $website && (int) $website->getAttribute('user_id') === (int) $this->user['id'];
     }

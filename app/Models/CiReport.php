@@ -1,9 +1,11 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Report Model
  * @version 1.0.0
  */
-class CiReport extends Model {
+class CiReport extends Model
+{
     protected $table = 'ci_reports';
     protected $fillable = [
         'user_id', 'website_id', 'competitor_id', 'type', 'title',

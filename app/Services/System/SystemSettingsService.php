@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - System Settings Service
  * القراءة والكتابة الآمنة لكل إعدادات النظام (مفاتيح API، بيانات الربط)
@@ -6,7 +7,8 @@
  * البيانات، ومفيش قيمة حساسة كاملة بترجع للواجهة الأمامية أبدًا.
  * @version 1.0.0
  */
-class SystemSettingsService {
+class SystemSettingsService
+{
     /** @var Database */
     private $db;
     /** @var Encryption */
@@ -60,7 +62,8 @@ class SystemSettingsService {
         'privacy_content' => ['category' => 'legal', 'label' => 'سياسة الخصوصية', 'is_secret' => false, 'constant' => ''],
     ];
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
         $this->encryption = new Encryption();
     }
@@ -70,7 +73,8 @@ class SystemSettingsService {
      * بيرجع للقيمة الافتراضية (عادةً القيمة الحالية في .env). آمن 100%
      * حتى لو الجدول مش موجود أو فاضي.
      */
-    public function get(string $key, string $default = ''): string {
+    public function get(string $key, string $default = ''): string
+    {
         try {
             $rows = $this->db->query("SELECT setting_value, is_secret FROM system_settings WHERE setting_key = ? LIMIT 1", [$key]);
             if (empty($rows) || $rows[0]['setting_value'] === null || $rows[0]['setting_value'] === '') {
@@ -84,7 +88,8 @@ class SystemSettingsService {
     }
 
     /** حفظ إعداد واحد - بيشفّر القيمة تلقائيًا لو الإعداد ده معروف إنه حساس */
-    public function set(string $key, string $value): void {
+    public function set(string $key, string $value): void
+    {
         $meta = self::$registry[$key] ?? ['category' => 'general', 'is_secret' => false];
         $isSecret = (bool) $meta['is_secret'];
         $storedValue = $isSecret && $value !== '' ? $this->encryption->encrypt($value) : $value;
@@ -101,7 +106,8 @@ class SystemSettingsService {
      * التصنيف. القيم الحساسة بترجع مقنّعة (مفيش عرض خالص) - الأدمن
      * بيكتب قيمة جديدة كاملة لو عايز يغيّرها، مش بيشوف القديمة أبدًا.
      */
-    public function getAllForAdmin(): array {
+    public function getAllForAdmin(): array
+    {
         $grouped = [];
         foreach (self::$registry as $key => $meta) {
             $default = '';

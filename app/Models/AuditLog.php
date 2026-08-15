@@ -1,11 +1,13 @@
 <?php
+
 /**
  * Tourfecto - Audit Log Model
  * سجل نشاط أمني/إعدادات لحساب المستخدم - Read-Only من الواجهة.
  * @version 1.0.0
  */
 
-class AuditLog extends Model {
+class AuditLog extends Model
+{
     protected $table = 'audit_logs';
 
     protected $fillable = [
@@ -24,7 +26,8 @@ class AuditLog extends Model {
      * منمنعش العملية الأصلية (تغيير الباسورد مثلًا) من إنها تنجح.
      * السجل نفسه مش أهم من العملية اللي بيوثّقها.
      */
-    public static function record(int $userId, string $action, string $result = 'success', ?string $objectType = null, ?string $objectId = null, array $meta = []): void {
+    public static function record(int $userId, string $action, string $result = 'success', ?string $objectType = null, ?string $objectId = null, array $meta = []): void
+    {
         try {
             $log = new self([
                 'user_id' => $userId,
@@ -58,7 +61,8 @@ class AuditLog extends Model {
      * بنطلق الحدث بس لما result = 'success' - محاولات فاشلة بتتسجّل في
      * audit_logs للمراجعة، لكن مش المفروض تُعتبر "حدث حصل فعلًا".
      */
-    private static function dispatchEvent(int $userId, string $action, string $result, ?string $objectType, ?string $objectId, array $meta): void {
+    private static function dispatchEvent(int $userId, string $action, string $result, ?string $objectType, ?string $objectId, array $meta): void
+    {
         if ($result !== 'success' || !function_exists('event')) {
             return;
         }
@@ -83,7 +87,8 @@ class AuditLog extends Model {
      *
      * @return array{rows: array, total: int}
      */
-    public static function listFor(int $userId, array $filters = [], int $page = 1, int $perPage = 20): array {
+    public static function listFor(int $userId, array $filters = [], int $page = 1, int $perPage = 20): array
+    {
         $db = Database::getInstance();
 
         $where = ['user_id = :user_id'];

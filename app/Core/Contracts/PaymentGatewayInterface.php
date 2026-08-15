@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Payment Gateway Contract
  * @version 1.0.0
@@ -19,8 +20,8 @@
  * أي بوابة حقيقية مستقبلية (Stripe مثلاً) هتضيف كلاس جديد implements
  * PaymentGatewayInterface من غير أي تعديل على Subscription/Invoice/Wallet.
  */
-interface PaymentGatewayInterface {
-
+interface PaymentGatewayInterface
+{
     /** المفتاح الفريد للبوابة - زي ما هيتخزن في payment_transactions.gateway */
     public function key(): string;
 

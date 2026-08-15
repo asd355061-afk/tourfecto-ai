@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Ads Copilot Service
  * مساعد ذكاء اصطناعي لموديول الإعلانات: بيرد على أسئلة العميل عن أداء
@@ -8,13 +9,15 @@
  * مفيش أي طريق مختصر يتجاوز الـGuardrails حتى لو الأمر جاي من الشات.
  * @version 1.0.0
  */
-class AdsCopilotService {
+class AdsCopilotService
+{
     /** @var GeminiClient */
     private $ai;
 
     private Database $db;
 
-    public function __construct(?GeminiClient $ai = null) {
+    public function __construct(?GeminiClient $ai = null)
+    {
         $this->ai = $ai ?? new GeminiClient();
         $this->db = Database::getInstance();
     }
@@ -22,7 +25,8 @@ class AdsCopilotService {
     /**
      * @return array{reply: string}
      */
-    public function ask(int $userId, string $message): array {
+    public function ask(int $userId, string $message): array
+    {
         $message = trim($message);
         if ($message === '') {
             return ['reply' => 'اكتب سؤال أو أمر واضح، مثل: "إيه أداء حملاتي آخر أسبوع؟" أو "زود ميزانية حملة رحلات البحر لـ 50"'];
@@ -43,7 +47,8 @@ class AdsCopilotService {
     // تنفيذ الأوامر الصريحة عبر مسار الـAutopilot نفسه
     // ================================================================
 
-    private function executeCommand(int $userId, array $command): string {
+    private function executeCommand(int $userId, array $command): string
+    {
         $campaign = $command['campaign'];
 
         $engine = new AdAutopilotEngine();
@@ -61,7 +66,8 @@ class AdsCopilotService {
         return $this->formatBudgetReply($campaign, $rec, $result);
     }
 
-    private function formatBudgetReply(AdCampaign $campaign, array $rec, array $result): string {
+    private function formatBudgetReply(AdCampaign $campaign, array $rec, array $result): string
+    {
         $name = (string) $campaign->getAttribute('name');
         $reasoning = (string) ($rec['reasoning'] ?? '');
 
@@ -81,7 +87,8 @@ class AdsCopilotService {
         }
     }
 
-    private function formatStatusReply(AdCampaign $campaign, string $newStatus, array $result): string {
+    private function formatStatusReply(AdCampaign $campaign, string $newStatus, array $result): string
+    {
         $name = (string) $campaign->getAttribute('name');
         if ($result['success']) {
             return "تم {$this->statusLabel($newStatus)} حملة \"{$name}\" بنجاح على المنصة.";
@@ -89,11 +96,13 @@ class AdsCopilotService {
         return "تعذّر {$this->statusLabel($newStatus)} حملة \"{$name}\": " . ($result['error'] ?? 'خطأ غير معروف');
     }
 
-    private function statusLabel(string $status): string {
+    private function statusLabel(string $status): string
+    {
         return $status === 'paused' ? 'إيقاف' : 'تشغيل';
     }
 
-    private function changeStatusManually(int $userId, AdCampaign $campaign, string $newStatus): array {
+    private function changeStatusManually(int $userId, AdCampaign $campaign, string $newStatus): array
+    {
         $connId = $campaign->getAttribute('platform_connection_id');
         $externalId = (string) $campaign->getAttribute('external_campaign_id');
         if (!$connId || $externalId === '') {
@@ -162,7 +171,8 @@ class AdsCopilotService {
      *   - إيقاف/تشغيل حملة
      * @return array|null
      */
-    private function parseCommand(int $userId, string $message): ?array {
+    private function parseCommand(int $userId, string $message): ?array
+    {
         $campaigns = (new AdCampaign())->where(['user_id' => $userId]);
 
         $target = $this->findTargetCampaign($campaigns, $message);
@@ -227,12 +237,15 @@ class AdsCopilotService {
     }
 
     /** يدوّر على حملة للمستخدم (مذكورة بالاسم أو برقم قريب من الاسم) */
-    private function findTargetCampaign(array $campaigns, string $message): ?AdCampaign {
+    private function findTargetCampaign(array $campaigns, string $message): ?AdCampaign
+    {
         // الرقم اللي بيبدأ بـ# أو قبل كلمة "حملة" - بيشير لمعرّف/رقم الحملة
         preg_match('/#(\d+)/', $message, $m);
         if (!empty($m)) {
             foreach ($campaigns as $c) {
-                if ((string) $c->getAttribute('id') === $m[1]) return $c;
+                if ((string) $c->getAttribute('id') === $m[1]) {
+                    return $c;
+                }
             }
         }
 
@@ -241,7 +254,9 @@ class AdsCopilotService {
         $bestLen = 0;
         foreach ($campaigns as $c) {
             $name = (string) $c->getAttribute('name');
-            if ($name === '') continue;
+            if ($name === '') {
+                continue;
+            }
             if (mb_stripos($message, $name) !== false && mb_strlen($name) > $bestLen) {
                 $best = $c;
                 $bestLen = mb_strlen($name);
@@ -255,7 +270,8 @@ class AdsCopilotService {
     // الأسئلة الاستشارية العامة
     // ================================================================
 
-    private function answerQuestion(int $userId, string $message): string {
+    private function answerQuestion(int $userId, string $message): string
+    {
         $summary = $this->buildAccountSummary($userId);
 
         $prompt = <<<PROMPT
@@ -281,7 +297,8 @@ PROMPT;
     }
 
     /** ملخص حساب حقيقي مش مختلق - بيتبعت للذكاء الاصطناعي كسياق للرد */
-    private function buildAccountSummary(int $userId): string {
+    private function buildAccountSummary(int $userId): string
+    {
         $rows = $this->db->query(
             "SELECT COUNT(*) AS total, SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active,
                     COALESCE(SUM(spend), 0) AS total_spend, COALESCE(SUM(impressions), 0) AS total_impressions,

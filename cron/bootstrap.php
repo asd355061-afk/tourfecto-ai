@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CLI Bootstrap لسكريبتات الـ Cron
  * @version 1.0.0

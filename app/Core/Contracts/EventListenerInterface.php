@@ -1,9 +1,11 @@
 <?php
+
 /**
  * Tourfecto - Event Listener Contract
  * @version 1.0.0
  */
-interface EventListenerInterface {
+interface EventListenerInterface
+{
     /**
      * @param AppEvent $event
      * @return void

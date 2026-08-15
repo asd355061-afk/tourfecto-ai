@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - GBP Competitor Benchmark Service
  * مقارنة النشاط التجاري مع المنافسين القريبين فعليًا على Google Maps
@@ -13,7 +14,8 @@
  * @version 1.0.0
  * @since 2026-08-15 (Competitive Benchmark - قائم على التحليل التنافسي)
  */
-class GbpCompetitorBenchmarkService {
+class GbpCompetitorBenchmarkService
+{
     private const MAX_COMPETITORS = 5;
     private const TIMEOUT_SECONDS = 8;
 
@@ -24,7 +26,8 @@ class GbpCompetitorBenchmarkService {
     /** @var GoogleReviewSyncService */
     private $reviewSync;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
         $this->sync = new GbpSyncService();
         $this->reviewSync = new GoogleReviewSyncService();
@@ -36,7 +39,8 @@ class GbpCompetitorBenchmarkService {
      *   own?:array, competitors?:array, scorecard?:array, response_kpis?:array
      * }
      */
-    public function benchmark(int $websiteId, int $userId): array {
+    public function benchmark(int $websiteId, int $userId): array
+    {
         $connection = $this->sync->findConnection($websiteId, $userId);
         if (!$connection) {
             return ['success' => false, 'error' => 'Not Connected - اربط Google Business Profile أولاً'];
@@ -96,7 +100,7 @@ class GbpCompetitorBenchmarkService {
             ];
         }
 
-        $competitors = array_filter($competitors, fn($c) => !$c['is_self']);
+        $competitors = array_filter($competitors, fn ($c) => !$c['is_self']);
         $competitors = array_values($competitors);
 
         return [
@@ -117,7 +121,8 @@ class GbpCompetitorBenchmarkService {
     }
 
     /** متريكات النشاط نفسها من قاعدة بياناتنا (أرقام حقيقية متزامنة من جوجل) */
-    private function computeOwnMetrics(int $websiteId, int $userId): array {
+    private function computeOwnMetrics(int $websiteId, int $userId): array
+    {
         $avg = 0.0;
         $count = 0;
         $count30d = 0;
@@ -149,7 +154,8 @@ class GbpCompetitorBenchmarkService {
      * معدل الرد % + متوسط زمن الرد بالساعات - نفس مؤشرات Chatmeter/Birdeye
      * اللي بيسموها Response Rate و First Response Time.
      */
-    private function computeResponseKpis(int $websiteId, int $userId): array {
+    private function computeResponseKpis(int $websiteId, int $userId): array
+    {
         try {
             $rows = $this->db->query(
                 "SELECT COUNT(*) AS total,
@@ -180,7 +186,8 @@ class GbpCompetitorBenchmarkService {
      * Scorecard تنافسي بسيط: ترتيب النشاط حسب التقييم وحسب عدد المراجعات
      * وسط المنافسين المكتشفين + الفجوة مع أقوى منافس.
      */
-    private function buildScorecard(array $own, array $competitors): array {
+    private function buildScorecard(array $own, array $competitors): array
+    {
         if (empty($competitors)) {
             return [
                 'rating_rank' => 1,
@@ -190,19 +197,25 @@ class GbpCompetitorBenchmarkService {
             ];
         }
 
-        $rated = array_values(array_filter($competitors, fn($c) => $c['rating'] !== null));
+        $rated = array_values(array_filter($competitors, fn ($c) => $c['rating'] !== null));
         $byRating = array_merge($rated, [['rating' => $own['avg_rating'], 'name' => $own['name']]]);
-        usort($byRating, fn($a, $b) => $b['rating'] <=> $a['rating']);
+        usort($byRating, fn ($a, $b) => $b['rating'] <=> $a['rating']);
         $ratingRank = 0;
         foreach ($byRating as $i => $c) {
-            if (($c['name'] ?? '') === $own['name']) { $ratingRank = $i + 1; break; }
+            if (($c['name'] ?? '') === $own['name']) {
+                $ratingRank = $i + 1;
+                break;
+            }
         }
 
         $byCount = array_merge($competitors, [['review_count' => $own['review_count'], 'name' => $own['name']]]);
-        usort($byCount, fn($a, $b) => ($b['review_count'] ?? 0) <=> ($a['review_count'] ?? 0));
+        usort($byCount, fn ($a, $b) => ($b['review_count'] ?? 0) <=> ($a['review_count'] ?? 0));
         $countRank = 0;
         foreach ($byCount as $i => $c) {
-            if (($c['name'] ?? '') === $own['name']) { $countRank = $i + 1; break; }
+            if (($c['name'] ?? '') === $own['name']) {
+                $countRank = $i + 1;
+                break;
+            }
         }
 
         $competitorAvgRating = $rated ? array_sum(array_column($rated, 'rating')) / count($rated) : 0.0;
@@ -216,28 +229,38 @@ class GbpCompetitorBenchmarkService {
         ];
     }
 
-    private function isSameBusiness(string $ownName, string $placeName): bool {
+    private function isSameBusiness(string $ownName, string $placeName): bool
+    {
         $tokenize = function (string $s): array {
             $s = mb_strtolower((string) preg_replace('/[^a-z0-9\x{0600}-\x{06FF}]+/iu', ' ', $s));
             $tokens = preg_split('/\s+/u', trim($s), -1, PREG_SPLIT_NO_EMPTY) ?: [];
-            $tokens = array_values(array_filter($tokens, fn($t) => !ctype_digit($t)));
+            $tokens = array_values(array_filter($tokens, fn ($t) => !ctype_digit($t)));
             sort($tokens);
             return $tokens;
         };
         $a = $tokenize($ownName);
         $b = $tokenize($placeName);
-        if (empty($a) || empty($b)) return false;
-        if (implode(' ', $a) === implode(' ', $b)) return true;
+        if (empty($a) || empty($b)) {
+            return false;
+        }
+        if (implode(' ', $a) === implode(' ', $b)) {
+            return true;
+        }
         $short = count($a) <= count($b) ? $a : $b;
         $long = count($a) <= count($b) ? $b : $a;
-        if (count($short) < 2) return false;
+        if (count($short) < 2) {
+            return false;
+        }
         foreach ($short as $tok) {
-            if (!in_array($tok, $long, true)) return false;
+            if (!in_array($tok, $long, true)) {
+                return false;
+            }
         }
         return true;
     }
 
-    private function resolveApiKey(): string {
+    private function resolveApiKey(): string
+    {
         if (class_exists('SystemSettingsService')) {
             $fromAdminPanel = (new SystemSettingsService())->get('google_maps_api_key', defined('GOOGLE_MAPS_API_KEY') ? GOOGLE_MAPS_API_KEY : '');
             if ($fromAdminPanel !== '') {
@@ -247,7 +270,8 @@ class GbpCompetitorBenchmarkService {
         return defined('GOOGLE_MAPS_API_KEY') ? GOOGLE_MAPS_API_KEY : '';
     }
 
-    private function placesTextSearch(string $query, string $apiKey, string $near = ''): array {
+    private function placesTextSearch(string $query, string $apiKey, string $near = ''): array
+    {
         if (!function_exists('curl_init')) {
             return ['success' => false, 'error' => 'curl_extension_missing', 'places' => []];
         }
@@ -266,7 +290,8 @@ class GbpCompetitorBenchmarkService {
         return ['success' => true, 'error' => null, 'places' => $response['results'] ?? []];
     }
 
-    private function httpGetJson(string $url): ?array {
+    private function httpGetJson(string $url): ?array
+    {
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,

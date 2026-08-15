@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Alert Service
  * @version 1.0.0
@@ -7,11 +8,12 @@
  * ممنوع توليد تنبيهات "متوقعة" أو تخمينية. يحترم إعدادات Watchlist لكل
  * مستخدم/منافس (الحد الأدنى لخطورة التنبيه + القنوات المفعّلة).
  */
-class AlertService {
-
+class AlertService
+{
     private const SEVERITY_RANK = ['info' => 0, 'low' => 1, 'medium' => 2, 'high' => 3, 'critical' => 4];
 
-    public function notifyChange(Competitor $competitor, CiChange $change): void {
+    public function notifyChange(Competitor $competitor, CiChange $change): void
+    {
         $userId = (int) $competitor->getAttribute('user_id');
         $competitorId = (int) $competitor->getAttribute('id');
 
@@ -76,7 +78,8 @@ class AlertService {
         ]);
     }
 
-    private function buildContent(Competitor $competitor, CiChange $change, ?string $matchedKeyword = null): array {
+    private function buildContent(Competitor $competitor, CiChange $change, ?string $matchedKeyword = null): array
+    {
         $name = (string) $competitor->getAttribute('competitor_name') ?: (string) $competitor->getAttribute('competitor_domain');
         $changeType = (string) $change->getAttribute('change_type');
 
@@ -114,7 +117,8 @@ class AlertService {
      * ومباشر - مفيش أي تخمين أو AI هنا، تطابق نصي حقيقي فقط.
      * @return string|null الكلمة المُتطابقة، أو null لو مفيش تطابق/مفيش كلمات مسجّلة
      */
-    private function matchKeyword(?CiWatchlistItem $rule, CiChange $change): ?string {
+    private function matchKeyword(?CiWatchlistItem $rule, CiChange $change): ?string
+    {
         if ($rule === null || !$rule->getAttribute('keyword_filters')) {
             return null;
         }
@@ -144,7 +148,8 @@ class AlertService {
      * ci_alerts (channel=email) بدون إرسال فعلي - الواجهة تعرضه كـ
      * "لم يُرسل بعد" بدل ادّعاء نجاح كاذب.
      */
-    private function dispatchEmail(int $userId, string $title, string $message, CiAlert $alert): void {
+    private function dispatchEmail(int $userId, string $title, string $message, CiAlert $alert): void
+    {
         // Profile Center Phase 10 (2026-08-10): أول اتصال حقيقي بين
         // notify_email وأي سلوك إرسال فعلي في المشروع كله - كان الحقل
         // ده Cosmetic بالكامل قبل كده (بيتخزن في قاعدة البيانات ومفيش
@@ -184,7 +189,8 @@ class AlertService {
      * لو المستخدم اختار القناة دي بس ما سجّلش رابط، نتجاهل بصمت (بدل
      * فشل الدورة كلها) ونسجّل تحذير فقط.
      */
-    private function dispatchWebhook(int $userId, string $channel, string $title, string $message, string $severity, string $competitorName, CiAlert $alert): void {
+    private function dispatchWebhook(int $userId, string $channel, string $title, string $message, string $severity, string $competitorName, CiAlert $alert): void
+    {
         $prefsRows = (new CiUserPreference())->where(['user_id' => $userId], [], 1);
         $prefs = $prefsRows[0] ?? null;
         $url = $channel === 'slack'

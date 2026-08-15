@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * إعدادات المتابعة التلقائية القابلة للتعديل لكل شركة (بند 7):
@@ -9,12 +10,13 @@
  * @copyright 2026 Tourfecto
  */
 
-class AiFollowupSettingsController extends Controller {
-
+class AiFollowupSettingsController extends Controller
+{
     /** @var FollowUpAutomationService */
     private $followUpService;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->followUpService = new FollowUpAutomationService();
     }
@@ -23,7 +25,8 @@ class AiFollowupSettingsController extends Controller {
      * الإعدادات الحالية (أو الافتراضية المعطّلة لو لم تُضبط بعد).
      * GET /api/ai-chat/websites/{id}/followup-settings
      */
-    public function show(array $params = []): array {
+    public function show(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -44,7 +47,8 @@ class AiFollowupSettingsController extends Controller {
      * Body: is_enabled (bool), steps (array of {after_hours, template, is_final?}),
      *       max_followups (int), stop_conditions (array)
      */
-    public function update(array $params = []): array {
+    public function update(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -88,7 +92,8 @@ class AiFollowupSettingsController extends Controller {
      * @param int $websiteId
      * @return Website|null
      */
-    private function authorizedWebsite(int $websiteId): ?Website {
+    private function authorizedWebsite(int $websiteId): ?Website
+    {
         if ($websiteId <= 0) {
             return null;
         }

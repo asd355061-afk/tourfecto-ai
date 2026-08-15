@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Feature Resolver
  * =============================
@@ -13,14 +14,15 @@
  * @version 1.0.0
  */
 
-class FeatureResolver {
-
+class FeatureResolver
+{
     /**
      * يرجّع كل الميزات الفعلية لمستخدم معين (افتراضي الباقة + أي تخصيص).
      * @param int $userId
      * @return array ['features' => [...], 'plan_name' => string|null, 'has_overrides' => bool]
      */
-    public static function resolve(int $userId): array {
+    public static function resolve(int $userId): array
+    {
         $subscription = Subscription::activeSubscriptionRow($userId);
         $planName = $subscription['plan_name'] ?? 'starter';
         $planDefaults = SUBSCRIPTION_PLANS[$planName]['features'] ?? SUBSCRIPTION_PLANS['starter']['features'];
@@ -53,7 +55,8 @@ class FeatureResolver {
     /**
      * فحص سريع: هل عند المستخدم ده ميزة معينة (Boolean) مفعّلة فعليًا؟
      */
-    public static function has(int $userId, string $featureKey): bool {
+    public static function has(int $userId, string $featureKey): bool
+    {
         $resolved = self::resolve($userId);
         return (bool) ($resolved['features'][$featureKey] ?? false);
     }
@@ -61,7 +64,8 @@ class FeatureResolver {
     /**
      * فحص سريع: إيه القيمة الفعلية لميزة رقمية (زي حد الرسايل الشهري)؟
      */
-    public static function value(int $userId, string $featureKey) {
+    public static function value(int $userId, string $featureKey)
+    {
         $resolved = self::resolve($userId);
         return $resolved['features'][$featureKey] ?? null;
     }
@@ -72,7 +76,8 @@ class FeatureResolver {
      * لو عايز ترجع ميزة لقيمة الباقة الافتراضية تاني، امسحها من المصفوفة
      * دي بدل ما تبعتها.
      */
-    public static function saveOverrides(int $userId, array $overrides): bool {
+    public static function saveOverrides(int $userId, array $overrides): bool
+    {
         $row = Subscription::activeSubscriptionRow($userId);
         if (!$row || empty($row['id'])) {
             return false;

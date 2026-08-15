@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * Learning Loop Controller: إدارة فجوات المعرفة المقترحة (Knowledge Gaps)
@@ -9,12 +10,13 @@
  * @version 1.0.0
  */
 
-class AiLearningController extends Controller {
-
+class AiLearningController extends Controller
+{
     /** @var LearningLoopService */
     private $learningLoop;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->learningLoop = new LearningLoopService();
     }
@@ -24,7 +26,8 @@ class AiLearningController extends Controller {
      * GET /api/ai-chat/websites/{id}/learning/gaps
      * Query: since (Y-m-d اختياري)
      */
-    public function gaps(array $params = []): array {
+    public function gaps(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -56,7 +59,8 @@ class AiLearningController extends Controller {
      * POST /api/ai-chat/websites/{id}/learning/gaps/{gapId}/status
      * Body: status
      */
-    public function updateGapStatus(array $params = []): array {
+    public function updateGapStatus(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -81,7 +85,8 @@ class AiLearningController extends Controller {
      * إعادة مسح فجوات المعرفة من المحادثات المحوّلة مؤخرًا (Flywheel).
      * POST /api/ai-chat/websites/{id}/learning/gaps/scan
      */
-    public function scan(array $params = []): array {
+    public function scan(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -100,7 +105,8 @@ class AiLearningController extends Controller {
      * @param int $websiteId
      * @return Website|null
      */
-    private function authorizedWebsite(int $websiteId): ?Website {
+    private function authorizedWebsite(int $websiteId): ?Website
+    {
         if ($websiteId <= 0) {
             return null;
         }

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Revenue Intelligence: Daily Proactive Scan
  * @version 1.0.0

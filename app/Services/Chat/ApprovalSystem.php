@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Approval System
  * نظام إدارة الموافقات على ردود البوت (Human-in-the-Loop)
@@ -7,7 +8,8 @@
  * @copyright 2026 Tourfecto
  */
 
-class ApprovalSystem {
+class ApprovalSystem
+{
     /**
      * @var Database $db - اتصال قاعدة البيانات
      */
@@ -21,43 +23,45 @@ class ApprovalSystem {
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
         $this->notificationService = new NotificationService();
     }
-    
+
     /**
      * إضافة طلب موافقة جديد
      * @param int $messageId - معرف الرسالة
      * @param int $userId - معرف المستخدم
      * @return bool
      */
-    public function addPendingApproval(int $messageId, int $userId): bool {
+    public function addPendingApproval(int $messageId, int $userId): bool
+    {
         try {
             // التحقق من عدم وجود طلب مسبق
             $sql = "SELECT id FROM chat_messages 
                     WHERE id = :message_id 
                     AND bot_status = 'pending_approval'";
-            
+
             $result = $this->db->query($sql, [':message_id' => $messageId]);
-            
+
             if (!empty($result)) {
                 return true;
             }
-            
+
             // تحديث حالة الرسالة
             $sql = "UPDATE chat_messages 
                     SET bot_status = 'pending_approval',
                         updated_at = NOW()
                     WHERE id = :message_id";
-            
+
             $this->db->query($sql, [':message_id' => $messageId]);
-            
+
             // إرسال إشعار للمستخدم
             $this->notificationService->sendApprovalNotification($userId, $messageId);
-            
+
             return true;
-            
+
         } catch (Exception $e) {
             Logger::error('Add Pending Approval Error', [
                 'message_id' => $messageId,
@@ -66,31 +70,32 @@ class ApprovalSystem {
             return false;
         }
     }
-    
+
     /**
      * الموافقة على رد
      * @param int $messageId - معرف الرسالة
      * @param int $userId - معرف المستخدم الموافق
      * @return array
      */
-    public function approve(int $messageId, int $userId): array {
+    public function approve(int $messageId, int $userId): array
+    {
         try {
             // التحقق من الرسالة
             $sql = "SELECT * FROM chat_messages 
                     WHERE id = :message_id 
                     AND bot_status = 'pending_approval'";
-            
+
             $message = $this->db->query($sql, [':message_id' => $messageId]);
-            
+
             if (empty($message)) {
                 return [
                     'success' => false,
                     'error' => 'Message not found or not pending approval.'
                 ];
             }
-            
+
             $msg = $message[0];
-            
+
             // تحديث حالة الرسالة
             $sql = "UPDATE chat_messages 
                     SET bot_status = 'approved',
@@ -98,12 +103,12 @@ class ApprovalSystem {
                         approved_at = NOW(),
                         updated_at = NOW()
                     WHERE id = :message_id";
-            
+
             $this->db->query($sql, [
                 ':message_id' => $messageId,
                 ':user_id' => $userId
             ]);
-            
+
             // إرسال الرد
             $sent = false;
             if (!empty($msg['ai_reply_generated'])) {
@@ -134,13 +139,13 @@ class ApprovalSystem {
                     Logger::warning('Approved reply failed to send', ['message_id' => $messageId, 'website_id' => $msg['website_id'] ?? null]);
                 }
             }
-            
+
             // تسجيل النشاط
             Logger::info('Message Approved', [
                 'message_id' => $messageId,
                 'user_id' => $userId
             ]);
-            
+
             return [
                 'success' => true,
                 'message_id' => $messageId,
@@ -148,20 +153,20 @@ class ApprovalSystem {
                 'sent' => $sent ?? false,
                 'message' => ($sent ?? false) ? 'تمت الموافقة والإرسال بنجاح.' : 'تمت الموافقة لكن تعذر إرسال الرسالة فعليًا - تأكد إن واتساب لسه متصل.'
             ];
-            
+
         } catch (Exception $e) {
             Logger::error('Approve Error', [
                 'message_id' => $messageId,
                 'error' => $e->getMessage()
             ]);
-            
+
             return [
                 'success' => false,
                 'error' => $e->getMessage()
             ];
         }
     }
-    
+
     /**
      * رفض رد
      * @param int $messageId - معرف الرسالة
@@ -169,87 +174,89 @@ class ApprovalSystem {
      * @param string $reason - سبب الرفض
      * @return array
      */
-    public function reject(int $messageId, int $userId, string $reason = ''): array {
+    public function reject(int $messageId, int $userId, string $reason = ''): array
+    {
         try {
             $sql = "SELECT * FROM chat_messages 
                     WHERE id = :message_id 
                     AND bot_status = 'pending_approval'";
-            
+
             $message = $this->db->query($sql, [':message_id' => $messageId]);
-            
+
             if (empty($message)) {
                 return [
                     'success' => false,
                     'error' => 'Message not found or not pending approval.'
                 ];
             }
-            
+
             $sql = "UPDATE chat_messages 
                     SET bot_status = 'rejected',
                         approved_by_user_id = :user_id,
                         approved_at = NOW(),
                         updated_at = NOW()
                     WHERE id = :message_id";
-            
+
             $this->db->query($sql, [
                 ':message_id' => $messageId,
                 ':user_id' => $userId
             ]);
-            
+
             // تسجيل سبب الرفض
             if ($reason) {
                 $sql = "INSERT INTO chat_approval_logs 
                         (message_id, user_id, action, reason, created_at) 
                         VALUES 
                         (:message_id, :user_id, 'rejected', :reason, NOW())";
-                
+
                 $this->db->query($sql, [
                     ':message_id' => $messageId,
                     ':user_id' => $userId,
                     ':reason' => $reason
                 ]);
             }
-            
+
             Logger::info('Message Rejected', [
                 'message_id' => $messageId,
                 'user_id' => $userId,
                 'reason' => $reason
             ]);
-            
+
             return [
                 'success' => true,
                 'message_id' => $messageId,
                 'status' => 'rejected',
                 'message' => 'Message rejected.'
             ];
-            
+
         } catch (Exception $e) {
             Logger::error('Reject Error', [
                 'message_id' => $messageId,
                 'error' => $e->getMessage()
             ]);
-            
+
             return [
                 'success' => false,
                 'error' => $e->getMessage()
             ];
         }
     }
-    
+
     /**
      * تحديث حالة الرسالة إلى مرسلة
      * @param int $messageId
      */
-    public function markAsSent(int $messageId): void {
+    public function markAsSent(int $messageId): void
+    {
         try {
             $sql = "UPDATE chat_messages 
                     SET bot_status = 'sent',
                         sent_at = NOW(),
                         updated_at = NOW()
                     WHERE id = :message_id";
-            
+
             $this->db->query($sql, [':message_id' => $messageId]);
-            
+
         } catch (Exception $e) {
             Logger::error('Mark As Sent Error', [
                 'message_id' => $messageId,
@@ -257,14 +264,15 @@ class ApprovalSystem {
             ]);
         }
     }
-    
+
     /**
      * الحصول على قائمة طلبات الموافقة المعلقة
      * @param int $userId - معرف المستخدم
      * @param int $limit - عدد النتائج
      * @return array
      */
-    public function getPendingApprovals(int $userId, int $limit = 50): array {
+    public function getPendingApprovals(int $userId, int $limit = 50): array
+    {
         try {
             $urlCol = Website::urlColumn();
             $sql = "SELECT 
@@ -279,12 +287,12 @@ class ApprovalSystem {
                     AND cm.message_direction = 'incoming'
                     ORDER BY cm.created_at ASC
                     LIMIT :limit";
-            
+
             $results = $this->db->query($sql, [
                 ':user_id' => $userId,
                 ':limit' => $limit
             ]);
-            
+
             // فك تشفير البيانات الحساسة
             $encryption = new Encryption();
             foreach ($results as &$row) {
@@ -297,9 +305,9 @@ class ApprovalSystem {
                 unset($row['encrypted_phone']);
                 unset($row['encrypted_email']);
             }
-            
+
             return $results;
-            
+
         } catch (Exception $e) {
             Logger::error('Get Pending Approvals Error', [
                 'user_id' => $userId,
@@ -308,24 +316,25 @@ class ApprovalSystem {
             return [];
         }
     }
-    
+
     /**
      * الحصول على عدد طلبات الموافقة المعلقة
      * @param int $userId
      * @return int
      */
-    public function getPendingCount(int $userId): int {
+    public function getPendingCount(int $userId): int
+    {
         try {
             $sql = "SELECT COUNT(*) as count 
                     FROM chat_messages 
                     WHERE user_id = :user_id 
                     AND bot_status = 'pending_approval'
                     AND message_direction = 'incoming'";
-            
+
             $result = $this->db->query($sql, [':user_id' => $userId]);
-            
+
             return (int) ($result[0]['count'] ?? 0);
-            
+
         } catch (Exception $e) {
             Logger::error('Get Pending Count Error', [
                 'user_id' => $userId,
@@ -339,22 +348,25 @@ class ApprovalSystem {
 /**
  * Class NotificationService - خدمة الإشعارات (داخل نفس الملف)
  */
-class NotificationService {
+class NotificationService
+{
     /**
      * @var Database $db
      */
     private $db;
-    
-    public function __construct() {
+
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
-    
+
     /**
      * إرسال إشعار موافقة
      * @param int $userId
      * @param int $messageId
      */
-    public function sendApprovalNotification(int $userId, int $messageId): void {
+    public function sendApprovalNotification(int $userId, int $messageId): void
+    {
         try {
             // تصحيح: كان بس بيسجّل في app.log ومفيش أي إشعار حقيقي بيوصل
             // للعميل - يعني جرس الإشعارات في الداشبورد فاضي دايمًا حتى لو
@@ -373,7 +385,7 @@ class NotificationService {
                 'user_id' => $userId,
                 'message_id' => $messageId
             ]);
-            
+
         } catch (Exception $e) {
             // تجاهل
         }

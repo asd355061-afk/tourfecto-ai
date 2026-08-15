@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - DI Container
  * حاوية حقن الاعتماديات (Dependency Injection Container)
@@ -21,7 +22,8 @@
  *   // أو auto-wiring لكلاس عادي (بيحل الاعتماديات من الـ constructor تلقائيًا):
  *   $service = Container::getInstance()->make(WebsiteService::class);
  */
-class Container {
+class Container
+{
     /** @var Container|null */
     private static $instance = null;
 
@@ -34,9 +36,12 @@ class Container {
     /** @var array<string, mixed> $instances - نسخ الـ singletons المحفوظة */
     private $instances = [];
 
-    private function __construct() {}
+    private function __construct()
+    {
+    }
 
-    public static function getInstance(): self {
+    public static function getInstance(): self
+    {
         if (self::$instance === null) {
             self::$instance = new self();
             self::$instance->registerCoreBindings();
@@ -49,7 +54,8 @@ class Container {
      * @param string $abstract اسم منطقي أو اسم كلاس
      * @param callable|string $concrete factory function أو اسم كلاس concrete
      */
-    public function bind(string $abstract, $concrete): void {
+    public function bind(string $abstract, $concrete): void
+    {
         $this->bindings[$abstract] = $concrete;
         $this->sharedFlags[$abstract] = false;
     }
@@ -59,7 +65,8 @@ class Container {
      * @param string $abstract
      * @param callable|string $concrete
      */
-    public function singleton(string $abstract, $concrete): void {
+    public function singleton(string $abstract, $concrete): void
+    {
         $this->bindings[$abstract] = $concrete;
         $this->sharedFlags[$abstract] = true;
     }
@@ -67,12 +74,14 @@ class Container {
     /**
      * تسجيل نسخة جاهزة مباشرة كـ singleton (مفيد لو الكائن اتعمل قبل كده).
      */
-    public function instance(string $abstract, $instance): void {
+    public function instance(string $abstract, $instance): void
+    {
         $this->instances[$abstract] = $instance;
         $this->sharedFlags[$abstract] = true;
     }
 
-    public function has(string $abstract): bool {
+    public function has(string $abstract): bool
+    {
         return isset($this->bindings[$abstract]) || isset($this->instances[$abstract]) || class_exists($abstract);
     }
 
@@ -84,7 +93,8 @@ class Container {
      * @param string $abstract
      * @return mixed
      */
-    public function make(string $abstract) {
+    public function make(string $abstract)
+    {
         if (isset($this->instances[$abstract])) {
             return $this->instances[$abstract];
         }
@@ -110,7 +120,8 @@ class Container {
      * @param string $class
      * @return object
      */
-    private function build(string $class) {
+    private function build(string $class)
+    {
         if (!class_exists($class)) {
             throw new Exception("Container: الكلاس '{$class}' غير موجود");
         }
@@ -150,7 +161,8 @@ class Container {
      * خلف الـ interfaces الجديدة، من غير ما نغيّر حرف واحد في الكلاسات
      * القديمة نفسها (Adapter Pattern).
      */
-    private function registerCoreBindings(): void {
+    private function registerCoreBindings(): void
+    {
         $this->singleton('db', function () {
             return Database::getInstance();
         });
@@ -183,7 +195,8 @@ class Container {
     /**
      * إعادة الضبط الكامل (مفيد في الاختبارات فقط - PHPUnit).
      */
-    public static function reset(): void {
+    public static function reset(): void
+    {
         self::$instance = null;
     }
 }

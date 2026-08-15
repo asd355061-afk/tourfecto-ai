@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Executive Dashboard Controller
  * Phase 15. Endpoint واحد بيرجع بالظبط اللي §16 طلبته: الدرجات الست +
@@ -7,21 +8,28 @@
  * Changes (Phase 13) + مقارنة المنافسين.
  * @version 1.0.0
  */
-class ExecutiveDashboardController extends Controller {
-
+class ExecutiveDashboardController extends Controller
+{
     /** GET /api/executive-dashboard?website_id=X */
-    public function getDashboard(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getDashboard(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $websiteId = (int) $this->get('website_id');
-        if (!$websiteId) return $this->error('website_id مطلوب', 422);
+        if (!$websiteId) {
+            return $this->error('website_id مطلوب', 422);
+        }
 
         $website = (new Website())->find($websiteId);
         if (!$website || (int) $website->getAttribute('user_id') !== (int) $this->user['id']) {
             return $this->error('الموقع غير موجود', 404);
         }
 
-        if (!class_exists('ExecutiveDashboardService')) return $this->error('الخدمة غير متاحة', 500);
+        if (!class_exists('ExecutiveDashboardService')) {
+            return $this->error('الخدمة غير متاحة', 500);
+        }
 
         try {
             $service = new ExecutiveDashboardService();

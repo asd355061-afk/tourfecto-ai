@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - TOTP Service Test
  * اختبار حقيقي لخوارزمية TOTP (app/Services/TotpService.php) باستخدام
@@ -19,8 +20,8 @@ use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../../app/Services/TotpService.php';
 
-final class TotpServiceTest extends TestCase {
-
+final class TotpServiceTest extends TestCase
+{
     /**
      * سر الاختبار الرسمي من RFC 6238 Appendix B: النص "12345678901234567890"
      * (20 بايت ASCII)، بترميز Base32:
@@ -38,7 +39,8 @@ final class TotpServiceTest extends TestCase {
      *   T=1234567890  → 8-digit: 89005924  → 6-digit: 005924
      *   T=2000000000  → 8-digit: 69279037  → 6-digit: 279037
      */
-    public static function rfc6238TestVectors(): array {
+    public static function rfc6238TestVectors(): array
+    {
         return [
             'T=59 (1970-01-01 00:00:59 UTC)' => [59, '287082'],
             'T=1111111109 (2005-03-18 01:58:29 UTC)' => [1111111109, '081804'],
@@ -51,7 +53,8 @@ final class TotpServiceTest extends TestCase {
     /**
      * @dataProvider rfc6238TestVectors
      */
-    public function testGetCodeMatchesOfficialRfc6238Vectors(int $timestamp, string $expectedCode): void {
+    public function testGetCodeMatchesOfficialRfc6238Vectors(int $timestamp, string $expectedCode): void
+    {
         $actual = TotpService::getCode(self::RFC_TEST_SECRET_BASE32, $timestamp);
         $this->assertSame(
             $expectedCode,
@@ -60,20 +63,23 @@ final class TotpServiceTest extends TestCase {
         );
     }
 
-    public function testVerifyAcceptsAFreshlyGeneratedCodeForNow(): void {
+    public function testVerifyAcceptsAFreshlyGeneratedCodeForNow(): void
+    {
         $secret = TotpService::generateSecret();
         $currentCode = TotpService::getCode($secret);
 
         $this->assertTrue(TotpService::verify($secret, $currentCode));
     }
 
-    public function testVerifyRejectsAnObviouslyWrongCode(): void {
+    public function testVerifyRejectsAnObviouslyWrongCode(): void
+    {
         $secret = TotpService::generateSecret();
 
         $this->assertFalse(TotpService::verify($secret, '000000'));
     }
 
-    public function testVerifyRejectsMalformedInput(): void {
+    public function testVerifyRejectsMalformedInput(): void
+    {
         $secret = TotpService::generateSecret();
 
         $this->assertFalse(TotpService::verify($secret, 'abcdef'));
@@ -82,7 +88,8 @@ final class TotpServiceTest extends TestCase {
         $this->assertFalse(TotpService::verify($secret, ''));
     }
 
-    public function testVerifyToleratesOneStepOfClockDrift(): void {
+    public function testVerifyToleratesOneStepOfClockDrift(): void
+    {
         $secret = TotpService::generateSecret();
         // كود من 30 ثانية في الماضي - المفروض لسه مقبول (نافذة ±1 خطوة)
         $codeFromPreviousStep = TotpService::getCode($secret, time() - 30);
@@ -90,7 +97,8 @@ final class TotpServiceTest extends TestCase {
         $this->assertTrue(TotpService::verify($secret, $codeFromPreviousStep));
     }
 
-    public function testVerifyRejectsCodeOutsideTheToleranceWindow(): void {
+    public function testVerifyRejectsCodeOutsideTheToleranceWindow(): void
+    {
         $secret = TotpService::generateSecret();
         // كود من 5 دقايق في الماضي - المفروض يترفض
         $oldCode = TotpService::getCode($secret, time() - 300);
@@ -98,7 +106,8 @@ final class TotpServiceTest extends TestCase {
         $this->assertFalse(TotpService::verify($secret, $oldCode));
     }
 
-    public function testGenerateSecretProducesValidBase32OfExpectedLength(): void {
+    public function testGenerateSecretProducesValidBase32OfExpectedLength(): void
+    {
         $secret = TotpService::generateSecret();
 
         // 20 بايت (160-bit) بترميز Base32 بمعدل 8 حروف لكل 5 بايت = 32 حرف
@@ -106,7 +115,8 @@ final class TotpServiceTest extends TestCase {
         $this->assertMatchesRegularExpression('/^[A-Z2-7]+$/', $secret);
     }
 
-    public function testProvisioningUriContainsExpectedComponents(): void {
+    public function testProvisioningUriContainsExpectedComponents(): void
+    {
         $secret = self::RFC_TEST_SECRET_BASE32;
         $uri = TotpService::provisioningUri($secret, 'user@example.com', 'Tourfecto');
 
@@ -117,7 +127,8 @@ final class TotpServiceTest extends TestCase {
         $this->assertStringContainsString('period=30', $uri);
     }
 
-    public function testRecoveryCodesAreGeneratedInExpectedFormatAndAreUnique(): void {
+    public function testRecoveryCodesAreGeneratedInExpectedFormatAndAreUnique(): void
+    {
         $codes = TotpService::generateRecoveryCodes(10);
 
         $this->assertCount(10, $codes);
@@ -128,7 +139,8 @@ final class TotpServiceTest extends TestCase {
         }
     }
 
-    public function testRecoveryCodeHashingAndVerificationRoundTrip(): void {
+    public function testRecoveryCodeHashingAndVerificationRoundTrip(): void
+    {
         $rawCodes = TotpService::generateRecoveryCodes(5);
         $hashed = TotpService::hashRecoveryCodes($rawCodes);
 
@@ -142,7 +154,8 @@ final class TotpServiceTest extends TestCase {
         $this->assertNull(TotpService::verifyRecoveryCode($hashed, 'ZZZZ-ZZZZ'));
     }
 
-    public function testRawRecoveryCodesAreNeverStoredInTheHashedOutput(): void {
+    public function testRawRecoveryCodesAreNeverStoredInTheHashedOutput(): void
+    {
         $rawCodes = TotpService::generateRecoveryCodes(3);
         $hashed = TotpService::hashRecoveryCodes($rawCodes);
 

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Benchmarking Service
  * @version 1.0.0
@@ -14,9 +15,10 @@
  *
  * أي مقياس غير متاح يُعرض "Not Available" صراحة بدل تخمينه.
  */
-class BenchmarkingService {
-
-    public function compare(int $websiteId, array $competitorIds, int $days = 90): array {
+class BenchmarkingService
+{
+    public function compare(int $websiteId, array $competitorIds, int $days = 90): array
+    {
         $db = Database::getInstance();
 
         $myArticles = $db->query(
@@ -60,7 +62,8 @@ class BenchmarkingService {
         ];
     }
 
-    private function presenceSignals(int $competitorId, array $onlyPages = []): array {
+    private function presenceSignals(int $competitorId, array $onlyPages = []): array
+    {
         $db = Database::getInstance();
         $pages = $onlyPages ?: ['homepage', 'pricing', 'products', 'services', 'offers', 'blog', 'contact'];
         $placeholders = implode(',', array_fill(0, count($pages), '?'));
@@ -84,7 +87,8 @@ class BenchmarkingService {
         return $result;
     }
 
-    private function countChanges(int $competitorId, string $pageType, int $days): int {
+    private function countChanges(int $competitorId, string $pageType, int $days): int
+    {
         $db = Database::getInstance();
         $rows = $db->query(
             "SELECT COUNT(*) AS c FROM `ci_changes` WHERE competitor_id = ? AND page_type = ? AND detected_at >= DATE_SUB(NOW(), INTERVAL ? DAY)",
@@ -93,7 +97,8 @@ class BenchmarkingService {
         return (int) ($rows[0]['c'] ?? 0);
     }
 
-    private function countChangesByType(int $competitorId, string $changeType, int $days): int {
+    private function countChangesByType(int $competitorId, string $changeType, int $days): int
+    {
         $db = Database::getInstance();
         $rows = $db->query(
             "SELECT COUNT(*) AS c FROM `ci_changes` WHERE competitor_id = ? AND change_type = ? AND detected_at >= DATE_SUB(NOW(), INTERVAL ? DAY)",
@@ -102,7 +107,8 @@ class BenchmarkingService {
         return (int) ($rows[0]['c'] ?? 0);
     }
 
-    private function countAllChanges(int $competitorId, int $days): int {
+    private function countAllChanges(int $competitorId, int $days): int
+    {
         $db = Database::getInstance();
         $rows = $db->query(
             "SELECT COUNT(*) AS c FROM `ci_changes` WHERE competitor_id = ? AND detected_at >= DATE_SUB(NOW(), INTERVAL ? DAY)",
@@ -116,12 +122,13 @@ class BenchmarkingService {
      * لقطة في ci_scorecards بدرجات 0-100 محسوبة من نفس الإشارات أعلاه.
      * basis = data_backed فقط لو فيه لقطات كافية (>=3) وإلا estimated.
      */
-    public function computeScorecard(int $competitorId, int $days = 30): CiScorecard {
+    public function computeScorecard(int $competitorId, int $days = 30): CiScorecard
+    {
         $snapshotCount = $this->snapshotCount($competitorId, $days);
         $changes90 = $this->countAllChanges($competitorId, $days);
         $offerChanges = $this->countChangesByType($competitorId, 'offer_change', $days);
         $presence = $this->presenceSignals($competitorId);
-        $pagesPresent = count(array_filter($presence, fn($v) => $v === true));
+        $pagesPresent = count(array_filter($presence, fn ($v) => $v === true));
 
         $basis = $snapshotCount >= 3 ? 'data_backed' : 'estimated';
 
@@ -155,7 +162,8 @@ class BenchmarkingService {
         return $scorecard;
     }
 
-    private function snapshotCount(int $competitorId, int $days): int {
+    private function snapshotCount(int $competitorId, int $days): int
+    {
         $db = Database::getInstance();
         $rows = $db->query(
             "SELECT COUNT(*) AS c FROM `ci_snapshots` WHERE competitor_id = ? AND captured_at >= DATE_SUB(NOW(), INTERVAL ? DAY) AND fetch_status = 'ok'",

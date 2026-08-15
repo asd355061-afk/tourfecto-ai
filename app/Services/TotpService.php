@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - TOTP Service (RFC 6238)
  * تنفيذ Time-based One-Time Password من غير أي مكتبة خارجية - نفس
@@ -6,7 +7,8 @@
  * (HMAC-SHA1، نافذة 30 ثانية، 6 أرقام).
  * @version 1.0.0
  */
-class TotpService {
+class TotpService
+{
     private const PERIOD = 30;      // ثانية لكل خطوة زمنية - المعيار الافتراضي
     private const DIGITS = 6;
     private const SECRET_BYTES = 20; // 160-bit، المعيار الموصى به في RFC 6238
@@ -14,12 +16,14 @@ class TotpService {
     private const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
     /** توليد سر عشوائي جديد بترميز Base32 (قابل للعرض كنص/QR) */
-    public static function generateSecret(): string {
+    public static function generateSecret(): string
+    {
         return self::base32Encode(random_bytes(self::SECRET_BYTES));
     }
 
     /** حساب الكود الصحيح لسر معيّن في وقت معيّن (افتراضيًا: الآن) */
-    public static function getCode(string $secretBase32, ?int $timestamp = null): string {
+    public static function getCode(string $secretBase32, ?int $timestamp = null): string
+    {
         $timestamp = $timestamp ?? time();
         $counter = intdiv($timestamp, self::PERIOD);
         return self::hotp($secretBase32, $counter);
@@ -30,7 +34,8 @@ class TotpService {
      * تعويضًا عن فرق بسيط في ساعة الموبايل - نفس تسامح كل تطبيقات
      * الـ TOTP المعروفة.
      */
-    public static function verify(string $secretBase32, string $code, int $windowSteps = 1): bool {
+    public static function verify(string $secretBase32, string $code, int $windowSteps = 1): bool
+    {
         $code = preg_replace('/\s+/', '', $code);
         if (!preg_match('/^\d{6}$/', $code)) {
             return false;
@@ -47,7 +52,8 @@ class TotpService {
     }
 
     /** رابط otpauth:// عشان تطبيقات الـ Authenticator تقرأه كـ QR */
-    public static function provisioningUri(string $secretBase32, string $accountEmail, string $issuer = 'Tourfecto'): string {
+    public static function provisioningUri(string $secretBase32, string $accountEmail, string $issuer = 'Tourfecto'): string
+    {
         $label = rawurlencode($issuer . ':' . $accountEmail);
         $params = http_build_query([
             'secret' => $secretBase32,
@@ -60,7 +66,8 @@ class TotpService {
     }
 
     /** توليد أكواد طوارئ عشوائية (استخدام واحد لكل كود) - نص خام + hash */
-    public static function generateRecoveryCodes(int $count = 10): array {
+    public static function generateRecoveryCodes(int $count = 10): array
+    {
         $codes = [];
         for ($i = 0; $i < $count; $i++) {
             // شكل قابل للقراءة والنسخ اليدوي: XXXX-XXXX
@@ -71,8 +78,9 @@ class TotpService {
     }
 
     /** hash قائمة أكواد طوارئ للتخزين (نفس مبدأ password_hash - النص الخام ميتخزنش أبدًا) */
-    public static function hashRecoveryCodes(array $rawCodes): array {
-        return array_map(fn($c) => password_hash($c, PASSWORD_DEFAULT), $rawCodes);
+    public static function hashRecoveryCodes(array $rawCodes): array
+    {
+        return array_map(fn ($c) => password_hash($c, PASSWORD_DEFAULT), $rawCodes);
     }
 
     /**
@@ -80,7 +88,8 @@ class TotpService {
      * اللي اتطابق (عشان يتشال من القائمة - كل كود استخدام واحد بس)،
      * أو null لو مفيش تطابق.
      */
-    public static function verifyRecoveryCode(array $hashedCodes, string $rawCode): ?int {
+    public static function verifyRecoveryCode(array $hashedCodes, string $rawCode): ?int
+    {
         $rawCode = strtoupper(trim($rawCode));
         foreach ($hashedCodes as $i => $hash) {
             if (password_verify($rawCode, $hash)) {
@@ -92,7 +101,8 @@ class TotpService {
 
     // ============ HOTP / Base32 - تفاصيل داخلية ============
 
-    private static function hotp(string $secretBase32, int $counter): string {
+    private static function hotp(string $secretBase32, int $counter): string
+    {
         $key = self::base32Decode($secretBase32);
         $counterBytes = pack('N*', 0) . pack('N*', $counter); // 8-byte big-endian counter
 
@@ -108,7 +118,8 @@ class TotpService {
         return str_pad((string) $code, self::DIGITS, '0', STR_PAD_LEFT);
     }
 
-    private static function base32Encode(string $data): string {
+    private static function base32Encode(string $data): string
+    {
         $alphabet = self::BASE32_ALPHABET;
         $binaryString = '';
         foreach (str_split($data) as $byte) {
@@ -125,7 +136,8 @@ class TotpService {
         return $output;
     }
 
-    private static function base32Decode(string $data): string {
+    private static function base32Decode(string $data): string
+    {
         $alphabet = self::BASE32_ALPHABET;
         $data = strtoupper(rtrim($data, '='));
 

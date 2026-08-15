@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Base Repository
  * الأساس المشترك لأي Repository (Repository Pattern)
@@ -25,7 +26,8 @@
  * التوافق: BaseRepository ده كلاس جديد كليًا. محدش من الكود الحالي بيستخدمه
  * أو بيعرف بوجوده، فمفيش أي احتمال يبوظ حاجة شغالة.
  */
-abstract class BaseRepository implements RepositoryInterface {
+abstract class BaseRepository implements RepositoryInterface
+{
     /** @var Database */
     protected $db;
 
@@ -47,14 +49,16 @@ abstract class BaseRepository implements RepositoryInterface {
     /** @var array<string,string> كاش ثابت لكل نتائج اكتشاف الأعمدة الديناميكية */
     private static $detectedColumnsCache = [];
 
-    public function __construct(?Database $db = null) {
+    public function __construct(?Database $db = null)
+    {
         $this->db = $db ?? Database::getInstance();
     }
 
     /**
      * ترجمة اسم عمود منطقي لاسم العمود الحقيقي (لو موجود في $columnMap).
      */
-    protected function col(string $logicalName): string {
+    protected function col(string $logicalName): string
+    {
         return $this->columnMap[$logicalName] ?? $logicalName;
     }
 
@@ -70,7 +74,8 @@ abstract class BaseRepository implements RepositoryInterface {
      * @param string|null $fallback القيمة اللي ترجع لو مفيش أي مرشح موجود
      * @return string
      */
-    protected function detectColumn(array $candidates, ?string $fallback = null): string {
+    protected function detectColumn(array $candidates, ?string $fallback = null): string
+    {
         $cacheKey = $this->table . ':' . implode(',', $candidates);
         if (isset(self::$detectedColumnsCache[$cacheKey])) {
             return self::$detectedColumnsCache[$cacheKey];
@@ -106,13 +111,15 @@ abstract class BaseRepository implements RepositoryInterface {
         return $result;
     }
 
-    public function find($id): ?array {
+    public function find($id): ?array
+    {
         $sql = "SELECT * FROM `{$this->table}` WHERE `{$this->primaryKey}` = ? " . $this->softDeleteClause() . " LIMIT 1";
         $result = $this->db->query($sql, [$id]);
         return $result[0] ?? null;
     }
 
-    public function findBy(array $criteria, array $orderBy = [], int $limit = 0): array {
+    public function findBy(array $criteria, array $orderBy = [], int $limit = 0): array
+    {
         $sql = "SELECT * FROM `{$this->table}` WHERE 1=1";
         $params = [];
 
@@ -145,7 +152,8 @@ abstract class BaseRepository implements RepositoryInterface {
         return $this->db->query($sql, $params);
     }
 
-    public function create(array $data) {
+    public function create(array $data)
+    {
         $mapped = [];
         foreach ($data as $key => $value) {
             $mapped[$this->col($key)] = $value;
@@ -160,7 +168,8 @@ abstract class BaseRepository implements RepositoryInterface {
         return $this->db->query($sql, $values);
     }
 
-    public function update($id, array $data): bool {
+    public function update($id, array $data): bool
+    {
         $mapped = [];
         foreach ($data as $key => $value) {
             $mapped[$this->col($key)] = $value;
@@ -178,7 +187,8 @@ abstract class BaseRepository implements RepositoryInterface {
         return $this->db->query($sql, $values) !== false;
     }
 
-    public function delete($id): bool {
+    public function delete($id): bool
+    {
         if ($this->softDeletes) {
             return $this->update($id, ['deleted_at' => date('Y-m-d H:i:s')]);
         }
@@ -187,7 +197,8 @@ abstract class BaseRepository implements RepositoryInterface {
         return $this->db->query($sql, [$id]) !== false;
     }
 
-    private function softDeleteClause(): string {
+    private function softDeleteClause(): string
+    {
         return $this->softDeletes ? " AND deleted_at IS NULL" : "";
     }
 }

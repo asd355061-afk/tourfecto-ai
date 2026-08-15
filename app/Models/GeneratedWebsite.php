@@ -1,6 +1,8 @@
 <?php
+
 /** Tourfecto - Generated Website Model @version 1.0.0 */
-class GeneratedWebsite extends Model {
+class GeneratedWebsite extends Model
+{
     protected $table = 'generated_websites';
     protected $fillable = [
         'user_id', 'slug', 'status', 'theme_color', 'content_json', 'custom_domain',
@@ -9,16 +11,20 @@ class GeneratedWebsite extends Model {
         'seo_description', 'views_count', 'last_published_at',
     ];
 
-    public function getContent(): array {
+    public function getContent(): array
+    {
         $json = $this->getAttribute('content_json');
         $decoded = $json ? json_decode((string) $json, true) : null;
         return is_array($decoded) ? $decoded : [];
     }
 
     /** المجال السياحي: بيرجع niche_key لو متسجل، وإلا بيستنتجه من industry القديمة (توافق مع مواقع قديمة) */
-    public function resolveNicheKey(): string {
+    public function resolveNicheKey(): string
+    {
         $niche = (string) $this->getAttribute('niche_key');
-        if ($niche !== '') return $niche;
+        if ($niche !== '') {
+            return $niche;
+        }
         $content = $this->getContent();
         return ($content['industry'] ?? 'tours') === 'hotel' ? 'hotels' : 'tours';
     }

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Deutsche Übersetzungen
  * @version 1.0.0

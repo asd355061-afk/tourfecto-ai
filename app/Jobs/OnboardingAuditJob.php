@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Onboarding Background Audit Job
  * @version 1.0.0
@@ -22,8 +23,8 @@
  * الموقع (مفيش تكرار لو الـ job اتعاد محاولته)، وكل تشغيل بيعمل wo_audit
  * جديد طبيعي (زي ما أي تدقيق يدوي بيعمل).
  */
-class OnboardingAuditJob implements QueueJobInterface {
-
+class OnboardingAuditJob implements QueueJobInterface
+{
     /**
      * أمان دفاعي: نفس نمط $optionalNewClassFiles في public_html/index.php.
      * الـ cron bootstrap بيلود app/Jobs/*.php تلقائيًا، بس الكلاسات دي ممكن
@@ -31,7 +32,8 @@ class OnboardingAuditJob implements QueueJobInterface {
      * dump-autoload)، فلازم تتحمّل هنا عشان الـ worker يقدر يناديها.
      * الفول تلقائي لو ملف مش موجود (class_exists بيحرس التنفيذ في runSetup).
      */
-    private function loadDependencies(): void {
+    private function loadDependencies(): void
+    {
         $deps = [
             '/Controllers/OnboardingController.php',
             '/Controllers/WebsiteOptimizerController.php',
@@ -46,7 +48,8 @@ class OnboardingAuditJob implements QueueJobInterface {
         }
     }
 
-    public function handle(array $payload): void {
+    public function handle(array $payload): void
+    {
         $this->loadDependencies();
 
         $userId = (int) ($payload['user_id'] ?? 0);

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Subscription Validator
  * مدقق الاشتراكات والصلاحيات المتقدم
@@ -7,31 +8,33 @@
  * @copyright 2026 Tourfecto
  */
 
-class SubscriptionValidator {
+class SubscriptionValidator
+{
     /**
      * @var Database $db - اتصال قاعدة البيانات
      */
     private $db;
-    
+
     /**
      * @var array $subscription - بيانات الاشتراك الحالية
      */
     private $subscription = null;
-    
+
     /**
      * @var array $planFeatures - ميزات الباقات
      */
     private $planFeatures = [];
-    
+
     /**
      * @var UsageTracker $usageTracker - متتبع الاستخدام
      */
     private $usageTracker;
-    
+
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
         $this->usageTracker = new UsageTracker();
         $this->loadPlanFeatures();
@@ -43,7 +46,8 @@ class SubscriptionValidator {
      * (نفس الكاش، نفس النتيجة، استعلام واحد بس على مستوى الطلب).
      * @return string
      */
-    private function expiryColumn(): string {
+    private function expiryColumn(): string
+    {
         return Subscription::expiryColumn();
     }
 
@@ -51,17 +55,19 @@ class SubscriptionValidator {
      * شرط SQL جاهز لفلترة الاشتراكات الغير منتهية، أو نص فاضي لو مفيش
      * عمود انتهاء أصلاً في الجدول.
      */
-    private function expiryWhereClause(): string {
+    private function expiryWhereClause(): string
+    {
         $col = $this->expiryColumn();
         return $col ? "AND (`{$col}` IS NULL OR `{$col}` > NOW())" : '';
     }
-    
+
     /**
      * التحقق من صلاحية الاشتراك لمستخدم معين
      * @param int $userId - معرف المستخدم
      * @return array - حالة الاشتراك مع التفاصيل
      */
-    public function validateSubscription(int $userId): array {
+    public function validateSubscription(int $userId): array
+    {
         try {
             // جلب بيانات الاشتراك النشط (عن طريق الدالة المركزية اللي بتحوّل
             // البنية الحقيقية - plan_id/current_period_end/usage_* - لنفس
@@ -71,7 +77,7 @@ class SubscriptionValidator {
             if (!$subscription) {
                 // التحقق من وجود اشتراك منتهي
                 $expired = $this->checkExpiredSubscription($userId);
-                
+
                 return [
                     'valid' => false,
                     'status' => 'inactive',
@@ -80,19 +86,19 @@ class SubscriptionValidator {
                     'expired_subscription' => $expired
                 ];
             }
-            
+
             $sub = $subscription;
             $this->subscription = $sub;
-            
+
             // التحقق من الـ Credits المتبقية
             $aiRemaining = $sub['ai_credits'] - $sub['ai_credits_used'];
             $chatRemaining = $sub['chat_credits'] - $sub['chat_credits_used'];
             $reviewRemaining = $sub['review_credits'] - $sub['review_credits_used'];
             $competitorRemaining = $sub['competitor_analysis_limit'] - $sub['competitor_analysis_used'];
-            
+
             // التحقق من حد الاستخدام اليومي
             $dailyUsage = $this->usageTracker->getDailyUsage($userId);
-            
+
             return [
                 'valid' => true,
                 'status' => 'active',
@@ -119,13 +125,13 @@ class SubscriptionValidator {
                 'daily_usage' => $dailyUsage,
                 'subscription_id' => (int) $sub['id']
             ];
-            
+
         } catch (Exception $e) {
             Logger::error('Subscription Validation Error', [
                 'user_id' => $userId,
                 'error' => $e->getMessage()
             ]);
-            
+
             return [
                 'valid' => false,
                 'status' => 'error',
@@ -134,14 +140,15 @@ class SubscriptionValidator {
             ];
         }
     }
-    
+
     /**
      * التحقق من توفر رصيد الذكاء الاصطناعي
      * @param int $userId
      * @param int $requiredCredits
      * @return array
      */
-    public function checkAICredits(int $userId, int $requiredCredits = 1): array {
+    public function checkAICredits(int $userId, int $requiredCredits = 1): array
+    {
         $subscription = $this->validateSubscription($userId);
 
         if ($subscription['valid'] && $subscription['ai_credits_remaining'] >= $requiredCredits) {
@@ -177,14 +184,15 @@ class SubscriptionValidator {
             'wallet_shortfall' => $walletCheck['shortfall'] ?? null,
         ];
     }
-    
+
     /**
      * التحقق من توفر رصيد الشات
      * @param int $userId
      * @param int $requiredCredits
      * @return array
      */
-    public function checkChatCredits(int $userId, int $requiredCredits = 1): array {
+    public function checkChatCredits(int $userId, int $requiredCredits = 1): array
+    {
         $subscription = $this->validateSubscription($userId);
 
         if ($subscription['valid'] && $subscription['chat_credits_remaining'] >= $requiredCredits) {
@@ -217,13 +225,14 @@ class SubscriptionValidator {
             'wallet_shortfall' => $walletCheck['shortfall'] ?? null,
         ];
     }
-    
+
     /**
      * التحقق من توفر رصيد تحليل المنافسين
      * @param int $userId
      * @return array
      */
-    public function checkCompetitorAnalysisCredits(int $userId): array {
+    public function checkCompetitorAnalysisCredits(int $userId): array
+    {
         $subscription = $this->validateSubscription($userId);
 
         if ($subscription['valid'] && $subscription['competitor_analysis_remaining'] > 0) {
@@ -253,14 +262,15 @@ class SubscriptionValidator {
             'wallet_shortfall' => $walletCheck['shortfall'] ?? null,
         ];
     }
-    
+
     /**
      * استهلاك رصيد AI
      * @param int $userId
      * @param int $creditsUsed
      * @return bool
      */
-    public function consumeAICredits(int $userId, int $creditsUsed = 1, bool $viaWallet = false): bool {
+    public function consumeAICredits(int $userId, int $creditsUsed = 1, bool $viaWallet = false): bool
+    {
         try {
             // تصحيح: لو الاستخدام ده "ادفع حسب الاستخدام" من المحفظة (مفيش
             // اشتراك نشط أصلاً)، بنخصم ثمنه من الرصيد بدل ما نحاول نحدّث
@@ -276,20 +286,20 @@ class SubscriptionValidator {
                     AND status = 'active' 
                     AND current_period_end > NOW()
                     ORDER BY id DESC LIMIT 1";
-            
+
             $result = $this->db->query($sql, [
                 ':credits_used' => $creditsUsed,
                 ':user_id' => $userId
             ]);
-            
+
             if ($result > 0) {
                 // تسجيل الاستخدام
                 $this->usageTracker->logUsage($userId, 'ai', $creditsUsed);
                 return true;
             }
-            
+
             return false;
-            
+
         } catch (Exception $e) {
             Logger::error('Consume AI Credits Error', [
                 'user_id' => $userId,
@@ -299,7 +309,7 @@ class SubscriptionValidator {
             return false;
         }
     }
-    
+
     /**
      * استهلاك رصيد الشات
      * @param int $userId
@@ -307,7 +317,8 @@ class SubscriptionValidator {
      * @param bool $viaWallet - لو true، بيتخصم ثمنه من المحفظة بدل عداد الاشتراك
      * @return bool
      */
-    public function consumeChatCredits(int $userId, int $creditsUsed = 1, bool $viaWallet = false): bool {
+    public function consumeChatCredits(int $userId, int $creditsUsed = 1, bool $viaWallet = false): bool
+    {
         try {
             if ($viaWallet) {
                 return (new WalletService())->chargeForUsage($userId, 'chat_message', 'رد شات');
@@ -320,19 +331,19 @@ class SubscriptionValidator {
                     AND status = 'active' 
                     AND current_period_end > NOW()
                     ORDER BY id DESC LIMIT 1";
-            
+
             $result = $this->db->query($sql, [
                 ':credits_used' => $creditsUsed,
                 ':user_id' => $userId
             ]);
-            
+
             if ($result > 0) {
                 $this->usageTracker->logUsage($userId, 'chat', $creditsUsed);
                 return true;
             }
-            
+
             return false;
-            
+
         } catch (Exception $e) {
             Logger::error('Consume Chat Credits Error', [
                 'user_id' => $userId,
@@ -342,14 +353,15 @@ class SubscriptionValidator {
             return false;
         }
     }
-    
+
     /**
      * استهلاك رصيد تحليل المنافسين
      * @param int $userId
      * @param bool $viaWallet - لو true، بيتخصم ثمنه من المحفظة
      * @return bool
      */
-    public function consumeCompetitorAnalysisCredit(int $userId, bool $viaWallet = false): bool {
+    public function consumeCompetitorAnalysisCredit(int $userId, bool $viaWallet = false): bool
+    {
         try {
             if ($viaWallet) {
                 $charged = (new WalletService())->chargeForUsage($userId, 'competitor_analysis', 'تحليل منافس');
@@ -374,49 +386,51 @@ class SubscriptionValidator {
             return false;
         }
     }
-    
+
     /**
      * التحقق من صلاحية المستخدم لاستخدام خاصية معينة
      * @param int $userId
      * @param string $feature
      * @return bool
      */
-    public function canUseFeature(int $userId, string $feature): bool {
+    public function canUseFeature(int $userId, string $feature): bool
+    {
         $subscription = $this->validateSubscription($userId);
-        
+
         if (!$subscription['valid']) {
             return false;
         }
-        
+
         $plan = $subscription['plan'];
         $features = $this->getPlanFeatures($plan);
-        
+
         return isset($features[$feature]) && $features[$feature];
     }
-    
+
     /**
      * الحصول على إعدادات البوت للمستخدم
      * @param int $userId
      * @param int $websiteId
      * @return array
      */
-    public function getBotSettings(int $userId, int $websiteId): array {
+    public function getBotSettings(int $userId, int $websiteId): array
+    {
         try {
             $sql = "SELECT * FROM bot_settings 
                     WHERE user_id = :user_id 
                     AND website_id = :website_id 
                     AND is_enabled = 1
                     ORDER BY id DESC LIMIT 1";
-            
+
             $settings = $this->db->query($sql, [
                 ':user_id' => $userId,
                 ':website_id' => $websiteId
             ]);
-            
+
             if (empty($settings)) {
                 // التحقق من صلاحية Auto Pilot
                 $canAutoPilot = $this->canUseFeature($userId, 'auto_pilot');
-                
+
                 // إعدادات افتراضية
                 return [
                     'is_enabled' => true,
@@ -430,16 +444,16 @@ class SubscriptionValidator {
                     'fallback_message' => 'شكراً لتواصلك معنا. أحد ممثلي خدمة العملاء سيتواصل معك قريباً.'
                 ];
             }
-            
+
             return $settings[0];
-            
+
         } catch (Exception $e) {
             Logger::error('Get Bot Settings Error', [
                 'user_id' => $userId,
                 'website_id' => $websiteId,
                 'error' => $e->getMessage()
             ]);
-            
+
             return [
                 'is_enabled' => false,
                 'auto_pilot' => false,
@@ -448,13 +462,14 @@ class SubscriptionValidator {
             ];
         }
     }
-    
+
     /**
      * التحقق من الاشتراك المنتهي
      * @param int $userId
      * @return array|null
      */
-    private function checkExpiredSubscription(int $userId): ?array {
+    private function checkExpiredSubscription(int $userId): ?array
+    {
         try {
             $sql = "SELECT 
                         s.*,
@@ -473,46 +488,50 @@ class SubscriptionValidator {
             return null;
         }
     }
-    
+
     /**
      * حساب الأيام المتبقية
      * @param string|null $expiryDate
      * @return int|null
      */
-    private function calculateDaysRemaining(?string $expiryDate): ?int {
+    private function calculateDaysRemaining(?string $expiryDate): ?int
+    {
         if (!$expiryDate) {
             return null;
         }
-        
+
         $now = time();
         $expiry = strtotime($expiryDate);
         $diff = $expiry - $now;
-        
+
         return max(0, (int) ceil($diff / (60 * 60 * 24)));
     }
-    
+
     /**
      * تحميل ميزات الباقات
      */
-    private function loadPlanFeatures(): void {
+    private function loadPlanFeatures(): void
+    {
         // تصحيح: بقت الباقات قابلة للتعديل من لوحة الأدمن بدل الثابت الجامد.
         $this->planFeatures = SubscriptionPlan::allAsLegacyArray();
     }
-    
+
     /**
      * الحصول على ميزات باقة معينة
      * @param string $planName
      * @return array
      */
-    public function getPlanFeatures(string $planName): array {
+    public function getPlanFeatures(string $planName): array
+    {
         return $this->planFeatures[$planName]['features'] ?? [];
     }
-    
+
     /**
      * الحصول على جميع الباقات المتاحة
      * @return array
      */
-    public function getAvailablePlans(): array {
+    public function getAvailablePlans(): array
+    {
         return $this->planFeatures;
     }
 }

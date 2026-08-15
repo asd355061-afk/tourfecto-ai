@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Device Detector
  * تحليل الـ User Agent لاستخراج نوع الجهاز والمتصفح ونظام التشغيل
@@ -8,14 +9,15 @@
  * @copyright 2026 Tourfecto
  */
 
-class DeviceDetector {
-
+class DeviceDetector
+{
     /**
      * تحليل الـ User Agent بالكامل
      * @param string $userAgent
      * @return array ['device_type' => ..., 'browser' => ..., 'platform' => ...]
      */
-    public static function parse(string $userAgent): array {
+    public static function parse(string $userAgent): array
+    {
         return [
             'device_type' => self::detectDeviceType($userAgent),
             'browser' => self::detectBrowser($userAgent),
@@ -28,7 +30,8 @@ class DeviceDetector {
      * @param string $ua
      * @return string
      */
-    public static function detectDeviceType(string $ua): string {
+    public static function detectDeviceType(string $ua): string
+    {
         if ($ua === '' || $ua === 'Unknown') {
             return 'unknown';
         }
@@ -53,7 +56,8 @@ class DeviceDetector {
      * @param string $ua
      * @return string
      */
-    public static function detectBrowser(string $ua): string {
+    public static function detectBrowser(string $ua): string
+    {
         $browsers = [
             'Edg' => 'Edge',
             'OPR' => 'Opera',
@@ -81,7 +85,8 @@ class DeviceDetector {
      * @param string $ua
      * @return string
      */
-    public static function detectPlatform(string $ua): string {
+    public static function detectPlatform(string $ua): string
+    {
         $platforms = [
             'Windows NT 10' => 'Windows 10/11',
             'Windows NT 6.3' => 'Windows 8.1',

@@ -1,10 +1,12 @@
 <?php
+
 /**
  * Tourfecto - Platform Connection Model
  * اتصال OAuth لعميل معيّن بمنصة مراجعات معيّنة (Google Business وغيرها مستقبلاً)
  * @version 1.0.0
  */
-class PlatformConnection extends Model {
+class PlatformConnection extends Model
+{
     protected $table = 'platform_connections';
 
     protected $fillable = [
@@ -22,7 +24,8 @@ class PlatformConnection extends Model {
         'last_synced_at',
     ];
 
-    public function isTokenExpired(): bool {
+    public function isTokenExpired(): bool
+    {
         $expiresAt = $this->getAttribute('token_expires_at');
         if (!$expiresAt) {
             return true;

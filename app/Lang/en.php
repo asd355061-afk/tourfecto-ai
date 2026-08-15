@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - English translations (base language)
  * @version 1.0.0

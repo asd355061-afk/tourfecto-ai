@@ -1,4 +1,5 @@
 <?php
+
 // New translation keys for CRM extended pages
 // Add these lines inside the existing array in app/Lang/en.php
 return [

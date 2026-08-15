@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * Unified Inbox Service (بند 1): يدير دورة حياة "المحادثة الموحدة" فوق
@@ -11,10 +12,10 @@
  * @version 1.0.0
  */
 
-class UnifiedInboxService {
-
+class UnifiedInboxService
+{
     /** الوسوم الجاهزة القياسية (بند 11) - غير قابلة للحذف، فوقها Custom Tags */
-    const STANDARD_TAGS = [
+    public const STANDARD_TAGS = [
         'HOT_LEAD', 'NEW_INQUIRY', 'PRICE_REQUEST', 'COMPLAINT',
         'FOLLOW_UP', 'BOOKING_INTENT', 'VIP', 'HUMAN_REQUIRED',
     ];
@@ -25,7 +26,8 @@ class UnifiedInboxService {
     /** @var Database */
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->conversationModel = new AiChatConversation();
         $this->db = Database::getInstance();
     }
@@ -39,7 +41,8 @@ class UnifiedInboxService {
      * @param string|null $email
      * @return string
      */
-    public function buildCustomerKey(int $websiteId, ?string $phone, ?string $email): string {
+    public function buildCustomerKey(int $websiteId, ?string $phone, ?string $email): string
+    {
         $identifier = '';
         if (!empty($phone)) {
             $identifier = 'phone:' . preg_replace('/\D+/', '', $phone);
@@ -117,7 +120,8 @@ class UnifiedInboxService {
      * @param int $conversationId
      * @param bool $isCustomerMessage
      */
-    public function linkMessage(int $messageId, int $conversationId, bool $isCustomerMessage): void {
+    public function linkMessage(int $messageId, int $conversationId, bool $isCustomerMessage): void
+    {
         try {
             $this->db->query(
                 "UPDATE chat_messages SET conversation_id = ? WHERE id = ?",
@@ -138,7 +142,8 @@ class UnifiedInboxService {
         }
     }
 
-    private function incrementUnread(int $conversationId): int {
+    private function incrementUnread(int $conversationId): int
+    {
         $row = $this->db->query("SELECT unread_count FROM ai_conversations WHERE id = ?", [$conversationId]);
         $current = !empty($row) ? (int) $row[0]['unread_count'] : 0;
         return $current + 1;
@@ -150,7 +155,8 @@ class UnifiedInboxService {
      * @param array $fields
      * @return bool
      */
-    public function updateConversation(int $conversationId, array $fields): bool {
+    public function updateConversation(int $conversationId, array $fields): bool
+    {
         $conversation = $this->conversationModel->find($conversationId);
         if (!$conversation) {
             return false;
@@ -165,7 +171,8 @@ class UnifiedInboxService {
      * @param array $newTags
      * @return bool
      */
-    public function addTags(int $conversationId, array $newTags): bool {
+    public function addTags(int $conversationId, array $newTags): bool
+    {
         $conversation = $this->conversationModel->find($conversationId);
         if (!$conversation) {
             return false;
@@ -202,7 +209,8 @@ class UnifiedInboxService {
      * @param int|null $assignToAgentId
      * @return bool
      */
-    public function handoffToHuman(int $conversationId, string $reason, ?int $assignToAgentId = null): bool {
+    public function handoffToHuman(int $conversationId, string $reason, ?int $assignToAgentId = null): bool
+    {
         $fields = [
             'ai_status' => 'human',
             'handoff_reason' => $reason,
@@ -239,7 +247,8 @@ class UnifiedInboxService {
      * @param int $conversationId
      * @return bool
      */
-    public function resumeAI(int $conversationId): bool {
+    public function resumeAI(int $conversationId): bool
+    {
         return $this->updateConversation($conversationId, [
             'ai_status' => 'ai', 'handoff_reason' => null, 'handoff_at' => null,
         ]);
@@ -251,7 +260,8 @@ class UnifiedInboxService {
      * @param int $conversationId
      * @return bool true لو الرد الآلي يجب أن يتوقف
      */
-    public function shouldStopAutomation(int $conversationId): bool {
+    public function shouldStopAutomation(int $conversationId): bool
+    {
         $conversation = $this->conversationModel->find($conversationId);
         if (!$conversation) {
             return true;
@@ -266,7 +276,8 @@ class UnifiedInboxService {
      * @param int $conversationId
      * @return bool
      */
-    public function markDoNotContact(int $conversationId): bool {
+    public function markDoNotContact(int $conversationId): bool
+    {
         return $this->updateConversation($conversationId, ['do_not_contact' => 1, 'status' => 'closed']);
     }
 
@@ -278,7 +289,8 @@ class UnifiedInboxService {
      * @param int $offset
      * @return array
      */
-    public function search(int $websiteId, array $filters = [], int $limit = 30, int $offset = 0): array {
+    public function search(int $websiteId, array $filters = [], int $limit = 30, int $offset = 0): array
+    {
         $where = ['website_id = ?'];
         $params = [$websiteId];
 
@@ -306,6 +318,8 @@ class UnifiedInboxService {
         $params[] = $offset;
 
         $rows = $this->db->query($sql, $params);
-        return array_map(function ($row) { return new AiChatConversation($row); }, $rows);
+        return array_map(function ($row) {
+            return new AiChatConversation($row);
+        }, $rows);
     }
 }

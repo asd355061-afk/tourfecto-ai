@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Revenue Intelligence Controller
  * @version 1.0.0
@@ -12,7 +13,8 @@
  * (نفس نمط باقي الـ Controllers في المشروع - AuthMiddleware يضمن وجود
  * جلسة صالحة قبل الوصول لأي Action هنا).
  */
-class RevenueIntelligenceController extends Controller {
+class RevenueIntelligenceController extends Controller
+{
     private RevenueOverviewService $overviewService;
     private RevenueForecastService $forecastService;
     private RevenueInsightService $insightService;
@@ -24,7 +26,8 @@ class RevenueIntelligenceController extends Controller {
     private ExecutiveSummaryService $executiveSummaryService;
     private RevenueCacheService $cacheService;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->overviewService = new RevenueOverviewService();
         $this->forecastService = new RevenueForecastService();
@@ -39,7 +42,8 @@ class RevenueIntelligenceController extends Controller {
     }
 
     /** GET /revenue/intelligence - صفحة واحدة بتابات (Tabs) على الـ Client-side. */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $tabs = [
             'executive' => $this->tr('revai.tab.executive'),
             'overview' => $this->tr('revai.tab.overview'),
@@ -91,8 +95,11 @@ HTML;
     // ============================================================
 
     /** GET /api/revenue-intelligence/overview */
-    public function apiOverview(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiOverview(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $period = $this->validPeriod($this->get('period', 'monthly'));
         $userId = (int) $this->user['id'];
         try {
@@ -106,8 +113,11 @@ HTML;
     }
 
     /** GET /api/revenue-intelligence/sources */
-    public function apiSources(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiSources(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $period = $this->validPeriod($this->get('period', 'monthly'));
         try {
             return $this->success($this->overviewService->getRevenueBySourceWithGrowth((int) $this->user['id'], $period));
@@ -117,14 +127,20 @@ HTML;
     }
 
     /** GET /api/revenue-intelligence/products - قسم 8: يفصح بصدق أن لا بيانات كافية */
-    public function apiProducts(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiProducts(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         return $this->success($this->overviewService->getRevenueByProduct((int) $this->user['id']));
     }
 
     /** GET /api/revenue-intelligence/forecast */
-    public function apiForecast(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiForecast(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $period = $this->validPeriod($this->get('period', 'monthly'));
         $userId = (int) $this->user['id'];
         try {
@@ -138,8 +154,11 @@ HTML;
     }
 
     /** GET /api/revenue-intelligence/forecast/accuracy - يقارن توقعات سابقة بالإيراد الحقيقي اللي حصل فعلاً */
-    public function apiForecastAccuracy(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiForecastAccuracy(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success($this->forecastService->getAccuracyHistory((int) $this->user['id']));
         } catch (Throwable $e) {
@@ -156,8 +175,11 @@ HTML;
      * دلوقتي: التسجيل بيحصل مرة واحدة فعلية لكل نافذة كاش (نفس مدة
      * Overview/Forecast)، والـ response نفسه بيتحسب لحظيًا برضه.
      */
-    public function apiOpportunities(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiOpportunities(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $userId = (int) $this->user['id'];
         try {
             $opportunities = $this->insightService->getOpportunities($userId);
@@ -173,8 +195,11 @@ HTML;
 
     /** GET /api/revenue-intelligence/risks */
     /** GET /api/revenue-intelligence/risks - نفس منطق تفادي التكرار المستخدم في apiOpportunities. */
-    public function apiRisks(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiRisks(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $userId = (int) $this->user['id'];
         try {
             $risks = $this->insightService->getRisks($userId);
@@ -190,8 +215,11 @@ HTML;
 
     /** GET /api/revenue-intelligence/anomalies */
     /** GET /api/revenue-intelligence/anomalies - نفس منطق تفادي التكرار. */
-    public function apiAnomalies(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiAnomalies(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $userId = (int) $this->user['id'];
         try {
             $result = $this->anomalyService->detect($userId);
@@ -221,8 +249,11 @@ HTML;
      * future optimization could push this down to a paginated SQL query if
      * a tenant's contact base grows very large.
      */
-    public function apiCustomers(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiCustomers(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $result = $this->customerService->getCustomerRevenueIntelligence((int) $this->user['id']);
             if (!empty($result['has_data'])) {
@@ -235,8 +266,11 @@ HTML;
     }
 
     /** GET /api/revenue-intelligence/segments */
-    public function apiSegments(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiSegments(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success($this->customerService->getSegments((int) $this->user['id']));
         } catch (Throwable $e) {
@@ -245,8 +279,11 @@ HTML;
     }
 
     /** GET /api/revenue-intelligence/pipeline */
-    public function apiPipeline(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiPipeline(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success($this->pipelineService->getPipelineIntelligence((int) $this->user['id']));
         } catch (Throwable $e) {
@@ -255,8 +292,11 @@ HTML;
     }
 
     /** GET /api/revenue-intelligence/actions */
-    public function apiActions(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiActions(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $actions = $this->actionService->getNextBestActions((int) $this->user['id']);
             return $this->success(['has_data' => !empty($actions), 'actions' => $actions]);
@@ -266,8 +306,11 @@ HTML;
     }
 
     /** GET /api/revenue-intelligence/executive-summary */
-    public function apiExecutiveSummary(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiExecutiveSummary(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $userId = (int) $this->user['id'];
         try {
             $summary = $this->cacheService->rememberExecutiveSummary($userId, function () use ($userId) {
@@ -281,8 +324,11 @@ HTML;
     }
 
     /** POST /api/revenue-intelligence/assistant/ask { question } */
-    public function apiAssistantAsk(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiAssistantAsk(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $question = trim((string) $this->get('question', ''));
         if ($question === '') {
             return $this->error($this->tr('revai.assistant.empty_question'), 422);
@@ -304,8 +350,11 @@ HTML;
      * يدعم format=json (افتراضي) أو format=csv (ملف حقيقي قابل للتنزيل)،
      * وDate Range اختياري (from/to بصيغة Y-m-d) لتقرير overview.
      */
-    public function apiExportReport(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiExportReport(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $type = (string) $this->get('type', 'overview');
         $format = (string) $this->get('format', 'json');
         $userId = (int) $this->user['id'];
@@ -319,10 +368,14 @@ HTML;
                 if ($range !== null) {
                     $gateway = new RevenueDataGateway();
                     $series = $gateway->getDailyRevenueSeries($userId, $range['from'] . ' 00:00:00', $range['to'] . ' 23:59:59');
-                    $rows = array_map(static function ($t) { return ['date' => $t['date'], 'revenue' => $t['revenue']]; }, $series);
+                    $rows = array_map(static function ($t) {
+                        return ['date' => $t['date'], 'revenue' => $t['revenue']];
+                    }, $series);
                 } else {
                     $overview = $this->overviewService->getOverview($userId, $this->validPeriod($this->get('period', 'monthly')));
-                    $rows = array_map(static function ($t) { return ['date' => $t['date'], 'revenue' => $t['revenue']]; }, $overview['daily_trend']);
+                    $rows = array_map(static function ($t) {
+                        return ['date' => $t['date'], 'revenue' => $t['revenue']];
+                    }, $overview['daily_trend']);
                 }
                 break;
             case 'opportunities':
@@ -369,7 +422,8 @@ HTML;
     }
 
     /** يقرأ ?from=Y-m-d&to=Y-m-d من الطلب لو الاتنين موجودين وصالحين، وإلا يرجّع null (نرجع لسلوك period الافتراضي). */
-    private function resolveExportDateRange(): ?array {
+    private function resolveExportDateRange(): ?array
+    {
         $from = (string) $this->get('from', '');
         $to = (string) $this->get('to', '');
         if ($from === '' || $to === '') {
@@ -385,7 +439,8 @@ HTML;
     }
 
     /** يبني ملف CSV حقيقي (UTF-8 BOM عشان يفتح صح في Excel) ويبعته كـ Attachment، بدل رد JSON. */
-    private function streamCsv(string $type, array $columns, array $rows): void {
+    private function streamCsv(string $type, array $columns, array $rows): void
+    {
         $filename = 'revenue-' . preg_replace('/[^a-z0-9_-]/i', '-', $type) . '-' . date('Y-m-d') . '.csv';
 
         if (!headers_sent()) {
@@ -419,12 +474,14 @@ HTML;
     // Helpers
     // ============================================================
 
-    private function validPeriod(string $period): string {
+    private function validPeriod(string $period): string
+    {
         return in_array($period, ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'], true) ? $period : 'monthly';
     }
 
     /** Section 18 (Pagination): يقطّع أي مصفوفة داخل $result[$key] ويضيف meta.pagination. */
-    private function paginate(array $result, string $key): array {
+    private function paginate(array $result, string $key): array
+    {
         $page = max(1, (int) $this->get('page', 1));
         $perPage = min(100, max(1, (int) $this->get('per_page', 25)));
 
@@ -442,7 +499,8 @@ HTML;
         return $result;
     }
 
-    private function serverError(string $context, Throwable $e): array {
+    private function serverError(string $context, Throwable $e): array
+    {
         if (class_exists('Logger')) {
             Logger::error("RevenueIntelligence[{$context}] error", ['message' => $e->getMessage()]);
         }
@@ -450,7 +508,8 @@ HTML;
     }
 
     /** JS الخاص بالصفحة - Tabs + Fetch لكل قسم. */
-    private function pageScript(): string {
+    private function pageScript(): string
+    {
         return <<<'JS'
 (function () {
     const P = window.Panel;

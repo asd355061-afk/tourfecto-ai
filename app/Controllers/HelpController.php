@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Help Controller
  * صفحات المساعدة والأسئلة الشائعة والتواصل
@@ -9,9 +10,10 @@
  * صفحة). اتبنت من الصفر كصفحات HTML حقيقية بنفس هوية الصفحات العامة
  * (compass.css) زي /terms و/privacy بالظبط.
  */
-class HelpController extends Controller {
-
-    private function pageShell(string $title, string $bodyHtml, string $extraCss = ''): string {
+class HelpController extends Controller
+{
+    private function pageShell(string $title, string $bodyHtml, string $extraCss = ''): string
+    {
         $appName = defined('APP_NAME') ? APP_NAME : 'Tourfecto';
         $brandHtml = site_brand_html();
         $lang = function_exists('current_lang') ? current_lang() : 'ar';
@@ -167,7 +169,8 @@ HTML;
     }
 
     /** GET /help */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $whatsappBlock = '';
         $supportWhatsapp = support_whatsapp_number();
         if ($supportWhatsapp) {
@@ -202,14 +205,15 @@ HTML;
     }
 
     /** GET /help/faq */
-    public function faq(array $params = []): array {
+    public function faq(array $params = []): array
+    {
         // تصحيح: الأسئلة الشائعة بقت قابلة للتعديل من لوحة الأدمن
         // (جدول faq_items) بدل ما تكون مكتوبة في كود PHP ثابت. لو الجدول
         // لسه فاضي (الـ migration ما اتشغّلش)، بنرجع لنفس الأسئلة
         // الافتراضية القديمة عشان الصفحة تفضل شغالة.
         try {
             $items = (new FaqItem())->where(['is_active' => 1], ['sort_order' => 'ASC']);
-            $faqs = array_map(fn($f) => [$f->getAttribute('question'), $f->getAttribute('answer')], $items);
+            $faqs = array_map(fn ($f) => [$f->getAttribute('question'), $f->getAttribute('answer')], $items);
         } catch (Exception $e) {
             $faqs = [];
         }
@@ -245,7 +249,8 @@ HTML;
     }
 
     /** GET /help/contact */
-    public function contact(array $params = []): array {
+    public function contact(array $params = []): array
+    {
         $whatsappBlock = '';
         $supportWhatsapp = support_whatsapp_number();
         if ($supportWhatsapp) {
@@ -327,7 +332,8 @@ HTML;
     }
 
     /** POST /help/contact */
-    public function sendContact(array $params = []): array {
+    public function sendContact(array $params = []): array
+    {
         if (!$this->validate([
             'name' => 'required',
             'email' => 'required|email',

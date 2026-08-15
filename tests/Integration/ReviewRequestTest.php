@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Review Request Integration Test
  * اختبارات نظام طلب المراجعات (Review Request)
@@ -14,7 +15,8 @@
  * تشغيل: php tests/Integration/ReviewRequestTest.php
  */
 
-class ReviewRequestTest {
+class ReviewRequestTest
+{
     /** @var array $testResults */
     private $testResults = [];
     /** @var int $passed */
@@ -32,14 +34,16 @@ class ReviewRequestTest {
     /** @var array $createdRequestIds - لعمل cleanup */
     private $createdRequestIds = [];
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
         $this->service = new ReviewRequestService();
         $this->testUserId = $this->createTestUser();
         $this->testWebsiteId = $this->createTestWebsite();
     }
 
-    private function createTestUser(): int {
+    private function createTestUser(): int
+    {
         $sql = "INSERT INTO users (company_name, email, password, phone, is_active)
                 VALUES (:company_name, :email, :password, :phone, :is_active)";
 
@@ -52,7 +56,8 @@ class ReviewRequestTest {
         ]);
     }
 
-    private function createTestWebsite(): int {
+    private function createTestWebsite(): int
+    {
         $sql = "INSERT INTO websites (user_id, main_url, company_name, industry, is_verified)
                 VALUES (:user_id, :main_url, :company_name, :industry, :is_verified)";
 
@@ -71,7 +76,8 @@ class ReviewRequestTest {
      * يرجع true وقت الاختبار - من غير كده كل اختبارات الإنشاء هترمي
      * "قناة غير مفعّلة" لأن مفيش UltraMsg حقيقي متصل بموقع الاختبار.
      */
-    private function connectTestWhatsappChannel(): void {
+    private function connectTestWhatsappChannel(): void
+    {
         $this->db->query(
             "INSERT INTO platform_connections (website_id, platform, status, created_at)
              VALUES (?, 'ultramsg', 'connected', NOW())",
@@ -79,7 +85,8 @@ class ReviewRequestTest {
         );
     }
 
-    private function enableAndSetReviewLink(): void {
+    private function enableAndSetReviewLink(): void
+    {
         $this->service->saveSettings($this->testWebsiteId, [
             'is_enabled' => 1,
             'default_review_link' => 'https://g.page/r/test-review-link',
@@ -93,7 +100,8 @@ class ReviewRequestTest {
         ]);
     }
 
-    public function runAll(): void {
+    public function runAll(): void
+    {
         echo "\n⭐ Review Request Integration Tests\n";
         echo "=====================================\n\n";
 
@@ -113,15 +121,20 @@ class ReviewRequestTest {
     }
 
     /** إنشاء طلب أساسي لازم ينجح لما القناة مهيأة والإعدادات صح */
-    private function testCreateRequestBasic(): void {
+    private function testCreateRequestBasic(): void
+    {
         $this->startTest('إنشاء طلب مراجعة أساسي (واتساب)');
         $this->connectTestWhatsappChannel();
         $this->enableAndSetReviewLink();
 
         try {
             $request = $this->service->createRequest(
-                $this->testUserId, $this->testWebsiteId, 'ضيف اختبار', '201000000001',
-                date('Y-m-d H:i:s', strtotime('-1 hour')), 'whatsapp'
+                $this->testUserId,
+                $this->testWebsiteId,
+                'ضيف اختبار',
+                '201000000001',
+                date('Y-m-d H:i:s', strtotime('-1 hour')),
+                'whatsapp'
             );
             $this->createdRequestIds[] = (int) $request->getAttribute('id');
 
@@ -136,13 +149,19 @@ class ReviewRequestTest {
     }
 
     /** لازم يرفض الإنشاء لو القناة (إيميل هنا) مش مهيأة */
-    private function testCreateRequestMissingChannelConfig(): void {
+    private function testCreateRequestMissingChannelConfig(): void
+    {
         $this->startTest('رفض الإنشاء لقناة غير مهيأة (إيميل بدون Mailer)');
 
         try {
             $this->service->createRequest(
-                $this->testUserId, $this->testWebsiteId, 'ضيف إيميل', null,
-                date('Y-m-d H:i:s'), 'email', 'guest@example.com'
+                $this->testUserId,
+                $this->testWebsiteId,
+                'ضيف إيميل',
+                null,
+                date('Y-m-d H:i:s'),
+                'email',
+                'guest@example.com'
             );
             $this->fail('كان المفروض يرمي Exception لأن قناة الإيميل غير مهيأة في بيئة الاختبار');
         } catch (Exception $e) {
@@ -151,13 +170,18 @@ class ReviewRequestTest {
     }
 
     /** لازم يرفض إنشاء طلب تاني لنفس الرقم خلال نافذة التكرار */
-    private function testDuplicateProtection(): void {
+    private function testDuplicateProtection(): void
+    {
         $this->startTest('منع تكرار طلب لنفس الضيف خلال 24 ساعة');
 
         try {
             $this->service->createRequest(
-                $this->testUserId, $this->testWebsiteId, 'ضيف اختبار', '201000000001',
-                date('Y-m-d H:i:s'), 'whatsapp'
+                $this->testUserId,
+                $this->testWebsiteId,
+                'ضيف اختبار',
+                '201000000001',
+                date('Y-m-d H:i:s'),
+                'whatsapp'
             );
             $this->fail('كان المفروض يرمي Exception لتكرار نفس رقم الضيف');
         } catch (Exception $e) {
@@ -166,13 +190,18 @@ class ReviewRequestTest {
     }
 
     /** بعد Opt-Out، أي طلب جديد لنفس الرقم لازم يتمنع حتى لو النافذة الزمنية عدّت */
-    private function testOptOutPreventsNewRequest(): void {
+    private function testOptOutPreventsNewRequest(): void
+    {
         $this->startTest('Opt-Out دائم يمنع أي طلب جديد لنفس الضيف');
 
         try {
             $request = $this->service->createRequest(
-                $this->testUserId, $this->testWebsiteId, 'ضيف Opt-Out', '201000000099',
-                date('Y-m-d H:i:s'), 'whatsapp'
+                $this->testUserId,
+                $this->testWebsiteId,
+                'ضيف Opt-Out',
+                '201000000099',
+                date('Y-m-d H:i:s'),
+                'whatsapp'
             );
             $requestId = (int) $request->getAttribute('id');
             $this->createdRequestIds[] = $requestId;
@@ -181,8 +210,12 @@ class ReviewRequestTest {
 
             try {
                 $newRequest = $this->service->createRequest(
-                    $this->testUserId, $this->testWebsiteId, 'ضيف Opt-Out', '201000000099',
-                    date('Y-m-d H:i:s'), 'whatsapp'
+                    $this->testUserId,
+                    $this->testWebsiteId,
+                    'ضيف Opt-Out',
+                    '201000000099',
+                    date('Y-m-d H:i:s'),
+                    'whatsapp'
                 );
                 $this->createdRequestIds[] = (int) $newRequest->getAttribute('id');
                 $this->fail('كان المفروض يرمي Exception لأن الضيف ده Opted-Out');
@@ -195,13 +228,18 @@ class ReviewRequestTest {
     }
 
     /** التعديل مسموح بس للطلبات scheduled */
-    private function testUpdateOnlyAllowedWhenScheduled(): void {
+    private function testUpdateOnlyAllowedWhenScheduled(): void
+    {
         $this->startTest('التعديل مسموح فقط لطلب scheduled');
 
         try {
             $request = $this->service->createRequest(
-                $this->testUserId, $this->testWebsiteId, 'ضيف تعديل', '201000000055',
-                date('Y-m-d H:i:s'), 'whatsapp'
+                $this->testUserId,
+                $this->testWebsiteId,
+                'ضيف تعديل',
+                '201000000055',
+                date('Y-m-d H:i:s'),
+                'whatsapp'
             );
             $requestId = (int) $request->getAttribute('id');
             $this->createdRequestIds[] = $requestId;
@@ -229,13 +267,18 @@ class ReviewRequestTest {
     }
 
     /** Retry ممنوع بعد الوصول للحد الأقصى من المحاولات */
-    private function testRetryCap(): void {
+    private function testRetryCap(): void
+    {
         $this->startTest('منع Retry بعد الوصول للحد الأقصى من المحاولات');
 
         try {
             $request = $this->service->createRequest(
-                $this->testUserId, $this->testWebsiteId, 'ضيف Retry', '201000000077',
-                date('Y-m-d H:i:s'), 'whatsapp'
+                $this->testUserId,
+                $this->testWebsiteId,
+                'ضيف Retry',
+                '201000000077',
+                date('Y-m-d H:i:s'),
+                'whatsapp'
             );
             $requestId = (int) $request->getAttribute('id');
             $this->createdRequestIds[] = $requestId;
@@ -257,7 +300,8 @@ class ReviewRequestTest {
     }
 
     /** التأكد إن مستخدم تاني مايقدرش يشوف/يعدّل طلب موقع مش بتاعه */
-    private function testTenantIsolation(): void {
+    private function testTenantIsolation(): void
+    {
         $this->startTest('Multi-Tenant Isolation - موقع تاني ميشوفش طلبات الأول');
 
         try {
@@ -269,8 +313,12 @@ class ReviewRequestTest {
             );
 
             $request = $this->service->createRequest(
-                $this->testUserId, $this->testWebsiteId, 'ضيف Tenant', '201000000088',
-                date('Y-m-d H:i:s'), 'whatsapp'
+                $this->testUserId,
+                $this->testWebsiteId,
+                'ضيف Tenant',
+                '201000000088',
+                date('Y-m-d H:i:s'),
+                'whatsapp'
             );
             $requestId = (int) $request->getAttribute('id');
             $this->createdRequestIds[] = $requestId;
@@ -290,7 +338,8 @@ class ReviewRequestTest {
     }
 
     /** أول استدعاء لازم يزرع 4 قوالب افتراضية، والحذف/الإضافة لازم يشتغلوا */
-    private function testTemplatesSeedAndCrud(): void {
+    private function testTemplatesSeedAndCrud(): void
+    {
         $this->startTest('زرع القوالب الافتراضية + CRUD');
 
         try {
@@ -322,7 +371,8 @@ class ReviewRequestTest {
     }
 
     /** مفيش بيانات "reviewed" كافية لموقع الاختبار - لازم يرجع not_enough_data */
-    private function testSmartTimingNotEnoughData(): void {
+    private function testSmartTimingNotEnoughData(): void
+    {
         $this->startTest('Smart Timing يرجع not_enough_data لما العينة صغيرة');
 
         $timing = $this->service->getSmartTimingSuggestion($this->testWebsiteId);
@@ -334,7 +384,8 @@ class ReviewRequestTest {
     }
 
     /** الأنالتكس لازم يرجع not_enough_data لو العينة أقل من الحد الأدنى */
-    private function testAnalyticsNotEnoughData(): void {
+    private function testAnalyticsNotEnoughData(): void
+    {
         $this->startTest('Analytics يرجع not_enough_data لعينة صغيرة');
 
         $analytics = $this->service->getAnalytics($this->testWebsiteId);
@@ -345,7 +396,8 @@ class ReviewRequestTest {
         }
     }
 
-    private function cleanup(): void {
+    private function cleanup(): void
+    {
         foreach ($this->createdRequestIds as $id) {
             $this->db->query("DELETE FROM review_requests WHERE id = ?", [$id]);
         }
@@ -357,23 +409,27 @@ class ReviewRequestTest {
         $this->db->query("DELETE FROM users WHERE id = ?", [$this->testUserId]);
     }
 
-    private function startTest(string $name): void {
+    private function startTest(string $name): void
+    {
         echo "\n  ▶ {$name}\n";
     }
 
-    private function pass(string $message): void {
+    private function pass(string $message): void
+    {
         echo "    ✅ {$message}\n";
         $this->passed++;
         $this->testResults[] = ['status' => 'PASS', 'message' => $message];
     }
 
-    private function fail(string $message): void {
+    private function fail(string $message): void
+    {
         echo "    ❌ {$message}\n";
         $this->failed++;
         $this->testResults[] = ['status' => 'FAIL', 'message' => $message];
     }
 
-    private function printSummary(): void {
+    private function printSummary(): void
+    {
         $total = $this->passed + $this->failed;
         $percentage = $total > 0 ? round(($this->passed / $total) * 100, 2) : 0;
 

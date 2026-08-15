@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Dashboard & Analytics Service (بند 23/24)
  * @version 1.1.0
@@ -15,23 +16,27 @@
  * نفسه Fail-open: لو الكاش مش متاح لأي سبب، بينفّذ الاستعلامات مباشرة
  * زي ما كان يحصل قبل كده بالظبط - لا فشل صامت للميزة الأساسية.
  */
-class CrmDashboardService {
+class CrmDashboardService
+{
     use CacheableTrait;
 
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
-    public function stats(int $userId): array {
+    public function stats(int $userId): array
+    {
         return $this->cached("crm:dashboard_stats:{$userId}", 90, function () use ($userId) {
             return $this->computeStats($userId);
         });
     }
 
     /** الحساب الفعلي - اتفصلت عن stats() بس عشان cached() تقدر تغلّفها */
-    private function computeStats(int $userId): array {
+    private function computeStats(int $userId): array
+    {
         $totalLeads = $this->scalar(
             "SELECT COUNT(*) FROM crm_leads l JOIN crm_contacts c ON c.id = l.contact_id WHERE c.user_id = ?",
             [$userId]
@@ -114,7 +119,8 @@ class CrmDashboardService {
         ];
     }
 
-    private function scalar(string $sql, array $params) {
+    private function scalar(string $sql, array $params)
+    {
         $rows = $this->db->query($sql, $params);
         if (empty($rows)) {
             return null;

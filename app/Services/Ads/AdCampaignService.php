@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Ad Campaign Service (إدارة الإعلانات)
  * لا يوجد أي موديول مرفوع يغطي الإعلانات - هذا بناء جديد بالكامل بنفس
@@ -8,14 +9,16 @@
  * الموجود، عبر platform_connections (platform = google_ads/meta_ads).
  * @version 1.1.0
  */
-class AdCampaignService {
+class AdCampaignService
+{
     /**
      * إنشاء حملة. لو الطلب فيه `audience` أو `copies` أو `budget_recommendation`
      * (من ويزارد الذكاء الاصطناعي)، بيتحفظوا كلهم مع بعض في معاملة واحدة
      * (transaction) عشان الحملة متتحفظش أبدًا من غير جمهورها ونصوصها لو
      * حصل خطأ نص الطريق.
      */
-    public function create(int $userId, array $data): AdCampaign {
+    public function create(int $userId, array $data): AdCampaign
+    {
         $db = Database::getInstance();
         $db->beginTransaction();
 
@@ -71,7 +74,9 @@ class AdCampaignService {
             if (!empty($data['copies']) && is_array($data['copies'])) {
                 $labels = ['A', 'B', 'C', 'D', 'E'];
                 foreach (array_slice($data['copies'], 0, 5) as $i => $c) {
-                    if (empty($c['headline'])) continue;
+                    if (empty($c['headline'])) {
+                        continue;
+                    }
                     $copy = new AdCopy([
                         'campaign_id' => $campaignId,
                         'headline' => $c['headline'] ?? null,
@@ -90,7 +95,9 @@ class AdCampaignService {
                 foreach (array_slice($data['keywords'], 0, 30) as $k) {
                     $keywordText = is_array($k) ? ($k['keyword'] ?? '') : (string) $k;
                     $keywordText = trim($keywordText);
-                    if ($keywordText === '') continue;
+                    if ($keywordText === '') {
+                        continue;
+                    }
 
                     $matchType = is_array($k) && in_array($k['match_type'] ?? '', ['exact', 'phrase', 'broad', 'negative'], true)
                         ? $k['match_type'] : 'phrase';
@@ -130,12 +137,13 @@ class AdCampaignService {
      * بالأحدث) + استبعاد الحملات المحذوفة (Soft Delete) اللي محتاجة
      * الاستبعاد ده أصلًا عشان الميزة تشتغل صح.
      */
-    public function listForUser(int $userId): array {
+    public function listForUser(int $userId): array
+    {
         $rows = Database::getInstance()->query(
             "SELECT * FROM ad_campaigns WHERE user_id = ? AND deleted_at IS NULL ORDER BY created_at DESC",
             [$userId]
         );
-        return array_map(fn($r) => new AdCampaign($r), $rows);
+        return array_map(fn ($r) => new AdCampaign($r), $rows);
     }
 
     /**
@@ -147,7 +155,8 @@ class AdCampaignService {
      *
      * @return array{campaigns: array, total: int, page: int, per_page: int}
      */
-    public function listForUserPaginated(int $userId, array $filters = []): array {
+    public function listForUserPaginated(int $userId, array $filters = []): array
+    {
         $db = Database::getInstance();
 
         $page = max(1, (int) ($filters['page'] ?? 1));

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Report Service
  * @version 1.0.0
@@ -7,10 +8,12 @@
  * ci_scorecards الحقيقية ويُخزَّن كـ JSON في ci_reports (مصدر حقيقة
  * واحد قابل لإعادة العرض/التصدير لاحقًا بدون إعادة حساب).
  */
-class ReportService {
+class ReportService
+{
     private const ALLOWED_TYPES = ['weekly', 'monthly', 'profile', 'threat', 'opportunity', 'change'];
 
-    public function generate(int $userId, int $websiteId, string $type, array $competitorIds = [], ?int $singleCompetitorId = null): CiReport {
+    public function generate(int $userId, int $websiteId, string $type, array $competitorIds = [], ?int $singleCompetitorId = null): CiReport
+    {
         if (!in_array($type, self::ALLOWED_TYPES, true)) {
             throw new InvalidArgumentException("Unsupported report type: {$type}");
         }
@@ -67,7 +70,8 @@ class ReportService {
         return $report;
     }
 
-    private function buildChangesSummary(int $userId, int $days): array {
+    private function buildChangesSummary(int $userId, int $days): array
+    {
         $db = Database::getInstance();
         $rows = $db->query(
             "SELECT c.*, comp.competitor_name, comp.competitor_domain
@@ -100,7 +104,8 @@ class ReportService {
         ];
     }
 
-    private function buildProfileReport(int $competitorId): array {
+    private function buildProfileReport(int $competitorId): array
+    {
         $competitor = (new Competitor())->find($competitorId);
         if (!$competitor) {
             throw new RuntimeException('Competitor not found');
@@ -120,7 +125,8 @@ class ReportService {
         ];
     }
 
-    private function buildInsightsReport(int $userId, string $type, int $days): array {
+    private function buildInsightsReport(int $userId, string $type, int $days): array
+    {
         $db = Database::getInstance();
         $rows = $db->query(
             "SELECT i.*, comp.competitor_name, comp.competitor_domain

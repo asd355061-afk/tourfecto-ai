@@ -1,13 +1,15 @@
 <?php
+
 /**
  * Tourfecto - Settings Controller
  * إعدادات المستخدم العامة والإشعارات ومفتاح API
  * @version 1.0.0
  */
 
-class SettingsController extends Controller {
-
-    private function currentUser(): ?User {
+class SettingsController extends Controller
+{
+    private function currentUser(): ?User
+    {
         $id = $_SESSION['user_id'] ?? null;
         if (!$id) {
             return null;
@@ -17,7 +19,8 @@ class SettingsController extends Controller {
     }
 
     /** GET /api/settings/general */
-    public function getGeneral(array $params = []): array {
+    public function getGeneral(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -31,7 +34,8 @@ class SettingsController extends Controller {
     }
 
     /** PUT /api/settings/general */
-    public function updateGeneral(array $params = []): array {
+    public function updateGeneral(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -51,7 +55,8 @@ class SettingsController extends Controller {
     }
 
     /** GET /api/settings/notifications */
-    public function getNotifications(array $params = []): array {
+    public function getNotifications(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -71,7 +76,8 @@ class SettingsController extends Controller {
     }
 
     /** PUT /api/settings/notifications */
-    public function updateNotifications(array $params = []): array {
+    public function updateNotifications(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -120,7 +126,8 @@ class SettingsController extends Controller {
     }
 
     /** GET /api/settings/api */
-    public function getAPI(array $params = []): array {
+    public function getAPI(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -129,7 +136,8 @@ class SettingsController extends Controller {
     }
 
     /** POST /api/settings/api/regenerate */
-    public function regenerateAPIKey(array $params = []): array {
+    public function regenerateAPIKey(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -146,12 +154,14 @@ class SettingsController extends Controller {
     }
 
     /** GET /api/settings/languages */
-    public function getLanguages(array $params = []): array {
+    public function getLanguages(array $params = []): array
+    {
         return $this->success(['languages' => defined('SUPPORTED_LANGUAGES') ? SUPPORTED_LANGUAGES : []]);
     }
 
     /** GET /api/settings/timezones */
-    public function getTimezones(array $params = []): array {
+    public function getTimezones(array $params = []): array
+    {
         return $this->success(['timezones' => defined('SUPPORTED_TIMEZONES') ? SUPPORTED_TIMEZONES : []]);
     }
 }

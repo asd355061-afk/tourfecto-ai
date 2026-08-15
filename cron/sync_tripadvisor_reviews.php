@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - مزامنة دورية لمراجعات TripAdvisor
  * @version 1.0.0

@@ -1,18 +1,21 @@
 <?php
+
 /**
  * Tourfecto - Landing Page Analysis Service
  * بيجيب صفحة الهبوط فعليًا من السيرفر (cURL - مش طلب من المتصفح)، بيستخرج
  * نصها، ويحلّلها بالذكاء الاصطناعي من منظور "هل الصفحة تكمّل وعد الإعلان؟".
  * @version 1.0.0
  */
-class LandingPageAnalysisService {
+class LandingPageAnalysisService
+{
     private const FETCH_TIMEOUT = 15;
     private const MAX_TEXT_CHARS = 12000;
 
     /** @var GeminiClient */
     private $ai;
 
-    public function __construct(?GeminiClient $ai = null) {
+    public function __construct(?GeminiClient $ai = null)
+    {
         $this->ai = $ai ?? new GeminiClient();
     }
 
@@ -20,7 +23,8 @@ class LandingPageAnalysisService {
      * يحلل صفحة الهبوط ويرجّع:
      * @return array{fetch_error: ?string, relevance: string, cta: string, message_match: string, recommendations: array, page_text: string}
      */
-    public function analyze(string $url, ?string $productDescription = null): array {
+    public function analyze(string $url, ?string $productDescription = null): array
+    {
         if (!preg_match('#^https?://#i', $url)) {
             $url = 'https://' . $url;
         }
@@ -82,7 +86,9 @@ PROMPT;
         $cleanRecs = [];
         foreach (array_slice($recs, 0, 5) as $r) {
             $text = trim((string) $r);
-            if ($text !== '') $cleanRecs[] = mb_substr($text, 0, 500);
+            if ($text !== '') {
+                $cleanRecs[] = mb_substr($text, 0, 500);
+            }
         }
 
         return [
@@ -95,7 +101,8 @@ PROMPT;
         ];
     }
 
-    private function fetchPage(string $url): ?string {
+    private function fetchPage(string $url): ?string
+    {
         if (!function_exists('curl_init')) {
             return null;
         }
@@ -122,7 +129,8 @@ PROMPT;
         return (string) $body;
     }
 
-    private function extractText(string $html): string {
+    private function extractText(string $html): string
+    {
         $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
 
         if (class_exists('DOMDocument')) {
@@ -133,9 +141,15 @@ PROMPT;
 
             $body = $dom->getElementsByTagName('body')->item(0);
             if ($body) {
-                foreach ($body->getElementsByTagName('script') as $node) { $node->parentNode->removeChild($node); }
-                foreach ($body->getElementsByTagName('style') as $node) { $node->parentNode->removeChild($node); }
-                foreach ($body->getElementsByTagName('noscript') as $node) { $node->parentNode->removeChild($node); }
+                foreach ($body->getElementsByTagName('script') as $node) {
+                    $node->parentNode->removeChild($node);
+                }
+                foreach ($body->getElementsByTagName('style') as $node) {
+                    $node->parentNode->removeChild($node);
+                }
+                foreach ($body->getElementsByTagName('noscript') as $node) {
+                    $node->parentNode->removeChild($node);
+                }
                 $text = trim(preg_replace('/\s+/u', ' ', (string) $body->textContent));
                 if ($text !== '') {
                     return mb_substr($text, 0, self::MAX_TEXT_CHARS);
@@ -150,7 +164,8 @@ PROMPT;
         return trim((string) preg_replace('/\s+/u', ' ', $stripped));
     }
 
-    private function parseJsonResponse(string $raw): ?array {
+    private function parseJsonResponse(string $raw): ?array
+    {
         $clean = preg_replace('/^```(json)?|```$/m', '', trim($raw));
         $parsed = json_decode(trim((string) $clean), true);
         return is_array($parsed) ? $parsed : null;

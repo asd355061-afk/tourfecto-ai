@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * كلاس أساسي مجرّد لأي مزود يتوافق مع صيغة OpenAI Chat Completions API
@@ -10,8 +11,8 @@
  * @version 1.0.0
  */
 
-abstract class OpenAICompatibleProvider implements AIProviderInterface {
-
+abstract class OpenAICompatibleProvider implements AIProviderInterface
+{
     /** إعداد كل مزود فرعي - يجب تنفيذها في الكلاس الابن */
     abstract protected function getApiKey(): string;
     abstract protected function getBaseUrl(): string;
@@ -23,11 +24,13 @@ abstract class OpenAICompatibleProvider implements AIProviderInterface {
     abstract protected function getCostPer1kInput(): float;
     abstract protected function getCostPer1kOutput(): float;
 
-    public function isConfigured(): bool {
+    public function isConfigured(): bool
+    {
         return !empty($this->getApiKey());
     }
 
-    public function generateReply(string $systemPrompt, array $messages, array $options = []): array {
+    public function generateReply(string $systemPrompt, array $messages, array $options = []): array
+    {
         $startTime = microtime(true);
 
         if (!$this->isConfigured()) {
@@ -80,7 +83,8 @@ abstract class OpenAICompatibleProvider implements AIProviderInterface {
         ];
     }
 
-    private function failure(string $error, int $durationMs): array {
+    private function failure(string $error, int $durationMs): array
+    {
         return [
             'success' => false,
             'content' => null,
@@ -100,7 +104,8 @@ abstract class OpenAICompatibleProvider implements AIProviderInterface {
      * @param array $payload
      * @return array ['success'=>bool, 'data'=>array|null, 'error'=>string|null]
      */
-    private function sendWithRetry(array $payload): array {
+    private function sendWithRetry(array $payload): array
+    {
         $attempt = 0;
         $lastError = null;
         $maxRetries = max(1, $this->getMaxRetries());

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Revenue Intelligence Test
  * اختبارات موديول ذكاء الإيرادات (TOURFECTO AI REVENUE INTELLIGENCE)
@@ -21,8 +22,11 @@
  * محاولة اتصال بقاعدة بيانات حقيقية أثناء بناء الخدمات في هذا الملف،
  * لأن كل الاختبارات هنا تستهدف Pure Functions فقط ولا تحتاج بيانات فعلية.
  */
-class RevenueDataGateway {
-    public function __construct() {}
+class RevenueDataGateway
+{
+    public function __construct()
+    {
+    }
 }
 
 require_once __DIR__ . '/../../app/Services/RevenueIntelligence/RevenueOverviewService.php';
@@ -35,7 +39,8 @@ require_once __DIR__ . '/../../app/Services/RevenueIntelligence/RevenueActionSer
 require_once __DIR__ . '/../../app/Services/RevenueIntelligence/RevenueAssistantService.php';
 require_once __DIR__ . '/../../app/Services/RevenueIntelligence/RevenueCacheService.php';
 
-class RevenueIntelligenceTest {
+class RevenueIntelligenceTest
+{
     /** @var array */
     private $testResults = [];
     /** @var int */
@@ -43,7 +48,8 @@ class RevenueIntelligenceTest {
     /** @var int */
     private $failed = 0;
 
-    public function runAll(): void {
+    public function runAll(): void
+    {
         echo "\n💰 AI Revenue Intelligence Tests\n";
         echo "=================================\n";
 
@@ -77,7 +83,8 @@ class RevenueIntelligenceTest {
     // Section 2: REVENUE FORECASTING
     // ============================================================
 
-    private function testForecastInsufficientData(): void {
+    private function testForecastInsufficientData(): void
+    {
         $this->startTest('Forecast: insufficient data -> honest message, no invented numbers');
         $series = [];
         for ($i = 0; $i < 5; $i++) {
@@ -90,7 +97,8 @@ class RevenueIntelligenceTest {
         $this->assertTrue($result['message'] === 'Not enough data for reliable forecast.', 'Exact required message is returned');
     }
 
-    private function testForecastWithTrend(): void {
+    private function testForecastWithTrend(): void
+    {
         $this->startTest('Forecast: enough data with clear upward trend');
         $series = [];
         for ($i = 0; $i < 30; $i++) {
@@ -110,7 +118,8 @@ class RevenueIntelligenceTest {
     // Section 9: REVENUE ANOMALY DETECTION
     // ============================================================
 
-    private function testAnomalyDetection(): void {
+    private function testAnomalyDetection(): void
+    {
         $this->startTest('Anomaly detection: flags an injected spike');
         $series = [];
         for ($i = 1; $i <= 20; $i++) {
@@ -123,12 +132,15 @@ class RevenueIntelligenceTest {
         $this->assertTrue(count($result['anomalies']) >= 1, 'Detects at least one anomaly');
         $found = false;
         foreach ($result['anomalies'] as $a) {
-            if ($a['period'] === $series[9]['date'] && $a['type'] === 'sudden_increase') { $found = true; }
+            if ($a['period'] === $series[9]['date'] && $a['type'] === 'sudden_increase') {
+                $found = true;
+            }
         }
         $this->assertTrue($found, 'Correctly identifies the spike day as sudden_increase');
     }
 
-    private function testAnomalyInsufficientData(): void {
+    private function testAnomalyInsufficientData(): void
+    {
         $this->startTest('Anomaly detection: insufficient data -> no false positives');
         $series = [['date' => '2026-08-01', 'revenue' => 100], ['date' => '2026-08-02', 'revenue' => 5000]];
         $result = RevenueAnomalyService::computeAnomalies($series);
@@ -140,7 +152,8 @@ class RevenueIntelligenceTest {
     // Section 5 & 12: CUSTOMER REVENUE INTELLIGENCE & SEGMENTATION
     // ============================================================
 
-    private function testCustomerSegmentation(): void {
+    private function testCustomerSegmentation(): void
+    {
         $this->startTest('Customer segmentation: VIP / Inactive / Growing rules');
 
         // عميل VIP: أعلى إيراد + نشاط حديث
@@ -159,7 +172,9 @@ class RevenueIntelligenceTest {
 
         $customers = CustomerRevenueService::buildCustomerRecords($byContact, $totals, '2026-08-09');
         $byId = [];
-        foreach ($customers as $c) { $byId[$c['contact_id']] = $c; }
+        foreach ($customers as $c) {
+            $byId[$c['contact_id']] = $c;
+        }
 
         $this->assertTrue($byId[1]['value_segment'] === 'VIP', 'Highest-revenue recently-active customer is VIP');
         $this->assertTrue($byId[2]['value_segment'] === 'Inactive', 'Customer with no purchase in 180+ days is Inactive');
@@ -171,7 +186,8 @@ class RevenueIntelligenceTest {
     // Section 6: DEAL & PIPELINE REVENUE INTELLIGENCE
     // ============================================================
 
-    private function testPipelineIntelligence(): void {
+    private function testPipelineIntelligence(): void
+    {
         $this->startTest('Pipeline: weighted value, likely wins, at-risk (overdue) deals');
         $openDeals = [
             ['id' => 1, 'title' => 'Deal A', 'value' => 1000, 'probability' => 80, 'stage_win_probability' => 50, 'expected_close_date' => '2026-09-01', 'stage_name' => 'Negotiation'],
@@ -190,7 +206,8 @@ class RevenueIntelligenceTest {
     // Sections 3, 4 & 15: OPPORTUNITIES, RISKS, AI EXPLANATION SHAPE
     // ============================================================
 
-    private function testInsightGeneration(): void {
+    private function testInsightGeneration(): void
+    {
         $this->startTest('Insights: every opportunity/risk has the required AI explanation shape');
         $customers = [
             ['contact_id' => 1, 'name' => 'VIP Co', 'customer_revenue' => 9000, 'purchase_frequency' => 3, 'value_segment' => 'VIP', 'revenue_trend' => 'stable', 'days_since_last_purchase' => 10],
@@ -206,7 +223,9 @@ class RevenueIntelligenceTest {
         $requiredKeys = ['type', 'category', 'title', 'finding', 'evidence', 'reasoning_summary', 'confidence', 'recommended_action'];
         $allPresent = true;
         foreach ($requiredKeys as $key) {
-            if (!array_key_exists($key, $risk)) { $allPresent = false; }
+            if (!array_key_exists($key, $risk)) {
+                $allPresent = false;
+            }
         }
         $this->assertTrue($allPresent, 'Risk insight contains Finding/Evidence/Reasoning/Confidence/Recommended Action (section 15)');
 
@@ -218,7 +237,8 @@ class RevenueIntelligenceTest {
     // Section 11: NEXT BEST REVENUE ACTION
     // ============================================================
 
-    private function testNextBestActions(): void {
+    private function testNextBestActions(): void
+    {
         $this->startTest('Next best actions: ranks by severity/confidence, never invents impact');
         $opportunities = [
             ['type' => 'opportunity', 'category' => 'high_value_customer', 'title' => 'X', 'finding' => 'f', 'evidence' => [], 'reasoning_summary' => 'r', 'confidence' => 'high', 'estimated_impact' => null, 'affected_area' => 'customer:1', 'recommended_action' => 'Contact them'],
@@ -238,7 +258,8 @@ class RevenueIntelligenceTest {
     // Section 10: AI REVENUE ASSISTANT
     // ============================================================
 
-    private function testAssistantIntentMatching(): void {
+    private function testAssistantIntentMatching(): void
+    {
         $this->startTest('AI Assistant: matches the required Arabic/English sample questions');
         $this->assertTrue(RevenueAssistantService::matchIntent('ليه الإيرادات قلت الشهر ده؟') === 'why_revenue_declined', 'Matches "why did revenue decrease"');
         $this->assertTrue(RevenueAssistantService::matchIntent('إيه أكبر مصادر الإيرادات؟') === 'top_revenue_sources', 'Matches "biggest revenue sources"');
@@ -250,7 +271,8 @@ class RevenueIntelligenceTest {
         $this->assertTrue(RevenueAssistantService::matchIntent('what is the weather today') === 'unknown', 'Unsupported/off-topic question maps to "unknown", not guessed');
     }
 
-    private function testAssistantNewIntents(): void {
+    private function testAssistantNewIntents(): void
+    {
         $this->startTest('AI Assistant: matches the 4 new intents added in the assistant upgrade');
         $this->assertTrue(RevenueAssistantService::matchIntent('إيه حالة الصفقات المفتوحة؟') === 'pipeline_status', 'Matches "pipeline status" (Arabic)');
         $this->assertTrue(RevenueAssistantService::matchIntent('what is our pipeline status') === 'pipeline_status', 'Matches "pipeline status" (English)');
@@ -262,7 +284,8 @@ class RevenueIntelligenceTest {
         $this->assertTrue(RevenueAssistantService::matchIntent('what should i do next') === 'next_best_action', 'Matches "what should I do" (English)');
     }
 
-    private function testAssistantSmartFallback(): void {
+    private function testAssistantSmartFallback(): void
+    {
         $this->startTest('AI Assistant: suggests related topics instead of a flat dead-end when no exact match');
         // "revenue sources" بدون صيغة مطابقة تمامًا - لازم يقترح top_revenue_sources كأقرب نية، مش يرفض جاف
         $suggestions = RevenueAssistantService::suggestClosestIntents('tell me about my revenue sources performance');
@@ -273,7 +296,8 @@ class RevenueIntelligenceTest {
         $this->assertTrue($noSuggestions === [], 'Returns no suggestions for genuinely unrelated gibberish, does not force a match');
     }
 
-    private function testAssistantNoInventedAnswers(): void {
+    private function testAssistantNoInventedAnswers(): void
+    {
         $this->startTest('AI Assistant: never invents an answer for unmatched or data-less questions');
         $service = new RevenueAssistantService(new RevenueOverviewService(), new RevenueForecastService(), new RevenueInsightService(), new CustomerRevenueService());
         // سؤال لا يطابق أي Intent مدعوم - لازم يرجع "Not enough data." وليس إجابة مخترعة، وبدون محاولة اتصال DB (persist=false)
@@ -286,7 +310,8 @@ class RevenueIntelligenceTest {
     // Section 10 (v1.2.0): Arabic normalization, period-aware, what-if, follow-ups
     // ============================================================
 
-    private function testAssistantArabicNormalization(): void {
+    private function testAssistantArabicNormalization(): void
+    {
         $this->startTest('AI Assistant: Arabic normalization (أ/ا، ى/ي، ة/ه) reaches same intent');
         $this->assertTrue(RevenueAssistantService::matchIntent('اكبر مصدر للايراد') === 'top_revenue_sources', 'Normalized spelling reaches top_revenue_sources');
         $this->assertTrue(RevenueAssistantService::matchIntent('اكبر عميل عندي') === 'top_value_customers', 'Normalized spelling reaches top_value_customers');
@@ -294,7 +319,8 @@ class RevenueIntelligenceTest {
         $this->assertTrue(RevenueAssistantService::matchIntent('الوضع عامل ايه') === 'is_trending_up', 'Alif variant matches trend intent');
     }
 
-    private function testAssistantPeriodAware(): void {
+    private function testAssistantPeriodAware(): void
+    {
         $this->startTest('AI Assistant: detects the period from the question phrasing');
         $this->assertTrue(RevenueAssistantService::detectPeriod('إيه أكبر مصادر الإيرادات الشهر ده؟') === 'monthly', 'Detects monthly');
         $this->assertTrue(RevenueAssistantService::detectPeriod('الوضع عامل إيه الأسبوع ده؟') === 'weekly', 'Detects weekly');
@@ -304,7 +330,8 @@ class RevenueIntelligenceTest {
         $this->assertTrue(RevenueAssistantService::detectPeriod('أكبر مصادر الإيرادات؟') === 'monthly', 'Defaults to monthly when no period given');
     }
 
-    private function testAssistantWhatIfScenario(): void {
+    private function testAssistantWhatIfScenario(): void
+    {
         $this->startTest('AI Assistant: matches what-if scenario questions and extracts growth %');
         $this->assertTrue(RevenueAssistantService::matchIntent('ماذا لو زادت الإيرادات 20%؟') === 'what_if_scenario', 'Matches Arabic what-if');
         $this->assertTrue(RevenueAssistantService::matchIntent('what if revenue grows 15%') === 'what_if_scenario', 'Matches English what-if');
@@ -313,7 +340,8 @@ class RevenueIntelligenceTest {
         $this->assertTrue(RevenueAssistantService::extractGrowthPercent('what if revenue improves') === 0.0, 'Defaults to 0 when no percentage');
     }
 
-    private function testAssistantFollowUpSuggestions(): void {
+    private function testAssistantFollowUpSuggestions(): void
+    {
         $this->startTest('AI Assistant: every answer carries follow-up question suggestions (Clari-style)');
         $followUps = RevenueAssistantService::suggestFollowUps('why_revenue_declined');
         $this->assertTrue(count($followUps) >= 3, 'Provides at least 3 follow-up suggestions');
@@ -321,7 +349,8 @@ class RevenueIntelligenceTest {
         $this->assertTrue(RevenueAssistantService::suggestFollowUps('unknown_intent') !== [], 'Unknown intent still gets generic suggestions');
     }
 
-    private function testScenarioForecast(): void {
+    private function testScenarioForecast(): void
+    {
         $this->startTest('Forecast: what-if scenario scales the real base forecast only');
         $series = [];
         for ($i = 0; $i < 30; $i++) {
@@ -343,7 +372,8 @@ class RevenueIntelligenceTest {
     // Section 1: REVENUE OVERVIEW (period helper)
     // ============================================================
 
-    private function testPeriodToDays(): void {
+    private function testPeriodToDays(): void
+    {
         $this->startTest('Overview: period-to-days mapping used across Daily/Weekly/Monthly/Quarterly/Yearly');
         $this->assertTrue(RevenueOverviewService::periodToDays('daily') === 1, 'daily = 1 day');
         $this->assertTrue(RevenueOverviewService::periodToDays('weekly') === 7, 'weekly = 7 days');
@@ -356,7 +386,8 @@ class RevenueIntelligenceTest {
     // v1.3.0: Seasonality, graduated cache TTL, Arabic synonyms
     // ============================================================
 
-    private function testSeasonalFactor(): void {
+    private function testSeasonalFactor(): void
+    {
         $this->startTest('Forecast: seasonal factor compares current period to the prior equivalent period');
         // نافذتان نظيفتان: الفترة السابقة كل أيامها 100، الحالية كل أيامها 150
         // (خلال 30 يوم لكل نافذة: السابقة [2026-06-10..2026-07-09]، الحالية [2026-07-10..2026-08-08])
@@ -369,7 +400,8 @@ class RevenueIntelligenceTest {
         $this->assertTrue($result['has_seasonality'] === true, 'Flags seasonality when the deviation exceeds the 20% threshold');
     }
 
-    private function testSeasonalForecast(): void {
+    private function testSeasonalForecast(): void
+    {
         $this->startTest('Forecast: seasonal forecast scales the real linear forecast by the seasonal factor');
         $series = self::buildDailySeries('2026-06-10', 30, 100);
         $series = array_merge($series, self::buildDailySeries('2026-07-10', 30, 150));
@@ -386,7 +418,8 @@ class RevenueIntelligenceTest {
         $this->assertTrue(strpos($seasonal['seasonality_note'], 'not a full multi-year seasonal model') !== false, 'Honest note: simple comparison, not a full seasonal model');
     }
 
-    private function testGraduatedCacheTtl(): void {
+    private function testGraduatedCacheTtl(): void
+    {
         $this->startTest('Cache: graduated TTL - shorter for fast-moving periods, longer for expensive ones');
         $this->assertTrue(RevenueCacheService::ttlForPeriod('daily') < RevenueCacheService::ttlForPeriod('monthly'), 'Daily TTL is shorter than monthly');
         $this->assertTrue(RevenueCacheService::ttlForPeriod('monthly') < RevenueCacheService::ttlForPeriod('yearly'), 'Monthly TTL is shorter than yearly');
@@ -394,7 +427,8 @@ class RevenueIntelligenceTest {
         $this->assertTrue(RevenueCacheService::ttlForPeriod('unknown') === RevenueCacheService::DEFAULT_TTL, 'Unknown period falls back to the default monthly TTL');
     }
 
-    private function testAssistantArabicSynonyms(): void {
+    private function testAssistantArabicSynonyms(): void
+    {
         $this->startTest('AI Assistant: expanded Arabic synonyms reach the right intent');
         $this->assertTrue(RevenueAssistantService::matchIntent('أفضل زبون عندي') === 'top_value_customers', 'Matches "best customer" via زبون');
         $this->assertTrue(RevenueAssistantService::matchIntent('ليه المبيعات نزلت') === 'why_revenue_declined', 'Matches "why sales dropped" via مبيعات');
@@ -409,7 +443,8 @@ class RevenueIntelligenceTest {
     // ============================================================
 
     /** يولّد سلسلة أيام متتالية بقيمة ثابتة - Fixture نظيف للاختبار. */
-    private static function buildDailySeries(string $fromDate, int $days, float $revenue): array {
+    private static function buildDailySeries(string $fromDate, int $days, float $revenue): array
+    {
         $start = new DateTime($fromDate);
         $series = [];
         for ($i = 0; $i < $days; $i++) {
@@ -419,7 +454,8 @@ class RevenueIntelligenceTest {
         return $series;
     }
 
-    private function assertTrue(bool $condition, string $message): void {
+    private function assertTrue(bool $condition, string $message): void
+    {
         if ($condition) {
             $this->pass($message);
         } else {
@@ -427,23 +463,27 @@ class RevenueIntelligenceTest {
         }
     }
 
-    private function startTest(string $name): void {
+    private function startTest(string $name): void
+    {
         echo "\n  ▶ {$name}\n";
     }
 
-    private function pass(string $message): void {
+    private function pass(string $message): void
+    {
         echo "    ✅ {$message}\n";
         $this->passed++;
         $this->testResults[] = ['status' => 'PASS', 'message' => $message];
     }
 
-    private function fail(string $message): void {
+    private function fail(string $message): void
+    {
         echo "    ❌ {$message}\n";
         $this->failed++;
         $this->testResults[] = ['status' => 'FAIL', 'message' => $message];
     }
 
-    private function printSummary(): void {
+    private function printSummary(): void
+    {
         $total = $this->passed + $this->failed;
         $percentage = $total > 0 ? round(($this->passed / $total) * 100, 2) : 0;
 

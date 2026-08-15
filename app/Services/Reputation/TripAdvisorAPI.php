@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - TripAdvisor API Integration
  * تكامل مع TripAdvisor Content API
@@ -19,7 +20,8 @@
  *    راجع Display Requirements بتاعتهم.
  *  - الحد المجاني: 5000 طلب/شهر، وبعد كده pay-as-you-go.
  */
-class TripAdvisorAPI {
+class TripAdvisorAPI
+{
     /**
      * @var string $apiKey - مفتاح API (مشترك لكل المستخدمين، مش OAuth لكل عميل)
      */
@@ -35,11 +37,13 @@ class TripAdvisorAPI {
      */
     private $timeout = 30;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->apiKey = getenv('TRIPADVISOR_API_KEY') ?: '';
     }
 
-    public function isConfigured(): bool {
+    public function isConfigured(): bool
+    {
         return $this->apiKey !== '';
     }
 
@@ -49,7 +53,8 @@ class TripAdvisorAPI {
      * @param string $query اسم الشركة أو جزء من العنوان
      * @param string $category hotels|attractions|restaurants|geos
      */
-    public function searchLocations(string $query, string $category = ''): array {
+    public function searchLocations(string $query, string $category = ''): array
+    {
         $params = ['searchQuery' => $query];
         if ($category) {
             $params['category'] = $category;
@@ -76,7 +81,8 @@ class TripAdvisorAPI {
      * @param array $params - معاملات الطلب
      * @return array
      */
-    public function getReviews(array $params = []): array {
+    public function getReviews(array $params = []): array
+    {
         try {
             $locationId = $params['location_id'] ?? null;
             if (!$locationId) {
@@ -116,7 +122,8 @@ class TripAdvisorAPI {
      * الحل العملي: نديله رد مُولّد بالذكاء الاصطناعي، والعميل ينسخه
      * ويحطه بنفسه على صفحة المراجعة في TripAdvisor مباشرة.
      */
-    public function sendReply(string $reviewId, string $reply): array {
+    public function sendReply(string $reviewId, string $reply): array
+    {
         return [
             'success' => false,
             'error' => 'TripAdvisor مبيوفّرش رد برمجي على المراجعات. انسخ الرد المقترح وحطه يدويًا من صفحة المراجعة على TripAdvisor.',
@@ -124,7 +131,8 @@ class TripAdvisorAPI {
         ];
     }
 
-    private function makeRequest(string $method, string $endpoint, array $query = [], array $data = []): array {
+    private function makeRequest(string $method, string $endpoint, array $query = [], array $data = []): array
+    {
         if (!$this->isConfigured()) {
             return ['success' => false, 'error' => 'TRIPADVISOR_API_KEY غير مظبوط في إعدادات السيرفر'];
         }
@@ -171,7 +179,8 @@ class TripAdvisorAPI {
      * يُفضّل التأكد منها بطلب تجريبي حقيقي بعد ما تاخد مفتاح API فعلي،
      * لأن TripAdvisor مبتنشرش JSON schema كامل رسمي في التوثيق العام.
      */
-    private function parseReviews(array $data): array {
+    private function parseReviews(array $data): array
+    {
         $reviews = [];
 
         $items = $data['data'] ?? [];

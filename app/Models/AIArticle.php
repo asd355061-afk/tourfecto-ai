@@ -1,10 +1,12 @@
 <?php
+
 /**
  * Tourfecto - AI Article Model
  * نموذج المقالات المولّدة بالذكاء الاصطناعي
  * @version 1.0.0
  */
-class AIArticle extends Model {
+class AIArticle extends Model
+{
     protected $table = 'ai_articles';
 
     protected $fillable = [
@@ -32,7 +34,8 @@ class AIArticle extends Model {
         'internal_link_suggestions_json',
     ];
 
-    public function getSuggestedKeywordsArray(): array {
+    public function getSuggestedKeywordsArray(): array
+    {
         $raw = $this->getAttribute('suggested_keywords');
         if (!$raw) {
             return [];

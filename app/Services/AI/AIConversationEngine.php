@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * AI Conversation Engine (بند 2، 3، 8، 9، 10، 11): المحرك الحقيقي الذي
@@ -15,16 +16,16 @@
  * @version 1.0.0
  */
 
-class AIConversationEngine {
-
+class AIConversationEngine
+{
     /** أقل درجة ثقة مقبولة لإرسال رد تلقائيًا دون تدخل بشري (بند 9) */
-    const MIN_CONFIDENCE_TO_AUTO_REPLY = 0.5;
+    public const MIN_CONFIDENCE_TO_AUTO_REPLY = 0.5;
 
     /** أقصى عدد رسائل سابقة تُحمَّل كسياق للمحادثة */
-    const HISTORY_LIMIT = 12;
+    public const HISTORY_LIMIT = 12;
 
     /** حقول الذاكرة المسموح استخلاصها تلقائيًا (بند 3: لا تخزين حساس بدون ضرورة) */
-    const ALLOWED_MEMORY_KEYS = [
+    public const ALLOWED_MEMORY_KEYS = [
         'name', 'country', 'trip_type', 'travelers_count', 'travel_date',
         'budget', 'interests', 'requested_services',
     ];
@@ -50,7 +51,8 @@ class AIConversationEngine {
     /** @var Database */
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->knowledgeBase = new KnowledgeBaseService();
         $this->providerManager = new AIProviderManager();
         $this->memoryModel = new AiCustomerMemory();
@@ -75,7 +77,8 @@ class AIConversationEngine {
      *   'error' => string|null,
      * ]
      */
-    public function handleIncomingMessage(int $websiteId, int $userId, int $conversationId, string $customerMessage): array {
+    public function handleIncomingMessage(int $websiteId, int $userId, int $conversationId, string $customerMessage): array
+    {
         $conversation = $this->conversationModel->find($conversationId);
         if (!$conversation) {
             return $this->result(null, false, null, 0, 'Conversation not found');
@@ -162,7 +165,8 @@ class AIConversationEngine {
      * @param string $language
      * @return string
      */
-    private function buildSystemPrompt(string $knowledgeContext, array $brandVoice, array $memory, string $language): string {
+    private function buildSystemPrompt(string $knowledgeContext, array $brandVoice, array $memory, string $language): string
+    {
         $toneInstruction = "Tone: {$brandVoice['tone']}.";
         if (!empty($brandVoice['custom_instructions'])) {
             $toneInstruction .= " Additional company instructions: " . $brandVoice['custom_instructions'];
@@ -217,7 +221,8 @@ PROMPT;
      * @param string $rawContent
      * @return array
      */
-    private function parseDecision(string $rawContent): array {
+    private function parseDecision(string $rawContent): array
+    {
         $cleaned = trim($rawContent);
         // بعض المزودين قد يضيف ```json ... ``` رغم التعليمات - نزيلها احتياطًا
         $cleaned = preg_replace('/^```json\s*|\s*```$/i', '', $cleaned);
@@ -265,7 +270,8 @@ PROMPT;
      * @param string $fallbackLanguage
      * @param array $priorMemory ذاكرة العميل المعروفة قبل هذه الرسالة
      */
-    private function applySideEffects(int $conversationId, int $websiteId, string $customerKey, array $decision, string $fallbackLanguage, array $priorMemory = []): void {
+    private function applySideEffects(int $conversationId, int $websiteId, string $customerKey, array $decision, string $fallbackLanguage, array $priorMemory = []): void
+    {
         $updates = [
             'ai_confidence_score' => $decision['confidence'],
             'language' => $decision['language'] ?: $fallbackLanguage,
@@ -324,7 +330,8 @@ PROMPT;
      * @param int $conversationId
      * @return array
      */
-    private function loadHistory(int $conversationId): array {
+    private function loadHistory(int $conversationId): array
+    {
         $rows = $this->db->query(
             "SELECT message_direction, message_text, ai_reply_generated FROM chat_messages
              WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?",
@@ -348,7 +355,8 @@ PROMPT;
      * @param string $text
      * @return string|null
      */
-    private function detectLanguage(string $text): ?string {
+    private function detectLanguage(string $text): ?string
+    {
         if (preg_match('/[\x{0600}-\x{06FF}]/u', $text)) {
             return 'ar';
         }
@@ -358,7 +366,8 @@ PROMPT;
         return null;
     }
 
-    private function result(?string $reply, bool $handoff, ?string $handoffReason, float $confidence, ?string $error): array {
+    private function result(?string $reply, bool $handoff, ?string $handoffReason, float $confidence, ?string $error): array
+    {
         return [
             'reply' => $reply,
             'handoff' => $handoff,

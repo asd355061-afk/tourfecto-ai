@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Ads Autopilot: Periodic Scheduler
  * @version 1.0.0

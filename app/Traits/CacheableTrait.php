@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Cacheable Trait
  * @version 1.0.0
@@ -17,11 +18,13 @@
  *       }
  *   }
  */
-trait CacheableTrait {
+trait CacheableTrait
+{
     /** @var CacheInterface|null */
     private $cacheableCacheInstance = null;
 
-    protected function cache(): ?CacheInterface {
+    protected function cache(): ?CacheInterface
+    {
         if ($this->cacheableCacheInstance === null) {
             $container = Container::getInstance();
             $this->cacheableCacheInstance = $container->has(CacheInterface::class)
@@ -35,7 +38,8 @@ trait CacheableTrait {
      * نفّذ $callback واحفظ ناتجه في الكاش، أو رجّع المحفوظ لو موجود.
      * لو الكاش مش متاح لأي سبب، بينفّذ $callback مباشرة (fail-open، مش fail-closed).
      */
-    protected function cached(string $key, ?int $ttl, callable $callback) {
+    protected function cached(string $key, ?int $ttl, callable $callback)
+    {
         $cache = $this->cache();
         if (!$cache) {
             return $callback();
@@ -43,7 +47,8 @@ trait CacheableTrait {
         return $cache->remember($key, $ttl, $callback);
     }
 
-    protected function forgetCache(string $key): void {
+    protected function forgetCache(string $key): void
+    {
         $cache = $this->cache();
         if ($cache) {
             $cache->delete($key);

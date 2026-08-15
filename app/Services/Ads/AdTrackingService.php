@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Ad Tracking Service (روابط UTM القابلة للتتبع)
  * بيبني روابط UTM قصيرة لكل حملة، وبيسجّل النقرات الحقيقية عبر /r/{code}
@@ -6,10 +7,12 @@
  * قائمة الروابط بتاعة حملة معداد النقرات الفعلي.
  * @version 1.0.0
  */
-class AdTrackingService {
+class AdTrackingService
+{
     private Database $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
@@ -20,7 +23,8 @@ class AdTrackingService {
      *
      * @return array{code:string, short_path:string, link:string, id:int, clicks:int}
      */
-    public function buildLink(int $userId, AdCampaign $campaign, string $destinationUrl, string $utmSource = 'google', string $utmMedium = 'cpc', ?string $utmContent = null, ?string $utmTerm = null): array {
+    public function buildLink(int $userId, AdCampaign $campaign, string $destinationUrl, string $utmSource = 'google', string $utmMedium = 'cpc', ?string $utmContent = null, ?string $utmTerm = null): array
+    {
         $destinationUrl = trim($destinationUrl);
         if ($destinationUrl === '') {
             throw new InvalidArgumentException('رابط الوجهة مطلوب');
@@ -54,7 +58,9 @@ class AdTrackingService {
         for ($attempt = 0; $attempt < 5; $attempt++) {
             $code = bin2hex(random_bytes(5));
             $exists = $this->db->query("SELECT id FROM ad_utm_links WHERE code = ? LIMIT 1", [$code]);
-            if (empty($exists)) break;
+            if (empty($exists)) {
+                break;
+            }
         }
 
         $this->db->exec(
@@ -80,7 +86,8 @@ class AdTrackingService {
     }
 
     /** قائمة روابط UTM لحملة معينة - الأحدث أولًا */
-    public function listForCampaign(int $campaignId): array {
+    public function listForCampaign(int $campaignId): array
+    {
         return $this->db->query(
             "SELECT id, code, destination_url, utm_source, utm_medium, utm_campaign, utm_content, utm_term, clicks, created_at
              FROM ad_utm_links WHERE campaign_id = ? ORDER BY created_at DESC",
@@ -92,7 +99,8 @@ class AdTrackingService {
      * يبحث عن الرابط بالكود، يسلّم النقرة (زيادة العداد)، ويرجّع وجهة
      * التحويل النهائية. بيرجّع null لو الكود مش موجود (404).
      */
-    public function resolveAndTrackClick(string $code): ?string {
+    public function resolveAndTrackClick(string $code): ?string
+    {
         $rows = $this->db->query("SELECT id, destination_url FROM ad_utm_links WHERE code = ? LIMIT 1", [$code]);
         if (empty($rows)) {
             return null;

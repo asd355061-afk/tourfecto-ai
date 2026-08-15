@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform Routes Test
  * اختبار تسجيل مسارات API الخاصة بـ AI Chat Platform (2026-08-08)
@@ -12,11 +13,13 @@
 
 require_once __DIR__ . '/../app/Core/Router.php';
 
-class AiChatRoutesTest {
+class AiChatRoutesTest
+{
     private $passed = 0;
     private $failed = 0;
 
-    public function runAll(): void {
+    public function runAll(): void
+    {
         $router = new Router();
         require_once __DIR__ . '/../app/routes/api.php';
 
@@ -63,7 +66,8 @@ class AiChatRoutesTest {
         exit($this->failed > 0 ? 1 : 0);
     }
 
-    private function assertRoute(array $routes, string $method, string $url, string $controller, string $action): void {
+    private function assertRoute(array $routes, string $method, string $url, string $controller, string $action): void
+    {
         if (!isset($routes[$method])) {
             echo "FAIL: no routes registered for method $method\n";
             $this->failed++;

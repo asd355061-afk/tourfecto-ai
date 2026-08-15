@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - User Controller
  * الملف الشخصي وإعدادات المستخدم
@@ -8,12 +9,13 @@
  * الموجود فعليًا في app/Models/User.php.
  */
 
-class UserController extends Controller {
-
+class UserController extends Controller
+{
     /**
      * الحصول على المستخدم الحالي من الجلسة، ويُرجع null إن لم يكن مسجل دخول
      */
-    private function currentUser(): ?User {
+    private function currentUser(): ?User
+    {
         $id = $_SESSION['user_id'] ?? null;
         if (!$id) {
             return null;
@@ -25,13 +27,15 @@ class UserController extends Controller {
     /**
      * هل الطلب الحالي API (JSON) ولا صفحة ويب عادية؟
      */
-    private function isApiRequest(): bool {
+    private function isApiRequest(): bool
+    {
         $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
         return strpos($path, '/api/') === 0;
     }
 
     /** GET /profile و GET /api/user/profile */
-    public function showProfile(array $params = []): array {
+    public function showProfile(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             if ($this->isApiRequest()) {
@@ -53,7 +57,8 @@ class UserController extends Controller {
         exit;
     }
 
-    private function renderProfilePage(User $user): void {
+    private function renderProfilePage(User $user): void
+    {
         $data = $user->toArray();
         $firstName = htmlspecialchars((string) ($data['first_name'] ?? ''), ENT_QUOTES, 'UTF-8');
         $lastName = htmlspecialchars((string) ($data['last_name'] ?? ''), ENT_QUOTES, 'UTF-8');
@@ -145,7 +150,8 @@ JS;
         echo $this->renderPanelPage('_profile', 'الملف الشخصي', 'بيانات حسابك', $body, $script);
     }
 
-    public function profile(array $params = []): array {
+    public function profile(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -154,7 +160,8 @@ JS;
     }
 
     /** GET /profile/edit -> نفس صفحة /profile (الفورم متضمّن فيها بالفعل) */
-    public function showEditProfile(array $params = []): array {
+    public function showEditProfile(array $params = []): array
+    {
         if ($this->isApiRequest()) {
             return $this->profile($params);
         }
@@ -163,7 +170,8 @@ JS;
     }
 
     /** POST /profile/update و PUT /api/user/profile */
-    public function updateProfile(array $params = []): array {
+    public function updateProfile(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -237,7 +245,8 @@ JS;
     }
 
     /** PUT /api/user/password */
-    public function updatePassword(array $params = []): array {
+    public function updatePassword(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -265,7 +274,8 @@ JS;
     }
 
     /** GET /profile/settings و GET /api/user/settings */
-    public function showSettings(array $params = []): array {
+    public function showSettings(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             if ($this->isApiRequest()) {
@@ -283,7 +293,8 @@ JS;
         exit;
     }
 
-    private function renderSettingsPage(User $user): void {
+    private function renderSettingsPage(User $user): void
+    {
         $data = $user->toArray();
 
         // Connected Accounts (Profile Center Phase 2): بيانات حقيقية من
@@ -2310,7 +2321,8 @@ JS;
     }
 
     /** يبني HTML الصورة الشخصية الحالية (صورة حقيقية لو موجودة، وإلا حرف أول الاسم) */
-    private function avatarInnerHtml(string $avatarUrl, string $initials): string {
+    private function avatarInnerHtml(string $avatarUrl, string $initials): string
+    {
         if ($avatarUrl !== '') {
             return '<img src="' . $avatarUrl . '" alt="الصورة الشخصية" style="width:100%;height:100%;object-fit:cover;">';
         }
@@ -2318,7 +2330,8 @@ JS;
     }
 
     /** POST /api/user/avatar - رفع/تغيير الصورة الشخصية */
-    public function uploadAvatar(array $params = []): array {
+    public function uploadAvatar(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2344,11 +2357,13 @@ JS;
     }
 
     /** يرجّع ' selected' لو القيمتين متطابقتين، مفيدة لبناء HTML بسيط */
-    private function selected(string $current, string $option): string {
+    private function selected(string $current, string $option): string
+    {
         return $current === $option ? ' selected' : '';
     }
 
-    private static function isoCountries(): array {
+    private static function isoCountries(): array
+    {
         static $countries = null;
         if ($countries !== null) {
             return $countries;
@@ -2406,7 +2421,8 @@ JS;
      * أو تتقاطع مع عملة الفوترة/الاشتراك في subscriptions/invoices.
      * @return array<string,string>
      */
-    private static function isoCurrencies(): array {
+    private static function isoCurrencies(): array
+    {
         return [
             'USD' => 'US Dollar', 'EUR' => 'Euro', 'GBP' => 'British Pound', 'EGP' => 'Egyptian Pound',
             'SAR' => 'Saudi Riyal', 'AED' => 'UAE Dirham', 'QAR' => 'Qatari Riyal', 'KWD' => 'Kuwaiti Dinar',
@@ -2432,12 +2448,14 @@ JS;
      * لأنها بتستخدم identifier حقيقي (زي Africa/Cairo) مش UTC+2 ثابت.
      * @return string[]
      */
-    private static function ianaTimezones(): array {
+    private static function ianaTimezones(): array
+    {
         return \DateTimeZone::listIdentifiers(\DateTimeZone::ALL);
     }
 
 
-    public function getSettings(array $params = []): array {
+    public function getSettings(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2449,7 +2467,8 @@ JS;
     }
 
     /** POST /profile/settings و PUT /api/user/settings */
-    public function updateSettings(array $params = []): array {
+    public function updateSettings(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2485,7 +2504,8 @@ JS;
      * Token مخزّن في oauth_accounts أصلاً، فمفيش حاجة حساسة نحذفها غير
      * الربط نفسه.
      */
-    public function disconnectOAuth(array $params = []): array {
+    public function disconnectOAuth(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2510,7 +2530,8 @@ JS;
      * ده بيمنع حالة إن مستخدم يولّد secret وينساه من غير ما يفعّل 2FA
      * فعليًا، ومحدش يقدر يقفل حسابه بالغلط.
      */
-    public function setupTwoFactor(array $params = []): array {
+    public function setupTwoFactor(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2540,7 +2561,8 @@ JS;
      * قبل ما نفعّل 2FA فعليًا على تسجيل الدخول. بعد كده بنولّد Recovery
      * Codes وبنعرضهم مرة واحدة بس (نص عادي) - بعدها بيتخزنوا مُشفّرين فقط.
      */
-    public function enableTwoFactor(array $params = []): array {
+    public function enableTwoFactor(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2578,7 +2600,8 @@ JS;
     }
 
     /** POST /api/user/2fa/disable - لازم كلمة المرور، مش بس زرار */
-    public function disableTwoFactor(array $params = []): array {
+    public function disableTwoFactor(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2613,7 +2636,8 @@ JS;
      * العمل زي المواقع/الاشتراكات/CRM). بيتنفّذ Async عن طريق الـQueue
      * الموجود بالفعل، مش هنا مباشرة.
      */
-    public function requestDataExport(array $params = []): array {
+    public function requestDataExport(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2653,7 +2677,8 @@ JS;
     }
 
     /** GET /api/user/data-export - طلبات المستخدم الحالي فقط */
-    public function listDataExports(array $params = []): array {
+    public function listDataExports(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2674,7 +2699,8 @@ JS;
      * public_html في TOURFECTO_STORAGE). لازم يتحقق من ملكية الطلب
      * وإن حالته "ready" وإنه لسه ما انتهتش صلاحيته قبل ما يسمح بالتحميل.
      */
-    public function downloadDataExport(array $params = []): array {
+    public function downloadDataExport(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             header('Location: /login');
@@ -2714,7 +2740,8 @@ JS;
     }
 
     /** GET /profile/security */
-    public function showSecurity(array $params = []): array {
+    public function showSecurity(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             if ($this->isApiRequest()) {
@@ -2735,12 +2762,14 @@ JS;
     }
 
     /** POST /profile/security */
-    public function updateSecurity(array $params = []): array {
+    public function updateSecurity(array $params = []): array
+    {
         return $this->updatePassword($params);
     }
 
     /** GET /profile/api */
-    public function showAPI(array $params = []): array {
+    public function showAPI(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             if ($this->isApiRequest()) {
@@ -2761,7 +2790,8 @@ JS;
     }
 
     /** GET /api/user/sessions - قائمة الجلسات النشطة (أجهزة سجّلت دخول فعليًا) */
-    public function listSessions(array $params = []): array {
+    public function listSessions(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2796,13 +2826,14 @@ JS;
         }
 
         // الأحدث نشاطًا الأول
-        usort($sessions, fn($a, $b) => strcmp((string) $b['last_active'], (string) $a['last_active']));
+        usort($sessions, fn ($a, $b) => strcmp((string) $b['last_active'], (string) $a['last_active']));
 
         return $this->success(['sessions' => $sessions]);
     }
 
     /** POST /api/user/sessions/{id}/logout - تسجيل خروج من جهاز واحد بعينه */
-    public function logoutSession(array $params = []): array {
+    public function logoutSession(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2829,7 +2860,8 @@ JS;
     }
 
     /** POST /api/user/sessions/logout-others - تسجيل خروج من كل الأجهزة عدا الحالي */
-    public function logoutOtherSessions(array $params = []): array {
+    public function logoutOtherSessions(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2857,31 +2889,62 @@ JS;
     }
 
     /** تخمين مبسّط لاسم المتصفح من الـ User-Agent - عرض فقط، مش قرار أمني */
-    private function guessBrowser(string $ua): string {
-        if ($ua === '') return '-';
-        if (stripos($ua, 'Edg/') !== false) return 'Edge';
-        if (stripos($ua, 'OPR/') !== false || stripos($ua, 'Opera') !== false) return 'Opera';
-        if (stripos($ua, 'Chrome/') !== false) return 'Chrome';
-        if (stripos($ua, 'CriOS') !== false) return 'Chrome (iOS)';
-        if (stripos($ua, 'Firefox/') !== false) return 'Firefox';
-        if (stripos($ua, 'Safari/') !== false) return 'Safari';
+    private function guessBrowser(string $ua): string
+    {
+        if ($ua === '') {
+            return '-';
+        }
+        if (stripos($ua, 'Edg/') !== false) {
+            return 'Edge';
+        }
+        if (stripos($ua, 'OPR/') !== false || stripos($ua, 'Opera') !== false) {
+            return 'Opera';
+        }
+        if (stripos($ua, 'Chrome/') !== false) {
+            return 'Chrome';
+        }
+        if (stripos($ua, 'CriOS') !== false) {
+            return 'Chrome (iOS)';
+        }
+        if (stripos($ua, 'Firefox/') !== false) {
+            return 'Firefox';
+        }
+        if (stripos($ua, 'Safari/') !== false) {
+            return 'Safari';
+        }
         return 'غير معروف';
     }
 
     /** تخمين مبسّط لنظام التشغيل من الـ User-Agent - عرض فقط، مش قرار أمني */
-    private function guessOS(string $ua): string {
-        if ($ua === '') return '-';
-        if (stripos($ua, 'Windows') !== false) return 'Windows';
-        if (stripos($ua, 'iPhone') !== false || stripos($ua, 'iPad') !== false) return 'iOS';
-        if (stripos($ua, 'Mac OS X') !== false) return 'macOS';
-        if (stripos($ua, 'Android') !== false) return 'Android';
-        if (stripos($ua, 'Linux') !== false) return 'Linux';
+    private function guessOS(string $ua): string
+    {
+        if ($ua === '') {
+            return '-';
+        }
+        if (stripos($ua, 'Windows') !== false) {
+            return 'Windows';
+        }
+        if (stripos($ua, 'iPhone') !== false || stripos($ua, 'iPad') !== false) {
+            return 'iOS';
+        }
+        if (stripos($ua, 'Mac OS X') !== false) {
+            return 'macOS';
+        }
+        if (stripos($ua, 'Android') !== false) {
+            return 'Android';
+        }
+        if (stripos($ua, 'Linux') !== false) {
+            return 'Linux';
+        }
         return 'غير معروف';
     }
 
     /** يخفي جزء من الـ IP قبل عرضه (مثال: 41.238.xx.xx) - مش محتاج IP كامل في الواجهة */
-    private function maskIp(string $ip): string {
-        if ($ip === '') return '-';
+    private function maskIp(string $ip): string
+    {
+        if ($ip === '') {
+            return '-';
+        }
         if (strpos($ip, '.') !== false) { // IPv4
             $parts = explode('.', $ip);
             return count($parts) === 4 ? "{$parts[0]}.{$parts[1]}.xx.xx" : 'xx.xx.xx.xx';
@@ -2894,7 +2957,8 @@ JS;
     }
 
     /** GET /api/user/api-keys - قائمة مفاتيح API الشخصية للمستخدم الحالي */
-    public function listApiKeys(array $params = []): array {
+    public function listApiKeys(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2902,17 +2966,18 @@ JS;
 
         $keyModel = new UserApiKey();
         $keys = array_map(
-            fn($key) => $key->toSafeArray(),
+            fn ($key) => $key->toSafeArray(),
             $keyModel->where(['user_id' => (int) $user->getAttribute('id')], [], 0)
         );
 
-        usort($keys, fn($a, $b) => strcmp((string) $b['created_at'], (string) $a['created_at']));
+        usort($keys, fn ($a, $b) => strcmp((string) $b['created_at'], (string) $a['created_at']));
 
         return $this->success(['keys' => $keys]);
     }
 
     /** POST /api/user/api-keys - إنشاء مفتاح جديد (المفتاح الخام بيترجع مرة واحدة بس هنا) */
-    public function createApiKey(array $params = []): array {
+    public function createApiKey(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2930,7 +2995,7 @@ JS;
         $keyModel = new UserApiKey();
         $activeCount = count(array_filter(
             $keyModel->where(['user_id' => (int) $user->getAttribute('id')], [], 0),
-            fn($k) => !$k->getAttribute('revoked_at')
+            fn ($k) => !$k->getAttribute('revoked_at')
         ));
         if ($activeCount >= 10) {
             return $this->error('وصلت للحد الأقصى (10 مفاتيح فعّالة) - ألغِ مفتاح قديم أولًا', 422);
@@ -2950,7 +3015,8 @@ JS;
     }
 
     /** POST /api/user/api-keys/{id}/revoke */
-    public function revokeApiKey(array $params = []): array {
+    public function revokeApiKey(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2980,7 +3046,8 @@ JS;
     }
 
     /** POST /api/user/deactivate - إيقاف مؤقت وقابل للتراجع (البديل الآمن للحذف النهائي) */
-    public function deactivateAccount(array $params = []): array {
+    public function deactivateAccount(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -3020,7 +3087,8 @@ JS;
     }
 
     /** GET /api/user/audit-log - سجل نشاط الحساب (Read-Only) */
-    public function listAuditLog(array $params = []): array {
+    public function listAuditLog(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -3062,7 +3130,8 @@ JS;
      * الحذف ده لـ Soft Delete بدل الاعتماد على CASCADE) قرار منتج/عمل
      * محتاج مراجعتك، مش حاجة غيّرتها من نفسي.
      */
-    public function deleteAccount(array $params = []): array {
+    public function deleteAccount(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);

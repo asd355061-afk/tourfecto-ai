@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM AI Sales Assistant Service (بند 9)
  * @version 1.0.0
@@ -13,18 +14,21 @@
  * خارج البيانات المرفقة. لو فشل استدعاء الـAI (لا مفتاح/انقطاع)، تُعرض
  * البيانات الخام منسّقة بدلًا من فشل كامل للطلب.
  */
-class CrmAiAssistantService {
+class CrmAiAssistantService
+{
     private $db;
     private $ai;
     private $nbaService;
 
-    public function __construct(?GeminiClient $ai = null) {
+    public function __construct(?GeminiClient $ai = null)
+    {
         $this->db = Database::getInstance();
         $this->ai = $ai ?? new GeminiClient();
         $this->nbaService = new CrmNextBestActionService();
     }
 
-    public function ask(int $userId, string $question): array {
+    public function ask(int $userId, string $question): array
+    {
         $intent = $this->detectIntent($question);
         $data = $this->fetchDataForIntent($userId, $intent, $question);
 
@@ -47,9 +51,10 @@ class CrmAiAssistantService {
         return ['intent' => $intent, 'data' => $data, 'answer' => $answer];
     }
 
-    private function detectIntent(string $q): string {
+    private function detectIntent(string $q): string
+    {
         $q = mb_strtolower($q);
-        $has = fn(array $words) => array_reduce($words, fn($carry, $w) => $carry || mb_strpos($q, $w) !== false, false);
+        $has = fn (array $words) => array_reduce($words, fn ($carry, $w) => $carry || mb_strpos($q, $w) !== false, false);
 
         if ($has(['أهم', 'أكلمهم', 'اتصل بيهم', 'النهارده', 'اليوم', 'today', 'priority'])) {
             return 'top_priority_today';
@@ -69,7 +74,8 @@ class CrmAiAssistantService {
         return 'general_overview';
     }
 
-    private function fetchDataForIntent(int $userId, string $intent, string $question): array {
+    private function fetchDataForIntent(int $userId, string $intent, string $question): array
+    {
         switch ($intent) {
             case 'top_priority_today':
                 return $this->db->query(
@@ -119,7 +125,8 @@ class CrmAiAssistantService {
         }
     }
 
-    private function composeAnswer(string $question, string $intent, array $data): string {
+    private function composeAnswer(string $question, string $intent, array $data): string
+    {
         if (empty($data)) {
             return 'مفيش بيانات كافية للإجابة على السؤال ده حاليًا (Not enough data).';
         }

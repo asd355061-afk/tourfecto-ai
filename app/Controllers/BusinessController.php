@@ -1,12 +1,14 @@
 <?php
+
 /**
  * Tourfecto - Business Controller
  * Business Profile (منفصل عن User Profile) - Business Control Center Phase 2
  * @version 1.0.0
  */
-class BusinessController extends Controller {
-
-    private function currentUser(): ?User {
+class BusinessController extends Controller
+{
+    private function currentUser(): ?User
+    {
         $id = $_SESSION['user_id'] ?? null;
         if (!$id) {
             return null;
@@ -23,7 +25,8 @@ class BusinessController extends Controller {
      * - المعمارية دي مفهاش نظام Policies جاهز، فالفحص هنا Server-side
      * صريح بدل ما يعتمد على إخفاء الـID فقط).
      */
-    private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
+    private function loadOwnedBusiness(int $businessId, int $userId): ?Business
+    {
         $model = new Business();
         $business = $model->find($businessId);
         if (!$business || !$business->isOwnedBy($userId)) {
@@ -33,7 +36,8 @@ class BusinessController extends Controller {
     }
 
     /** GET /api/business - الـBusiness (أو أول واحد) بتاع المستخدم الحالي */
-    public function show(array $params = []): array {
+    public function show(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -54,7 +58,8 @@ class BusinessController extends Controller {
      * Management في مرحلة لاحقة). لو عنده واحد بالفعل، بنرفض إنشاء
      * تاني هنا - التعديل بيبقى عن طريق update() مش إنشاء نسخة تانية.
      */
-    public function store(array $params = []): array {
+    public function store(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -92,7 +97,8 @@ class BusinessController extends Controller {
      * المطلوب في الـSpec (Phase 19) - من غير ما يحتاج الـFrontend يلم
      * 6 Endpoints مختلفة ويعيد تركيب الصورة بنفسه.
      */
-    public function overview(array $params = []): array {
+    public function overview(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -132,7 +138,8 @@ class BusinessController extends Controller {
     }
 
     /** PUT /api/business/{id} - تحديث. Authorization: Owner فقط */
-    public function update(array $params = []): array {
+    public function update(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -170,7 +177,8 @@ class BusinessController extends Controller {
      * بيفرّق بين Create (كل الحقول المطلوبة اختيارية التحقق من وجودها)
      * و Update (زي ما هي، مفيش حقول Required إجبارية غير legal_name).
      */
-    private function validateBusinessInput(bool $isUpdate): ?array {
+    private function validateBusinessInput(bool $isUpdate): ?array
+    {
         $rules = [
             'legal_name' => ($isUpdate ? '' : 'required|') . 'max_length:255',
             'trade_name' => 'max_length:255',
@@ -186,7 +194,7 @@ class BusinessController extends Controller {
             'tax_number' => 'max_length:100',
         ];
         // إزالة أي قاعدة فاضية (لو الحقل مش required عند التحديث)
-        $rules = array_filter($rules, fn($r) => trim($r, '|') !== '');
+        $rules = array_filter($rules, fn ($r) => trim($r, '|') !== '');
 
         if (!$this->validate($rules)) {
             return $this->error('بيانات غير صحيحة', 422, $this->getErrors());
@@ -223,7 +231,8 @@ class BusinessController extends Controller {
     }
 
     /** يطبّق كل الحقول اللي اتبعتت فعليًا (has()) على الـBusiness Model - نفس نمط UserController::updateProfile() */
-    private function applyBusinessFields(Business $business): void {
+    private function applyBusinessFields(Business $business): void
+    {
         $fields = [
             'legal_name', 'trade_name', 'logo_url', 'description', 'website_url',
             'business_email', 'business_phone', 'whatsapp_number', 'city', 'address',

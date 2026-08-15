@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Monitoring Scheduler
  * @version 1.0.0
@@ -84,7 +85,11 @@ try {
     $durationMs = round((microtime(true) - $startedAt) * 1000);
     fwrite(STDOUT, sprintf(
         "[%s] Competitor Intelligence Scheduler: %d/%d منافس اتجدولوا للمراقبة، %d Scorecard اتحسبوا (%dms)\n",
-        date('Y-m-d H:i:s'), $enqueued, count($due), $scorecardsComputed, $durationMs
+        date('Y-m-d H:i:s'),
+        $enqueued,
+        count($due),
+        $scorecardsComputed,
+        $durationMs
     ));
 } catch (Throwable $e) {
     fwrite(STDERR, '[' . date('Y-m-d H:i:s') . '] CI scheduler error: ' . $e->getMessage() . "\n");
