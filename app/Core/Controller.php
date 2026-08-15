@@ -114,6 +114,33 @@ abstract class Controller {
             'details' => $details
         ];
     }
+
+    /**
+     * فحص CSRF اختياري (Opt-in) - على عكس AuthController::csrfGuard()
+     * الحالي (اللي بيستثني كل مسارات /api/* تلقائيًا، ومستخدم أصلًا في
+     * كل الـاب لكل مسارات المشروع)، الميثود دي جديدة تمامًا ومحدش
+     * بينادي عليها تلقائيًا - أي Controller/Method يقرر يستخدمها بنفسه
+     * صراحة، فمفيش خطر إنها تغيّر سلوك أي Route موجود بالفعل في
+     * المشروع غير اللي هستدعيها فيه بنفسي (Settings/Workspace/2FA).
+     *
+     * بتستثني عملاء الـ Bearer Token (API Keys الشخصية، JWT، مفاتيح
+     * الشركاء) لنفس السبب اللي csrfGuard() بيستثنيهم بيه - دول مش
+     * عرضة لـ CSRF أصلًا لأنهم مش معتمدين على كوكي الجلسة.
+     *
+     * @return array|null يرجع مصفوفة خطأ (419) لو فشل الفحص، أو null لو ناجح
+     */
+    protected function verifyCsrf(): ?array {
+        $headers = function_exists('getallheaders') ? (getallheaders() ?: []) : [];
+        if (!empty($headers['Authorization']) || !empty($headers['authorization'])) {
+            return null;
+        }
+
+        $submitted = (string) $this->get('csrf_token');
+        if (!class_exists('Csrf') || !Csrf::verify($submitted)) {
+            return $this->error('انتهت صلاحية الجلسة، حدّث الصفحة وحاول تاني', 419);
+        }
+        return null;
+    }
     
     /**
      * الحصول على قيمة من الإدخال

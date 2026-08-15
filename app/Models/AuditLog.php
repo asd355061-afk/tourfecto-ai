@@ -42,6 +42,39 @@ class AuditLog extends Model {
                 Logger::error('AuditLog::record failed: ' . $e->getMessage());
             }
         }
+
+        self::dispatchEvent($userId, $action, $result, $objectType, $objectId, $meta);
+    }
+
+    /**
+     * يطلق AppEvent حقيقي عبر EventDispatcher الموجود بالفعل في المشروع
+     * (app/Core/Events/*) - Phase 11. طبقة Container/EventDispatcher كانت
+     * جاهزة تمامًا لكن دالة event() المختصرة نفسها ما كانتش بتتحمّل
+     * (تم إصلاح ذلك في public_html/index.php). أي حدث حقيقي بيتسجّل هنا
+     * في audit_logs (تغيير باسورد، إنشاء مفتاح API، دعوة عضو فريق...)
+     * بقى بيطلق حدث فعلي كمان يقدر أي جزء تاني "يستمع" له من غير ما
+     * يعدّل الكود ده أصلًا.
+     *
+     * بنطلق الحدث بس لما result = 'success' - محاولات فاشلة بتتسجّل في
+     * audit_logs للمراجعة، لكن مش المفروض تُعتبر "حدث حصل فعلًا".
+     */
+    private static function dispatchEvent(int $userId, string $action, string $result, ?string $objectType, ?string $objectId, array $meta): void {
+        if ($result !== 'success' || !function_exists('event')) {
+            return;
+        }
+
+        try {
+            event('user.' . $action, [
+                'user_id' => $userId,
+                'object_type' => $objectType,
+                'object_id' => $objectId,
+                'meta' => $meta,
+            ]);
+        } catch (\Throwable $e) {
+            if (class_exists('Logger')) {
+                Logger::error('AuditLog event dispatch failed: ' . $e->getMessage());
+            }
+        }
     }
 
     /**

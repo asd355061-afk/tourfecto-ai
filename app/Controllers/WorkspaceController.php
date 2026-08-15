@@ -70,6 +70,9 @@ class WorkspaceController extends Controller {
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
         }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
+        }
         if (!WorkspacePermissions::can($user, 'manage_workspace')) {
             return $this->error('مفيش صلاحية لتعديل إعدادات الـ Workspace', 403);
         }
@@ -116,6 +119,9 @@ class WorkspaceController extends Controller {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
         if (!WorkspacePermissions::can($user, 'manage_workspace')) {
             return $this->error('مفيش صلاحية لتعديل إعدادات الـ Workspace', 403);
@@ -190,6 +196,9 @@ class WorkspaceController extends Controller {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
         if (!WorkspacePermissions::can($user, 'manage_team')) {
             return $this->error('مفيش صلاحية لدعوة أعضاء', 403);
@@ -271,6 +280,9 @@ class WorkspaceController extends Controller {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
         if (!WorkspacePermissions::can($user, 'manage_team')) {
             return $this->error('مفيش صلاحية', 403);
@@ -362,6 +374,9 @@ class WorkspaceController extends Controller {
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
         }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
+        }
         if (!WorkspacePermissions::can($user, 'manage_team')) {
             return $this->error('مفيش صلاحية', 403);
         }
@@ -416,6 +431,9 @@ class WorkspaceController extends Controller {
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
         }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
+        }
         if (!WorkspacePermissions::can($user, 'manage_team')) {
             return $this->error('مفيش صلاحية', 403);
         }
@@ -457,6 +475,9 @@ class WorkspaceController extends Controller {
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
         }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
+        }
         if (!WorkspacePermissions::can($user, 'manage_team')) {
             return $this->error('مفيش صلاحية', 403);
         }
@@ -497,6 +518,9 @@ class WorkspaceController extends Controller {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
         if ($user->getAttribute('owner_user_id') === null) {
             return $this->error('صاحب الـ Workspace مايقدرش يسيبه - استخدم حذف/إيقاف الحساب من Danger Zone', 403);

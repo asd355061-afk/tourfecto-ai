@@ -76,6 +76,9 @@ class SettingsController extends Controller {
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
         }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
+        }
 
         // التوافق الخلفي: الحقول القديمة الثلاثة لسه بتتحفظ لو اتبعتت.
         $legacyMap = [
