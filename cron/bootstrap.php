@@ -57,6 +57,8 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Services/GoogleBusiness/GbpReputationAnalyticsService.php',
     APP_PATH . '/Services/GoogleBusiness/GbpReplyRuleService.php',
     APP_PATH . '/Services/GoogleBusiness/GbpCompetitorBenchmarkService.php',
+    // GBP Local SEO Audit (2026-08-15, Tier 3) - تستخدمه أدوات تقارير الكرون
+    APP_PATH . '/Services/GoogleBusiness/GbpLocalSeoAuditService.php',
     // AI Chat Platform (2026-08-08) - process_ai_followups.php محتاج
     // FollowUpAutomationService + ChatManager + UnifiedInboxService
     // (بالترتيب: ChatManager بينادي new UnifiedInboxService في

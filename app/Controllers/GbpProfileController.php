@@ -38,6 +38,7 @@ class GbpProfileController extends Controller
         $this->aiInsightsService = new GbpAIInsightsService();
         $this->analyticsService = new GbpReputationAnalyticsService();
         $this->replyRuleService = new GbpReplyRuleService();
+        $this->localSeoAuditService = new GbpLocalSeoAuditService();
     }
 
     // ============================================
@@ -175,6 +176,30 @@ class GbpProfileController extends Controller
         $result = $this->analyticsService->getShareOfVoice($websiteId, (int) $this->user['id']);
         if (!$result['success']) {
             return $this->error($result['error'] ?? 'تعذر حساب حصة الظهور', 502);
+        }
+        return $this->success($result);
+    }
+
+    /**
+     * GET /api/gbp/local-seo-audit - تدقيق الحضور في البحث المحلي
+     * (نفس فكرة Local SEO Audit في Semrush Local/Birdeye): Score حتمي 0-100
+     * على 4 محاور (Profile/NAP/Reputation/Visibility) + توصيات مرتبة.
+     * @since 2026-08-15 (Reputation Intelligence Tier 3)
+     */
+    public function localSeoAudit(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        $websiteId = (int) $this->get('website_id');
+        if (!$websiteId) {
+            return $this->error('website_id مطلوب', 422);
+        }
+
+        $result = $this->localSeoAuditService->audit($websiteId, (int) $this->user['id']);
+        if (!$result['success']) {
+            return $this->error($result['error'] ?? 'تعذر تنفيذ تدقيق SEO المحلي', 502);
         }
         return $this->success($result);
     }

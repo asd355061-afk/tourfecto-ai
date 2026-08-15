@@ -301,6 +301,8 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/GoogleBusiness/GbpReputationAnalyticsService.php',
     // GBP Automated Reply Rules (2026-08-15): قواعد الرد التلقائي BirdAI-style
     APP_PATH . '/Services/GoogleBusiness/GbpReplyRuleService.php',
+    // GBP Local SEO Audit (2026-08-15, Tier 3): تدقيق الحضور في البحث المحلي
+    APP_PATH . '/Services/GoogleBusiness/GbpLocalSeoAuditService.php',
     // Consolidated Multi-Phase Module (2026-08-08) - إضافات جديدة فقط.
     // ملحوظة: تعمّدنا استبعاد ملفات AI Orchestrator/Providers الجديدة
     // (AIOrchestrator/ModelRouter/TaskClassifier/BaseOpenAICompatibleProvider/
