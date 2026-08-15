@@ -62,6 +62,32 @@ $router->get('/api/workspace/invite/{token}', 'WorkspaceController', 'showInvite
 $router->post('/api/workspace/invite/{token}/accept', 'WorkspaceController', 'acceptInvite');
 
 // ============================================
+// Business Control Center (Phases 1-7, 2026-08-14)
+// Business Profile منفصل عن User Profile + Locations + Services +
+// Target Markets + AI Business Context + Brand Settings.
+// كل المسارات AuthMiddleware-protected (زي باقي /api/user/*).
+// ============================================
+$router->get('/api/business', 'BusinessController', 'show', ['AuthMiddleware']);
+$router->get('/api/business/overview', 'BusinessController', 'overview', ['AuthMiddleware']);
+$router->post('/api/business', 'BusinessController', 'store', ['AuthMiddleware']);
+$router->put('/api/business/{id}', 'BusinessController', 'update', ['AuthMiddleware']);
+$router->get('/api/business/{businessId}/locations', 'BusinessLocationController', 'index', ['AuthMiddleware']);
+$router->post('/api/business/{businessId}/locations', 'BusinessLocationController', 'store', ['AuthMiddleware']);
+$router->put('/api/business/locations/{id}', 'BusinessLocationController', 'update', ['AuthMiddleware']);
+$router->delete('/api/business/locations/{id}', 'BusinessLocationController', 'destroy', ['AuthMiddleware']);
+$router->get('/api/business/{businessId}/services', 'BusinessServiceController', 'index', ['AuthMiddleware']);
+$router->post('/api/business/{businessId}/services', 'BusinessServiceController', 'store', ['AuthMiddleware']);
+$router->put('/api/business/services/{id}', 'BusinessServiceController', 'update', ['AuthMiddleware']);
+$router->delete('/api/business/services/{id}', 'BusinessServiceController', 'destroy', ['AuthMiddleware']);
+$router->get('/api/business/{businessId}/markets', 'BusinessTargetMarketController', 'show', ['AuthMiddleware']);
+$router->put('/api/business/{businessId}/markets', 'BusinessTargetMarketController', 'upsert', ['AuthMiddleware']);
+$router->get('/api/business/{businessId}/ai-context', 'BusinessAiContextController', 'show', ['AuthMiddleware']);
+$router->get('/api/business/{businessId}/ai-context/full', 'BusinessAiContextController', 'full', ['AuthMiddleware']);
+$router->put('/api/business/{businessId}/ai-context', 'BusinessAiContextController', 'upsert', ['AuthMiddleware']);
+$router->get('/api/business/{businessId}/brand', 'BusinessBrandSettingsController', 'show', ['AuthMiddleware']);
+$router->put('/api/business/{businessId}/brand', 'BusinessBrandSettingsController', 'upsert', ['AuthMiddleware']);
+
+// ============================================
 // مسارات الذكاء الاصطناعي (AI)
 // ============================================
 $router->post('/api/ai/analyze', 'AIController', 'analyze', [
