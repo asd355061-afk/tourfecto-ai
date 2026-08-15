@@ -87,6 +87,7 @@ $router->get('/ads/competitors', 'AdsController', 'showCompetitorsPage', ['AuthM
 $router->get('/ads/connections', 'AdsController', 'showConnectionsPage', ['AuthMiddleware']);
 $router->get('/ads/autopilot', 'AdsController', 'showAutopilotPage', ['AuthMiddleware']);
 $router->get('/ads/copilot', 'AdsController', 'showCopilotPage', ['AuthMiddleware']);
+$router->get('/ads/alerts', 'AdsController', 'showAlertsPage', ['AuthMiddleware']);
 $router->get('/ads/market-research', 'AdsController', 'showMarketResearchPage', ['AuthMiddleware']);
 $router->get('/ads/team', 'AdsController', 'showTeamPage', ['AuthMiddleware']);
 $router->get('/ads/campaigns/{id}', 'AdsController', 'showCampaignDetailsPage', ['AuthMiddleware']);

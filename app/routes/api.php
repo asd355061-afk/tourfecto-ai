@@ -529,6 +529,13 @@ $router->get('/api/ads/autopilot/logs', 'AdsController', 'listOptimizationLogs',
 $router->post('/api/ads/autopilot/logs/{id}/rollback', 'AdsController', 'rollbackOptimizationLog', ['AuthMiddleware']);
 $router->post('/api/ads/autopilot/run', 'AdsController', 'runAutopilotNow', ['AuthMiddleware']);
 
+$router->get('/api/ads/alerts/rules', 'AdsController', 'getAlertRules', ['AuthMiddleware']);
+$router->post('/api/ads/alerts/rules', 'AdsController', 'saveAlertRules', ['AuthMiddleware']);
+$router->get('/api/ads/alerts', 'AdsController', 'listAlerts', ['AuthMiddleware']);
+$router->post('/api/ads/alerts/run', 'AdsController', 'runAlertsNow', ['AuthMiddleware']);
+$router->post('/api/ads/alerts/read-all', 'AdsController', 'markAllAlertsRead', ['AuthMiddleware']);
+$router->post('/api/ads/alerts/{id}/dismiss', 'AdsController', 'dismissAlert', ['AuthMiddleware']);
+
 $router->post('/api/ads/copilot/ask', 'AdsController', 'askCopilot', ['AuthMiddleware']);
 
 $router->post('/api/ads/campaigns/{id}/keywords/generate', 'AdsController', 'generateKeywords', ['AuthMiddleware']);

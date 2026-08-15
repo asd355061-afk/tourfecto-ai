@@ -2097,6 +2097,78 @@ JS;
     }
 
     // ================================================================
+    // Proactive Alerts (تنبيهات استباقية)
+    // ================================================================
+
+    /** GET /api/ads/alerts/rules */
+    public function getAlertRules(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+
+        $service = new AdAlertService();
+        return $this->success(['rules' => $service->getRules((int) $this->user['id'])]);
+    }
+
+    /** POST /api/ads/alerts/rules */
+    public function saveAlertRules(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+
+        try {
+            $service = new AdAlertService();
+            $rules = $service->saveRules((int) $this->user['id'], $this->all());
+            return $this->success(['rules' => $rules], 'تم حفظ قواعد التنبيهات');
+        } catch (Exception $e) {
+            Logger::error('saveAlertRules Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر الحفظ', 500);
+        }
+    }
+
+    /** GET /api/ads/alerts */
+    public function listAlerts(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+
+        $limit = max(1, min(200, (int) $this->get('limit', 50)));
+        $unreadOnly = (bool) $this->get('unread_only', false);
+
+        $service = new AdAlertService();
+        return $this->success([
+            'alerts' => $service->listForUser((int) $this->user['id'], $limit, $unreadOnly),
+            'unread_count' => $service->unreadCount((int) $this->user['id']),
+        ]);
+    }
+
+    /** POST /api/ads/alerts/run - تقييم فوري لكل الحملات النشطة */
+    public function runAlertsNow(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+
+        try {
+            $service = new AdAlertService();
+            $result = $service->evaluateForUser((int) $this->user['id']);
+            return $this->success($result, 'تم التقييم');
+        } catch (Exception $e) {
+            Logger::error('runAlertsNow Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر التقييم', 500);
+        }
+    }
+
+    /** POST /api/ads/alerts/read-all */
+    public function markAllAlertsRead(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+
+        $service = new AdAlertService();
+        $service->markAllRead((int) $this->user['id']);
+        return $this->success([], 'تم تعليم الكل كمقروء');
+    }
+
+    /** POST /api/ads/alerts/{id}/dismiss */
+    public function dismissAlert(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+
+        $service = new AdAlertService();
+        $ok = $service->dismiss((int) $this->user['id'], (int) ($params['id'] ?? 0));
+        return $ok ? $this->success([], 'تم تجاهل التنبيه') : $this->error('التنبيه غير موجود', 404);
+    }
+
+    // ================================================================
     // AI Marketing Copilot
     // ================================================================
 
@@ -3651,6 +3723,134 @@ JS;
         exit;
     }
 
+    /** GET /ads/alerts */
+    public function showAlertsPage(array $params = []): array {
+        if (!$this->isAuthenticated()) { header('Location: /login?redirect=' . urlencode('/ads/alerts')); exit; }
+
+        $tabsHtml = $this->adsTabsHtml('alerts');
+        $body = <<<HTML
+        {$tabsHtml}
+
+        <div class="p-card" style="margin-bottom:16px;">
+            <div class="p-card-head"><h3>🔔 التنبيهات الاستباقية</h3><span class="p-card-sub">قواعد آلية تراقب أداء حملاتك الحقيقي (إنفاق/CPC/CTR/صفحة هبوط) وتنبهك عند حدوث مشكلة</span></div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+                <button class="p-btn primary" onclick="runAlertsNow()">تقييم فوري الآن</button>
+                <button class="p-btn" onclick="markAllRead()">تعليم الكل كمقروء</button>
+            </div>
+            <div id="alertsList"><div class="p-loading-row">جارِ التحميل...</div></div>
+        </div>
+
+        <div class="p-card">
+            <div class="p-card-head"><h3>⚙️ إعدادات القواعد</h3><span class="p-card-sub">فعّل/عطّل كل قاعدة واضبط حدّها</span></div>
+            <div id="rulesBox"><div class="p-loading-row">جارِ التحميل...</div></div>
+        </div>
+        HTML;
+
+        $script = <<<'JS'
+(function () {
+    const P = window.Panel;
+    const esc = P.esc, fetchJSON = P.fetchJSON;
+
+    const RULE_LABELS = {
+        budget_exhausted: 'نفاد الميزانية اليومية',
+        cpc_spike: 'ارتفاع تكلفة النقرة',
+        ctr_drop: 'انخفاض نسبة النقر',
+        landing_page_down: 'صفحة هبوط معطّلة',
+        budget_pacing: 'إنفاق أبطأ من المتوقع',
+    };
+    const RULE_HINTS = {
+        budget_exhausted: 'أشعرني لما يصرف % من ميزانيته اليومية',
+        cpc_spike: 'نسبة زيادة عن متوسط الأسبوع السابق',
+        ctr_drop: 'نسبة انخفاض عن متوسط الأسبوع السابق',
+        landing_page_down: 'الفحص بدون حد نسبة',
+        budget_pacing: 'نسبة اليوم المنقضي',
+    };
+
+    async function loadAlerts() {
+        const res = await fetchJSON('/api/ads/alerts');
+        const box = document.getElementById('alertsList');
+        if (!res.success) { box.innerHTML = '<div class="p-cell-muted">تعذر التحميل</div>'; return; }
+
+        const severityIcon = { info: 'ℹ️', warning: '⚠️', critical: '🚨' };
+        const severityColor = { info: 'var(--info-color, #1890ff)', warning: 'var(--warning-color, #fa8c16)', critical: 'var(--danger-color, #f5222d)' };
+
+        if (!res.data.alerts.length) {
+            box.innerHTML = '<div class="p-cell-muted">مفيش تنبيهات حالياً - كل الحملات داخل الحدود الطبيعية 🎉</div>';
+            return;
+        }
+        box.innerHTML = res.data.alerts.map(a => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-color, #eee);">
+                <div style="flex:1;">
+                    <div style="color:${severityColor[a.severity] || '#666'};font-weight:bold;">${severityIcon[a.severity] || 'ℹ️'} ${esc(a.title)} <span class="p-cell-muted" style="font-weight:normal;font-size:11px;">${esc(RULE_LABELS[a.rule_type] || a.rule_type)}</span></div>
+                    <div class="p-cell-muted" style="font-size:12px;margin-top:2px;">${esc(a.body || '')}</div>
+                </div>
+                <button class="p-btn xs" onclick="dismissAlert(${a.id})">تجاهل</button>
+            </div>`).join('');
+    }
+
+    async function loadRules() {
+        const res = await fetchJSON('/api/ads/alerts/rules');
+        const box = document.getElementById('rulesBox');
+        if (!res.success) { box.innerHTML = '<div class="p-cell-muted">تعذر التحميل</div>'; return; }
+
+        box.innerHTML = Object.entries(res.data.rules).map(([type, rule]) => `
+            <div style="display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-color, #eee);">
+                <input type="checkbox" id="rule-${type}" ${rule.is_enabled ? 'checked' : ''} onchange="saveRules()" style="transform:scale(1.2);">
+                <div>
+                    <div><b>${esc(RULE_LABELS[type] || type)}</b></div>
+                    <div class="p-cell-muted" style="font-size:11px;">${esc(RULE_HINTS[type] || '')}</div>
+                </div>
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <input type="number" id="rule-val-${type}" class="p-select xs" style="width:90px;" value="${rule.threshold_value ?? ''}" min="1" max="999" step="1" placeholder="—" onchange="saveRules()">
+                    <span class="p-cell-muted" style="font-size:11px;">%</span>
+                </div>
+            </div>`).join('');
+        box.innerHTML += '<div style="margin-top:10px;"><button class="p-btn primary" onclick="saveRules()">حفظ القواعد</button></div>';
+    }
+
+    window.runAlertsNow = async function () {
+        const res = await fetchJSON('/api/ads/alerts/run', { method: 'POST' });
+        if (res.success) { P.toast('تم التقييم - ' + res.data.generated + ' تنبيه جديد', 'success'); loadAlerts(); }
+        else P.toast(res.error || 'تعذر التقييم', 'error');
+    };
+
+    window.markAllRead = async function () {
+        const res = await fetchJSON('/api/ads/alerts/read-all', { method: 'POST' });
+        if (res.success) P.toast('تم تعليم الكل كمقروء', 'success');
+    };
+
+    window.dismissAlert = async function (id) {
+        const res = await fetchJSON('/api/ads/alerts/' + id + '/dismiss', { method: 'POST' });
+        if (res.success) { P.toast('تم تجاهل التنبيه', 'success'); loadAlerts(); }
+        else P.toast(res.error || 'تعذر التجاهل', 'error');
+    };
+
+    window.saveRules = async function () {
+        const types = Object.keys(RULE_LABELS);
+        const rules = {};
+        types.forEach(t => {
+            rules[t] = {
+                is_enabled: document.getElementById('rule-' + t).checked ? 1 : 0,
+                threshold_value: document.getElementById('rule-val-' + t).value || null,
+            };
+        });
+        const res = await fetchJSON('/api/ads/alerts/rules', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rules }),
+        });
+        if (res.success) P.toast('تم حفظ القواعد', 'success');
+        else P.toast(res.error || 'تعذر الحفظ', 'error');
+    };
+
+    loadAlerts();
+    loadRules();
+})();
+JS;
+
+        header('Content-Type: text/html; charset=utf-8');
+        echo $this->renderPanelPage('ads', 'التنبيهات الاستباقية', 'مراقبة تلقائية لصحة الحملات الإعلانية', $body, $script);
+        exit;
+    }
+
     /** GET /ads/autopilot */
     public function showAutopilotPage(array $params = []): array {
         if (!$this->isAuthenticated()) { header('Location: /login?redirect=' . urlencode('/ads/autopilot')); exit; }
@@ -3977,6 +4177,7 @@ JS;
             'competitors' => ['المنافسون', '/ads/competitors'],
             'autopilot' => ['Autopilot', '/ads/autopilot'],
             'copilot' => ['AI Copilot', '/ads/copilot'],
+            'alerts' => ['التنبيهات', '/ads/alerts'],
             'connections' => ['ربط المنصات', '/ads/connections'],
             'team' => ['فريق العمل', '/ads/team'],
         ];
