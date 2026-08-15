@@ -299,6 +299,8 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/GoogleBusiness/GbpCompetitorBenchmarkService.php',
     // GBP Reputation Intelligence (2026-08-15): KPIs + اتجاهات + مخاطر + حصة ظهور
     APP_PATH . '/Services/GoogleBusiness/GbpReputationAnalyticsService.php',
+    // GBP Automated Reply Rules (2026-08-15): قواعد الرد التلقائي BirdAI-style
+    APP_PATH . '/Services/GoogleBusiness/GbpReplyRuleService.php',
     // Consolidated Multi-Phase Module (2026-08-08) - إضافات جديدة فقط.
     // ملحوظة: تعمّدنا استبعاد ملفات AI Orchestrator/Providers الجديدة
     // (AIOrchestrator/ModelRouter/TaskClassifier/BaseOpenAICompatibleProvider/

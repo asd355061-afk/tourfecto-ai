@@ -132,7 +132,7 @@ class GbpCompetitorBenchmarkService
                 "SELECT AVG(rating) AS avg_rating, COUNT(*) AS cnt,
                         SUM(CASE WHEN review_date >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) AS cnt_30d
                  FROM reviews
-                 WHERE website_id = ? AND user_id = ? AND platform = 'google_business' AND rating > 0",
+                 WHERE website_id = ? AND user_id = ? AND source_platform = 'google_business' AND rating > 0",
                 [$websiteId, $userId]
             );
             $avg = $rows[0]['avg_rating'] !== null ? round((float) $rows[0]['avg_rating'], 2) : 0.0;
@@ -163,7 +163,7 @@ class GbpCompetitorBenchmarkService
                         AVG(CASE WHEN reply_sent_at IS NOT NULL AND review_date IS NOT NULL
                                  THEN TIMESTAMPDIFF(HOUR, review_date, reply_sent_at) END) AS avg_hours
                  FROM reviews
-                 WHERE website_id = ? AND user_id = ? AND platform = 'google_business'",
+                 WHERE website_id = ? AND user_id = ? AND source_platform = 'google_business'",
                 [$websiteId, $userId]
             );
 

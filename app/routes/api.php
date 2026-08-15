@@ -653,6 +653,11 @@ $router->get('/api/gbp/competitors', 'GbpProfileController', 'competitors', ['Au
 $router->get('/api/gbp/analytics', 'GbpProfileController', 'analytics', ['AuthMiddleware']);
 $router->get('/api/gbp/risk-signals', 'GbpProfileController', 'riskSignals', ['AuthMiddleware']);
 $router->get('/api/gbp/share-of-voice', 'GbpProfileController', 'shareOfVoice', ['AuthMiddleware']);
+$router->get('/api/gbp/reply-rules', 'GbpProfileController', 'listReplyRules', ['AuthMiddleware']);
+$router->post('/api/gbp/reply-rules', 'GbpProfileController', 'createReplyRule', ['AuthMiddleware']);
+$router->put('/api/gbp/reply-rules/{id}', 'GbpProfileController', 'updateReplyRule', ['AuthMiddleware']);
+$router->delete('/api/gbp/reply-rules/{id}', 'GbpProfileController', 'deleteReplyRule', ['AuthMiddleware']);
+$router->post('/api/gbp/reply-rules/apply/{review_id}', 'GbpProfileController', 'applyReplyRules', ['AuthMiddleware']);
 $router->post('/api/gbp/sync/{website_id}', 'GbpProfileController', 'sync', ['AuthMiddleware']);
 $router->get('/api/gbp/profile', 'GbpProfileController', 'getProfile', ['AuthMiddleware']);
 $router->post('/api/gbp/profile', 'GbpProfileController', 'updateProfile', ['AuthMiddleware']);

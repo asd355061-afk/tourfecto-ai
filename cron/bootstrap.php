@@ -53,6 +53,10 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Services/GoogleBusiness/GbpInsightsService.php',
     APP_PATH . '/Services/GoogleBusiness/GbpAIInsightsService.php',
     APP_PATH . '/Services/GoogleBusiness/GbpAuditLogger.php',
+    // GBP Reputation Intelligence (2026-08-15) - apply_reply_rules.php محتاجهم
+    APP_PATH . '/Services/GoogleBusiness/GbpReputationAnalyticsService.php',
+    APP_PATH . '/Services/GoogleBusiness/GbpReplyRuleService.php',
+    APP_PATH . '/Services/GoogleBusiness/GbpCompetitorBenchmarkService.php',
     // AI Chat Platform (2026-08-08) - process_ai_followups.php محتاج
     // FollowUpAutomationService + ChatManager + UnifiedInboxService
     // (بالترتيب: ChatManager بينادي new UnifiedInboxService في

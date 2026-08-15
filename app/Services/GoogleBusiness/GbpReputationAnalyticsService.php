@@ -83,7 +83,7 @@ class GbpReputationAnalyticsService
                         AVG(CASE WHEN reply_sent_at IS NOT NULL AND review_date IS NOT NULL
                                  THEN TIMESTAMPDIFF(HOUR, review_date, reply_sent_at) END) AS avg_hours
                  FROM reviews
-                 WHERE website_id = ? AND user_id = ? AND platform = 'google_business' AND rating > 0",
+                 WHERE website_id = ? AND user_id = ? AND source_platform = 'google_business' AND rating > 0",
                 [$websiteId, $userId]
             );
             $total = (int) ($rows[0]['total'] ?? 0);
@@ -93,7 +93,7 @@ class GbpReputationAnalyticsService
 
             $new30 = $this->db->query(
                 "SELECT COUNT(*) AS cnt FROM reviews
-                 WHERE website_id = ? AND user_id = ? AND platform = 'google_business'
+                 WHERE website_id = ? AND user_id = ? AND source_platform = 'google_business'
                    AND rating > 0 AND review_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)",
                 [$websiteId, $userId]
             );
@@ -102,7 +102,7 @@ class GbpReputationAnalyticsService
 
             $new7 = $this->db->query(
                 "SELECT COUNT(*) AS cnt FROM reviews
-                 WHERE website_id = ? AND user_id = ? AND platform = 'google_business'
+                 WHERE website_id = ? AND user_id = ? AND source_platform = 'google_business'
                    AND rating > 0 AND review_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)",
                 [$websiteId, $userId]
             );
@@ -136,7 +136,7 @@ class GbpReputationAnalyticsService
             $rows = $this->db->query(
                 "SELECT DATE(review_date) AS d, AVG(rating) AS avg_r
                  FROM reviews
-                 WHERE website_id = ? AND user_id = ? AND platform = 'google_business'
+                 WHERE website_id = ? AND user_id = ? AND source_platform = 'google_business'
                    AND rating > 0 AND review_date >= ?
                  GROUP BY DATE(review_date) ORDER BY d ASC",
                 [$websiteId, $userId, $since]
@@ -169,7 +169,7 @@ class GbpReputationAnalyticsService
             $rows = $this->db->query(
                 "SELECT YEARWEEK(review_date, 3) AS wk, DATE(MIN(review_date)) AS d, COUNT(*) AS cnt
                  FROM reviews
-                 WHERE website_id = ? AND user_id = ? AND platform = 'google_business'
+                 WHERE website_id = ? AND user_id = ? AND source_platform = 'google_business'
                    AND rating > 0 AND review_date >= DATE_SUB(NOW(), INTERVAL ? DAY)
                  GROUP BY YEARWEEK(review_date, 3) ORDER BY wk ASC",
                 [$websiteId, $userId, $days]
@@ -199,7 +199,7 @@ class GbpReputationAnalyticsService
                         AVG(CASE WHEN reply_sent_at IS NOT NULL AND review_date IS NOT NULL
                                  THEN TIMESTAMPDIFF(HOUR, review_date, reply_sent_at) END) AS avg_hours
                  FROM reviews
-                 WHERE website_id = ? AND user_id = ? AND platform = 'google_business'
+                 WHERE website_id = ? AND user_id = ? AND source_platform = 'google_business'
                    AND rating > 0 AND review_date >= ?
                  GROUP BY DATE(review_date) ORDER BY d ASC",
                 [$websiteId, $userId, $since]
@@ -233,7 +233,7 @@ class GbpReputationAnalyticsService
             $rows = $this->db->query(
                 "SELECT FLOOR(rating) AS stars, COUNT(*) AS cnt
                  FROM reviews
-                 WHERE website_id = ? AND user_id = ? AND platform = 'google_business' AND rating > 0
+                 WHERE website_id = ? AND user_id = ? AND source_platform = 'google_business' AND rating > 0
                  GROUP BY FLOOR(rating) ORDER BY stars DESC",
                 [$websiteId, $userId]
             );
@@ -262,23 +262,23 @@ class GbpReputationAnalyticsService
         return $result;
     }
 
-    /** مزيج المشاعر (بناءً على sentiment_label الفعلي المخزّن عند المعالجة) */
+    /** مزيج المشاعر (بناءً على عمود sentiment الفعلي المخزّن عند المعالجة) */
     private function sentimentMix(int $websiteId, int $userId, string $since): array
     {
         try {
             $rows = $this->db->query(
-                "SELECT sentiment_label AS label, COUNT(*) AS cnt
+                "SELECT sentiment AS label, COUNT(*) AS cnt
                  FROM reviews
-                 WHERE website_id = ? AND user_id = ? AND platform = 'google_business'
-                   AND review_date >= ? AND sentiment_label IS NOT NULL
-                 GROUP BY sentiment_label",
+                 WHERE website_id = ? AND user_id = ? AND source_platform = 'google_business'
+                   AND review_date >= ? AND sentiment IS NOT NULL
+                 GROUP BY sentiment",
                 [$websiteId, $userId, $since]
             );
         } catch (Throwable $e) {
             return [];
         }
 
-        $mix = ['positive' => 0, 'neutral' => 0, 'negative' => 0];
+        $mix = ['positive' => 0, 'neutral' => 0, 'negative' => 0, 'mixed' => 0];
         $total = 0;
         foreach ($rows as $r) {
             $label = $r['label'];
@@ -326,7 +326,7 @@ class GbpReputationAnalyticsService
                     SUM(CASE WHEN review_date >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS cnt7,
                     SUM(CASE WHEN review_date >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) AS cnt30
                  FROM reviews
-                 WHERE website_id = ? AND user_id = ? AND platform = 'google_business' AND rating > 0",
+                 WHERE website_id = ? AND user_id = ? AND source_platform = 'google_business' AND rating > 0",
                 [$websiteId, $userId]
             );
             $r = $rows[0] ?? [];
@@ -347,7 +347,7 @@ class GbpReputationAnalyticsService
             $rows = $this->db->query(
                 "SELECT DATE(review_date) AS d, COUNT(*) AS cnt
                  FROM reviews
-                 WHERE website_id = ? AND user_id = ? AND platform = 'google_business'
+                 WHERE website_id = ? AND user_id = ? AND source_platform = 'google_business'
                    AND rating BETWEEN 1 AND 2 AND review_date >= DATE_SUB(NOW(), INTERVAL 60 DAY)
                  GROUP BY DATE(review_date)
                  HAVING cnt >= 3
@@ -537,7 +537,7 @@ class GbpReputationAnalyticsService
             $rows = $this->db->query(
                 "SELECT AVG(rating) AS avg_rating, COUNT(*) AS cnt
                  FROM reviews
-                 WHERE website_id = ? AND user_id = ? AND platform = 'google_business' AND rating > 0",
+                 WHERE website_id = ? AND user_id = ? AND source_platform = 'google_business' AND rating > 0",
                 [$websiteId, $userId]
             );
             return [
