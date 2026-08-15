@@ -37,6 +37,11 @@ $router->get('/auth/{provider}/callback', 'AuthController', 'socialCallback');
 $router->post('/auth/apple/callback', 'AuthController', 'appleCallback');
 
 // ============================================
+// Onboarding Wizard (Phase 18) - معالج إعداد الحساب خطوة بخطوة
+// ============================================
+$router->get('/onboarding', 'OnboardingController', 'showWizard', ['AuthMiddleware']);
+
+// ============================================
 // لوحة التحكم (Dashboard)
 // ============================================
 $router->group('/dashboard', function($router) {

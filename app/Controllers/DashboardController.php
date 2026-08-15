@@ -1209,6 +1209,13 @@ HTML;
             $integrationCount = (int) ($this->db->query("SELECT COUNT(*) AS c FROM platform_connections WHERE user_id = ? AND status = 'connected'", [$userId])[0]['c'] ?? 0);
             $articleCount = (int) ($this->db->query("SELECT COUNT(*) AS c FROM ai_articles WHERE user_id = ?", [$userId])[0]['c'] ?? 0);
 
+            // Phase 19: هل خلّص المستخدم معالج الإعداد السريع (7 خطوات) قبل كده؟
+            // لو لأ - نعرضله زرار يفتح الـWizard في نفس شريط الترحيب ده.
+            $wizardDone = (int) ($this->db->query(
+                "SELECT COUNT(*) AS c FROM websites WHERE user_id = ? AND onboarding_completed_at IS NOT NULL",
+                [$userId]
+            )[0]['c'] ?? 0) > 0;
+
             $steps = [
                 ['done' => $websiteCount > 0, 'icon' => '🌐', 'label' => $this->tr('onboarding.step.add_website'), 'link' => '/websites'],
                 ['done' => $verifiedCount > 0, 'icon' => '✅', 'label' => $this->tr('onboarding.step.verify_website'), 'link' => '/websites'],
@@ -1233,6 +1240,12 @@ HTML;
                 $itemsHtml .= '<a href="' . htmlspecialchars($step['link'], ENT_QUOTES, 'UTF-8') . '" class="onboarding-step' . $doneClass . '"><span class="oi">' . $checkIcon . '</span>' . htmlspecialchars($step['label'], ENT_QUOTES, 'UTF-8') . '</a>';
             }
 
+            // Phase 19: زرار "الإعداد السريع" لو المستخدم لسه مكمّلش الـWizard (7 خطوات)
+            $wizardCta = '';
+            if (!$wizardDone) {
+                $wizardCta = '<a href="/onboarding" class="onboarding-wizard-cta">' . htmlspecialchars($this->tr('onboarding.wizard_cta'), ENT_QUOTES, 'UTF-8') . '</a>';
+            }
+
             $titleEsc = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
             $subtitleEsc = htmlspecialchars($subtitle, ENT_QUOTES, 'UTF-8');
             $dismissEsc = htmlspecialchars($dismiss, ENT_QUOTES, 'UTF-8');
@@ -1251,12 +1264,15 @@ HTML;
                 <div style="height:100%;width:{$progressPct}%;background:var(--panel-accent);"></div>
             </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">{$itemsHtml}</div>
+            {$wizardCta}
         </div>
         <style>
             .onboarding-step { display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:20px;background:var(--panel-card-bg-2);color:var(--panel-text);text-decoration:none;font-size:12.5px;border:1px solid var(--panel-border); }
             .onboarding-step:hover { border-color:var(--panel-accent); }
             .onboarding-step.onboarding-done { opacity:.55;text-decoration:line-through; }
             .onboarding-step .oi { font-size:14px; }
+            .onboarding-wizard-cta { display:inline-block;margin-top:14px;padding:10px 18px;border-radius:22px;background:linear-gradient(135deg,var(--panel-accent),var(--panel-accent-2));color:var(--panel-bg);font-weight:700;text-decoration:none;font-size:13px; }
+            .onboarding-wizard-cta:hover { filter:brightness(1.1); }
         </style>`;
 })();
 JS;

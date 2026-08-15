@@ -1427,6 +1427,10 @@ HTML;
 
         $title = $isRegister ? t('auth.register.title') : t('auth.login.title');
         $action = $isRegister ? '/register' : '/login';
+        // المستخدم الجديد بعد التسجيل بيتوجه لمعالج الإعداد السريع (/onboarding)
+        // عشان يكمّل بياناته أولًا بدل ما يضيع وسط الداشبورد. العائدين بالـ login
+        // بيفضلوا يروحوا /dashboard زي ما هو (المعالج لوحدها بيعرف يحدّث بياناته).
+        $redirectPathJson = json_encode($isRegister ? '/onboarding' : '/dashboard');
         $switchText = $isRegister ? t('auth.switch.have_account') : t('auth.switch.new_user');
         $switchLink = $isRegister ? '/login' : '/register';
         $switchLabel = $isRegister ? t('auth.switch.login') : t('auth.switch.register');
@@ -1572,6 +1576,7 @@ HTML;
 
     <script>
         const AUTH_I18N = { processing: {$this->trJs('auth.processing')} };
+        const REDIRECT_PATH = {$redirectPathJson};
         document.getElementById('authForm').addEventListener('submit', async function (e) {
             e.preventDefault();
 
@@ -1594,7 +1599,7 @@ HTML;
                 const result = await res.json();
 
                 if (result.success) {
-                    window.location.href = '/dashboard';
+                    window.location.href = REDIRECT_PATH;
                     return;
                 }
 

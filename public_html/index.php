@@ -172,6 +172,7 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/CompetitorIntelligence/AICompetitiveAnalyst.php',
     APP_PATH . '/Services/CompetitorIntelligence/ReportService.php',
     APP_PATH . '/Services/CompetitorIntelligence/CiPermissions.php',
+    APP_PATH . '/Services/CompetitorIntelligence/CompetitorAnalysisService.php',
     APP_PATH . '/Models/CiDiscoveryCandidate.php',
     APP_PATH . '/Models/CiSnapshot.php',
     APP_PATH . '/Models/CiChange.php',
