@@ -646,6 +646,8 @@ $router->post('/api/gbp/location', 'GoogleBusinessContentController', 'saveLocat
 
 // GBP Module Upgrade (2026-08-09/10): Setup Wizard/Connection Center/Sync/Profile/Photos/Insights/AI/Attributes
 $router->get('/api/gbp/status', 'GbpProfileController', 'status', ['AuthMiddleware']);
+$router->get('/api/gbp/health', 'GbpProfileController', 'health', ['AuthMiddleware', 'AdminMiddleware']);
+$router->get('/api/gbp/competitors', 'GbpProfileController', 'competitors', ['AuthMiddleware']);
 $router->post('/api/gbp/sync/{website_id}', 'GbpProfileController', 'sync', ['AuthMiddleware']);
 $router->get('/api/gbp/profile', 'GbpProfileController', 'getProfile', ['AuthMiddleware']);
 $router->post('/api/gbp/profile', 'GbpProfileController', 'updateProfile', ['AuthMiddleware']);

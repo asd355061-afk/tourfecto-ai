@@ -55,6 +55,43 @@ class GbpProfileController extends Controller {
         }
     }
 
+    /**
+     * GET /api/gbp/health - فحص صحة الموديول (بند AP/AQ بالسبيك)
+     * @since 2026-08-14 (Round 8: Professional Finalization)
+     */
+    public function health(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+
+        try {
+            $service = new GbpHealthCheckService();
+            return $this->success($service->check());
+        } catch (Throwable $e) {
+            Logger::error('GBP health check error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر تنفيذ فحص الصحة', 500);
+        }
+    }
+
+    /**
+     * GET /api/gbp/competitors - مقارنة تنافسية مع المنافسين القريبين على
+     * Google Maps (تقييم/عدد مراجعات/معدل رد) - بناءً على التحليل التنافسي
+     * مع Chatmeter/Birdeye/Semrush Local.
+     * @since 2026-08-15
+     */
+    public function competitors(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+
+        $websiteId = (int) ($params['website_id'] ?? $this->get('website_id', 0));
+        if (!$websiteId) return $this->error('website_id مطلوب', 422);
+
+        try {
+            $service = new GbpCompetitorBenchmarkService();
+            return $this->success($service->benchmark($websiteId, (int) $this->user['id']));
+        } catch (Throwable $e) {
+            Logger::error('GBP competitor benchmark error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر تنفيذ المقارنة التنافسية', 500);
+        }
+    }
+
     /** POST /api/gbp/sync/{website_id} - مزامنة يدوية فورية */
     public function sync(array $params = []): array {
         if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);

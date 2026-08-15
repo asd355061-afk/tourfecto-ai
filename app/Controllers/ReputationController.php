@@ -835,6 +835,67 @@ JS;
         }
     }
 
+    /**
+     * GET /api/reputation/google/profile-completeness - درجة اكتمال بروفايل
+     * Google Business (0-100) بناءً على بيانات حقيقية من getLocation().
+     * @since 2026-08-15 (صلح مسار كان مسجّل من غير الميثود فعليًا)
+     */
+    public function getProfileCompleteness(array $params = []): array {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        $websiteId = (int) $this->get('website_id');
+        if (!$websiteId) {
+            return $this->error('website_id مطلوب', 422);
+        }
+
+        try {
+            $connections = (new PlatformConnection())->where([
+                'website_id' => $websiteId,
+                'platform' => 'google_business',
+                'status' => 'connected',
+            ], [], 1);
+
+            if (empty($connections)) {
+                return $this->error('الموقع مش مربوط بـ Google Business', 404);
+            }
+
+            $connection = $connections[0];
+
+            try {
+                $syncService = new GoogleReviewSyncService();
+                $accessToken = $syncService->getValidAccessToken($connection);
+            } catch (Exception $e) {
+                return $this->error($e->getMessage(), 502);
+            }
+
+            $api = new GoogleBusinessAPI(
+                $accessToken,
+                $connection->getAttribute('external_account_id'),
+                $connection->getAttribute('external_location_id')
+            );
+
+            $locationResult = $api->getLocation();
+            if (!$locationResult['success']) {
+                return $this->error($locationResult['error'] ?? 'فشل جلب بيانات الموقع', 502);
+            }
+
+            $score = (new GbpProfileScoreService())->calculateCompletenessScore($locationResult['location'] ?? []);
+
+            return $this->success([
+                'score' => $score['score'],
+                'max_score' => $score['max_score'],
+                'missing' => $score['missing'],
+                'complete' => $score['complete'],
+                'percentage' => round(($score['score'] / $score['max_score']) * 100, 1),
+            ]);
+        } catch (Exception $e) {
+            Logger::error('Get Profile Completeness Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر حساب درجة اكتمال البروفايل', 500);
+        }
+    }
+
     /** POST /api/reputation/review/{id}/reply */
     public function sendReply(array $params): array {
         if (!$this->isAuthenticated()) {

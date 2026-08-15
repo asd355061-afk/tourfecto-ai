@@ -278,6 +278,10 @@ $optionalNewClassFiles = [
     APP_PATH . '/Controllers/GbpProfileController.php',
     // GBP Module Upgrade (2026-08-14, Round 7): Audit Log
     APP_PATH . '/Services/GoogleBusiness/GbpAuditLogger.php',
+    // GBP Module Upgrade (2026-08-14, Round 8): Health Check Service
+    APP_PATH . '/Services/GoogleBusiness/GbpHealthCheckService.php',
+    // GBP Competitive Benchmark (2026-08-15): مقارنة تنافسية مع المنافسين القريبين
+    APP_PATH . '/Services/GoogleBusiness/GbpCompetitorBenchmarkService.php',
     // Consolidated Multi-Phase Module (2026-08-08) - إضافات جديدة فقط.
     // ملحوظة: تعمّدنا استبعاد ملفات AI Orchestrator/Providers الجديدة
     // (AIOrchestrator/ModelRouter/TaskClassifier/BaseOpenAICompatibleProvider/
