@@ -239,6 +239,42 @@ class WalletService {
                     }
                 }
 
+                // تصحيح (2026-08-15 / Phase 17 - Prorated Downgrade Credit):
+                // لو التخفيض (chargeAmount سالب) والمنصة فعّلت الرجوع
+                // التلقائي، نضيف فرق السعر رصيد موجبة لمحفظة العميل.
+                // مقفول افتراضيًا (ALLOW_PRORATED_DOWNGRADE_CREDIT = false)
+                // - قرار مالي بياخده مالك المنصة مش الكود.
+                if ($chargeAmount < 0 && self::ALLOW_PRORATED_DOWNGRADE_CREDIT) {
+                    $creditAmount = abs($chargeAmount);
+                    $creditTx = new WalletTransaction();
+                    $creditTx->fill([
+                        'user_id' => $userId,
+                        'type' => 'subscription_credit',
+                        'amount' => $creditAmount,
+                        'currency' => 'USD',
+                        'status' => 'completed',
+                        'reference_note' => 'رصيد فرق تخفيض الباقة من "' . $plan['name'] . '"',
+                        'approved_at' => date('Y-m-d H:i:s'),
+                        'idempotency_key' => $idempotencyKey,
+                    ]);
+                    $creditTx->save();
+
+                    ActivityLog::record('wallet', 'wallet.downgrade_credited', [
+                        'user_id' => $userId,
+                        'subject_type' => 'wallet_transactions',
+                        'subject_id' => (int) $creditTx->getAttribute('id'),
+                        'meta' => [
+                            'plan' => $planKey, 'type' => $planType,
+                            'old_price' => $oldPrice, 'new_price' => $newPrice, 'credited' => $creditAmount,
+                        ],
+                    ]);
+
+                    if (class_exists('Notification')) {
+                        Notification::notify($userId, 'wallet_downgrade_credit', 'اتضاف رصيد لمحفظتك',
+                            'بسبب تخفيض باقتك لـ "' . $plan['name'] . '"، اتضاف فرق السعر ' . $creditAmount . '$ لرصيد محفظتك.', '/subscription');
+                    }
+                }
+
                 // لو ده تغيير باقة، نلغي الاشتراك القديم أولاً عشان ميفضلش
                 // صف "active" يتيم من غير ما يتحسب في أي مكان.
                 if ($isPlanChange && !empty($currentRow['id'])) {
@@ -495,6 +531,67 @@ class WalletService {
     }
 
     /**
+     * تحليل تنافسي (Stripe/Chargebee/Paddle): "الإيراد لكل ميزة" -
+     * تفصيل إيراد "ادفع حسب الاستخدام" الشهري لكل ميزة على حدة، مع
+     * إجمالي عدد مرات الاستخدام. العمود feature_key بيتعبى من Phase 17
+     * (كانت الميزات بتختفي قبل كده). لو صفوف قديمة مفيهاش feature_key
+     * (NULL)، بتتجمع تحت مفتاح '_unmapped' عشان ميحصلش فقد صامت للبيانات.
+     */
+    public function getUsageRevenueBreakdown(?int $year = null, ?int $month = null): array {
+        $year = $year ?: (int) date('Y');
+        $month = $month ?: (int) date('n');
+        try {
+            $rows = $this->db->query(
+                "SELECT COALESCE(feature_key, '_unmapped') AS feature_key,
+                        COUNT(*) AS usage_count,
+                        COALESCE(SUM(ABS(amount)), 0) AS revenue
+                 FROM wallet_transactions
+                 WHERE type = 'subscription_charge' AND status = 'completed'
+                   AND feature_key IS NOT NULL
+                   AND YEAR(created_at) = ? AND MONTH(created_at) = ?
+                 GROUP BY feature_key
+                 ORDER BY revenue DESC",
+                [$year, $month]
+            );
+            // الصفوف القديمة (feature_key = NULL) - بنعدّها من reference_note
+            // بس مجموعها الكلي، عشان النقطة المؤقتة دي متضيعش إيراد.
+            $legacy = $this->db->query(
+                "SELECT COUNT(*) AS usage_count, COALESCE(SUM(ABS(amount)), 0) AS revenue
+                 FROM wallet_transactions
+                 WHERE type = 'subscription_charge' AND status = 'completed'
+                   AND feature_key IS NULL
+                   AND YEAR(created_at) = ? AND MONTH(created_at) = ?",
+                [$year, $month]
+            );
+
+            $breakdown = [];
+            foreach ($rows as $row) {
+                $breakdown[$row['feature_key']] = [
+                    'usage_count' => (int) $row['usage_count'],
+                    'revenue' => round((float) $row['revenue'], 2),
+                ];
+            }
+            if (!empty($legacy) && ((int) $legacy[0]['usage_count']) > 0) {
+                $breakdown['_legacy_unmapped'] = [
+                    'usage_count' => (int) $legacy[0]['usage_count'],
+                    'revenue' => round((float) $legacy[0]['revenue'], 2),
+                ];
+            }
+
+            return [
+                'year' => $year,
+                'month' => $month,
+                'total_revenue' => round(array_sum(array_column($breakdown, 'revenue')), 2),
+                'total_usage_count' => (int) array_sum(array_column($breakdown, 'usage_count')),
+                'breakdown' => $breakdown,
+            ];
+        } catch (Exception $e) {
+            Logger::error('getUsageRevenueBreakdown failed', ['message' => $e->getMessage()]);
+            return ['year' => $year, 'month' => $month, 'total_revenue' => 0.0, 'total_usage_count' => 0, 'breakdown' => []];
+        }
+    }
+
+    /**
      * Phase 10: تاريخ MRR/ARR الحقيقي لآخر N يوم - من اللقطات اللي
      * اتسجّلت فعليًا (lazy snapshot أعلاه). لو المنتج جديد ومفيش لقطات
      * كتير لسه، هترجع مصفوفة قصيرة بس - ده طبيعي ومش خطأ (البيانات
@@ -706,6 +803,9 @@ class WalletService {
                     'currency' => 'USD',
                     'status' => 'completed',
                     'reference_note' => $note ?: $featureKey,
+                    // Phase 17: feature_key لتحليل "الإيراد لكل ميزة" -
+                    // كان بيختفي وبيتحفظ Arabic label بس في reference_note.
+                    'feature_key' => $featureKey,
                     'approved_at' => date('Y-m-d H:i:s'),
                     'idempotency_key' => $idempotencyKey,
                 ]);
@@ -739,6 +839,28 @@ class WalletService {
 
     /** حد "رصيد منخفض" - تحت الرقم ده بيتبعت تنبيه (مرة واحدة كل يوم بالكتير) */
     private const LOW_BALANCE_THRESHOLD = 10.0;
+
+    /**
+     * هل نرجع رصيد تلقائي للعميل عند التخفيض (downgrade)؟
+     *
+     * تحليل تنافسي (Stripe Billing / Chargebee / Paddle): المنصات العالمية
+     * العالمية بتعمل prorated credit تلقائي عند تغيير الباقة لأسفل -
+     * العميل بياخد فرق السعر عن الأيام المتبقية من الفترة الحالية رصيد
+     * في محفظته بدل ما يخسر فلوسه.
+     *
+     * ❌ قيمتها حاليًا false (سياسة محافظة مستمرة من قبل): التخفيض
+     * بيفعّل الباقة الجديدة من غير أي استرجاع تلقائي. ده قرار مالي
+     * حقيقي بيأثر على إيراد المنصة، فمش هيتفعّل في الكود إلا بقرار
+     * صريح من مالك المنصة - غيّر القيمة لـ true هنا لما تقرر كده.
+     *
+     * ⚠️ ملحوظة تقنية: المبلغ المرتجع هنا هو فرق السعر الكامل
+     * (old - new) مش "pro-rated" حرفيًا على الأيام المتبقية - لأن
+     * التسعير الحالي بيخصم الفرق الكامل عند الترقية برضه (متماثل
+     * الاتجاهين). لو احتجناهم pro-rating حقيقي بدقة على اليوم، ده
+     * بيتطلب تخزين تاريخ بداية الفترة (متاح فعلًا في subscriptions
+     * كـ current_period_start) ويبقى تعديل منفصل موثّق.
+     */
+    private const ALLOW_PRORATED_DOWNGRADE_CREDIT = false;
 
     /**
      * Section 13: تنبيه "رصيد منخفض" - بيتنده بعد أي خصم ناجح (استخدام

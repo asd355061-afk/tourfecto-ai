@@ -155,6 +155,21 @@ class WalletController extends Controller {
         }
     }
 
+    /**
+     * GET /api/admin/wallet/usage-revenue?year=2026&month=8
+     * تحليل تنافسي: "الإيراد لكل ميزة" من "ادفع حسب الاستخدام" الشهري.
+     */
+    public function getUsageRevenueBreakdown(array $params = []): array {
+        try {
+            $year = (int) $this->get('year', date('Y'));
+            $month = (int) $this->get('month', date('n'));
+            return $this->success(['usage_revenue' => $this->service->getUsageRevenueBreakdown($year, $month)]);
+        } catch (Exception $e) {
+            Logger::error('Admin getUsageRevenueBreakdown Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر جلب الإيراد لكل ميزة', 500);
+        }
+    }
+
     /** POST /api/admin/wallet/{id}/approve */
     public function approveDeposit(array $params = []): array {
         try {
