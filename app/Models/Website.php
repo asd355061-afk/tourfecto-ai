@@ -18,6 +18,9 @@ class Website extends Model {
      */
     protected $fillable = [
         'user_id',
+        // Business Control Center Phase 2: ربط website بالـBusiness اللي بيمثلها
+        // (1:1 حاليًا - migration 2026_08_14_000049). نفس عمود جدول websites.
+        'business_id',
         'main_url',
         'company_name',
         'industry',
