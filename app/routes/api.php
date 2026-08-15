@@ -97,6 +97,18 @@ $router->delete('/api/business/{businessId}/team/members/{memberId}', 'BusinessT
 $router->put('/api/business/{businessId}/team/members/{memberId}/role', 'BusinessTeamController', 'changeRole', ['AuthMiddleware']);
 
 // ============================================
+// Business Control Center - Integrations/API Keys/Audit Log/Onboarding
+// (Phases 8-9, 12, 13-14, 17 - 2026-08-15)
+// كل المسارات AuthMiddleware-protected + فحص صلاحية عبر BusinessAccessService
+// ============================================
+$router->get('/api/business/{businessId}/integrations', 'BusinessIntegrationsController', 'index', ['AuthMiddleware']);
+$router->get('/api/business/{businessId}/api-keys', 'BusinessApiKeyController', 'index', ['AuthMiddleware']);
+$router->post('/api/business/{businessId}/api-keys', 'BusinessApiKeyController', 'store', ['AuthMiddleware']);
+$router->post('/api/business/{businessId}/api-keys/{id}/revoke', 'BusinessApiKeyController', 'revoke', ['AuthMiddleware']);
+$router->get('/api/business/{businessId}/audit-log', 'BusinessAuditLogController', 'index', ['AuthMiddleware']);
+$router->get('/api/business/{businessId}/onboarding', 'BusinessOnboardingController', 'status', ['AuthMiddleware']);
+
+// ============================================
 // مسارات الذكاء الاصطناعي (AI)
 // ============================================
 $router->post('/api/ai/analyze', 'AIController', 'analyze', [

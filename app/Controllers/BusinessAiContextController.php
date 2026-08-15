@@ -141,6 +141,8 @@ class BusinessAiContextController extends Controller {
         // شايف نسخة قديمة من الـContext لحد ما ينتهي الـCache TTL (ساعة).
         (new BusinessContextService())->invalidate($businessId);
 
+        BusinessAuditLog::record($businessId, (int) $user->getAttribute('id'), 'ai_context_updated', 'success', 'business', (string) $businessId);
+
         return $this->success(['ai_context' => $record->toArray()], 'تم حفظ الـAI Business Context');
     }
 }

@@ -62,13 +62,19 @@ class ExportUserDataJob implements QueueJobInterface {
                 [$userId]
             );
 
+            // Business Control Center (Phase 15): بيان البيانات التجارية
+            // (الـBusiness ومواقعه وخدماته وأسواقه وسياقه وهويته) - مش أي
+            // أسرار: بدون مفاتيح API خام وبدون أي hash.
+            $businessData = $this->collectBusinessData($userId);
+
             $exportData = [
                 'export_generated_at' => date('c'),
-                'export_scope_note' => 'Core account/profile data only - not a full export of all Tourfecto business data (websites, CRM, billing, chat, etc.)',
+                'export_scope_note' => 'Core account/profile data + Business Profile data (Business Control Center). Business API keys are exported as metadata only (prefix/scope/name) - never the raw key or hash.',
                 'profile' => $profile,
                 'login_history' => $loginHistory,
                 'connected_accounts' => $connectedAccounts,
                 'sessions_metadata' => $sessions,
+                'businesses' => $businessData,
             ];
 
             $exportDir = TOURFECTO_STORAGE . '/exports';
@@ -98,5 +104,100 @@ class ExportUserDataJob implements QueueJobInterface {
             }
             throw $e; // يخلي QueueManager يسجّلها fail ويعيد المحاولة حسب MAX_ATTEMPTS
         }
+    }
+
+    // ============================================
+    // Business Control Center (Phase 15): تجميع بيانات الـBusiness
+    // ============================================
+
+    /**
+     * تجميع كل بيانات الـBusiness اللي المستخدم مالكها (أو عضو فيها).
+     * التصدير بيشمل الـBusinesses اللي هو مالكها + اللي عضو فيها.
+     * بدون أي أسرار: مفاتيح API بتتصدّر كـ metadata (prefix/name/scope)
+     * - المفتاح الخام مش متخزن أصلًا، والـhash مبيتصدّرش.
+     *
+     * @return array<int,array>
+     */
+    private function collectBusinessData(int $userId): array {
+        $db = Database::getInstance();
+        $businesses = [];
+
+        $ownedRows = $db->query('SELECT id FROM businesses WHERE owner_user_id = ?', [$userId]);
+        $ownedIds = array_map(fn($r) => (int) $r['id'], $ownedRows ?: []);
+
+        // الشركات اللي هو عضو نشط فيها (مالكها حد تاني)
+        $memberRows = $db->query(
+            "SELECT DISTINCT business_id FROM business_members WHERE user_id = ? AND status = 'active'",
+            [$userId]
+        );
+        $memberIds = array_map(fn($r) => (int) $r['business_id'], $memberRows ?: []);
+
+        $businessIds = array_values(array_unique(array_merge($ownedIds, $memberIds)));
+        foreach ($businessIds as $businessId) {
+            $business = (new Business())->find($businessId);
+            if (!$business) {
+                continue;
+            }
+
+            $entry = [
+                'business' => $business->toArray(),
+                'locations' => array_map(fn($m) => $m->toArray(), (new BusinessLocation())->where(['business_id' => $businessId])),
+                'services' => array_map(fn($m) => $m->toArray(), (new BusinessService())->where(['business_id' => $businessId])),
+                'target_markets' => null,
+                'ai_context' => null,
+                'brand_settings' => null,
+                'members' => [],
+                'api_keys_metadata' => [],
+            ];
+
+            $targetMarket = (new BusinessTargetMarket())->where(['business_id' => $businessId], [], 1);
+            if (!empty($targetMarket)) {
+                $entry['target_markets'] = $targetMarket[0]->toArray();
+            }
+
+            $aiContext = (new BusinessAiContext())->where(['business_id' => $businessId], [], 1);
+            if (!empty($aiContext)) {
+                $entry['ai_context'] = $aiContext[0]->toArray();
+            }
+
+            $brand = (new BusinessBrandSettings())->where(['business_id' => $businessId], [], 1);
+            if (!empty($brand)) {
+                $entry['brand_settings'] = $brand[0]->toArray();
+            }
+
+            // الأعضاء (بدون أي بيانات حساسة غير الاسم/البريد/الدور)
+            $memberModels = (new BusinessMember())->where(['business_id' => $businessId]);
+            foreach ($memberModels as $member) {
+                $email = (string) $member->getAttribute('invited_email');
+                $memberUserId = $member->getAttribute('user_id');
+                if ($memberUserId !== null) {
+                    $user = (new User())->find((int) $memberUserId);
+                    $email = $user ? (string) $user->getAttribute('email') : $email;
+                }
+                $entry['members'][] = [
+                    'user_id' => $memberUserId !== null ? (int) $memberUserId : null,
+                    'role' => (string) $member->getAttribute('role'),
+                    'status' => (string) $member->getAttribute('status'),
+                    'email' => $email,
+                ];
+            }
+
+            // مفاتيح API كـ metadata فقط (بدون raw/hash)
+            $keys = (new BusinessApiKey())->where(['business_id' => $businessId]);
+            foreach ($keys as $key) {
+                $entry['api_keys_metadata'][] = [
+                    'name' => (string) $key->getAttribute('name'),
+                    'scope' => (string) $key->getAttribute('scope'),
+                    'key_prefix' => (string) $key->getAttribute('key_prefix'),
+                    'created_at' => (string) $key->getAttribute('created_at'),
+                    'last_used_at' => $key->getAttribute('last_used_at'),
+                    'revoked' => (bool) $key->getAttribute('revoked_at'),
+                ];
+            }
+
+            $businesses[] = $entry;
+        }
+
+        return $businesses;
     }
 }

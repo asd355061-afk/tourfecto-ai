@@ -114,6 +114,8 @@ class BusinessTargetMarketController extends Controller {
 
         (new BusinessContextService())->invalidate($businessId);
 
+        BusinessAuditLog::record($businessId, (int) $user->getAttribute('id'), 'target_markets_updated', 'success', 'business', (string) $businessId);
+
         return $this->success(['target_markets' => $record->toArray()], 'تم الحفظ');
     }
 }

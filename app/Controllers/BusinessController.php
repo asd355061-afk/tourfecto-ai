@@ -81,6 +81,8 @@ class BusinessController extends Controller {
             return $this->error('تعذر إنشاء Business Profile', 500);
         }
 
+        BusinessAuditLog::record((int) $business->getAttribute('id'), $userId, 'business_created', 'success', 'business', (string) $business->getAttribute('id'));
+
         return $this->success(['business' => $business->toArray()], 'تم إنشاء Business Profile', 201);
     }
 
@@ -166,6 +168,8 @@ class BusinessController extends Controller {
         // نسخة قديمة من بيانات الـBusiness نفسها لأي AI Module بعد
         // التعديل - راجع التعليق الكامل جوه BusinessContextService.
         (new BusinessContextService())->invalidate((int) $business->getAttribute('id'));
+
+        BusinessAuditLog::record((int) $business->getAttribute('id'), (int) $user->getAttribute('id'), 'business_updated', 'success', 'business', (string) $business->getAttribute('id'));
 
         return $this->success(['business' => $business->toArray()], 'تم تحديث Business Profile');
     }

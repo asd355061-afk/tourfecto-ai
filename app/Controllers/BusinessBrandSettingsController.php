@@ -118,6 +118,8 @@ class BusinessBrandSettingsController extends Controller {
         // تعديل تاني على بيانات الـBusiness.
         (new BusinessContextService())->invalidate($businessId);
 
+        BusinessAuditLog::record($businessId, (int) $user->getAttribute('id'), 'brand_settings_updated', 'success', 'business', (string) $businessId);
+
         return $this->success(['brand_settings' => $record->toArray()], 'تم حفظ إعدادات العلامة التجارية');
     }
 }

@@ -2988,6 +2988,14 @@ JS;
 
         $userId = (int) $user->getAttribute('id');
 
+        // Business Control Center (Phase 16): قبل الـCASCADE اللي هياخد
+        // كل الـBusinesses بتاعت المستخدم معاه، بنجهّز استمرارية الأعمال:
+        // لو أي Business ليه فريق نشط، بتحوّل ملكيته لأعلى عضو رتبة بدل ما
+        // البيانات تندفن كلها. وبنوثّق مفاتيح الـAPI اللي حتندمج.
+        if (class_exists('BusinessAccountClosureService')) {
+            (new BusinessAccountClosureService())->prepareForAccountDeletion($userId);
+        }
+
         if (!$user->delete()) {
             return $this->error('تعذر حذف الحساب', 500);
         }

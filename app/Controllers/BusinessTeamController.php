@@ -93,6 +93,7 @@ class BusinessTeamController extends Controller {
         }
 
         $message = $result['type'] === 'added' ? 'تمت إضافة العضو للفريق' : 'تم إنشاء الدعوة بنجاح';
+        BusinessAuditLog::record($businessId, $userId, 'member_invited', 'success', 'member', (string) ($result['member']['member_id'] ?? ''), ['email' => (string) $this->get('email'), 'role' => (string) $this->get('role'), 'type' => $result['type']]);
         return $this->success(['member' => $result['member'], 'type' => $result['type'], 'invite_link' => $result['invite_link'] ?? null], $message, 201);
     }
 
@@ -118,6 +119,8 @@ class BusinessTeamController extends Controller {
         if (!$result['ok']) {
             return $this->error($result['error'], 422);
         }
+
+        BusinessAuditLog::record($businessId, (int) $user->getAttribute('id'), 'member_joined', 'success', 'member', (string) ($result['member']['member_id'] ?? ''));
 
         return $this->success(['member' => $result['member']], 'تم قبول الدعوة والانضمام للفريق');
     }
@@ -147,6 +150,8 @@ class BusinessTeamController extends Controller {
         if (!$result['ok']) {
             return $this->error($result['error'], 403);
         }
+
+        BusinessAuditLog::record($businessId, $userId, 'member_removed', 'success', 'member', (string) ($params['memberId'] ?? ''));
 
         return $this->success([], 'تم حذف العضو من الفريق');
     }
@@ -185,6 +190,8 @@ class BusinessTeamController extends Controller {
         if (!$result['ok']) {
             return $this->error($result['error'], 403);
         }
+
+        BusinessAuditLog::record($businessId, $userId, 'member_role_changed', 'success', 'member', (string) ($params['memberId'] ?? ''), ['new_role' => (string) $this->get('role')]);
 
         return $this->success(['member' => $result['member']], 'تم تحديث دور العضو');
     }

@@ -87,6 +87,8 @@ class BusinessServiceController extends Controller {
 
         (new BusinessContextService())->invalidate($businessId);
 
+        BusinessAuditLog::record($businessId, (int) $user->getAttribute('id'), 'service_created', 'success', 'service', (string) $service->getAttribute('id'));
+
         return $this->success(['service' => $service->toArray()], 'تم إنشاء الخدمة', 201);
     }
 
@@ -142,6 +144,8 @@ class BusinessServiceController extends Controller {
 
         (new BusinessContextService())->invalidate((int) $service->getAttribute('business_id'));
 
+        BusinessAuditLog::record((int) $service->getAttribute('business_id'), (int) $user->getAttribute('id'), 'service_updated', 'success', 'service', (string) $service->getAttribute('id'));
+
         return $this->success(['service' => $service->toArray()], 'تم تحديث الخدمة');
     }
 
@@ -164,6 +168,8 @@ class BusinessServiceController extends Controller {
         }
 
         (new BusinessContextService())->invalidate($businessId);
+
+        BusinessAuditLog::record($businessId, (int) $user->getAttribute('id'), 'service_deleted', 'success', 'service', (string) $service->getAttribute('id'));
 
         return $this->success([], 'تم حذف الخدمة');
     }

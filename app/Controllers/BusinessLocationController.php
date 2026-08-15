@@ -96,6 +96,8 @@ class BusinessLocationController extends Controller {
 
         (new BusinessContextService())->invalidate((int) $business->getAttribute('id'));
 
+        BusinessAuditLog::record((int) $business->getAttribute('id'), $userId, 'location_created', 'success', 'location', (string) $location->getAttribute('id'));
+
         return $this->success(['location' => $location->toArray()], 'تم إنشاء الموقع', 201);
     }
 
@@ -130,6 +132,8 @@ class BusinessLocationController extends Controller {
 
         (new BusinessContextService())->invalidate((int) $location->getAttribute('business_id'));
 
+        BusinessAuditLog::record((int) $location->getAttribute('business_id'), (int) $user->getAttribute('id'), 'location_updated', 'success', 'location', (string) $location->getAttribute('id'));
+
         return $this->success(['location' => $location->toArray()], 'تم تحديث الموقع');
     }
 
@@ -153,6 +157,8 @@ class BusinessLocationController extends Controller {
         }
 
         (new BusinessContextService())->invalidate($businessId);
+
+        BusinessAuditLog::record($businessId, (int) $user->getAttribute('id'), 'location_deleted', 'success', 'location', (string) $location->getAttribute('id'));
 
         return $this->success([], 'تم حذف الموقع');
     }
