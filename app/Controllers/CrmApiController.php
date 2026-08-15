@@ -27,6 +27,9 @@ class CrmApiController extends Controller {
     private $importExportService;
     private $permissionService;
     private $teamService;
+    private $templateService;
+    private $reportService;
+    private $customFieldService;
 
     public function __construct() {
         parent::__construct();
@@ -43,6 +46,9 @@ class CrmApiController extends Controller {
         $this->importExportService = new CrmImportExportService();
         $this->permissionService = new CrmPermissionService();
         $this->teamService = new CrmTeamService();
+        $this->templateService = new CrmMessageTemplateService();
+        $this->reportService = new CrmReportService();
+        $this->customFieldService = new CrmCustomFieldService();
     }
 
     /** المستخدم المسجّل دخوله فعليًا (Actor الحقيقي - يُستخدم لحقول "مين اللي عمل ده") */
@@ -1097,6 +1103,216 @@ class CrmApiController extends Controller {
             return $this->success([], 'تمت الإزالة');
         } catch (Exception $e) {
             return $this->handleException($e, 'removeTeamMember');
+        }
+    }
+
+    // ============================================================
+    // المرحلة 12 (G1) - Message Templates (Email/WhatsApp/SMS)
+    // ============================================================
+
+    /** GET /api/crm/templates?channel=whatsapp (اختياري) */
+    public function listTemplates(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $templates = $this->templateService->listForUser($this->tenantId(), (string) $this->get('channel', ''));
+            return $this->success(['templates' => array_map(fn($t) => $t->toArray(), $templates)]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'listTemplates');
+        }
+    }
+
+    /** GET /api/crm/templates/variables - المتغيرات المسموحة في القوالب */
+    public function templateVariables(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        return $this->success(['variables' => $this->templateService->variables()]);
+    }
+
+    /** POST /api/crm/templates {channel, name, subject?, body, variables?} */
+    public function createTemplate(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('create')) return $denied;
+        try {
+            $template = $this->templateService->create($this->tenantId(), $this->uid(), $this->data);
+            return $this->success(['template' => $template->toArray()], 'تم إنشاء القالب', 201);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'createTemplate');
+        }
+    }
+
+    /** PUT /api/crm/templates/{id} */
+    public function updateTemplate(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('edit')) return $denied;
+        try {
+            $template = $this->templateService->update($this->tenantId(), (int) ($params['id'] ?? 0), $this->data);
+            return $this->success(['template' => $template->toArray()], 'تم تحديث القالب');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'updateTemplate');
+        }
+    }
+
+    /** DELETE /api/crm/templates/{id} */
+    public function deleteTemplate(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('delete')) return $denied;
+        try {
+            $this->templateService->delete($this->tenantId(), (int) ($params['id'] ?? 0));
+            return $this->success([], 'تم حذف القالب');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'deleteTemplate');
+        }
+    }
+
+    /** POST /api/crm/templates/{id}/render {context} - تجربة القالب قبل الإرسال */
+    public function renderTemplate(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $context = is_array($this->get('context')) ? $this->get('context') : [];
+            $rendered = $this->templateService->render($this->tenantId(), (int) ($params['id'] ?? 0), $context);
+            return $this->success($rendered);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'renderTemplate');
+        }
+    }
+
+    // ============================================================
+    // المرحلة 12 (G4) - Win/Loss Analysis + Sales Goals
+    // ============================================================
+
+    /** GET /api/crm/reports/win-loss?from=YYYY-MM-DD&to=YYYY-MM-DD */
+    public function winLossReport(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $report = $this->reportService->winLoss(
+                $this->tenantId(),
+                (string) $this->get('from', ''), (string) $this->get('to', '')
+            );
+            return $this->success($report);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'winLossReport');
+        }
+    }
+
+    /** GET /api/crm/reports/sales-goals - الأهداف مع الإنجاز */
+    public function salesGoalsReport(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            return $this->success(['goals' => $this->reportService->salesGoals($this->tenantId())]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'salesGoalsReport');
+        }
+    }
+
+    /** POST /api/crm/reports/sales-goals {period, target_value} - إنشاء/تحديث هدف شهر */
+    public function setSalesGoal(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+        if (!$this->validate(['period' => 'required'])) return $this->error('الشهر مطلوب بصيغة YYYY-MM', 422);
+        try {
+            $goal = $this->reportService->setGoal(
+                $this->tenantId(),
+                (string) $this->get('period'),
+                (float) $this->get('target_value', 0)
+            );
+            return $this->success(['goal' => $goal], 'تم حفظ الهدف', 201);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'setSalesGoal');
+        }
+    }
+
+    /** DELETE /api/crm/reports/sales-goals/{id} */
+    public function deleteSalesGoal(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+        try {
+            $this->reportService->deleteGoal($this->tenantId(), (int) ($params['id'] ?? 0));
+            return $this->success([], 'تم حذف الهدف');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'deleteSalesGoal');
+        }
+    }
+
+    // ============================================================
+    // المرحلة 12 (G2) - Custom Fields (حقول مخصصة لكل كيان)
+    // ============================================================
+
+    /** GET /api/crm/custom-fields?entity_type=contact (اختياري) */
+    public function listCustomFields(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $fields = $this->customFieldService->definitions($this->tenantId(), (string) $this->get('entity_type', ''));
+            return $this->success(['fields' => $fields]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'listCustomFields');
+        }
+    }
+
+    /** POST /api/crm/custom-fields {entity_type, field_key, label, field_type?, options?} */
+    public function createCustomField(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+        try {
+            $field = $this->customFieldService->createDefinition($this->tenantId(), $this->data);
+            return $this->success(['field' => $field->toArray()], 'تم إنشاء الحقل', 201);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'createCustomField');
+        }
+    }
+
+    /** PUT /api/crm/custom-fields/{id} {label?, options?} */
+    public function updateCustomField(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+        try {
+            $field = $this->customFieldService->updateDefinition($this->tenantId(), (int) ($params['id'] ?? 0), $this->data);
+            return $this->success(['field' => $field->toArray()], 'تم تحديث الحقل');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'updateCustomField');
+        }
+    }
+
+    /** DELETE /api/crm/custom-fields/{id} */
+    public function deleteCustomField(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+        try {
+            $this->customFieldService->deleteDefinition($this->tenantId(), (int) ($params['id'] ?? 0));
+            return $this->success([], 'تم حذف الحقل');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'deleteCustomField');
+        }
+    }
+
+    /** GET /api/crm/entities/{entityType}/{id}/custom-fields - قراءة قيم كيان */
+    public function getEntityCustomFields(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $values = $this->customFieldService->getValues(
+                $this->tenantId(),
+                (string) ($params['entityType'] ?? ''),
+                (int) ($params['id'] ?? 0)
+            );
+            return $this->success(['fields' => $values]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'getEntityCustomFields');
+        }
+    }
+
+    /** POST /api/crm/entities/{entityType}/{id}/custom-fields {values: {key: value}} - كتابة قيم كيان */
+    public function setEntityCustomFields(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('edit')) return $denied;
+        try {
+            $values = is_array($this->get('values')) ? $this->get('values') : [];
+            $saved = $this->customFieldService->setValues(
+                $this->tenantId(),
+                (string) ($params['entityType'] ?? ''),
+                (int) ($params['id'] ?? 0),
+                $values
+            );
+            return $this->success(['saved' => $saved], 'تم حفظ القيم');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'setEntityCustomFields');
         }
     }
 }

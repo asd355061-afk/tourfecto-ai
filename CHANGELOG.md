@@ -1,4 +1,17 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## المرحلة 12: دمج موديول CRM + الجولة 1 من خطة الترقية التنافسية — 2026-08-15
+
+دمج موديول Tourfecto AI CRM الكامل (137 مسار API موسّع + 8 صفحات ويب + 229 مفتاح
+`crm.*`) ثم تنفيذ أولى فجوات التحليل التنافسي (راجع
+`docs/COMPETITIVE_ANALYSIS.md`): G1 Message Templates، G2 Custom Fields،
+G4 Win/Loss + Sales Goals. التفاصيل الكاملة للترقية في ملف CHANGELOG الخاص
+بالموديول في مستودعه المصدر.
+
+**ملفات جديدة:** 3 migrations (`000006` قوالب، `000007` أهداف مبيعات، `000008`
+حقول مخصصة)، 4 Models، 3 Services (`CrmMessageTemplateService`/
+`CrmReportService`/`CrmCustomFieldService`)، 16 مسار API، 72 مفتاح Lang
+(`crm.templates.*`/`crm.reports.*`/`crm.goals.*`/`crm.custom_fields.*`).
+
 ## المرحلة 5: Notifications + Rate Limiting — 2026-08-08
 
 هذا التسليم يبني فوق **المراحل 1-4**. لا تعديل على `app/routes/api.php`
