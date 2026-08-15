@@ -155,6 +155,21 @@ class WalletController extends Controller {
         }
     }
 
+    /**
+     * GET /api/admin/wallet/usage-revenue?year=2026&month=8
+     * تحليل تنافسي: "الإيراد لكل ميزة" من "ادفع حسب الاستخدام" الشهري.
+     */
+    public function getUsageRevenueBreakdown(array $params = []): array {
+        try {
+            $year = (int) $this->get('year', date('Y'));
+            $month = (int) $this->get('month', date('n'));
+            return $this->success(['usage_revenue' => $this->service->getUsageRevenueBreakdown($year, $month)]);
+        } catch (Exception $e) {
+            Logger::error('Admin getUsageRevenueBreakdown Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر جلب الإيراد لكل ميزة', 500);
+        }
+    }
+
     /** POST /api/admin/wallet/{id}/approve */
     public function approveDeposit(array $params = []): array {
         try {
@@ -292,6 +307,82 @@ class WalletController extends Controller {
             return $this->success($result, 'تم شحن $' . number_format($result['value'], 2) . ' لرصيدك بنجاح 🎉');
         } catch (Exception $e) {
             return $this->error($e->getMessage(), 422);
+        }
+    }
+
+    // ============================================
+    // Refunds (Section 9) - Billing Admin بس (مش Billing Viewer)
+    // ============================================
+
+    /** GET /api/admin/refunds */
+    public function listRefunds(array $params = []): array {
+        try {
+            $refundService = new RefundService();
+            return $this->success(['refunds' => $refundService->listAll()]);
+        } catch (Exception $e) {
+            Logger::error('Admin listRefunds Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر جلب الاسترجاعات', 500);
+        }
+    }
+
+    /** POST /api/admin/refunds */
+    public function createRefund(array $params = []): array {
+        if (!$this->validate(['payment_transaction_id' => 'required', 'amount' => 'required|numeric'])) {
+            return $this->error('بيانات ناقصة', 422);
+        }
+
+        try {
+            $refundService = new RefundService();
+            $result = $refundService->createRefund(
+                (int) $this->get('payment_transaction_id'),
+                (float) $this->get('amount'),
+                (string) $this->get('reason', ''),
+                (int) $this->user['id']
+            );
+
+            if (!$result['success']) {
+                return $this->error($result['error'], 422);
+            }
+
+            $this->log('Admin Created Refund', ['payment_transaction_id' => $this->get('payment_transaction_id'), 'amount' => $this->get('amount')]);
+            return $this->success($result, 'تم تنفيذ الاسترجاع بنجاح');
+        } catch (Exception $e) {
+            Logger::error('Admin createRefund Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر تنفيذ الاسترجاع', 500);
+        }
+    }
+
+    // ============================================
+    // Tax Rules (Section 12) - Billing Admin بس
+    // ============================================
+
+    /** GET /api/admin/tax-rules */
+    public function listTaxRules(array $params = []): array {
+        try {
+            return $this->success(['rules' => (new TaxService())->listAll()]);
+        } catch (Exception $e) {
+            Logger::error('Admin listTaxRules Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر جلب قواعد الضريبة', 500);
+        }
+    }
+
+    /** POST /api/admin/tax-rules */
+    public function upsertTaxRule(array $params = []): array {
+        if (!$this->validate(['country_code' => 'required', 'tax_type' => 'required', 'tax_rate_percent' => 'required|numeric'])) {
+            return $this->error('بيانات ناقصة', 422);
+        }
+        try {
+            (new TaxService())->upsertRule(
+                (string) $this->get('country_code'),
+                (string) $this->get('tax_type'),
+                (float) $this->get('tax_rate_percent'),
+                (bool) $this->get('is_active', true)
+            );
+            $this->log('Admin Upserted Tax Rule', ['country' => $this->get('country_code')]);
+            return $this->success([], 'تم حفظ قاعدة الضريبة');
+        } catch (Exception $e) {
+            Logger::error('Admin upsertTaxRule Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر الحفظ', 500);
         }
     }
 }

@@ -153,11 +153,26 @@ class Subscription extends Model {
                         0 AS competitor_analysis_used,
                         COALESCE(JSON_EXTRACT(sp.features_json, '$.auto_pilot'), 0) AS auto_pilot,
                         s.current_period_start AS start_date,
-                        s.current_period_end AS expiry_date
+                        s.current_period_end AS expiry_date,
+                        s.status AS lifecycle_status
                     FROM subscriptions s
                     JOIN subscription_plans sp ON sp.id = s.plan_id
-                    WHERE s.user_id = ? AND s.status = 'active' AND s.current_period_end > NOW()
+                    WHERE s.user_id = ?
+                    AND (
+                        (s.status = 'active' AND s.current_period_end > NOW())
+                        OR (s.status = 'trialing' AND (s.trial_ends_at IS NULL OR s.trial_ends_at > NOW()))
+                        OR (s.status = 'past_due' AND s.current_period_end > DATE_SUB(NOW(), INTERVAL 7 DAY))
+                    )
                     ORDER BY s.id DESC LIMIT 1";
+            // تصحيح (2026-08-14 / Phase 16 - Subscription Lifecycle):
+            // الشرط الأصلي كان status = 'active' بس (السطر ده اتوسّع
+            // بـ OR جديدة فقط - مفيش أي شرط قديم اتشال أو اتغيّر، فسلوك
+            // أي كود شغال بالفعل يعتمد على 'active' فاضل زي ما هو تمامًا
+            // 100%). الإضافة الوحيدة: subscriptions في حالة trialing
+            // (لسه جوه فترة التجربة) أو past_due (لسه جوه فترة سماح 7
+            // أيام بعد انتهاء الفترة) بقوا مرئيين برضه - قيم ENUM
+            // موجودة فعليًا في الجدول الحقيقي (تأكدنا منها) بس محدش
+            // كان بيستخدمها قبل كده.
 
             $result = $db->query($sql, [$userId]);
             return $result[0] ?? null;

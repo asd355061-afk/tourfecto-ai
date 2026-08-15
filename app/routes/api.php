@@ -391,6 +391,8 @@ $router->group('/api/admin', function($router) {
     $router->get('/subscriptions', 'AdminController', 'getSubscriptions', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/subscriptions/{id}', 'AdminController', 'getSubscription', ['AuthMiddleware', 'AdminMiddleware']);
     $router->post('/subscriptions/{id}/cancel', 'AdminController', 'cancelSubscription', ['AuthMiddleware', 'AdminMiddleware']);
+    $router->post('/subscriptions/run-lifecycle-checks', 'AdminController', 'runSubscriptionLifecycleChecks', ['AuthMiddleware', 'BillingAdminMiddleware']);
+    $router->post('/invoices/run-lifecycle-checks', 'AdminController', 'runInvoiceLifecycleChecks', ['AuthMiddleware', 'BillingAdminMiddleware']);
     
     // رسائل التواصل
     $router->get('/contact-messages', 'AdminController', 'getContactMessages', ['AuthMiddleware', 'AdminMiddleware']);
@@ -402,6 +404,7 @@ $router->group('/api/admin', function($router) {
     $router->get('/wallet/cards', 'WalletController', 'listCards', ['AuthMiddleware', 'BillingViewerMiddleware']);
     $router->get('/wallet/stats', 'WalletController', 'getAdminStats', ['AuthMiddleware', 'BillingViewerMiddleware']);
     $router->get('/wallet/mrr-trend', 'WalletController', 'getMrrTrend', ['AuthMiddleware', 'BillingViewerMiddleware']);
+    $router->get('/wallet/usage-revenue', 'WalletController', 'getUsageRevenueBreakdown', ['AuthMiddleware', 'BillingViewerMiddleware']);
     $router->post('/wallet/{id}/approve', 'WalletController', 'approveDeposit', ['AuthMiddleware', 'BillingAdminMiddleware']);
     $router->post('/wallet/{id}/reject', 'WalletController', 'rejectDeposit', ['AuthMiddleware', 'BillingAdminMiddleware']);
     // getPaymentSettingsAdmin بيكشف تفاصيل IBAN/PayPal الحقيقية اللي
@@ -415,6 +418,10 @@ $router->group('/api/admin', function($router) {
     $router->put('/wallet/settings', 'WalletController', 'updatePaymentSettingsAdmin', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/wallet/usage-pricing', 'WalletController', 'listUsagePricingAdmin', ['AuthMiddleware', 'BillingAdminMiddleware']);
     $router->put('/wallet/usage-pricing/{id}', 'WalletController', 'updateUsagePricingAdmin', ['AuthMiddleware', 'BillingAdminMiddleware']);
+    $router->get('/refunds', 'WalletController', 'listRefunds', ['AuthMiddleware', 'BillingAdminMiddleware']);
+    $router->post('/refunds', 'WalletController', 'createRefund', ['AuthMiddleware', 'BillingAdminMiddleware']);
+    $router->get('/tax-rules', 'WalletController', 'listTaxRules', ['AuthMiddleware', 'BillingAdminMiddleware']);
+    $router->post('/tax-rules', 'WalletController', 'upsertTaxRule', ['AuthMiddleware', 'BillingAdminMiddleware']);
     $router->put('/plans/{id}', 'AdminController', 'updatePlan', ['AuthMiddleware', 'AdminMiddleware']);
     
     // النظام
