@@ -107,6 +107,40 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/Chat/MessengerAPI.php',
     APP_PATH . '/Services/Chat/InstagramAPI.php',
     APP_PATH . '/Services/Chat/EmailChannelAPI.php',
+    // ============================================
+    // AI Chat & Customer Communication Platform - بقية كلاسات الموديول
+    // (الموجودة في master المحلي وبتخدم بقيّة صفحات /chat: الـProviders،
+    // الـModels، الـServices، والـControllers). نفس مبدأ اللي فوق بالظبط:
+    // الكلاسات دي مش مسجّلة في classmap القديم بتاع composer فلازم تتحمّل
+    // يدويًا هنا. الترتيب مهم: الـInterface والكلاسات الأساسية الأول.
+    // ============================================
+    APP_PATH . '/Services/AI/Providers/AIProviderInterface.php',
+    APP_PATH . '/Services/AI/Providers/OpenAICompatibleProvider.php',
+    APP_PATH . '/Services/AI/Providers/GeminiProvider.php',
+    APP_PATH . '/Services/AI/Providers/OpenAIProvider.php',
+    APP_PATH . '/Services/AI/Providers/DeepSeekProvider.php',
+    APP_PATH . '/Services/AI/Providers/KimiProvider.php',
+    APP_PATH . '/Services/AI/Providers/AIProviderManager.php',
+    APP_PATH . '/Models/AiUsageLog.php',
+    APP_PATH . '/Models/AiKnowledgeBase.php',
+    APP_PATH . '/Models/AiCustomerMemory.php',
+    APP_PATH . '/Models/AiLead.php',
+    APP_PATH . '/Models/AiFollowup.php',
+    APP_PATH . '/Models/AiFollowupRule.php',
+    APP_PATH . '/Models/AiCustomTag.php',
+    APP_PATH . '/Services/AI/KnowledgeBaseService.php',
+    APP_PATH . '/Services/AI/AIConversationEngine.php',
+    APP_PATH . '/Services/AI/LeadScoringService.php',
+    APP_PATH . '/Services/AI/BusinessHoursService.php',
+    APP_PATH . '/Services/AI/FollowUpAutomationService.php',
+    APP_PATH . '/Services/AI/AiAnalyticsService.php',
+    APP_PATH . '/Services/AI/AiReplySuggestionsService.php',
+    APP_PATH . '/Controllers/AiKnowledgeBaseController.php',
+    APP_PATH . '/Controllers/ChatInboxController.php',
+    APP_PATH . '/Controllers/AiLeadController.php',
+    APP_PATH . '/Controllers/AiFollowupSettingsController.php',
+    APP_PATH . '/Controllers/AiAnalyticsController.php',
+    APP_PATH . '/Controllers/AiCustomTagController.php',
     // OTA Integration: نفس المشكلة بالظبط - الكنترولر ده مش مسجّل في
     // classmap القديم، فأي طلب لـ /api/ota/status كان بيرمي
     // "Controller OTAController not found" (2026-08-09).

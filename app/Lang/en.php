@@ -1950,4 +1950,12 @@ return [
     'settings.tab.permissions' => 'Role & Permissions',
     'settings.view_privacy_policy' => 'View Privacy Policy',
     'settings.js.delete_confirm_subscription' => "Deletion won't automatically cancel your subscription with the payment provider - you'll need to cancel it yourself from the billing page. Continue anyway?",
+    'chat.kb.title' => 'Knowledge Base',
+    'chat.kb.subtitle' => 'The information your AI assistant relies on when replying to customers',
+    'chat.followup.title' => 'Automatic Follow-ups',
+    'chat.followup.subtitle' => 'Automatic message settings for customers who have not replied',
+    'chat.analytics.title' => 'AI Chat Analytics',
+    'chat.analytics.subtitle' => 'AI performance and conversation insights',
+    'chat.leads.title' => 'Leads',
+    'chat.leads.subtitle' => 'All leads sorted by priority',
 ];

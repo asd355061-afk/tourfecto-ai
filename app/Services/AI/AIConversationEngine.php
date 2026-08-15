@@ -72,19 +72,20 @@ class AIConversationEngine {
      *   'handoff' => bool,
      *   'handoff_reason' => string|null,
      *   'confidence' => float,
+     *   'next_action' => string|null, // الإجراء المقترح التالي (تحسين تنافسي)
      *   'error' => string|null,
      * ]
      */
     public function handleIncomingMessage(int $websiteId, int $userId, int $conversationId, string $customerMessage): array {
         $conversation = $this->conversationModel->find($conversationId);
         if (!$conversation) {
-            return $this->result(null, false, null, 0, 'Conversation not found');
+            return $this->result(null, false, null, 0, null, 'Conversation not found');
         }
 
         // بند 8: لو المحادثة اتحوّلت لموظف بالفعل، أو تم طلب عدم التواصل،
         // الـAI يجب أن يتوقف تمامًا عن الرد.
         if ($this->inbox->shouldStopAutomation($conversationId)) {
-            return $this->result(null, false, null, 0, null);
+            return $this->result(null, false, null, 0, null, null);
         }
 
         $language = $this->detectLanguage($customerMessage) ?: ($conversation->getAttribute('language') ?: 'ar');
@@ -113,7 +114,7 @@ class AIConversationEngine {
             Logger::error('AIConversationEngine: provider failure, handed off to human', [
                 'conversation_id' => $conversationId, 'error' => $aiResult['error'] ?? null,
             ]);
-            return $this->result(null, true, 'ai_provider_failure', 0, $aiResult['error'] ?? 'AI provider failed');
+            return $this->result(null, true, 'ai_provider_failure', 0, null, $aiResult['error'] ?? 'AI provider failed');
         }
 
         $decision = $this->parseDecision((string) $aiResult['content']);
@@ -130,10 +131,10 @@ class AIConversationEngine {
             // لو الـAI مع ذلك ولّد رد توضيحي (مثال: "سأتأكد وأعود إليك")، نسمح
             // بإرساله قبل التحويل - أفضل من صمت مفاجئ للعميل.
             $replyBeforeHandoff = !empty($decision['reply']) ? $decision['reply'] : null;
-            return $this->result($replyBeforeHandoff, true, $reason, $decision['confidence'], null);
+            return $this->result($replyBeforeHandoff, true, $reason, $decision['confidence'], $decision['next_action'], null);
         }
 
-        return $this->result($decision['reply'] ?: null, false, null, $decision['confidence'], null);
+        return $this->result($decision['reply'] ?: null, false, null, $decision['confidence'], $decision['next_action'], null);
     }
 
     /**
@@ -176,6 +177,7 @@ Reply in this language unless the customer clearly switches language: {$language
 3. Act as a helpful sales-minded assistant: try to understand what the customer needs (destination, dates, number of travelers, budget) and move the conversation toward a booking, but never pressure or invent discounts.
 4. Detect if the customer wants a human agent, has a complaint, mentions payment issues, or asks something entirely outside the knowledge base - in these cases you must request human handoff.
 5. Detect if the customer says something like "don't contact me" / "stop messaging me" and reflect that clearly in your JSON output so automation can stop.
+6. Always pick ONE single most useful next step that brings the conversation closer to a confirmed booking, based on what is still missing: ask for the destination, travel dates, number of travelers, budget, or contact details before quoting or booking. Do not ask for information the customer already provided.
 
 ### OUTPUT FORMAT ###
 Respond with ONLY a single valid JSON object (no markdown fences, no extra text) with this exact shape:
@@ -188,6 +190,7 @@ Respond with ONLY a single valid JSON object (no markdown fences, no extra text)
   "summary": "one short paragraph summarizing the customer's request and status so far, or null if nothing new",
   "tags": ["subset of: HOT_LEAD, NEW_INQUIRY, PRICE_REQUEST, COMPLAINT, FOLLOW_UP, BOOKING_INTENT, VIP, HUMAN_REQUIRED"],
   "lead_status": "one of: new_inquiry, qualifying, qualified, hot_lead, converted, lost, none",
+  "next_action": "the single most useful next step for the company: one of ask_destination, ask_dates, ask_travelers, ask_budget, ask_contact_details, send_quote, schedule_booking, handoff_to_human, follow_up, or null if the conversation is complete",
   "memory": {"only include new facts you learned, keys from: name, country, trip_type, travelers_count, travel_date, budget, interests, requested_services"}
 }
 PROMPT;
@@ -219,6 +222,7 @@ PROMPT;
                 'summary' => null,
                 'tags' => [],
                 'lead_status' => null,
+                'next_action' => null,
                 'memory' => [],
             ];
         }
@@ -226,12 +230,13 @@ PROMPT;
         return [
             'reply' => is_string($decoded['reply'] ?? null) ? $decoded['reply'] : null,
             'language' => $decoded['language'] ?? null,
-            'confidence' => is_numeric($decoded['confidence'] ?? null) ? max(0, min(1, (float) $decoded['confidence'])) : 0.5,
+            'confidence' => is_numeric($decoded['confidence'] ?? null) ? max(0.0, min(1.0, (float) $decoded['confidence'])) : 0.5,
             'needs_human' => (bool) ($decoded['needs_human'] ?? false),
             'handoff_reason' => $decoded['handoff_reason'] ?? null,
             'summary' => is_string($decoded['summary'] ?? null) ? $decoded['summary'] : null,
             'tags' => is_array($decoded['tags'] ?? null) ? $decoded['tags'] : [],
             'lead_status' => $decoded['lead_status'] ?? null,
+            'next_action' => is_string($decoded['next_action'] ?? null) ? $decoded['next_action'] : null,
             'memory' => is_array($decoded['memory'] ?? null) ? $decoded['memory'] : [],
         ];
     }
@@ -260,6 +265,9 @@ PROMPT;
         }
         if (!empty($decision['handoff_reason']) && stripos((string) $decision['handoff_reason'], 'not_contact') !== false) {
             $updates['do_not_contact'] = 1;
+        }
+        if (!empty($decision['next_action'])) {
+            $updates['next_recommended_action'] = $decision['next_action'];
         }
 
         $this->inbox->updateConversation($conversationId, $updates);
@@ -339,12 +347,13 @@ PROMPT;
         return null;
     }
 
-    private function result(?string $reply, bool $handoff, ?string $handoffReason, float $confidence, ?string $error): array {
+    private function result(?string $reply, bool $handoff, ?string $handoffReason, float $confidence, ?string $nextAction, ?string $error): array {
         return [
             'reply' => $reply,
             'handoff' => $handoff,
             'handoff_reason' => $handoffReason,
             'confidence' => $confidence,
+            'next_action' => $nextAction,
             'error' => $error,
         ];
     }

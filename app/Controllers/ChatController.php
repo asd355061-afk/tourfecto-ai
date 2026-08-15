@@ -489,6 +489,17 @@ class ChatController extends Controller {
             <a href="/chat/analytics" class="p-btn outline xs">📊 التحليلات</a>
             <a href="/chat/settings" class="p-btn primary xs">⚙️ ربط واتساب والإعدادات</a>
         </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;" id="ucQuickFilters">
+            <span class="pill blue" style="cursor:pointer;" data-qf="all" onclick="ucQuickFilter('all')">الكل</span>
+            <span class="pill gray" style="cursor:pointer;" data-qf="unread" onclick="ucQuickFilter('unread')">غير مقروءة</span>
+            <span class="pill gray" style="cursor:pointer;" data-qf="ai" onclick="ucQuickFilter('ai')">🤖 AI</span>
+            <span class="pill gray" style="cursor:pointer;" data-qf="human" onclick="ucQuickFilter('human')">👤 موظف</span>
+            <span class="pill gray" style="cursor:pointer;" data-qf="hot_leads" onclick="ucQuickFilter('hot_leads')">🔥 Leads ساخنة</span>
+            <span class="pill gray" style="cursor:pointer;" data-qf="follow_up" onclick="ucQuickFilter('follow_up')">⏰ متابعة</span>
+            <span class="pill gray" style="cursor:pointer;" data-qf="closed" onclick="ucQuickFilter('closed')">مغلقة</span>
+            <span class="pill gray" style="cursor:pointer;" data-qf="vip" onclick="ucQuickFilter('vip')">⭐ VIP</span>
+            <span class="pill gray" style="cursor:pointer;" data-qf="complaints" onclick="ucQuickFilter('complaints')">⚠️ شكاوى</span>
+        </div>
         <div id="ucNoWebsite" class="p-card" style="display:none;">
             <div class="p-empty"><div class="p-empty-icon">🌐</div>اختر موقعًا من القائمة أعلى الصفحة أولًا لعرض محادثاته.</div>
         </div>
@@ -500,6 +511,11 @@ class ChatController extends Controller {
                 </tr></thead>
                 <tbody><tr class="p-loading-row"><td colspan="9">جاري التحميل...</td></tr></tbody>
             </table></div>
+            <div style="display:flex;justify-content:center;align-items:center;gap:12px;padding:14px;">
+                <button class="p-btn outline xs" id="ucPrevBtn" onclick="ucGoPage(-1)" disabled>← السابق</button>
+                <span class="p-cell-muted" id="ucPageLabel">صفحة 1</span>
+                <button class="p-btn outline xs" id="ucNextBtn" onclick="ucGoPage(1)">التالي →</button>
+            </div>
         </div>
 HTML;
 
@@ -543,7 +559,50 @@ HTML;
         return id;
     }
 
-    window.ucApplyFilters = function () { load(); };
+    const PAGE_SIZE = 30;
+    let currentPage = 1;
+    let activeQuickFilter = 'all';
+
+    window.ucApplyFilters = function () { currentPage = 1; activeQuickFilter = null; ucHighlightQuickFilter(); load(); };
+
+    window.ucQuickFilter = function (key) {
+        currentPage = 1;
+        activeQuickFilter = key;
+
+        // نصفّر كل الفلاتر التفصيلية أولًا، بعدين نطبّق مركّب الفلتر السريع
+        document.getElementById('ucStatus').value = '';
+        document.getElementById('ucAiStatus').value = '';
+        document.getElementById('ucLeadStatus').value = '';
+        document.getElementById('ucTag').value = '';
+
+        switch (key) {
+            case 'unread': break; // يُعالَج بمعامل unread_only منفصل تحت
+            case 'ai': document.getElementById('ucAiStatus').value = 'ai'; break;
+            case 'human': document.getElementById('ucAiStatus').value = 'human'; break;
+            case 'hot_leads': document.getElementById('ucLeadStatus').value = 'hot_lead'; break;
+            case 'follow_up': document.getElementById('ucTag').value = 'FOLLOW_UP'; break;
+            case 'closed': document.getElementById('ucStatus').value = 'closed'; break;
+            case 'vip': document.getElementById('ucTag').value = 'VIP'; break;
+            case 'complaints': document.getElementById('ucTag').value = 'COMPLAINT'; break;
+            case 'all': default: break;
+        }
+
+        ucHighlightQuickFilter();
+        load();
+    };
+
+    function ucHighlightQuickFilter() {
+        document.querySelectorAll('#ucQuickFilters [data-qf]').forEach(el => {
+            const active = el.dataset.qf === activeQuickFilter;
+            el.classList.toggle('blue', active);
+            el.classList.toggle('gray', !active);
+        });
+    }
+
+    window.ucGoPage = function (delta) {
+        currentPage = Math.max(1, currentPage + delta);
+        load();
+    };
 
     async function load() {
         const websiteId = ensureWebsiteSelected();
@@ -562,20 +621,30 @@ HTML;
         if (leadStatus) qs.set('lead_status', leadStatus);
         if (channel) qs.set('channel', channel);
         if (tag) qs.set('tag', tag);
+        if (activeQuickFilter === 'unread') qs.set('unread_only', '1');
+        qs.set('page', currentPage);
 
         const tbody = document.querySelector('#conversationsTable tbody');
         tbody.innerHTML = '<tr class="p-loading-row"><td colspan="9">جاري التحميل...</td></tr>';
 
         const res = await fetchJSON('/api/ai-chat/websites/' + encodeURIComponent(websiteId) + '/conversations?' + qs.toString());
 
+        document.getElementById('ucPageLabel').textContent = 'صفحة ' + currentPage;
+        document.getElementById('ucPrevBtn').disabled = currentPage <= 1;
+
         if (!res.success) {
             tbody.innerHTML = '<tr><td colspan="9" class="p-cell-muted text-center">⚠️ ' + esc(res.error || 'تعذر تحميل المحادثات') + '</td></tr>';
+            document.getElementById('ucNextBtn').disabled = true;
             return;
         }
 
         const list = (res.data && Array.isArray(res.data.conversations)) ? res.data.conversations : [];
+        // الـBackend مبيرجّعش إجمالي العدد - نستخدم امتلاء الصفحة كمؤشر تقريبي
+        // لوجود صفحة تالية (لو رجع 30 نتيجة بالظبط، محتمل يكون فيه المزيد).
+        document.getElementById('ucNextBtn').disabled = list.length < PAGE_SIZE;
+
         if (!list.length) {
-            tbody.innerHTML = '<tr><td colspan="9" class="p-cell-muted text-center">لا توجد محادثات بعد</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="p-cell-muted text-center">' + (currentPage > 1 ? 'لا توجد نتائج في هذه الصفحة' : 'لا توجد محادثات بعد') + '</td></tr>';
             return;
         }
 
@@ -602,7 +671,7 @@ HTML;
     document.getElementById('ucSearch').addEventListener('keydown', function (e) {
         if (e.key === 'Enter') load();
     });
-    window.addEventListener('tourfecto:website-changed', load);
+    window.addEventListener('tourfecto:website-changed', function () { currentPage = 1; load(); });
 
     load();
 })();
@@ -739,6 +808,42 @@ HTML;
         await updateField('tags', newTags);
     };
 
+    window.promptAddCustomTag = async function () {
+        const name = prompt('اكتب اسم الوسم الجديد (مثال: URGENT_QUOTE)');
+        if (!name || !name.trim()) return;
+
+        const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/custom-tags', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name.trim() }),
+        });
+
+        if (res.success) {
+            toast('تم إنشاء الوسم', 'success');
+            await loadCustomTags();
+            renderHeader(currentConversation);
+        } else {
+            toast(res.error || 'فشل إنشاء الوسم', 'error');
+        }
+    };
+
+    window.deleteCustomTag = async function (tagId) {
+        if (!confirm('حذف هذا الوسم المخصص من كل الشركة، مش بس من هذه المحادثة؟')) return;
+        const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/custom-tags/' + tagId, { method: 'DELETE' });
+        if (res.success) {
+            toast('تم حذف الوسم', 'success');
+            await loadCustomTags();
+            renderHeader(currentConversation);
+        } else {
+            toast(res.error || 'فشل الحذف', 'error');
+        }
+    };
+
+    async function loadCustomTags() {
+        const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/custom-tags');
+        customTags = (res.success && Array.isArray(res.data.tags)) ? res.data.tags : [];
+    }
+
     window.sendManual = async function () {
         const message = document.getElementById('manualMessage').value.trim();
         if (!message) { toast('اكتب رسالة أولاً', 'error'); return; }
@@ -781,15 +886,27 @@ HTML;
             </div>`).join('');
     };
 
+    let customTags = [];
+
     function renderHeader(c) {
         const customer = c.customer_name || c.customer_phone || c.customer_email || 'عميل غير معروف';
         const isAi = c.ai_status === 'ai';
         const isMine = c.assigned_agent_id == currentUserId;
 
-        const tagsHtml = STANDARD_TAGS.map(t => {
+        const standardTagsHtml = STANDARD_TAGS.map(t => {
             const active = (c.tags || []).includes(t);
             return `<span class="pill ${active ? 'blue' : 'gray'}" style="cursor:pointer;" onclick="toggleTag('${t}')">${active ? '✓ ' : ''}${t}</span>`;
         }).join(' ');
+
+        const customTagsHtml = customTags.map(t => {
+            const active = (c.tags || []).includes(t.name);
+            return `<span class="pill ${active ? 'blue' : 'gray'}" style="cursor:pointer;" onclick="toggleTag('${esc(t.name)}')">${active ? '✓ ' : ''}${esc(t.name)}
+                <a href="javascript:void(0)" onclick="event.stopPropagation();deleteCustomTag(${t.id})" style="margin-right:4px;opacity:.7;">✕</a></span>`;
+        }).join(' ');
+
+        const addTagHtml = `<span class="pill gray" style="cursor:pointer;" onclick="promptAddCustomTag()">+ وسم مخصص</span>`;
+
+        const tagsHtml = standardTagsHtml + ' ' + customTagsHtml + ' ' + addTagHtml;
 
         const statusSelect = '<select class="p-select" onchange="updateField(\'status\', this.value)">' +
             STATUS_OPTIONS.map(([v, l]) => `<option value="${v}" ${c.status === v ? 'selected' : ''}>${l}</option>`).join('') + '</select>';
@@ -811,6 +928,7 @@ HTML;
             </div>
             <div style="margin-bottom:8px;">${tagsHtml}</div>
             ${c.ai_summary ? '<div class="p-card" style="background:var(--panel-bg,#f7f8fa);padding:10px 14px;"><strong>ملخص AI:</strong> ' + esc(c.ai_summary) + '</div>' : ''}
+            ${c.next_recommended_action ? '<div class="p-card" style="background:var(--panel-bg,#f7f8fa);padding:10px 14px;margin-top:6px;"><strong>الخطوة التالية المقترحة:</strong> ' + esc(c.next_recommended_action) + '</div>' : ''}
         `;
     }
 
@@ -857,6 +975,10 @@ HTML;
             document.getElementById('convNotFound').style.display = 'block';
             document.getElementById('convNotFound').innerHTML = '<div class="p-empty-icon">🌐</div>اختر موقعًا من القائمة أعلى الصفحة أولًا.';
             return;
+        }
+
+        if (!customTags.length) {
+            await loadCustomTags();
         }
 
         const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/conversations/' + conversationId);
@@ -1155,6 +1277,13 @@ JS;
                 <button class="p-btn primary" style="margin-top:10px;" onclick="connectInstagram()">ربط Instagram</button>
             </div>
         </div>
+        <div id="emailCard" class="p-card" style="display:none;margin-top:14px;">
+            <div class="p-card-head"><h3>✉️ الإيميل</h3><span class="p-card-sub">استقبال استفسارات العملاء عبر البريد الإلكتروني</span></div>
+            <p class="p-cell-muted">قناة الإيميل بترسل الردود عبر إعدادات البريد العامة للمنصة (مفيش Access Token منفصل لكل موقع). لاستقبال الرسائل، وجّه مزود البريد الوارد (SendGrid Inbound Parse، Mailgun Routes، أو ما يعادلهم) للرابط تحت:</p>
+            <p class="p-cell-muted" style="margin-top:8px;">Webhook URL:</p>
+            <code id="emailWebhookUrl" style="display:block;background:#1e1e2e;color:#a6e3a1;padding:10px;border-radius:8px;overflow-x:auto;direction:ltr;text-align:left;font-size:12px;">جاري التحميل...</code>
+            <div id="emailMailerWarning" class="alert alert-danger" style="display:none;margin-top:10px;">⚠️ إعدادات إرسال البريد (Mailer) للمنصة غير مُفعّلة حاليًا - الاستقبال هيشتغل لكن الردود لن تُرسَل للعميل حتى تُضبَط.</div>
+        </div>
         <div class="p-card" id="noWebsitesCard" style="display:none;">
             <div class="p-empty"><div class="p-empty-icon">🌐</div>{$tNoWebsitesMsg}</div>
         </div>
@@ -1173,13 +1302,22 @@ HTML;
             document.getElementById('ultramsgCard').style.display = 'none';
             document.getElementById('messengerCard').style.display = 'none';
             document.getElementById('instagramCard').style.display = 'none';
+            document.getElementById('emailCard').style.display = 'none';
             return;
         }
 
         document.getElementById('ultramsgCard').style.display = 'block';
         await loadUltraMsgStatus(websiteId);
         document.getElementById('messengerCard').style.display = 'block';
+        document.getElementById('messengerForm').style.display = 'block';
+        document.getElementById('messengerConnected').style.display = 'none';
         document.getElementById('instagramCard').style.display = 'block';
+        document.getElementById('instagramForm').style.display = 'block';
+        document.getElementById('instagramConnected').style.display = 'none';
+        loadChannelStatus(websiteId, 'messenger');
+        loadChannelStatus(websiteId, 'instagram');
+        document.getElementById('emailCard').style.display = 'block';
+        loadEmailChannelInfo(websiteId);
 
         const res = await fetchJSON('/api/chat/settings?website_id=' + websiteId + '&platform=all');
         document.getElementById('settingsFormCard').style.display = 'block';
@@ -1287,6 +1425,27 @@ HTML;
             toast(res.error || 'فشل الربط', 'error');
         }
     };
+
+    async function loadEmailChannelInfo(websiteId) {
+        const res = await fetchJSON('/api/chat/email-channel-info?website_id=' + websiteId);
+        if (!res.success) {
+            document.getElementById('emailWebhookUrl').textContent = '⚠️ ' + (res.error || 'تعذر التحميل');
+            return;
+        }
+        document.getElementById('emailWebhookUrl').textContent = res.data.webhook_url || '';
+        document.getElementById('emailMailerWarning').style.display = res.data.mailer_configured ? 'none' : 'block';
+    }
+
+    async function loadChannelStatus(websiteId, platform) {
+        const res = await fetchJSON('/api/chat/channel-status?website_id=' + websiteId + '&platform=' + platform);
+        if (!res.success || !res.data.connected) return;
+
+        const prefix = platform === 'messenger' ? 'msg' : 'ig';
+        document.getElementById(platform + 'Form').style.display = 'none';
+        document.getElementById(platform + 'Connected').style.display = 'block';
+        document.getElementById(prefix + 'WebhookUrl').textContent = res.data.webhook_url || '';
+        document.getElementById(prefix + 'VerifyToken').textContent = res.data.verify_token || '';
+    }
 
     window.saveSettings = async function () {
         const websiteId = document.getElementById('websiteSelect').value;
@@ -1408,7 +1567,7 @@ JS;
             </div>
 
             <div class="p-card" style="margin-bottom:14px;">
-                <div class="p-card-head"><h3>➕ إضافة معلومة جديدة</h3></div>
+                <div class="p-card-head"><h3 id="kbFormTitle">➕ إضافة معلومة جديدة</h3></div>
                 <div style="display:flex;gap:10px;flex-wrap:wrap;">
                     <div class="form-group" style="flex:1;min-width:180px;">
                         <label class="form-label">القسم</label>
@@ -1442,7 +1601,8 @@ JS;
                     <label class="form-label">المحتوى</label>
                     <textarea id="kbContent" class="form-control" rows="3" placeholder="اكتب المعلومة كاملة وواضحة - الذكاء الاصطناعي هيعتمد على النص ده حرفيًا"></textarea>
                 </div>
-                <button class="p-btn primary" onclick="kbAddEntry()">➕ إضافة</button>
+                <button class="p-btn primary" id="kbAddBtn" onclick="kbAddEntry()">➕ إضافة</button>
+                <button class="p-btn outline" id="kbCancelBtn" style="display:none;" onclick="kbCancelEdit()">إلغاء التعديل</button>
             </div>
 
             <div id="kbSectionsContainer"></div>
@@ -1471,6 +1631,8 @@ HTML;
         return id;
     }
 
+    let editingEntryId = null;
+
     window.kbAddEntry = async function () {
         const id = ensureWebsite();
         if (!id) return;
@@ -1480,20 +1642,52 @@ HTML;
         const content = document.getElementById('kbContent').value.trim();
         if (!content) { toast('اكتب المحتوى أولاً', 'error'); return; }
 
-        const res = await fetchJSON('/api/ai-chat/websites/' + id + '/knowledge-base', {
-            method: 'POST',
+        const isEdit = editingEntryId !== null;
+        const url = '/api/ai-chat/websites/' + id + '/knowledge-base' + (isEdit ? '/' + editingEntryId : '');
+        const res = await fetchJSON(url, {
+            method: isEdit ? 'PUT' : 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ section: section, language: language, title: title || null, content: content }),
+            body: JSON.stringify(isEdit
+                ? { title: title || null, content: content, language: language }
+                : { section: section, language: language, title: title || null, content: content }),
         });
 
         if (res.success) {
-            toast('تمت الإضافة', 'success');
-            document.getElementById('kbTitle').value = '';
-            document.getElementById('kbContent').value = '';
+            toast(isEdit ? 'تم التحديث' : 'تمت الإضافة', 'success');
+            kbCancelEdit();
             load();
         } else {
-            toast(res.error || 'فشلت الإضافة', 'error');
+            toast(res.error || (isEdit ? 'فشل التحديث' : 'فشلت الإضافة'), 'error');
         }
+    };
+
+    window.kbEditFromMap = function (entryId) {
+        const e = window.kbEntriesById[entryId];
+        if (!e) return;
+        kbEditEntry(entryId, e.section, e.language, e.title, e.content);
+    };
+
+    window.kbEditEntry = function (entryId, section, language, title, content) {
+        editingEntryId = entryId;
+        document.getElementById('kbSection').value = section;
+        document.getElementById('kbSection').disabled = true;
+        document.getElementById('kbLanguage').value = language;
+        document.getElementById('kbTitle').value = title || '';
+        document.getElementById('kbContent').value = content || '';
+        document.getElementById('kbFormTitle').textContent = '✏️ تعديل معلومة';
+        document.getElementById('kbAddBtn').textContent = '💾 حفظ التعديل';
+        document.getElementById('kbCancelBtn').style.display = 'inline-block';
+        document.getElementById('kbContent').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
+    window.kbCancelEdit = function () {
+        editingEntryId = null;
+        document.getElementById('kbSection').disabled = false;
+        document.getElementById('kbTitle').value = '';
+        document.getElementById('kbContent').value = '';
+        document.getElementById('kbFormTitle').textContent = '➕ إضافة معلومة جديدة';
+        document.getElementById('kbAddBtn').textContent = '➕ إضافة';
+        document.getElementById('kbCancelBtn').style.display = 'none';
     };
 
     window.kbDeleteEntry = async function (entryId) {
@@ -1552,17 +1746,24 @@ HTML;
             return;
         }
 
+        window.kbEntriesById = window.kbEntriesById || {};
         container.innerHTML = sectionKeys.map(section => {
             const entries = sections[section];
-            const rows = entries.map(e => `
+            const rows = entries.map(e => {
+                window.kbEntriesById[e.id] = { section: section, language: e.language, title: e.title, content: e.content };
+                return `
                 <div class="p-kv" style="align-items:flex-start;">
                     <span class="k" style="max-width:70%;">
                         ${e.title ? '<strong>' + esc(e.title) + '</strong><br>' : ''}
                         ${esc(e.content || '')}
                         <span class="p-cell-muted"> · ${e.language === 'en' ? 'EN' : 'AR'}</span>
                     </span>
-                    <button class="p-btn danger xs" onclick="kbDeleteEntry(${e.id})">حذف</button>
-                </div>`).join('');
+                    <span style="white-space:nowrap;">
+                        <button class="p-btn outline xs" onclick="kbEditFromMap(${e.id})">تعديل</button>
+                        <button class="p-btn danger xs" onclick="kbDeleteEntry(${e.id})">حذف</button>
+                    </span>
+                </div>`;
+            }).join('');
             return `
                 <div class="p-card" style="margin-bottom:14px;">
                     <div class="p-card-head"><h3>${SECTION_LABELS[section] || esc(section)}</h3><span class="p-card-sub">${entries.length} عنصر</span></div>
@@ -1577,7 +1778,7 @@ HTML;
 JS;
 
         header('Content-Type: text/html; charset=utf-8');
-        echo $this->renderPanelPage('chat', 'قاعدة المعرفة', 'المعلومات التي يعتمد عليها الذكاء الاصطناعي في الرد على عملائك', $body, $script);
+        echo $this->renderPanelPage('chat', $this->tr('chat.kb.title'), $this->tr('chat.kb.subtitle'), $body, $script);
         exit;
     }
 
@@ -1695,7 +1896,7 @@ HTML;
 JS;
 
         header('Content-Type: text/html; charset=utf-8');
-        echo $this->renderPanelPage('chat', 'المتابعة التلقائية', 'إعدادات الرسائل التلقائية للعملاء الذين لم يردّوا', $body, $script);
+        echo $this->renderPanelPage('chat', $this->tr('chat.followup.title'), $this->tr('chat.followup.subtitle'), $body, $script);
         exit;
     }
 
@@ -1814,7 +2015,7 @@ HTML;
 JS;
 
         header('Content-Type: text/html; charset=utf-8');
-        echo $this->renderPanelPage('chat', 'تحليلات AI Chat', 'أداء الذكاء الاصطناعي والمحادثات', $body, $script);
+        echo $this->renderPanelPage('chat', $this->tr('chat.analytics.title'), $this->tr('chat.analytics.subtitle'), $body, $script);
         exit;
     }
 
@@ -1929,7 +2130,7 @@ HTML;
 JS;
 
         header('Content-Type: text/html; charset=utf-8');
-        echo $this->renderPanelPage('chat', 'Leads', 'كل العملاء المحتملين مرتّبين حسب الأولوية', $body, $script);
+        echo $this->renderPanelPage('chat', $this->tr('chat.leads.title'), $this->tr('chat.leads.subtitle'), $body, $script);
         exit;
     }
 
@@ -2031,6 +2232,38 @@ JS;
             'connected' => !empty($connections),
             'instance_id' => !empty($connections) ? $connections[0]->getAttribute('external_account_id') : null,
             'webhook_url' => $webhookUrl,
+        ]);
+    }
+
+    /**
+     * GET /api/chat/channel-status?website_id=X&platform=messenger|instagram
+     * نفس نمط getUltraMsgStatus() بالضبط لكن عام لأي منصة PlatformConnection -
+     * يقفل الفجوة اللي اتوثّقت في المرحلة 9 (مفيش status endpoint لـ
+     * Messenger/Instagram).
+     */
+    public function getChannelStatus(array $params = []): array {
+        if (!$this->isAuthenticated()) {
+            return $this->error('غير مسجل دخول', 401);
+        }
+
+        $websiteId = (int) $this->get('website_id');
+        $platform = (string) $this->get('platform', '');
+        if (!$websiteId || !in_array($platform, ['messenger', 'instagram'], true)) {
+            return $this->error('website_id وplatform (messenger أو instagram) مطلوبين', 422);
+        }
+
+        $connections = (new PlatformConnection())->where([
+            'website_id' => $websiteId,
+            'platform' => $platform,
+            'status' => 'connected',
+        ], [], 1);
+
+        return $this->success([
+            'connected' => !empty($connections),
+            'external_account_id' => !empty($connections) ? $connections[0]->getAttribute('external_account_id') : null,
+            'webhook_url' => rtrim(defined('APP_URL') ? APP_URL : '', '/') . '/api/chat/webhook/' . $platform . '/' . $websiteId
+                . '?secret=' . $this->channelWebhookSecret($websiteId, $platform),
+            'verify_token' => $this->channelWebhookSecret($websiteId, $platform),
         ]);
     }
 
@@ -2227,6 +2460,38 @@ JS;
     /** POST /api/chat/connect/instagram */
     public function connectInstagram(array $params = []): array {
         return $this->connectMetaChannel('instagram');
+    }
+
+    /**
+     * GET /api/chat/email-channel-info?website_id=X
+     *
+     * قناة الإيميل (بخلاف Messenger/Instagram) مالهاش Access Token يُربَط
+     * لكل موقع - الإرسال بيمر عبر Mailer العام للمنصة (`app/Services/Mailer.php`)
+     * زي ما هو. اللي محتاج الشركة تعرفه بس هو رابط الـWebhook والـsecret
+     * الخاصين بموقعها عشان يوجّهوا مزود البريد الوارد (SendGrid/Mailgun)
+     * ليهم - Endpoint معلوماتي بسيط جديد، مش تكرار لأي حاجة موجودة.
+     */
+    public function emailChannelInfo(array $params = []): array {
+        if (!$this->isAuthenticated()) {
+            return $this->error('غير مسجل دخول', 401);
+        }
+
+        $websiteId = (int) $this->get('website_id');
+        if (!$websiteId) {
+            return $this->error('website_id مطلوب', 422);
+        }
+
+        $website = (new Website())->find($websiteId);
+        if (!$website || (int) $website->getAttribute('user_id') !== (int) $this->user['id']) {
+            return $this->error('الموقع غير موجود', 404);
+        }
+
+        return $this->success([
+            'webhook_url' => rtrim(defined('APP_URL') ? APP_URL : '', '/') . '/api/chat/webhook/email/' . $websiteId
+                . '?secret=' . $this->channelWebhookSecret($websiteId, 'email'),
+            'secret' => $this->channelWebhookSecret($websiteId, 'email'),
+            'mailer_configured' => (new Mailer())->isConfigured(),
+        ]);
     }
 
     /**

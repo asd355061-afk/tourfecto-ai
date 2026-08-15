@@ -58,3 +58,45 @@ foreach ($optionalJobDependencyFiles as $depFile) {
         require_once $depFile;
     }
 }
+
+// AI Chat Platform (2026-08-08/09): نفس المشكلة بالظبط مع كود cron
+// follow-up automation (cron/process_ai_followups.php). سكريبت الكرون
+// بيعتمد على FollowUpAutomationService + كل Models/Services بتاعته، ولو
+// السيرفر معندوش composer dump-autoload حديث، أي كلاس جديد مش هيبقى
+// محمّل فكان الكرون بيسكت في صمت (class_exists بيفشل ويخرج بسلام).
+// الترتيب مهم: الـModels الأول، بعدين الـServices اللي بتعتمد عليها.
+foreach ([
+    // Models
+    APP_PATH . '/Models/AiKnowledgeBase.php',
+    APP_PATH . '/Models/AiChatConversation.php',
+    APP_PATH . '/Models/AiCustomerMemory.php',
+    APP_PATH . '/Models/AiLead.php',
+    APP_PATH . '/Models/AiFollowup.php',
+    APP_PATH . '/Models/AiFollowupRule.php',
+    APP_PATH . '/Models/AiCustomTag.php',
+    APP_PATH . '/Models/AiUsageLog.php',
+    // AI Providers (بند 20) - Interface أولاً
+    APP_PATH . '/Services/AI/Providers/AIProviderInterface.php',
+    APP_PATH . '/Services/AI/Providers/OpenAICompatibleProvider.php',
+    APP_PATH . '/Services/AI/Providers/GeminiProvider.php',
+    APP_PATH . '/Services/AI/Providers/OpenAIProvider.php',
+    APP_PATH . '/Services/AI/Providers/DeepSeekProvider.php',
+    APP_PATH . '/Services/AI/Providers/KimiProvider.php',
+    APP_PATH . '/Services/AI/Providers/AIProviderManager.php',
+    // Services (بترتيب الاعتماد)
+    APP_PATH . '/Services/AI/KnowledgeBaseService.php',
+    APP_PATH . '/Services/AI/BusinessHoursService.php',
+    APP_PATH . '/Services/Chat/UnifiedInboxService.php',
+    APP_PATH . '/Services/AI/AIConversationEngine.php',
+    APP_PATH . '/Services/AI/LeadScoringService.php',
+    APP_PATH . '/Services/AI/FollowUpAutomationService.php',
+    APP_PATH . '/Services/AI/AiAnalyticsService.php',
+    APP_PATH . '/Services/AI/AiReplySuggestionsService.php',
+    APP_PATH . '/Services/Chat/MessengerAPI.php',
+    APP_PATH . '/Services/Chat/InstagramAPI.php',
+    APP_PATH . '/Services/Chat/EmailChannelAPI.php',
+] as $aiChatClassFile) {
+    if (file_exists($aiChatClassFile)) {
+        require_once $aiChatClassFile;
+    }
+}

@@ -126,3 +126,49 @@ Feature موجودة يمكن إعادة استخدامها، استخدمها �
 (Left: قائمة محادثات / Center: الشات / Right: بيانات العميل والـLead)
 تستهلك كل الـAPIs المبنية في المراحل 1-5 مباشرة، لتصبح المنصة قابلة
 للاستخدام الفعلي من فريقكم بدل التعامل معها عبر API فقط.
+
+---
+
+## ما تم إضافته في هذا الدمج (feature/ai-chat-improvements — 2026-08-15)
+
+هذا الدمج يضيف فوق المراحل 1-5 التكميلات النهائية المطابقة لحالة
+`/chat` الكاملة (Unified Inbox) كما صارت فعليًا، مع الحفاظ الكامل على
+كل مسارات وميزات المشروع الأخرى الموجودة في `main`:
+
+- **Business Hours (إدراك ساعات العمل في الأتمتة)**: `BusinessHoursService`
+  جديد + ربطه بـ`FollowUpAutomationService` — أي لحظة استحقاق لمتابعة
+  خارج ساعات عمل الشركة تُرجَع لأقرب لحظة فتح فعلية، ولو حان وقت
+  الإرسال خارج ساعات العمل يُؤجَّل تلقائيًا. بدون قسم `business_hours`
+  في Knowledge Base يبقى السلوك 24/7 كما هو تمامًا.
+- **`next_recommended_action`**: عمود جديد على `ai_conversations` عبر
+  migration منفصل (`2026_08_15_000002_...`)، يطلبه المحرك من الـAI ويحفظه
+  ويعرضه في لوحة المحادثة والـLead.
+- **Quick Filter Buttons (بند 16)**: 9 أزرار فلترة سريعة (الكل، غير
+  المقروءة، AI، موظف، Leads ساخنة، متابعة، مغلقة، VIP، شكاوى) + دعم
+  Backend لفلتر "غير المقروءة" (`unread_only`) + Pagination لقائمة
+  المحادثات.
+- **Knowledge Base Edit**: تعديل مباشر لعناصر القاعدة من صفحة
+  `/chat/knowledge-base` + معاينة.
+- **Custom Tags (بند 11)**: `AiCustomTagController` كامل + واجهة
+  إضافة/حذف من صفحة المحادثة.
+- **إصلاح مسار الرد التلقائي** في `ChatManager`: استخدم `sendMessageForWebsite()`
+  (Multi-tenant) بدل دالة WhatsApp-only القديمة — ليدعم كل القنوات.
+- **Rate Limit قابل للتعديل**: `ChatManager` يقرأ `AI_CHAT_RATE_LIMIT_MAX`
+  و`AI_CHAT_RATE_LIMIT_WINDOW_SECONDS` (المُعرَّفة في `constants.php`)
+  بدل القيم الثابتة 20/60.
+- **مسارات `/api/ai-chat/*` الغائبة** أُضيفت في `app/routes/api.php`
+  (المحادثات، الرد، Handoff، استرجاع AI، Reply Suggestions، Custom
+  Tags، Analytics، Leads، Follow-up Settings) — مع الإبقاء على كل
+  مسارات المشروع الأخرى.
+- **تسجيل الكلاسات يدويًا**: استكمال `$optionalNewClassFiles` في
+  `public_html/index.php` وكود `cron/bootstrap.php` بكل كلاسات AI Chat
+  (Models → Providers → Services → Controllers) ليعمل `cron/
+  process_ai_followups.php` وصفحات `/chat` دون `composer dump-autoload`.
+
+### الالتزامات المحفوظة (بند "استخدم المكونات الموجودة")
+- لم يُلمَس أي Module آخر: `TourfectoAIEngine`، SEO/CRM/Ads/Analytics،
+  Competitor Intelligence، Revenue Intelligence، OTA، حساب 2FA، Billing،
+  بيانات التصدير — كلها كما هي في `main`.
+- لم تُستبدل أي ملفات مشتركة بالكامل؛ تم إضافة الدلتا فقط (routes،
+  loader entries، ترجمات، إصلاحات موضعية).
+

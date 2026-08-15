@@ -1940,4 +1940,12 @@ return [
     'settings.tab.permissions' => 'الدور والصلاحيات',
     'settings.view_privacy_policy' => 'عرض سياسة الخصوصية',
     'settings.js.delete_confirm_subscription' => 'الحذف مش هيلغي الاشتراك تلقائيًا عند مزوّد الدفع - هتحتاج تلغيه بنفسك من صفحة الفوترة. عايز تكمل؟',
+    'chat.kb.title' => 'قاعدة المعرفة',
+    'chat.kb.subtitle' => 'المعلومات التي يعتمد عليها الذكاء الاصطناعي في الرد على عملائك',
+    'chat.followup.title' => 'المتابعة التلقائية',
+    'chat.followup.subtitle' => 'إعدادات الرسائل التلقائية للعملاء الذين لم يردّوا',
+    'chat.analytics.title' => 'تحليلات AI Chat',
+    'chat.analytics.subtitle' => 'أداء الذكاء الاصطناعي والمحادثات',
+    'chat.leads.title' => 'العملاء المحتملون',
+    'chat.leads.subtitle' => 'كل العملاء المحتملين مرتّبين حسب الأولوية',
 ];
