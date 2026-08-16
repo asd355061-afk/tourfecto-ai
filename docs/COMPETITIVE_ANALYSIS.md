@@ -157,10 +157,10 @@
 | # | الفجوة | ملاحظات |
 |---|---|---|
 | G6 | **مراحل دورة حياة مخصصة للعملاء** (Contact Lifecycle) | تفصل "جديد/مؤهل/عميل/خامل/مفقود" عن حالة Lead | ✅ منفَّذ في المرحلة 13 |
-| G7 | **إحصائيات + رسوم بيانية للتقرير** (بحسب الفترة، رسم بياني للـPipeline) | حاليا جداول/تiles فقط |
-| G8 | **تتبع فتح البريد** (Email Open Tracking) | إضافة بكسل تتبع في Mailer |
+| G7 | **إحصائيات + رسوم بيانية للتقرير** (بحسب الفترة، رسم بياني للـPipeline) | حاليا جداول/تiles فقط | ✅ منفَّذ في المرحلة 14 |
+| G8 | **تتبع فتح البريد** (Email Open Tracking) | إضافة بكسل تتبع في Mailer | ✅ منفَّذ في المرحلة 14 |
 | G9 | **دعوة أعضاء الفريق عبر بريد إلكتروني** | رفع قيد "يجب أن يكون له حساب" | ✅ منفَّذ في المرحلة 13 |
-| G10 | **أنشطة/نتائج مخصصة** (Custom Activity Types) | مثل زيارات الموقع، مكالمات |
+| G10 | **أنشطة/نتائج مخصصة** (Custom Activity Types) | مثل زيارات الموقع، مكالمات | ✅ منفَّذ في المرحلة 14 |
 
 ### 3.3 أولوية منخفضة / خارج نطاق تنفيذ اليوم
 
@@ -216,6 +216,22 @@
   غير مسجّل → دعوة + رابط `/crm/accept-invite?token=` يقبلها غير المسجّل بإنشاء حساب.
 - **التسليم**: migrations `000009/000010/000011` + 4 Models + 4 Services + 24 دالة Controller
   + 24 مسارًا + ~95 مفتاح Lang ثنائي اللغة.
+
+### تنفيذ الجولة المقترحة 3 (المرحلة 14 — منفَّذة ✔)
+- **G7 ✔**: `CrmChartService` — بيانات جاهزة للرسوم (Chart.js) مباشرة من القاعدة:
+  pipelineChart (توزيع الصفقات على المراحل)، revenueTrend (آخر N شهر)،
+  winLossTrend (أعمدة Won/Lost)، leadSourceDistribution، dealStatusDistribution،
+  lifecycleDistribution. 6 دوال Controller + 6 مسارات.
+- **G8 ✔**: `CrmEmailTrackingService` — بكسل تتبع 1x1 يُضمّن في HTML الإيميل الصادر
+  عبر `/api/crm/email-track/{token}.gif` (مسار عام بلا AuthMiddleware لأن عميل البريد
+  بلا جلسة)؛ `recordOpen()` يسجّل أول/آخر فتح + العدد + IP + المتصفح. جدول
+  `crm_email_trackings` + إحصاءات open_rate. Additive: `Mailer`/`CrmEmailService` لم يُلمسا.
+- **G10 ✔**: `CrmActivityService` — أنواع أنشطة مخصصة (جدولان: `crm_activity_types`
+  + `crm_activities`) مرتبطة بأي كيان (contact/lead/deal/company)؛ 6 أنواع نظامية مبدوءة
+  (call/site_visit/follow_up/meeting/email/quote) + أنواع مخصصة لكل حساب.
+  7 دوال Controller + 7 مسارات.
+- **التسليم**: migrations `000012/000013` + 3 Models + 3 Services + 16 دالة Controller
+  + 16 مسارًا + ~50 مفتاح Lang ثنائي اللغة.
 
 ---
 
