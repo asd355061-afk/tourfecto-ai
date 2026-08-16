@@ -41,6 +41,7 @@ class OnboardingAuditJob implements QueueJobInterface
             '/Services/CompetitorIntelligence/SsrfGuard.php',
             '/Services/CompetitorIntelligence/CompetitorAnalysisService.php',
             '/Models/ActivityLog.php',
+            '/Services/CompetitorIntelligence/WebsiteSnapshotFetcher.php',
         ];
         foreach ($deps as $rel) {
             $file = APP_PATH . $rel;
@@ -108,6 +109,58 @@ class OnboardingAuditJob implements QueueJobInterface
                     Logger::error('OnboardingAuditJob ActivityLog failed: ' . $e->getMessage());
                 }
             }
+        }
+
+        // Phase 20: إشعار فوري للمستخدم إن النتيجة جاهزة (زي إشعارات
+        // "تم تحليل موقعك" في المنصات العالمية). بأمان تام: لو جدول
+        // notifications لسه مش متعمل على السيرفر بنتجاهل بصمت.
+        $this->notifyCompletion($userId, $result);
+    }
+
+    /**
+     * إشعار فوري بأن الإعداد خلص. بيحترم لغة المستخدم المفضلة، وبيفشل
+     * بصمت (من غير ما يكسر الجوب) لو جدول notifications مش موجود.
+     */
+    private function notifyCompletion(int $userId, array $result): void
+    {
+        try {
+            $db = Database::getInstance();
+            $userRows = $db->query("SELECT language FROM users WHERE id = ? LIMIT 1", [$userId]);
+            $lang = strtolower((string) ($userRows[0]['language'] ?? 'ar'));
+            $lang = in_array($lang, ['ar', 'en', 'fr', 'de'], true) ? $lang : 'ar';
+
+            $auditReady = (bool) ($result['audit'] ?? null);
+            $growthReady = (bool) ($result['growth_plan'] ?? null);
+
+            if ($lang === 'ar') {
+                $title = $auditReady ? 'تحليل موقعك جاهز!' : 'انتهى إعداد حسابك';
+                $body = $auditReady
+                    ? 'خلصنا تحليل موقعك وبنينا خطة نموك - افتح لوحة النمو عشان تشوف النتيجة والخطوات.'
+                    : 'اتسجلنا بيانات نشاطك ومنافسيك. التحليل العميق مستمر في الخلفية ولوحة النمو هتتحدّث تلقائيًا.';
+            } elseif ($lang === 'en') {
+                $title = $auditReady ? 'Your website analysis is ready!' : 'Your account is set up';
+                $body = $auditReady
+                    ? 'We finished analyzing your website and built your growth plan - open the Growth dashboard to see results and next steps.'
+                    : 'We saved your business and competitors. Deep analysis continues in the background and the Growth dashboard will update automatically.';
+            } elseif ($lang === 'fr') {
+                $title = $auditReady ? 'L\'analyse de votre site est prête !' : 'Votre compte est configuré';
+                $body = $auditReady
+                    ? 'Nous avons terminé l\'analyse de votre site et construit votre plan de croissance - ouvrez le tableau de bord Croissance.'
+                    : 'Vos informations et concurrents sont enregistrés. L\'analyse approfondie continue en arrière-plan.';
+            } else {
+                $title = $auditReady ? 'Ihre Website-Analyse ist fertig!' : 'Ihr Konto ist eingerichtet';
+                $body = $auditReady
+                    ? 'Wir haben Ihre Website analysiert und Ihren Wachstumsplan erstellt - öffnen Sie das Wachstums-Dashboard.'
+                    : 'Ihre Daten und Wettbewerber wurden gespeichert. Die Analyse läuft im Hintergrund weiter.';
+            }
+
+            $db->exec(
+                "INSERT INTO notifications (user_id, type, title, body, link, read_at, created_at)
+                 VALUES (?, 'onboarding_complete', ?, ?, '/dashboard/growth', NULL, NOW())",
+                [$userId, $title, $body]
+            );
+        } catch (Throwable $e) {
+            // جدول notifications مش موجود على السيرفر لسه - إشعار اختياري مش حاسم
         }
     }
 }

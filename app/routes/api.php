@@ -940,6 +940,8 @@ $router->get('/api/executive-dashboard', 'ExecutiveDashboardController', 'getDas
 // Phase 16 (Onboarding Wizard)
 $router->post('/api/onboarding/complete', 'OnboardingController', 'complete', ['AuthMiddleware']);
 $router->get('/api/onboarding/status', 'OnboardingController', 'status', ['AuthMiddleware']);
+// Phase 20 (Onboarding Competitive): كشف تلقائي لاسم النشاط من الموقع
+$router->get('/api/onboarding/preview', 'OnboardingController', 'preview', ['AuthMiddleware']);
 // Phase 11 (AI CEO Advisor)
 $router->post('/api/executive/ceo-advisor/ask', 'ExecutiveExtrasController', 'askCeoAdvisor', ['AuthMiddleware']);
 // Phase 12 (Action Center)
