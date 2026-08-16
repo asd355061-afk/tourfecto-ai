@@ -1,10 +1,12 @@
 <?php
+
 /**
  * Tourfecto - Payment Transaction Model
  * السجل الموحّد لكل محاولات الدفع (أي طريقة، أي بوابة).
  * @version 1.0.0
  */
-class PaymentTransaction extends Model {
+class PaymentTransaction extends Model
+{
     protected $table = 'payment_transactions';
 
     protected $fillable = [

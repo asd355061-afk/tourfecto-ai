@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Tracking / Historical Timeline Service
  * @version 1.0.0
@@ -7,12 +8,13 @@
  * يعرض تطور المنافس بمرور الوقت (مش بس آخر تغيير). لا يحذف أو يستبدل
  * أي سجل قديم - القراءة فقط.
  */
-class CompetitorTrackingService {
-
+class CompetitorTrackingService
+{
     /**
      * @return array<string, array> مفتاح كل عنصر "YYYY-MM"، والقيمة قائمة تغييرات الشهر ده
      */
-    public function getTimeline(int $competitorId, int $monthsBack = 12): array {
+    public function getTimeline(int $competitorId, int $monthsBack = 12): array
+    {
         $db = Database::getInstance();
         $rows = $db->query(
             "SELECT * FROM `ci_changes` WHERE competitor_id = ?
@@ -40,7 +42,8 @@ class CompetitorTrackingService {
         return $timeline;
     }
 
-    public function getActivityFeed(int $userId, int $limit = 50): array {
+    public function getActivityFeed(int $userId, int $limit = 50): array
+    {
         $db = Database::getInstance();
         $rows = $db->query(
             "SELECT c.*, comp.competitor_name, comp.competitor_domain

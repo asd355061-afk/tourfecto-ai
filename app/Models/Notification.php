@@ -1,9 +1,11 @@
 <?php
+
 /**
  * Tourfecto - Notification Model
  * @version 1.0.0
  */
-class Notification extends Model {
+class Notification extends Model
+{
     protected $table = 'notifications';
     protected $fillable = ['user_id', 'type', 'title', 'body', 'link', 'read_at'];
 
@@ -29,7 +31,8 @@ class Notification extends Model {
     ];
 
     /** الفئات كلها متاحة افتراضيًا (true) لو المستخدم لسه معندوش تفضيل محفوظ */
-    public static function defaultPreferences(): array {
+    public static function defaultPreferences(): array
+    {
         return [
             'reviews' => true,
             'content_publishing' => true,
@@ -39,7 +42,8 @@ class Notification extends Model {
     }
 
     /** يرجّع تفضيلات مستخدم معيّن، بعد الدمج مع الافتراضي لأي فئة ناقصة */
-    public static function preferencesFor(User $user): array {
+    public static function preferencesFor(User $user): array
+    {
         $raw = $user->getAttribute('notification_preferences');
         $saved = is_string($raw) ? json_decode($raw, true) : (is_array($raw) ? $raw : null);
         return array_merge(self::defaultPreferences(), is_array($saved) ? $saved : []);
@@ -50,7 +54,8 @@ class Notification extends Model {
      * أي type مش موجود في التصنيف أعلاه بيتعامل معاه كـ"مفعّل افتراضيًا"
      * عشان feature جديدة متتقفلش بالغلط.
      */
-    public static function isEnabledFor(User $user, string $type): bool {
+    public static function isEnabledFor(User $user, string $type): bool
+    {
         $category = self::TYPE_CATEGORY_MAP[$type] ?? null;
         if ($category === null) {
             return true;
@@ -59,7 +64,8 @@ class Notification extends Model {
         return (bool) ($prefs[$category] ?? true);
     }
 
-    public static function notify(int $userId, string $type, string $title, string $body = '', string $link = ''): void {
+    public static function notify(int $userId, string $type, string $title, string $body = '', string $link = ''): void
+    {
         try {
             // نقطة تحكم مركزية واحدة: بنتحقق من تفضيل المستخدم هنا في
             // المكان الوحيد اللي كل الإشعارات بتعدي منه فعليًا.

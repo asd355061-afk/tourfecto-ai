@@ -1,22 +1,28 @@
 <?php
+
 /**
  * Tourfecto - Wallet Controller
  * إيداع رصيد (تحويل بنكي/PayPal يدوي، تأكيد عن طريق واتساب)، وموافقة
  * الأدمن، والاشتراك التلقائي من الرصيد.
  * @version 1.0.0
  */
-class WalletController extends Controller {
+class WalletController extends Controller
+{
     /** @var WalletService */
     private $service;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->service = new WalletService();
     }
 
     /** GET /api/wallet/balance */
-    public function getBalance(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getBalance(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         try {
             $balance = $this->service->getBalance((int) $this->user['id']);
@@ -39,12 +45,15 @@ class WalletController extends Controller {
     }
 
     /** GET /api/wallet/history */
-    public function getHistory(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getHistory(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         try {
             $history = $this->service->getHistory((int) $this->user['id']);
-            return $this->success(['transactions' => array_map(fn($t) => $t->toArray(), $history)]);
+            return $this->success(['transactions' => array_map(fn ($t) => $t->toArray(), $history)]);
         } catch (Exception $e) {
             Logger::error('Wallet getHistory Error', ['message' => $e->getMessage()]);
             return $this->error('تعذر جلب السجل', 500);
@@ -52,8 +61,11 @@ class WalletController extends Controller {
     }
 
     /** POST /api/wallet/deposit */
-    public function requestDeposit(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function requestDeposit(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         // تصحيح: عمود amount في قاعدة البيانات DECIMAL(10,2) (أقصى قيمة
         // 99999999.99). من غير هذا التحقق، مبلغ كبير زي 10000000000 كان
         // بيعدي التحقق الأساسي (numeric) ويوصل للـ DB فيرجع خطأ SQL خام
@@ -79,8 +91,11 @@ class WalletController extends Controller {
      * POST /api/wallet/subscribe - الاشتراك التلقائي الفوري من الرصيد
      * (بدون أي تدخل بشري لو الرصيد كافي).
      */
-    public function subscribeWithBalance(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function subscribeWithBalance(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         if (!$this->validate(['plan_key' => 'required', 'plan_type' => 'required'])) {
             return $this->error('بيانات ناقصة', 422);
         }
@@ -115,7 +130,8 @@ class WalletController extends Controller {
     // ============================================
 
     /** GET /api/admin/wallet/pending */
-    public function listPendingDeposits(array $params = []): array {
+    public function listPendingDeposits(array $params = []): array
+    {
         try {
             $pending = $this->service->getPendingDeposits();
             $result = [];
@@ -134,7 +150,8 @@ class WalletController extends Controller {
     }
 
     /** GET /api/admin/wallet/stats */
-    public function getAdminStats(array $params = []): array {
+    public function getAdminStats(array $params = []): array
+    {
         try {
             return $this->success(['stats' => $this->service->getAdminStats()]);
         } catch (Exception $e) {
@@ -144,7 +161,8 @@ class WalletController extends Controller {
     }
 
     /** GET /api/admin/wallet/mrr-trend?days=30 */
-    public function getMrrTrend(array $params = []): array {
+    public function getMrrTrend(array $params = []): array
+    {
         try {
             $days = (int) $this->get('days', 30);
             $days = max(7, min(365, $days));
@@ -159,7 +177,8 @@ class WalletController extends Controller {
      * GET /api/admin/wallet/usage-revenue?year=2026&month=8
      * تحليل تنافسي: "الإيراد لكل ميزة" من "ادفع حسب الاستخدام" الشهري.
      */
-    public function getUsageRevenueBreakdown(array $params = []): array {
+    public function getUsageRevenueBreakdown(array $params = []): array
+    {
         try {
             $year = (int) $this->get('year', date('Y'));
             $month = (int) $this->get('month', date('n'));
@@ -171,7 +190,8 @@ class WalletController extends Controller {
     }
 
     /** POST /api/admin/wallet/{id}/approve */
-    public function approveDeposit(array $params = []): array {
+    public function approveDeposit(array $params = []): array
+    {
         try {
             $tx = $this->service->approveDeposit((int) ($params['id'] ?? 0), (int) $this->user['id'], (string) $this->get('note', ''));
             $this->log('Admin Approved Deposit', ['transaction_id' => $tx->getAttribute('id')]);
@@ -182,7 +202,8 @@ class WalletController extends Controller {
     }
 
     /** POST /api/admin/wallet/{id}/reject */
-    public function rejectDeposit(array $params = []): array {
+    public function rejectDeposit(array $params = []): array
+    {
         try {
             $tx = $this->service->rejectDeposit((int) ($params['id'] ?? 0), (int) $this->user['id'], (string) $this->get('note', ''));
             $this->log('Admin Rejected Deposit', ['transaction_id' => $tx->getAttribute('id')]);
@@ -193,7 +214,8 @@ class WalletController extends Controller {
     }
 
     /** GET /api/admin/wallet/settings */
-    public function getPaymentSettingsAdmin(array $params = []): array {
+    public function getPaymentSettingsAdmin(array $params = []): array
+    {
         try {
             return $this->success(['settings' => $this->service->getPaymentSettings()]);
         } catch (Exception $e) {
@@ -202,7 +224,8 @@ class WalletController extends Controller {
     }
 
     /** PUT /api/admin/wallet/settings */
-    public function updatePaymentSettingsAdmin(array $params = []): array {
+    public function updatePaymentSettingsAdmin(array $params = []): array
+    {
         try {
             $allowed = ['iban', 'iban_bank_name', 'iban_account_name', 'paypal_email', 'whatsapp_number'];
             foreach ($allowed as $key) {
@@ -219,7 +242,8 @@ class WalletController extends Controller {
     }
 
     /** GET /api/admin/wallet/usage-pricing */
-    public function listUsagePricingAdmin(array $params = []): array {
+    public function listUsagePricingAdmin(array $params = []): array
+    {
         try {
             return $this->success(['pricing' => $this->service->getAllUsagePricingForAdmin()]);
         } catch (Exception $e) {
@@ -229,7 +253,8 @@ class WalletController extends Controller {
     }
 
     /** PUT /api/admin/wallet/usage-pricing/{id} */
-    public function updateUsagePricingAdmin(array $params = []): array {
+    public function updateUsagePricingAdmin(array $params = []): array
+    {
         try {
             $this->service->updateUsagePricing(
                 (int) ($params['id'] ?? 0),
@@ -245,12 +270,15 @@ class WalletController extends Controller {
     }
 
     /** POST /api/admin/users/{id}/add-balance - إضافة رصيد مباشر لعميل معيّن */
-    public function adminAddBalance(array $params = []): array {
+    public function adminAddBalance(array $params = []): array
+    {
         if (($this->user['role'] ?? '') !== 'super_admin' && ($this->user['role'] ?? '') !== 'admin') {
             return $this->error('غير مصرح', 403);
         }
         $userId = (int) ($params['id'] ?? 0);
-        if (!$userId) return $this->error('عميل غير موجود', 404);
+        if (!$userId) {
+            return $this->error('عميل غير موجود', 404);
+        }
 
         // تصحيح: نفس حد عمود amount في قاعدة البيانات DECIMAL(10,2)
         if (!$this->validate(['amount' => 'required|numeric|max:99999999.99'])) {
@@ -259,7 +287,10 @@ class WalletController extends Controller {
 
         try {
             $tx = $this->service->adminAddBalance(
-                $userId, (float) $this->get('amount', 0), (int) $this->user['id'], (string) $this->get('note', '')
+                $userId,
+                (float) $this->get('amount', 0),
+                (int) $this->user['id'],
+                (string) $this->get('note', '')
             );
             $this->log('Admin Added Balance', ['user_id' => $userId, 'amount' => $this->get('amount')]);
             return $this->success(['transaction' => $tx->toArray(), 'new_balance' => $this->service->getBalance($userId)], 'تم إضافة الرصيد');
@@ -269,14 +300,17 @@ class WalletController extends Controller {
     }
 
     /** POST /api/admin/wallet/cards/generate - توليد دفعة بطاقات شحن جديدة */
-    public function generateCards(array $params = []): array {
+    public function generateCards(array $params = []): array
+    {
         if (($this->user['role'] ?? '') !== 'super_admin' && ($this->user['role'] ?? '') !== 'admin') {
             return $this->error('غير مصرح', 403);
         }
         try {
             $cards = $this->service->generateRechargeCards(
-                (int) $this->get('count', 0), (float) $this->get('value', 0),
-                (int) $this->user['id'], (string) $this->get('batch_label', '')
+                (int) $this->get('count', 0),
+                (float) $this->get('value', 0),
+                (int) $this->user['id'],
+                (string) $this->get('batch_label', '')
             );
             $this->log('Admin Generated Recharge Cards', ['count' => count($cards)]);
             return $this->success(['cards' => $cards], 'تم توليد ' . count($cards) . ' بطاقة');
@@ -286,10 +320,11 @@ class WalletController extends Controller {
     }
 
     /** GET /api/admin/wallet/cards */
-    public function listCards(array $params = []): array {
+    public function listCards(array $params = []): array
+    {
         try {
             $cards = (new WalletRechargeCard())->where([], ['created_at' => 'DESC'], 200);
-            return $this->success(['cards' => array_map(fn($c) => $c->toArray(), $cards)]);
+            return $this->success(['cards' => array_map(fn ($c) => $c->toArray(), $cards)]);
         } catch (Exception $e) {
             Logger::error('Admin listCards Error', ['message' => $e->getMessage()]);
             return $this->error('تعذر جلب البطاقات', 500);
@@ -297,9 +332,14 @@ class WalletController extends Controller {
     }
 
     /** POST /api/wallet/redeem-card - العميل يشحن بطاقة */
-    public function redeemCard(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!$this->validate(['code' => 'required'])) return $this->error('اكتب كود البطاقة', 422);
+    public function redeemCard(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!$this->validate(['code' => 'required'])) {
+            return $this->error('اكتب كود البطاقة', 422);
+        }
 
         try {
             $result = $this->service->redeemCard((int) $this->user['id'], (string) $this->get('code'));
@@ -315,7 +355,8 @@ class WalletController extends Controller {
     // ============================================
 
     /** GET /api/admin/refunds */
-    public function listRefunds(array $params = []): array {
+    public function listRefunds(array $params = []): array
+    {
         try {
             $refundService = new RefundService();
             return $this->success(['refunds' => $refundService->listAll()]);
@@ -326,7 +367,8 @@ class WalletController extends Controller {
     }
 
     /** POST /api/admin/refunds */
-    public function createRefund(array $params = []): array {
+    public function createRefund(array $params = []): array
+    {
         if (!$this->validate(['payment_transaction_id' => 'required', 'amount' => 'required|numeric'])) {
             return $this->error('بيانات ناقصة', 422);
         }
@@ -357,7 +399,8 @@ class WalletController extends Controller {
     // ============================================
 
     /** GET /api/admin/tax-rules */
-    public function listTaxRules(array $params = []): array {
+    public function listTaxRules(array $params = []): array
+    {
         try {
             return $this->success(['rules' => (new TaxService())->listAll()]);
         } catch (Exception $e) {
@@ -367,7 +410,8 @@ class WalletController extends Controller {
     }
 
     /** POST /api/admin/tax-rules */
-    public function upsertTaxRule(array $params = []): array {
+    public function upsertTaxRule(array $params = []): array
+    {
         if (!$this->validate(['country_code' => 'required', 'tax_type' => 'required', 'tax_rate_percent' => 'required|numeric'])) {
             return $this->error('بيانات ناقصة', 422);
         }

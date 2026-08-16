@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - GBP Health Check
  * فحص صحة حقيقي للموديول (بند AP/AQ بالسبيك) - كل عنصر بيتفحص فعليًا من
@@ -7,11 +8,13 @@
  * @version 1.0.0
  * @since 2026-08-14 (GBP Module Upgrade - Round 8: Professional Finalization / Phase AP)
  */
-class GbpHealthCheckService {
+class GbpHealthCheckService
+{
     /** لو مفيش Job (من أي نوع، مش GBP بس) اتنفذت خلال الفترة دي، الطابور غالبًا واقف */
     private const QUEUE_STALE_MINUTES = 15;
 
-    public function check(): array {
+    public function check(): array
+    {
         $items = [];
 
         $items['oauth_configured'] = $this->checkOAuthConfigured();
@@ -24,14 +27,20 @@ class GbpHealthCheckService {
 
         $overall = 'OK';
         foreach ($items as $item) {
-            if ($item['status'] === 'ERROR') { $overall = 'ERROR'; break; }
-            if ($item['status'] === 'WARNING' && $overall !== 'ERROR') { $overall = 'WARNING'; }
+            if ($item['status'] === 'ERROR') {
+                $overall = 'ERROR';
+                break;
+            }
+            if ($item['status'] === 'WARNING' && $overall !== 'ERROR') {
+                $overall = 'WARNING';
+            }
         }
 
         return ['overall' => $overall, 'checks' => $items, 'checked_at' => date('Y-m-d H:i:s')];
     }
 
-    private function checkOAuthConfigured(): array {
+    private function checkOAuthConfigured(): array
+    {
         try {
             $oauth = new GoogleOAuthClient();
             return $oauth->isConfigured()
@@ -42,7 +51,8 @@ class GbpHealthCheckService {
         }
     }
 
-    private function checkMapsConfigured(): array {
+    private function checkMapsConfigured(): array
+    {
         try {
             $envKey = defined('GOOGLE_MAPS_API_KEY') ? GOOGLE_MAPS_API_KEY : '';
             $key = class_exists('SystemSettingsService') ? (new SystemSettingsService())->get('google_maps_api_key', $envKey) : $envKey;
@@ -54,7 +64,8 @@ class GbpHealthCheckService {
         }
     }
 
-    private function checkDatabaseTables(): array {
+    private function checkDatabaseTables(): array
+    {
         $requiredTables = ['gbp_sync_logs', 'gbp_photos', 'gbp_insights_cache', 'gbp_audit_log', 'gbp_scheduled_posts', 'gbp_content', 'platform_connections'];
         $missing = [];
 
@@ -82,7 +93,8 @@ class GbpHealthCheckService {
      * بنشوف آخر مرة أي Job (مش GBP بس - مؤشر عام) اتعالج فعليًا. لو مفيش
      * حركة خلال آخر 15 دقيقة رغم وجود Jobs pending، الطابور غالبًا واقف.
      */
-    private function checkQueueWorker(): array {
+    private function checkQueueWorker(): array
+    {
         try {
             $db = Database::getInstance();
             $rows = $db->query(
@@ -113,7 +125,8 @@ class GbpHealthCheckService {
         }
     }
 
-    private function checkLastSync(string $status): array {
+    private function checkLastSync(string $status): array
+    {
         try {
             $db = Database::getInstance();
             $rows = $db->query(
@@ -131,7 +144,8 @@ class GbpHealthCheckService {
         }
     }
 
-    private function checkAiAvailable(): array {
+    private function checkAiAvailable(): array
+    {
         try {
             $configured = defined('GEMINI_API_KEY') && GEMINI_API_KEY !== '';
             return $configured

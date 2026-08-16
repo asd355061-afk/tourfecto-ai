@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Controller
  * لا يوجد نظام CRM منفصل في أي موديول مرفوع؛ هذه اللوحة تجمّع بيانات
@@ -6,12 +7,14 @@
  * واحدة بدل تكرار جدول "عملاء" موازٍ يكرر بيانات users/websites أصلًا.
  * @version 1.0.0
  */
-class CrmController extends Controller {
+class CrmController extends Controller
+{
     /** @var CrmLeadService */
     private $leadService;
     private $permissionService;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->leadService = new CrmLeadService();
         $this->permissionService = new CrmPermissionService();
@@ -24,12 +27,14 @@ class CrmController extends Controller {
      * الفريق الجديد. تمت إضافتها هنا الآن + استبدال $this->user['id'] بيها
      * في مواضع العزل الفعلية فقط (وليس كل الاستخدامات - راجع CHANGELOG).
      */
-    private function tenantId(): int {
+    private function tenantId(): int
+    {
         return $this->permissionService->resolveTenantId((int) ($this->user['id'] ?? 0));
     }
 
     /** شريط تابات مشترك بين صفحات CRM التلاتة */
-    private function crmTabsHtml(string $active): string {
+    private function crmTabsHtml(string $active): string
+    {
         $tabs = [
             'overview' => [$this->tr('crm.tab.overview'), '/crm'],
             'leads' => [$this->tr('crm.tab.leads'), '/crm/leads'],
@@ -51,7 +56,8 @@ class CrmController extends Controller {
     }
 
     /** GET /crm */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $tabsHtml = $this->crmTabsHtml('overview');
         $body = <<<HTML
         {$tabsHtml}
@@ -101,8 +107,11 @@ JS;
     }
 
     /** GET /api/crm/overview */
-    public function overview(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function overview(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         try {
             $userId = (int) $this->user['id'];
@@ -135,8 +144,11 @@ JS;
     }
 
     /** GET /api/crm/leads */
-    public function listLeads(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listLeads(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         try {
             $leads = $this->db->query(
@@ -157,9 +169,14 @@ JS;
     }
 
     /** POST /api/crm/leads */
-    public function createLead(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!$this->validate(['name' => 'required'])) return $this->error('اسم جهة الاتصال مطلوب', 422);
+    public function createLead(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!$this->validate(['name' => 'required'])) {
+            return $this->error('اسم جهة الاتصال مطلوب', 422);
+        }
 
         try {
             $contact = $this->leadService->createContact($this->tenantId(), [
@@ -178,9 +195,14 @@ JS;
     }
 
     /** POST /api/crm/leads/{id}/status */
-    public function updateLeadStatus(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!$this->validate(['status' => 'required'])) return $this->error('الحالة مطلوبة', 422);
+    public function updateLeadStatus(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!$this->validate(['status' => 'required'])) {
+            return $this->error('الحالة مطلوبة', 422);
+        }
 
         $allowed = ['new', 'nurturing', 'qualified', 'disqualified', 'converted'];
         if (!in_array($this->get('status'), $allowed, true)) {
@@ -201,8 +223,11 @@ JS;
     }
 
     /** GET /api/crm/pipeline-stages */
-    public function listPipelineStages(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listPipelineStages(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         try {
             // ملاحظة: Model::where(['agency_id' => null]) كانت هتولّد
@@ -219,8 +244,11 @@ JS;
     }
 
     /** GET /api/crm/deals */
-    public function listDeals(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listDeals(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         try {
             $deals = $this->db->query(
@@ -240,9 +268,14 @@ JS;
     }
 
     /** POST /api/crm/deals */
-    public function createDeal(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!$this->validate(['title' => 'required', 'stage_id' => 'required'])) return $this->error('بيانات ناقصة', 422);
+    public function createDeal(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!$this->validate(['title' => 'required', 'stage_id' => 'required'])) {
+            return $this->error('بيانات ناقصة', 422);
+        }
 
         try {
             $deal = new CrmDeal([
@@ -276,9 +309,14 @@ JS;
     }
 
     /** POST /api/crm/deals/{id}/stage - نقل صفقة لمرحلة تانية (كانت الوظيفة دي ناقصة بالكامل - مفيش طريقة كانت موجودة لتحديث صفقة بعد إنشائها) */
-    public function updateDealStage(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!$this->validate(['stage_id' => 'required'])) return $this->error('المرحلة الجديدة مطلوبة', 422);
+    public function updateDealStage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!$this->validate(['stage_id' => 'required'])) {
+            return $this->error('المرحلة الجديدة مطلوبة', 422);
+        }
 
         try {
             $deal = (new CrmDeal())->find((int) ($params['id'] ?? 0));
@@ -337,8 +375,11 @@ JS;
             // Notify Team".
             try {
                 $automationEvent = 'deal.stage_changed';
-                if ((bool) $stage['is_won']) $automationEvent = 'deal.won';
-                elseif ((bool) $stage['is_lost']) $automationEvent = 'deal.lost';
+                if ((bool) $stage['is_won']) {
+                    $automationEvent = 'deal.won';
+                } elseif ((bool) $stage['is_lost']) {
+                    $automationEvent = 'deal.lost';
+                }
                 (new CrmAutomationService())->trigger($automationEvent, $this->tenantId(), [
                     'deal_id' => (int) $deal->getAttribute('id'), 'stage_id' => $stageId,
                 ]);
@@ -354,7 +395,8 @@ JS;
     }
 
     /** GET /crm/leads */
-    public function showLeads(array $params = []): array {
+    public function showLeads(array $params = []): array
+    {
         $tabsHtml = $this->crmTabsHtml('leads');
         $body = <<<HTML
         {$tabsHtml}
@@ -502,7 +544,8 @@ JS;
     }
 
     /** GET /crm/deals */
-    public function showDeals(array $params = []): array {
+    public function showDeals(array $params = []): array
+    {
         $tabsHtml = $this->crmTabsHtml('deals');
         $body = <<<HTML
         {$tabsHtml}
@@ -713,7 +756,8 @@ JS;
     // ================================================================
 
     /** GET /crm/contacts */
-    public function showContacts(array $params = []): array {
+    public function showContacts(array $params = []): array
+    {
         $tabsHtml = $this->crmTabsHtml('contacts');
         $body = <<<HTML
         {$tabsHtml}
@@ -929,7 +973,8 @@ JS;
     }
 
     /** GET /crm/contacts/{id} - Customer 360 (بند 2) */
-    public function showContactProfile(array $params = []): array {
+    public function showContactProfile(array $params = []): array
+    {
         $contactId = (int) ($params['id'] ?? 0);
         $tabsHtml = $this->crmTabsHtml('contacts');
         $body = <<<HTML
@@ -1125,7 +1170,8 @@ JS;
     }
 
     /** GET /crm/companies */
-    public function showCompanies(array $params = []): array {
+    public function showCompanies(array $params = []): array
+    {
         $tabsHtml = $this->crmTabsHtml('companies');
         $body = <<<HTML
         {$tabsHtml}
@@ -1230,7 +1276,8 @@ JS;
     }
 
     /** GET /crm/tasks */
-    public function showTasks(array $params = []): array {
+    public function showTasks(array $params = []): array
+    {
         $tabsHtml = $this->crmTabsHtml('tasks');
         $body = <<<HTML
         {$tabsHtml}
@@ -1373,7 +1420,8 @@ JS;
     }
 
     /** GET /crm/appointments */
-    public function showAppointments(array $params = []): array {
+    public function showAppointments(array $params = []): array
+    {
         $tabsHtml = $this->crmTabsHtml('appointments');
         $body = <<<HTML
         {$tabsHtml}
@@ -1487,7 +1535,8 @@ JS;
     }
 
     /** GET /crm/reports (بند 23، 24) */
-    public function showReports(array $params = []): array {
+    public function showReports(array $params = []): array
+    {
         $tabsHtml = $this->crmTabsHtml('reports');
         $body = <<<HTML
         {$tabsHtml}
@@ -1590,7 +1639,8 @@ JS;
 
     /** GET /crm/automation (بند 12، 36) */
     /** GET /crm/automation (بند 12، 36) - Visual Builder حقيقي بدل القوالب الجاهزة فقط */
-    public function showAutomation(array $params = []): array {
+    public function showAutomation(array $params = []): array
+    {
         $tabsHtml = $this->crmTabsHtml('automation');
         $body = <<<HTML
         {$tabsHtml}
@@ -1883,7 +1933,8 @@ JS;
     }
 
     /** GET /crm/team (بند 30) */
-    public function showTeam(array $params = []): array {
+    public function showTeam(array $params = []): array
+    {
         $tabsHtml = $this->crmTabsHtml('team');
         $body = <<<HTML
         {$tabsHtml}

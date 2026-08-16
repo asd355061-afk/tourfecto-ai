@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Meta (Facebook) OAuth Client
  * تدفّق OAuth 2.0 القياسي من Meta لربط حسابات Meta Ads الإعلانية
@@ -21,20 +22,23 @@
  * حصل خطأ "Unsupported API version" في المستقبل، حدّث META_API_VERSION
  * في .env لأحدث نسخة من developers.facebook.com/docs/graph-api/changelog.
  */
-class MetaOAuthClient {
+class MetaOAuthClient
+{
     private string $apiVersion;
     private string $clientId;
     private string $clientSecret;
     private string $redirectUri;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->apiVersion = env('META_API_VERSION') ?: 'v25.0';
         $this->clientId = env('META_APP_ID') ?: '';
         $this->clientSecret = env('META_APP_SECRET') ?: '';
         $this->redirectUri = env('META_OAUTH_REDIRECT_URI') ?: '';
     }
 
-    public function isConfigured(): bool {
+    public function isConfigured(): bool
+    {
         return $this->clientId !== '' && $this->clientSecret !== '' && $this->redirectUri !== '';
     }
 
@@ -42,7 +46,8 @@ class MetaOAuthClient {
      * بناء رابط "موافقة Meta" اللي هنوجّه العميل ليه.
      * @param string $state قيمة عشوائية موقّعة نتحقق منها وقت الرجوع (CSRF protection)
      */
-    public function buildAuthUrl(string $state): string {
+    public function buildAuthUrl(string $state): string
+    {
         $params = [
             'client_id' => $this->clientId,
             'redirect_uri' => $this->redirectUri,
@@ -60,7 +65,8 @@ class MetaOAuthClient {
      * تاني كل شوية.
      * @return array ['success'=>bool, 'access_token'=>?, 'expires_in'=>?, 'error'=>?]
      */
-    public function exchangeCodeForTokens(string $code): array {
+    public function exchangeCodeForTokens(string $code): array
+    {
         $shortLived = $this->httpGet('oauth/access_token', [
             'client_id' => $this->clientId,
             'client_secret' => $this->clientSecret,
@@ -85,7 +91,8 @@ class MetaOAuthClient {
      * طلب GET عام لـ Graph API، مستخدم هنا لتبادل التوكنات.
      * @return array
      */
-    private function httpGet(string $path, array $query): array {
+    private function httpGet(string $path, array $query): array
+    {
         try {
             $url = "https://graph.facebook.com/{$this->apiVersion}/{$path}?" . http_build_query($query);
             $ch = curl_init($url);

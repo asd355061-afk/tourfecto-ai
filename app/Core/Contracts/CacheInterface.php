@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Cache Contract
  * @version 1.0.0
@@ -8,7 +9,8 @@
  * (Redis / Memcached / DB) يوم من الأيام، محدش من الكود اللي بيستخدمه
  * محتاج يتغيّر. الـ CacheAdapter بيربط ده بكلاس Cache الموجود فعلاً.
  */
-interface CacheInterface {
+interface CacheInterface
+{
     /**
      * @param string $key
      * @return mixed|null

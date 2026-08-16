@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - API Routes
  * تعريف جميع مسارات API الخاصة بالتطبيق
@@ -163,6 +164,7 @@ $router->get('/api/revenue-intelligence/pipeline', 'RevenueIntelligenceControlle
 $router->get('/api/revenue-intelligence/actions', 'RevenueIntelligenceController', 'apiActions', ['AuthMiddleware']);
 $router->get('/api/revenue-intelligence/executive-summary', 'RevenueIntelligenceController', 'apiExecutiveSummary', ['AuthMiddleware']);
 $router->post('/api/revenue-intelligence/assistant/ask', 'RevenueIntelligenceController', 'apiAssistantAsk', ['AuthMiddleware']);
+$router->get('/api/revenue-intelligence/retention', 'RevenueIntelligenceController', 'apiRetention', ['AuthMiddleware']);
 $router->get('/api/revenue-intelligence/reports/export', 'RevenueIntelligenceController', 'apiExportReport', ['AuthMiddleware']);
 
 $router->get('/api/website-optimizer/websites', 'WebsiteOptimizerController', 'listWebsites', ['AuthMiddleware']);
@@ -365,7 +367,7 @@ $router->get('/api/dashboard/login-history', 'DashboardController', 'getLoginHis
 // ============================================
 // مسارات إدارية (Admin)
 // ============================================
-$router->group('/api/admin', function($router) {
+$router->group('/api/admin', function ($router) {
     // Phase 4 - AI Usage & Cost Tracking
     $router->get('/ai-usage-stats', 'AdminController', 'aiUsageStats', ['AuthMiddleware', 'AdminMiddleware']);
     // Profile Center Phase 5 - مسار طوارئ لإلغاء 2FA لمستخدم فقد جهازه
@@ -391,14 +393,14 @@ $router->group('/api/admin', function($router) {
     $router->delete('/users/{id}', 'AdminController', 'deleteUser', ['AuthMiddleware', 'AdminMiddleware']);
     $router->post('/users/{id}/suspend', 'AdminController', 'suspendUser', ['AuthMiddleware', 'AdminMiddleware']);
     $router->post('/users/{id}/activate', 'AdminController', 'activateUser', ['AuthMiddleware', 'AdminMiddleware']);
-    
+
     // الاشتراكات
     $router->get('/subscriptions', 'AdminController', 'getSubscriptions', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/subscriptions/{id}', 'AdminController', 'getSubscription', ['AuthMiddleware', 'AdminMiddleware']);
     $router->post('/subscriptions/{id}/cancel', 'AdminController', 'cancelSubscription', ['AuthMiddleware', 'AdminMiddleware']);
     $router->post('/subscriptions/run-lifecycle-checks', 'AdminController', 'runSubscriptionLifecycleChecks', ['AuthMiddleware', 'BillingAdminMiddleware']);
     $router->post('/invoices/run-lifecycle-checks', 'AdminController', 'runInvoiceLifecycleChecks', ['AuthMiddleware', 'BillingAdminMiddleware']);
-    
+
     // رسائل التواصل
     $router->get('/contact-messages', 'AdminController', 'getContactMessages', ['AuthMiddleware', 'AdminMiddleware']);
     $router->post('/contact-messages/{id}/read', 'AdminController', 'markContactMessageRead', ['AuthMiddleware', 'AdminMiddleware']);
@@ -428,7 +430,7 @@ $router->group('/api/admin', function($router) {
     $router->get('/tax-rules', 'WalletController', 'listTaxRules', ['AuthMiddleware', 'BillingAdminMiddleware']);
     $router->post('/tax-rules', 'WalletController', 'upsertTaxRule', ['AuthMiddleware', 'BillingAdminMiddleware']);
     $router->put('/plans/{id}', 'AdminController', 'updatePlan', ['AuthMiddleware', 'AdminMiddleware']);
-    
+
     // النظام
     $router->get('/system/health', 'AdminController', 'systemHealth', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/system/logs', 'AdminController', 'getLogs', ['AuthMiddleware', 'AdminMiddleware']);
@@ -656,6 +658,11 @@ $router->get('/api/gbp/competitors', 'GbpProfileController', 'competitors', ['Au
 $router->get('/api/gbp/analytics', 'GbpProfileController', 'analytics', ['AuthMiddleware']);
 $router->get('/api/gbp/risk-signals', 'GbpProfileController', 'riskSignals', ['AuthMiddleware']);
 $router->get('/api/gbp/share-of-voice', 'GbpProfileController', 'shareOfVoice', ['AuthMiddleware']);
+$router->get('/api/gbp/reply-rules', 'GbpProfileController', 'listReplyRules', ['AuthMiddleware']);
+$router->post('/api/gbp/reply-rules', 'GbpProfileController', 'createReplyRule', ['AuthMiddleware']);
+$router->put('/api/gbp/reply-rules/{id}', 'GbpProfileController', 'updateReplyRule', ['AuthMiddleware']);
+$router->delete('/api/gbp/reply-rules/{id}', 'GbpProfileController', 'deleteReplyRule', ['AuthMiddleware']);
+$router->post('/api/gbp/reply-rules/apply/{review_id}', 'GbpProfileController', 'applyReplyRules', ['AuthMiddleware']);
 $router->post('/api/gbp/sync/{website_id}', 'GbpProfileController', 'sync', ['AuthMiddleware']);
 $router->get('/api/gbp/profile', 'GbpProfileController', 'getProfile', ['AuthMiddleware']);
 $router->post('/api/gbp/profile', 'GbpProfileController', 'updateProfile', ['AuthMiddleware']);
@@ -855,6 +862,28 @@ $router->get('/api/crm/team', 'CrmApiController', 'listTeam', ['AuthMiddleware']
 $router->post('/api/crm/team', 'CrmApiController', 'addTeamMember', ['AuthMiddleware']);
 $router->put('/api/crm/team/{id}', 'CrmApiController', 'updateTeamMemberRole', ['AuthMiddleware']);
 $router->delete('/api/crm/team/{id}', 'CrmApiController', 'removeTeamMember', ['AuthMiddleware']);
+
+// المرحلة 12 (G1) - Message Templates
+$router->get('/api/crm/templates', 'CrmApiController', 'listTemplates', ['AuthMiddleware']);
+$router->get('/api/crm/templates/variables', 'CrmApiController', 'templateVariables', ['AuthMiddleware']);
+$router->post('/api/crm/templates', 'CrmApiController', 'createTemplate', ['AuthMiddleware']);
+$router->put('/api/crm/templates/{id}', 'CrmApiController', 'updateTemplate', ['AuthMiddleware']);
+$router->delete('/api/crm/templates/{id}', 'CrmApiController', 'deleteTemplate', ['AuthMiddleware']);
+$router->post('/api/crm/templates/{id}/render', 'CrmApiController', 'renderTemplate', ['AuthMiddleware']);
+
+// المرحلة 12 (G4) - Win/Loss Analysis + Sales Goals
+$router->get('/api/crm/reports/win-loss', 'CrmApiController', 'winLossReport', ['AuthMiddleware']);
+$router->get('/api/crm/reports/sales-goals', 'CrmApiController', 'salesGoalsReport', ['AuthMiddleware']);
+$router->post('/api/crm/reports/sales-goals', 'CrmApiController', 'setSalesGoal', ['AuthMiddleware']);
+$router->delete('/api/crm/reports/sales-goals/{id}', 'CrmApiController', 'deleteSalesGoal', ['AuthMiddleware']);
+
+// المرحلة 12 (G2) - Custom Fields
+$router->get('/api/crm/custom-fields', 'CrmApiController', 'listCustomFields', ['AuthMiddleware']);
+$router->post('/api/crm/custom-fields', 'CrmApiController', 'createCustomField', ['AuthMiddleware']);
+$router->put('/api/crm/custom-fields/{id}', 'CrmApiController', 'updateCustomField', ['AuthMiddleware']);
+$router->delete('/api/crm/custom-fields/{id}', 'CrmApiController', 'deleteCustomField', ['AuthMiddleware']);
+$router->get('/api/crm/entities/{entityType}/{id}/custom-fields', 'CrmApiController', 'getEntityCustomFields', ['AuthMiddleware']);
+$router->post('/api/crm/entities/{entityType}/{id}/custom-fields', 'CrmApiController', 'setEntityCustomFields', ['AuthMiddleware']);
 
 // Webhook عام (بدون AuthMiddleware عمدًا - Meta هي اللي بتنادي عليه، راجع
 // تعليق CrmWhatsAppWebhookController للتفاصيل الأمنية).

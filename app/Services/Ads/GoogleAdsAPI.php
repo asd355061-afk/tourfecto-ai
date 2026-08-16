@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Google Ads API Client (REST)
  * سحب حسابات الإعلانات، الحملات، وبيانات الأداء الحقيقية (إنفاق،
@@ -16,7 +17,8 @@
  *  3) القيم دي في .env: GOOGLE_ADS_DEVELOPER_TOKEN،
  *     GOOGLE_ADS_LOGIN_CUSTOMER_ID (اختياري - لو عندك MCC).
  */
-class GoogleAdsAPI {
+class GoogleAdsAPI
+{
     private const BASE_URL = 'https://googleads.googleapis.com';
 
     private string $apiVersion;
@@ -24,7 +26,8 @@ class GoogleAdsAPI {
     private string $developerToken;
     private string $loginCustomerId;
 
-    public function __construct(string $accessToken) {
+    public function __construct(string $accessToken)
+    {
         $this->apiVersion = env('GOOGLE_ADS_API_VERSION') ?: 'v17';
         $this->accessToken = $accessToken;
         $this->developerToken = class_exists('SystemSettingsService')
@@ -35,7 +38,8 @@ class GoogleAdsAPI {
             : (string) (env('GOOGLE_ADS_LOGIN_CUSTOMER_ID') ?: '');
     }
 
-    public function isDeveloperTokenConfigured(): bool {
+    public function isDeveloperTokenConfigured(): bool
+    {
         return $this->developerToken !== '';
     }
 
@@ -44,7 +48,8 @@ class GoogleAdsAPI {
      * الاسم والعملة - عشان العميل يختار الحساب الصحيح لو عنده أكتر من واحد.
      * @return array ['success'=>bool, 'accounts'=>[['id','name','currency']], 'error'=>?]
      */
-    public function listAdAccounts(): array {
+    public function listAdAccounts(): array
+    {
         $listResult = $this->httpGet('/customers:listAccessibleCustomers');
         if (!$listResult['success']) {
             return $listResult;
@@ -88,7 +93,8 @@ class GoogleAdsAPI {
      * @param string $customerId مثال: '1234567890' (من غير "customers/")
      * @return array ['success'=>bool, 'campaigns'=>[], 'error'=>?]
      */
-    public function listCampaignsWithInsights(string $customerId): array {
+    public function listCampaignsWithInsights(string $customerId): array
+    {
         $startDate = date('Y-m-d', strtotime('-30 days'));
         $endDate = date('Y-m-d');
 
@@ -108,7 +114,9 @@ class GoogleAdsAPI {
         foreach ($result['rows'] as $row) {
             $c = $row['campaign'] ?? [];
             $id = (string) ($c['id'] ?? '');
-            if ($id === '') continue;
+            if ($id === '') {
+                continue;
+            }
 
             if (!isset($byCampaign[$id])) {
                 $byCampaign[$id] = [
@@ -132,7 +140,8 @@ class GoogleAdsAPI {
         return ['success' => true, 'campaigns' => array_values($byCampaign)];
     }
 
-    private function mapChannelType(string $channelType): string {
+    private function mapChannelType(string $channelType): string
+    {
         $map = [
             'SEARCH' => 'traffic', 'DISPLAY' => 'awareness', 'VIDEO' => 'awareness',
             'SHOPPING' => 'traffic', 'PERFORMANCE_MAX' => 'leads', 'LOCAL' => 'calls',
@@ -145,7 +154,8 @@ class GoogleAdsAPI {
      * أبسط للتعامل مع صفحة واحدة من النتائج زي احتياجنا هنا).
      * @return array ['success'=>bool, 'rows'=>array, 'error'=>?]
      */
-    private function query(string $customerId, string $gaql): array {
+    private function query(string $customerId, string $gaql): array
+    {
         $result = $this->httpPost("/customers/{$customerId}/googleAds:search", ['query' => $gaql]);
         if (!$result['success']) {
             return $result;
@@ -166,7 +176,8 @@ class GoogleAdsAPI {
      * @param string $destinationUrl
      * @return array ['success'=>bool, 'external_campaign_id'=>?, 'error'=>?]
      */
-    public function createSearchCampaign(string $customerId, array $campaign, array $copies, array $keywords, string $destinationUrl, string $bidStrategyHint = ''): array {
+    public function createSearchCampaign(string $customerId, array $campaign, array $copies, array $keywords, string $destinationUrl, string $bidStrategyHint = ''): array
+    {
         $budgetMicros = (int) round((float) ($campaign['daily_budget'] ?? 10) * 1_000_000);
 
         // 1) ميزانية الحملة (كائن منفصل في Google Ads، بتتربط بالحملة بعدين)
@@ -247,9 +258,15 @@ class GoogleAdsAPI {
         $headlines = [];
         $descriptions = [];
         foreach ($copies as $c) {
-            if (!empty($c['headline'])) $headlines[] = ['text' => mb_substr($c['headline'], 0, 30)];
-            if (!empty($c['description'])) $descriptions[] = ['text' => mb_substr($c['description'], 0, 90)];
-            if (!empty($c['primary_text'])) $descriptions[] = ['text' => mb_substr($c['primary_text'], 0, 90)];
+            if (!empty($c['headline'])) {
+                $headlines[] = ['text' => mb_substr($c['headline'], 0, 30)];
+            }
+            if (!empty($c['description'])) {
+                $descriptions[] = ['text' => mb_substr($c['description'], 0, 90)];
+            }
+            if (!empty($c['primary_text'])) {
+                $descriptions[] = ['text' => mb_substr($c['primary_text'], 0, 90)];
+            }
         }
         // Google بتطلب 3 عناوين و2 أوصاف كحد أدنى فعليًا
         if (count($headlines) < 3 || count($descriptions) < 2) {
@@ -274,7 +291,8 @@ class GoogleAdsAPI {
     }
 
     /** تعديل حالة حملة موجودة (ENABLED / PAUSED) */
-    public function updateCampaignStatus(string $customerId, string $campaignId, string $status): array {
+    public function updateCampaignStatus(string $customerId, string $campaignId, string $status): array
+    {
         $googleStatus = strtoupper($status) === 'ENABLED' ? 'ENABLED' : 'PAUSED';
         $result = $this->mutate($customerId, 'campaigns', [[
             'update' => ['resourceName' => "customers/{$customerId}/campaigns/{$campaignId}", 'status' => $googleStatus],
@@ -284,7 +302,8 @@ class GoogleAdsAPI {
     }
 
     /** إلغاء حملة نهائيًا (Google معندهاش "حذف" فعلي - أقرب حاجة status=REMOVED) */
-    public function deleteCampaign(string $customerId, string $campaignId): array {
+    public function deleteCampaign(string $customerId, string $campaignId): array
+    {
         $result = $this->mutate($customerId, 'campaigns', [[
             'update' => ['resourceName' => "customers/{$customerId}/campaigns/{$campaignId}", 'status' => 'REMOVED'],
             'updateMask' => 'status',
@@ -293,7 +312,8 @@ class GoogleAdsAPI {
     }
 
     /** تعديل الميزانية اليومية عبر resource name المحفوظ وقت الإنشاء (مثال: customers/123/campaignBudgets/456) */
-    public function updateBudget(string $budgetResourceName, float $dailyBudgetUsd): array {
+    public function updateBudget(string $budgetResourceName, float $dailyBudgetUsd): array
+    {
         if (!preg_match('#^customers/(\d+)/campaignBudgets/#', $budgetResourceName, $m)) {
             return ['success' => false, 'error' => 'رقم الميزانية غير صالح'];
         }
@@ -309,7 +329,8 @@ class GoogleAdsAPI {
      * تنفيذ عمليات Create/Remove عبر REST mutate endpoint العام (بديل REST لكل resource:mutate في Google Ads API).
      * @return array ['success'=>bool, 'results'=>array, 'error'=>?]
      */
-    private function mutate(string $customerId, string $resource, array $operations): array {
+    private function mutate(string $customerId, string $resource, array $operations): array
+    {
         $result = $this->httpPost("/customers/{$customerId}/{$resource}:mutate", ['operations' => $operations]);
         if (!$result['success']) {
             return $result;
@@ -317,15 +338,18 @@ class GoogleAdsAPI {
         return ['success' => true, 'results' => $result['data']['results'] ?? []];
     }
 
-    private function httpGet(string $path): array {
+    private function httpGet(string $path): array
+    {
         return $this->request('GET', $path, null);
     }
 
-    private function httpPost(string $path, array $body): array {
+    private function httpPost(string $path, array $body): array
+    {
         return $this->request('POST', $path, $body);
     }
 
-    private function request(string $method, string $path, ?array $body): array {
+    private function request(string $method, string $path, ?array $body): array
+    {
         if (!$this->isDeveloperTokenConfigured()) {
             return ['success' => false, 'error' => 'GOOGLE_ADS_DEVELOPER_TOKEN غير مضبوط في إعدادات النظام'];
         }

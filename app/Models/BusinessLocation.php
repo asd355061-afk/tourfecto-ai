@@ -1,9 +1,11 @@
 <?php
+
 /**
  * Tourfecto - Business Location Model
  * @version 1.0.0
  */
-class BusinessLocation extends Model {
+class BusinessLocation extends Model
+{
     protected $table = 'business_locations';
 
     protected $fillable = [
@@ -25,7 +27,8 @@ class BusinessLocation extends Model {
      * فك تشفير opening_hours من JSON مخزّن.
      * @return array
      */
-    public function getOpeningHours(): array {
+    public function getOpeningHours(): array
+    {
         $raw = $this->getAttribute('opening_hours');
         if (empty($raw)) {
             return [];

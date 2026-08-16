@@ -1,8 +1,11 @@
 <?php
+
 /** Tourfecto - CRM Note Service @version 1.1.0 */
-class CrmNoteService {
+class CrmNoteService
+{
     /** $actorUserId اختياري (بند 30 - استكمال) - راجع نفس الشرح في CrmTaskService::create() */
-    public function create(int $userId, array $data, ?int $actorUserId = null): CrmNote {
+    public function create(int $userId, array $data, ?int $actorUserId = null): CrmNote
+    {
         if (empty($data['body'])) {
             throw new Exception('نص الملاحظة مطلوب');
         }
@@ -24,7 +27,8 @@ class CrmNoteService {
         return $note;
     }
 
-    public function forRelated(string $relatedType, int $relatedId): array {
+    public function forRelated(string $relatedType, int $relatedId): array
+    {
         return (new CrmNote())->forRelated($relatedType, $relatedId);
     }
 }

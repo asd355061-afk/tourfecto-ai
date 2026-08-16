@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Database Connection Class
  * اتصال PDO متقدم مع حماية قصوى ضد SQL Injection
@@ -12,49 +13,52 @@
  * "PDOStatement::bindValue(): Argument #1 ($param) must be greater than or equal to 1"
  */
 
-class Database {
+class Database
+{
     /**
      * @var PDO $connection - كائن الاتصال بقاعدة البيانات
      */
     private $connection;
-    
+
     /**
      * @var Database|null $instance - نسخة Singleton
      */
     private static $instance = null;
-    
+
     /**
      * @var array $queryLog - سجل الاستعلامات
      */
     private $queryLog = [];
-    
+
     /**
      * @var bool $inTransaction - حالة المعاملة
      */
     private $inTransaction = false;
-    
+
     /**
      * @var int $queryCount - عدد الاستعلامات المنفذة
      */
     private $queryCount = 0;
-    
+
     /**
      * @var float $totalQueryTime - إجمالي وقت الاستعلامات
      */
     private $totalQueryTime = 0;
-    
+
     /**
      * Constructor - تهيئة الاتصال بقاعدة البيانات (Singleton)
      */
-    private function __construct() {
+    private function __construct()
+    {
         $this->connect();
     }
-    
+
     /**
      * إنشاء اتصال بقاعدة البيانات
      * @throws Exception
      */
-    private function connect(): void {
+    private function connect(): void
+    {
         try {
             $dsn = sprintf(
                 "mysql:host=%s;port=%s;dbname=%s;charset=%s",
@@ -63,43 +67,45 @@ class Database {
                 DB_NAME,
                 DB_CHARSET
             );
-            
+
             $options = DB_OPTIONS;
-            
+
             if (isset(DB_OPTIONS[PDO::MYSQL_ATTR_SSL_CA]) && DB_OPTIONS[PDO::MYSQL_ATTR_SSL_CA]) {
                 $options[PDO::MYSQL_ATTR_SSL_CA] = DB_OPTIONS[PDO::MYSQL_ATTR_SSL_CA];
                 $options[PDO::MYSQL_ATTR_SSL_CERT] = DB_OPTIONS[PDO::MYSQL_ATTR_SSL_CERT] ?? null;
                 $options[PDO::MYSQL_ATTR_SSL_KEY] = DB_OPTIONS[PDO::MYSQL_ATTR_SSL_KEY] ?? null;
             }
-            
+
             $this->connection = new PDO($dsn, DB_USER, DB_PASS, $options);
-            
+
             $this->connection->exec("SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'");
             $this->connection->exec("SET SESSION time_zone = '+00:00'");
             $this->connection->exec("SET SESSION sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'");
-            
+
         } catch (PDOException $e) {
             Logger::error('Database Connection Error', [
                 'message' => $e->getMessage(),
                 'code' => $e->getCode(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             throw new Exception('Database connection failed. Please try again later.');
         }
     }
-    
-    public static function getInstance(): Database {
+
+    public static function getInstance(): Database
+    {
         if (self::$instance === null) {
             self::$instance = new self();
         }
         return self::$instance;
     }
-    
-    public function getConnection(): PDO {
+
+    public function getConnection(): PDO
+    {
         return $this->connection;
     }
-    
+
     /**
      * تنفيذ استعلام مع إعداد متقدم
      *
@@ -113,7 +119,8 @@ class Database {
      * دلوقتي: لو حصل هذا الخطأ تحديدًا، نعيد الاتصال ونعيد تنفيذ نفس
      * الاستعلام تلقائيًا (لحد DB_MAX_RETRIES مرة) قبل ما نرمي أي استثناء.
      */
-    public function query(string $sql, array $params = [], int $fetchMode = PDO::FETCH_ASSOC) {
+    public function query(string $sql, array $params = [], int $fetchMode = PDO::FETCH_ASSOC)
+    {
         $attempt = 0;
 
         while (true) {
@@ -193,11 +200,12 @@ class Database {
             }
         }
     }
-    
+
     /**
      * تنفيذ استعلام بدون إرجاع نتائج (للـ DDL)
      */
-    public function exec(string $sql, array $params = []): bool {
+    public function exec(string $sql, array $params = []): bool
+    {
         $attempt = 0;
 
         while (true) {
@@ -247,7 +255,8 @@ class Database {
      * ومأمونة. لو خطأ تاني (زي Unknown column أو Duplicate entry)،
      * إعادة نفس الاستعلام هترمي نفس الخطأ تاني من غير أي فايدة.
      */
-    private function isConnectionLostError(PDOException $e): bool {
+    private function isConnectionLostError(PDOException $e): bool
+    {
         $code = (int) ($e->errorInfo[1] ?? $e->getCode());
         // 2006 = MySQL server has gone away
         // 2013 = Lost connection to MySQL server during query
@@ -259,8 +268,9 @@ class Database {
             || stripos($message, 'Lost connection') !== false
             || stripos($message, 'Error while sending') !== false;
     }
-    
-    private function determineParamType($value): int {
+
+    private function determineParamType($value): int
+    {
         if (is_int($value)) {
             return PDO::PARAM_INT;
         } elseif (is_bool($value)) {
@@ -270,15 +280,17 @@ class Database {
         }
         return PDO::PARAM_STR;
     }
-    
-    public function beginTransaction(): bool {
+
+    public function beginTransaction(): bool
+    {
         if (!$this->inTransaction) {
             $this->inTransaction = $this->connection->beginTransaction();
         }
         return $this->inTransaction;
     }
-    
-    public function commit(): bool {
+
+    public function commit(): bool
+    {
         if ($this->inTransaction) {
             $result = $this->connection->commit();
             $this->inTransaction = false;
@@ -286,8 +298,9 @@ class Database {
         }
         return false;
     }
-    
-    public function rollback(): bool {
+
+    public function rollback(): bool
+    {
         if ($this->inTransaction) {
             $result = $this->connection->rollback();
             $this->inTransaction = false;
@@ -295,8 +308,9 @@ class Database {
         }
         return false;
     }
-    
-    public function transaction(callable $callback) {
+
+    public function transaction(callable $callback)
+    {
         try {
             $this->beginTransaction();
             $result = $callback($this);
@@ -307,29 +321,32 @@ class Database {
             throw $e;
         }
     }
-    
-    private function logQuery(string $sql, array $params, float $duration): void {
+
+    private function logQuery(string $sql, array $params, float $duration): void
+    {
         if (!DB_QUERY_LOG_ENABLED) {
             return;
         }
-        
+
         $this->queryLog[] = [
             'sql' => $sql,
             'params' => $params,
             'duration' => $duration,
             'timestamp' => microtime(true)
         ];
-        
+
         if (count($this->queryLog) > DB_MAX_QUERY_LOG) {
             array_shift($this->queryLog);
         }
     }
-    
-    public function getQueryLog(): array {
+
+    public function getQueryLog(): array
+    {
         return $this->queryLog;
     }
-    
-    public function getQueryStats(): array {
+
+    public function getQueryStats(): array
+    {
         return [
             'count' => $this->queryCount,
             'total_time' => $this->totalQueryTime,
@@ -337,16 +354,18 @@ class Database {
             'log_count' => count($this->queryLog)
         ];
     }
-    
-    public function isConnected(): bool {
+
+    public function isConnected(): bool
+    {
         try {
             return (bool) $this->connection->query('SELECT 1');
         } catch (PDOException $e) {
             return false;
         }
     }
-    
-    public function reconnect(): bool {
+
+    public function reconnect(): bool
+    {
         try {
             $this->connection = null;
             $this->connect();
@@ -355,20 +374,21 @@ class Database {
             return false;
         }
     }
-    
-    public function backup(string $filename = null): bool {
+
+    public function backup(string $filename = null): bool
+    {
         if (!DB_BACKUP_ENABLED) {
             return false;
         }
-        
+
         try {
             $filename = $filename ?? DB_NAME . '_' . date('Y-m-d_H-i-s') . '.sql';
             $path = DB_BACKUP_PATH . '/' . $filename;
-            
+
             if (!is_dir(DB_BACKUP_PATH)) {
                 mkdir(DB_BACKUP_PATH, 0755, true);
             }
-            
+
             $command = sprintf(
                 'mysqldump --host=%s --port=%s --user=%s --password=%s %s > %s',
                 DB_HOST,
@@ -378,21 +398,21 @@ class Database {
                 DB_NAME,
                 $path
             );
-            
+
             if (DB_BACKUP_COMPRESS) {
                 $path .= '.gz';
                 $command .= ' | gzip > ' . $path;
             }
-            
+
             exec($command, $output, $returnCode);
-            
+
             Logger::info('Database backup created', [
                 'filename' => $filename,
                 'size' => filesize($path)
             ]);
-            
+
             return $returnCode === 0;
-            
+
         } catch (Exception $e) {
             Logger::error('Database backup failed', [
                 'error' => $e->getMessage()
@@ -400,14 +420,18 @@ class Database {
             return false;
         }
     }
-    
-    private function __clone() {}
-    
-    public function __wakeup() {
+
+    private function __clone()
+    {
+    }
+
+    public function __wakeup()
+    {
         throw new Exception('Cannot unserialize singleton');
     }
-    
-    public function __destruct() {
+
+    public function __destruct()
+    {
         $this->connection = null;
     }
 }

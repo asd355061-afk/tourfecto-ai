@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Workspace Controller
  * إعدادات الـ Workspace وإدارة الفريق (Settings Center - Phase 8).
@@ -12,9 +13,10 @@
  *
  * @version 1.0.0
  */
-class WorkspaceController extends Controller {
-
-    private function currentUser(): ?User {
+class WorkspaceController extends Controller
+{
+    private function currentUser(): ?User
+    {
         $id = $_SESSION['user_id'] ?? null;
         if (!$id) {
             return null;
@@ -24,7 +26,8 @@ class WorkspaceController extends Controller {
     }
 
     /** صاحب الـ Workspace الفعلي (نفس المستخدم لو مالك، أو المالك الحقيقي لو عضو) */
-    private function workspaceOwner(User $user): ?User {
+    private function workspaceOwner(User $user): ?User
+    {
         $ownerId = $user->getAttribute('owner_user_id');
         if ($ownerId === null) {
             return $user;
@@ -33,7 +36,8 @@ class WorkspaceController extends Controller {
     }
 
     /** GET /api/workspace */
-    public function getWorkspace(array $params = []): array {
+    public function getWorkspace(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -65,7 +69,8 @@ class WorkspaceController extends Controller {
     }
 
     /** PUT /api/workspace */
-    public function updateWorkspace(array $params = []): array {
+    public function updateWorkspace(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -115,7 +120,8 @@ class WorkspaceController extends Controller {
     }
 
     /** POST /api/workspace/logo */
-    public function uploadLogo(array $params = []): array {
+    public function uploadLogo(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -154,7 +160,8 @@ class WorkspaceController extends Controller {
     }
 
     /** GET /api/workspace/members */
-    public function listMembers(array $params = []): array {
+    public function listMembers(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -192,7 +199,8 @@ class WorkspaceController extends Controller {
     }
 
     /** POST /api/workspace/invite */
-    public function inviteMember(array $params = []): array {
+    public function inviteMember(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -260,7 +268,8 @@ class WorkspaceController extends Controller {
     }
 
     /** GET /api/workspace/invites */
-    public function listInvites(array $params = []): array {
+    public function listInvites(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -272,11 +281,12 @@ class WorkspaceController extends Controller {
         $owner = $this->workspaceOwner($user);
         $invites = (new WorkspaceInvite())->where(['owner_user_id' => (int) $owner->getAttribute('id'), 'status' => 'pending'], [], 0);
 
-        return $this->success(['invites' => array_map(fn($i) => $i->toSafeArray(), $invites)]);
+        return $this->success(['invites' => array_map(fn ($i) => $i->toSafeArray(), $invites)]);
     }
 
     /** POST /api/workspace/invites/{id}/revoke */
-    public function revokeInvite(array $params = []): array {
+    public function revokeInvite(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -302,7 +312,8 @@ class WorkspaceController extends Controller {
     }
 
     /** GET /api/workspace/invite/{token} - عام (بدون تسجيل دخول) */
-    public function showInvite(array $params = []): array {
+    public function showInvite(array $params = []): array
+    {
         $token = (string) ($params['token'] ?? '');
         $invite = (new WorkspaceInvite())->where(['token' => $token], [], 1);
         $invite = $invite[0] ?? null;
@@ -321,7 +332,8 @@ class WorkspaceController extends Controller {
     }
 
     /** POST /api/workspace/invite/{token}/accept - عام (بدون تسجيل دخول) */
-    public function acceptInvite(array $params = []): array {
+    public function acceptInvite(array $params = []): array
+    {
         $token = (string) ($params['token'] ?? '');
         $invite = (new WorkspaceInvite())->where(['token' => $token], [], 1);
         $invite = $invite[0] ?? null;
@@ -369,7 +381,8 @@ class WorkspaceController extends Controller {
     }
 
     /** PUT /api/workspace/members/{id}/role */
-    public function changeRole(array $params = []): array {
+    public function changeRole(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -417,16 +430,19 @@ class WorkspaceController extends Controller {
     }
 
     /** POST /api/workspace/members/{id}/deactivate */
-    public function deactivateMember(array $params = []): array {
+    public function deactivateMember(array $params = []): array
+    {
         return $this->setMemberStatus($params, 'suspended', 'team_member_deactivated');
     }
 
     /** POST /api/workspace/members/{id}/reactivate */
-    public function reactivateMember(array $params = []): array {
+    public function reactivateMember(array $params = []): array
+    {
         return $this->setMemberStatus($params, 'active', 'team_member_reactivated');
     }
 
-    private function setMemberStatus(array $params, string $status, string $auditAction): array {
+    private function setMemberStatus(array $params, string $status, string $auditAction): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -470,7 +486,8 @@ class WorkspaceController extends Controller {
     }
 
     /** DELETE /api/workspace/members/{id} */
-    public function removeMember(array $params = []): array {
+    public function removeMember(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -514,7 +531,8 @@ class WorkspaceController extends Controller {
     }
 
     /** POST /api/workspace/leave */
-    public function leaveWorkspace(array $params = []): array {
+    public function leaveWorkspace(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -551,7 +569,8 @@ class WorkspaceController extends Controller {
     }
 
     /** GET /workspace/accept-invite - صفحة بسيطة لقبول الدعوة (Public) */
-    public function showAcceptInvitePage(array $params = []): array {
+    public function showAcceptInvitePage(array $params = []): array
+    {
         $token = htmlspecialchars((string) ($_GET['token'] ?? ''), ENT_QUOTES, 'UTF-8');
 
         header('Content-Type: text/html; charset=utf-8');

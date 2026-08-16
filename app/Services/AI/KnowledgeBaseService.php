@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * خدمة قاعدة معرفة الشركة (بند 4): إدارة المحتوى + تجميعه في نص Context
@@ -9,8 +10,8 @@
  * @version 1.0.0
  */
 
-class KnowledgeBaseService {
-
+class KnowledgeBaseService
+{
     /** @var AiKnowledgeBase */
     private $model;
 
@@ -30,7 +31,8 @@ class KnowledgeBaseService {
         'brand_voice' => 'Brand Voice',
     ];
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->model = new AiKnowledgeBase();
     }
 
@@ -40,7 +42,8 @@ class KnowledgeBaseService {
      * @param array $data ['section','title','content','structured_data','language','tone','priority','created_by_user_id']
      * @return AiKnowledgeBase|null
      */
-    public function addEntry(int $websiteId, array $data): ?AiKnowledgeBase {
+    public function addEntry(int $websiteId, array $data): ?AiKnowledgeBase
+    {
         if (empty($data['section']) || !isset($this->sectionLabels[$data['section']])) {
             throw new InvalidArgumentException('Invalid knowledge base section: ' . ($data['section'] ?? ''));
         }
@@ -69,7 +72,8 @@ class KnowledgeBaseService {
      * @param array $data
      * @return bool
      */
-    public function updateEntry(int $entryId, int $websiteId, array $data): bool {
+    public function updateEntry(int $entryId, int $websiteId, array $data): bool
+    {
         $entry = $this->model->find($entryId);
         if (!$entry || (int) $entry->getAttribute('website_id') !== $websiteId) {
             return false;
@@ -92,7 +96,8 @@ class KnowledgeBaseService {
      * @param int $websiteId
      * @return bool
      */
-    public function deleteEntry(int $entryId, int $websiteId): bool {
+    public function deleteEntry(int $entryId, int $websiteId): bool
+    {
         return $this->updateEntry($entryId, $websiteId, ['is_active' => 0]);
     }
 
@@ -101,7 +106,8 @@ class KnowledgeBaseService {
      * @param int $websiteId
      * @return array
      */
-    public function getGroupedByCompany(int $websiteId): array {
+    public function getGroupedByCompany(int $websiteId): array
+    {
         $entries = $this->model->activeFor($websiteId);
         $grouped = [];
         foreach ($entries as $entry) {
@@ -117,7 +123,8 @@ class KnowledgeBaseService {
      * @param int $websiteId
      * @return array ['tone' => string, 'custom_instructions' => string|null]
      */
-    public function getBrandVoice(int $websiteId): array {
+    public function getBrandVoice(int $websiteId): array
+    {
         $entries = $this->model->forSection($websiteId, 'brand_voice');
         $tone = 'professional';
         $customInstructions = null;
@@ -148,7 +155,8 @@ class KnowledgeBaseService {
      * @param int $maxEntries عدد أقصى للعناصر عند استخدام إعادة الترتيب (0 = الكل)
      * @return string
      */
-    public function buildContextForPrompt(int $websiteId, ?string $language = null, ?string $customerMessage = null, int $maxEntries = 0): string {
+    public function buildContextForPrompt(int $websiteId, ?string $language = null, ?string $customerMessage = null, int $maxEntries = 0): string
+    {
         $entries = $this->model->activeFor($websiteId, $language);
 
         // لو لا يوجد محتوى بنفس اللغة، استخدم كل المحتوى المتاح كاحتياط
@@ -209,7 +217,8 @@ class KnowledgeBaseService {
      * @param int $limit أقصى عدد عناصر يُرجَع
      * @return array العناصر مرتبة تنازليًا حسب الصلة
      */
-    public function rerankForQuery(array $entries, string $customerMessage, int $limit = 10): array {
+    public function rerankForQuery(array $entries, string $customerMessage, int $limit = 10): array
+    {
         if (empty($entries)) {
             return [];
         }
@@ -274,7 +283,8 @@ class KnowledgeBaseService {
      * @param string $text
      * @return string[]
      */
-    private function tokenize(string $text): array {
+    private function tokenize(string $text): array
+    {
         $text = mb_strtolower(trim($text));
         if ($text === '') {
             return [];
@@ -311,7 +321,8 @@ class KnowledgeBaseService {
      * @param string[] $targetTokens
      * @return int
      */
-    private function countOverlap(array $queryTokens, array $targetTokens): int {
+    private function countOverlap(array $queryTokens, array $targetTokens): int
+    {
         if (empty($queryTokens) || empty($targetTokens)) {
             return 0;
         }

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Usage Alert Service
  * تنبيهات تجاوز نسب الاستخدام (50% / 75% / 90% / 100%) لكل ميزة في
@@ -14,7 +15,8 @@
  * @version 1.0.0
  * @date 2026-08-09
  */
-class UsageAlertService {
+class UsageAlertService
+{
     /** @var Database */
     private $db;
 
@@ -28,7 +30,8 @@ class UsageAlertService {
         'competitor' => 'حد تحليل المنافسين',
     ];
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
@@ -42,7 +45,8 @@ class UsageAlertService {
      *        بيتغيّر تلقائيًا كل ما الاشتراك يتجدد أو الباقة تتغيّر، فالتنبيهات
      *        بترجع تتصفّر لوحدها كل فترة فوترة جديدة.
      */
-    public function checkAndNotify(int $userId, array $usage, string $periodKey): void {
+    public function checkAndNotify(int $userId, array $usage, string $periodKey): void
+    {
         if ($userId <= 0 || $periodKey === '') {
             return;
         }
@@ -78,7 +82,8 @@ class UsageAlertService {
         }
     }
 
-    private function notifyIfNewThreshold(int $userId, string $metricKey, string $periodKey, int $crossedThreshold, int $total, int $used): void {
+    private function notifyIfNewThreshold(int $userId, string $metricKey, string $periodKey, int $crossedThreshold, int $total, int $used): void
+    {
         $existing = $this->db->query(
             "SELECT * FROM usage_alert_state WHERE user_id = ? AND metric_key = ? AND period_key = ? LIMIT 1",
             [$userId, $metricKey, $periodKey]

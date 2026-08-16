@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Reputation Controller
  * متحكم إدارة السمعة والمراجعات
@@ -7,47 +8,50 @@
  * @copyright 2026 Tourfecto
  */
 
-class ReputationController extends Controller {
+class ReputationController extends Controller
+{
     /**
      * @var ReputationManager $reputationManager - مدير السمعة
      */
     private $reputationManager;
-    
+
     /**
      * @var SubscriptionValidator $subscription - مدقق الاشتراكات
      */
     private $subscription;
-    
+
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->reputationManager = new ReputationManager();
         $this->subscription = new SubscriptionValidator();
     }
-    
+
     /**
      * معالجة Webhook للمراجعات
      * POST /api/reputation/webhook
      * @param array $params
      * @return array
      */
-    public function webhook(array $params = []): array {
+    public function webhook(array $params = []): array
+    {
         try {
             // التحقق من صحة الـ Webhook
             $platform = $this->get('platform', 'tripadvisor');
             $secret = $this->get('secret');
-            
+
             if (!$this->validateWebhook($platform, $secret)) {
                 return $this->error('Invalid webhook signature', 401);
             }
-            
+
             // معالجة المراجعة
             $result = $this->reputationManager->processWebhook($this->all());
-            
+
             return $result;
-            
+
         } catch (Exception $e) {
             Logger::error('Reputation Webhook Error', [
                 'message' => $e->getMessage()
@@ -55,19 +59,20 @@ class ReputationController extends Controller {
             return $this->error('Webhook processing failed', 500);
         }
     }
-    
+
     /**
      * الحصول على جميع المراجعات
      * GET /api/reputation/reviews
      * @param array $params
      * @return array
      */
-    public function getReviews(array $params = []): array {
+    public function getReviews(array $params = []): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('Unauthorized', 401);
             }
-            
+
             $websiteId = $this->get('website_id');
             $page = (int) ($this->get('page', 1));
             $limit = (int) ($this->get('limit', 20));
@@ -81,7 +86,7 @@ class ReputationController extends Controller {
             $dateFrom = $this->get('date_from');
             $dateTo = $this->get('date_to');
             $search = trim((string) $this->get('search', ''));
-            
+
             $sql = "SELECT reviews.*,
                         source_platform AS platform,
                         external_review_id AS platform_review_id,
@@ -90,17 +95,17 @@ class ReputationController extends Controller {
                         (reply_sent_at IS NOT NULL) AS reply_sent
                      FROM reviews WHERE user_id = ?";
             $params = [$this->user['id']];
-            
+
             if ($websiteId) {
                 $sql .= " AND website_id = ?";
                 $params[] = $websiteId;
             }
-            
+
             if ($sentiment) {
                 $sql .= " AND sentiment = ?";
                 $params[] = $sentiment;
             }
-            
+
             if ($platform) {
                 $sql .= " AND source_platform = ?";
                 $params[] = $platform;
@@ -126,26 +131,48 @@ class ReputationController extends Controller {
                 $params[] = '%' . $search . '%';
                 $params[] = '%' . $search . '%';
             }
-            
+
             $sql .= " ORDER BY created_at DESC LIMIT ? OFFSET ?";
             $params[] = $limit;
             $params[] = $offset;
-            
+
             $reviews = $this->db->query($sql, $params);
-            
+
             // جلب العدد الإجمالي
             $sqlCount = "SELECT COUNT(*) as total FROM reviews WHERE user_id = ?";
             $countParams = [$this->user['id']];
-            if ($websiteId) { $sqlCount .= " AND website_id = ?"; $countParams[] = $websiteId; }
-            if ($sentiment) { $sqlCount .= " AND sentiment = ?"; $countParams[] = $sentiment; }
-            if ($platform) { $sqlCount .= " AND source_platform = ?"; $countParams[] = $platform; }
-            if ($minRating !== null && $minRating !== '') { $sqlCount .= " AND rating >= ?"; $countParams[] = (int) $minRating; }
-            if ($dateFrom) { $sqlCount .= " AND created_at >= ?"; $countParams[] = $dateFrom . ' 00:00:00'; }
-            if ($dateTo) { $sqlCount .= " AND created_at <= ?"; $countParams[] = $dateTo . ' 23:59:59'; }
-            if ($search !== '') { $sqlCount .= " AND (review_text LIKE ? OR reviewer_name LIKE ?)"; $countParams[] = '%' . $search . '%'; $countParams[] = '%' . $search . '%'; }
+            if ($websiteId) {
+                $sqlCount .= " AND website_id = ?";
+                $countParams[] = $websiteId;
+            }
+            if ($sentiment) {
+                $sqlCount .= " AND sentiment = ?";
+                $countParams[] = $sentiment;
+            }
+            if ($platform) {
+                $sqlCount .= " AND source_platform = ?";
+                $countParams[] = $platform;
+            }
+            if ($minRating !== null && $minRating !== '') {
+                $sqlCount .= " AND rating >= ?";
+                $countParams[] = (int) $minRating;
+            }
+            if ($dateFrom) {
+                $sqlCount .= " AND created_at >= ?";
+                $countParams[] = $dateFrom . ' 00:00:00';
+            }
+            if ($dateTo) {
+                $sqlCount .= " AND created_at <= ?";
+                $countParams[] = $dateTo . ' 23:59:59';
+            }
+            if ($search !== '') {
+                $sqlCount .= " AND (review_text LIKE ? OR reviewer_name LIKE ?)";
+                $countParams[] = '%' . $search . '%';
+                $countParams[] = '%' . $search . '%';
+            }
             $countResult = $this->db->query($sqlCount, $countParams);
             $total = (int) ($countResult[0]['total'] ?? 0);
-            
+
             return $this->success([
                 'reviews' => $reviews,
                 'pagination' => [
@@ -155,7 +182,7 @@ class ReputationController extends Controller {
                     'pages' => ceil($total / $limit)
                 ]
             ]);
-            
+
         } catch (Exception $e) {
             Logger::error('Get Reviews Error', [
                 'message' => $e->getMessage()
@@ -163,21 +190,22 @@ class ReputationController extends Controller {
             return $this->error('Failed to get reviews', 500);
         }
     }
-    
+
     /**
      * الحصول على إحصائيات المراجعات
      * GET /api/reputation/stats
      * @param array $params
      * @return array
      */
-    public function getStats(array $params = []): array {
+    public function getStats(array $params = []): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('Unauthorized', 401);
             }
-            
+
             $websiteId = $this->get('website_id');
-            
+
             if ($websiteId) {
                 $stats = Review::getSentimentStats($websiteId);
                 $platformStats = Review::getPlatformStats($websiteId);
@@ -186,12 +214,12 @@ class ReputationController extends Controller {
                 $stats = $this->getAllWebsitesStats();
                 $platformStats = $this->getAllPlatformsStats();
             }
-            
+
             return $this->success([
                 'stats' => $stats,
                 'platforms' => $platformStats
             ]);
-            
+
         } catch (Exception $e) {
             Logger::error('Get Reputation Stats Error', [
                 'message' => $e->getMessage()
@@ -199,43 +227,44 @@ class ReputationController extends Controller {
             return $this->error('Failed to get stats', 500);
         }
     }
-    
+
     /**
      * تحديث الرد على مراجعة
      * PUT /api/reputation/review/{id}/reply
      * @param array $params
      * @return array
      */
-    public function updateReply(array $params): array {
+    public function updateReply(array $params): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('Unauthorized', 401);
             }
-            
+
             $reviewId = $params['id'] ?? 0;
             $reply = $this->get('reply');
-            
+
             if (!$reviewId || !$reply) {
                 return $this->error('Review ID and reply are required', 400);
             }
-            
+
             // التحقق من صلاحية المراجعة
             $sql = "SELECT * FROM reviews WHERE id = ? AND user_id = ? LIMIT 1";
             $result = $this->db->query($sql, [$reviewId, $this->user['id']]);
-            
+
             if (empty($result)) {
                 return $this->error('Review not found', 404);
             }
-            
+
             // تحديث الرد
             $review = new Review($result[0]);
             $review->updateAutoReply($reply);
-            
+
             return $this->success([
                 'review_id' => $reviewId,
                 'reply' => $reply
             ], 'Reply updated successfully');
-            
+
         } catch (Exception $e) {
             Logger::error('Update Reply Error', [
                 'message' => $e->getMessage()
@@ -243,62 +272,63 @@ class ReputationController extends Controller {
             return $this->error('Failed to update reply', 500);
         }
     }
-    
+
     /**
      * توليد رد تلقائي لمراجعة
      * POST /api/reputation/review/{id}/generate-reply
      * @param array $params
      * @return array
      */
-    public function generateReply(array $params): array {
+    public function generateReply(array $params): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('Unauthorized', 401);
             }
-            
+
             $reviewId = $params['id'] ?? 0;
-            
+
             if (!$reviewId) {
                 return $this->error('Review ID is required', 400);
             }
-            
+
             // جلب المراجعة
             $sql = "SELECT * FROM reviews WHERE id = ? AND user_id = ? LIMIT 1";
             $result = $this->db->query($sql, [$reviewId, $this->user['id']]);
-            
+
             if (empty($result)) {
                 return $this->error('Review not found', 404);
             }
-            
+
             $reviewData = $result[0];
-            
+
             // توليد الرد
             $sentiment = [
                 'label' => $reviewData['sentiment'] ?? 'neutral',
                 'score' => $reviewData['sentiment_score'] ?? 0.5,
                 'confidence' => $reviewData['sentiment_confidence'] ?? 0.7
             ];
-            
+
             $reply = $this->reputationManager->generateReply(
                 $reviewData['review_text'],
                 $sentiment,
                 $reviewData['source_platform'],
                 $this->user['id']
             );
-            
+
             if (!$reply) {
                 return $this->error('Failed to generate reply', 500);
             }
-            
+
             // تحديث المراجعة بالرد
             $review = new Review($reviewData);
             $review->updateAutoReply($reply);
-            
+
             return $this->success([
                 'review_id' => $reviewId,
                 'reply' => $reply
             ], 'Reply generated successfully');
-            
+
         } catch (Exception $e) {
             Logger::error('Generate Reply Error', [
                 'message' => $e->getMessage()
@@ -306,14 +336,15 @@ class ReputationController extends Controller {
             return $this->error('Failed to generate reply', 500);
         }
     }
-    
+
     /**
      * التحقق من صحة Webhook
      * @param string $platform
      * @param string $secret
      * @return bool
      */
-    private function validateWebhook(string $platform, ?string $secret): bool {
+    private function validateWebhook(string $platform, ?string $secret): bool
+    {
         // تصحيح أمني: كان فيه fallback لقيمة نصية ثابتة ('default_secret')
         // لو env var الخاص بالمنصة مش متظبط. ده معناه أي حد يعرف الكلمة دي
         // (وهي مكتوبة في نفس الكود ده) يقدر يبعت مراجعات مزيّفة. دلوقتي:
@@ -332,12 +363,13 @@ class ReputationController extends Controller {
 
         return hash_equals($expectedSecret, $secret ?? '');
     }
-    
+
     /**
      * الحصول على إحصائيات جميع المواقع
      * @return array
      */
-    private function getAllWebsitesStats(): array {
+    private function getAllWebsitesStats(): array
+    {
         $sql = "SELECT 
                     COUNT(*) as total,
                     SUM(CASE WHEN sentiment = 'positive' THEN 1 ELSE 0 END) as positive,
@@ -346,9 +378,9 @@ class ReputationController extends Controller {
                     AVG(rating) as avg_rating
                 FROM reviews 
                 WHERE user_id = ?";
-        
+
         $result = $this->db->query($sql, [$this->user['id']]);
-        
+
         if (empty($result)) {
             return [
                 'total' => 0,
@@ -358,7 +390,7 @@ class ReputationController extends Controller {
                 'avg_rating' => 0
             ];
         }
-        
+
         return [
             'total' => (int) ($result[0]['total'] ?? 0),
             'positive' => (int) ($result[0]['positive'] ?? 0),
@@ -367,12 +399,13 @@ class ReputationController extends Controller {
             'avg_rating' => round((float) ($result[0]['avg_rating'] ?? 0), 2)
         ];
     }
-    
+
     /**
      * الحصول على إحصائيات جميع المنصات
      * @return array
      */
-    private function getAllPlatformsStats(): array {
+    private function getAllPlatformsStats(): array
+    {
         $sql = "SELECT 
                     source_platform AS platform,
                     COUNT(*) as count,
@@ -380,7 +413,7 @@ class ReputationController extends Controller {
                 FROM reviews 
                 WHERE user_id = ? 
                 GROUP BY source_platform";
-        
+
         return $this->db->query($sql, [$this->user['id']]);
     }
 
@@ -389,7 +422,8 @@ class ReputationController extends Controller {
     // ============================================
 
     /** GET /reputation/reviews */
-    public function showReviews(array $params = []): array {
+    public function showReviews(array $params = []): array
+    {
         $body = <<<HTML
         <div class="p-toolbar" style="flex-wrap:wrap;gap:8px;">
             <input type="text" id="filterSearch" class="p-select" placeholder="🔍 {$this->tr('rep.col.review_text')}..." style="min-width:180px;">
@@ -504,7 +538,8 @@ JS;
     }
 
     /** GET /reputation/review/{id} */
-    public function showReview(array $params): array {
+    public function showReview(array $params): array
+    {
         $reviewId = (int) ($params['id'] ?? 0);
 
         $body = <<<HTML
@@ -597,7 +632,8 @@ JS;
         exit;
     }
 
-    public function getReview(array $params): array {
+    public function getReview(array $params): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -624,7 +660,8 @@ JS;
     }
 
     /** GET /reputation/stats */
-    public function showStats(array $params = []): array {
+    public function showStats(array $params = []): array
+    {
         $body = <<<HTML
         <div class="p-grid cols-4" id="statCards">
             <div class="p-card stat-tile"><div class="stat-icon blue">⭐</div><div class="stat-info"><div class="stat-value" id="stTotal">0</div><div class="stat-label">{$this->tr('rep.stats.total')}</div></div></div>
@@ -683,7 +720,8 @@ JS;
     }
 
     /** GET /reputation/platforms */
-    public function showPlatforms(array $params = []): array {
+    public function showPlatforms(array $params = []): array
+    {
         $body = <<<HTML
         <div class="p-card">
             <div class="p-card-head"><h3>Google Business Profile</h3><span class="p-card-sub">{$this->tr('rep.platforms.gbp.sub')}</span></div>
@@ -795,7 +833,8 @@ JS;
         exit;
     }
 
-    public function getPlatforms(array $params = []): array {
+    public function getPlatforms(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -840,7 +879,8 @@ JS;
      * Google Business (0-100) بناءً على بيانات حقيقية من getLocation().
      * @since 2026-08-15 (صلح مسار كان مسجّل من غير الميثود فعليًا)
      */
-    public function getProfileCompleteness(array $params = []): array {
+    public function getProfileCompleteness(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -897,7 +937,8 @@ JS;
     }
 
     /** POST /api/reputation/review/{id}/reply */
-    public function sendReply(array $params): array {
+    public function sendReply(array $params): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -956,7 +997,8 @@ JS;
         }
     }
 
-    private function sendGoogleReply(int $websiteId, string $platformReviewId, string $replyText): array {
+    private function sendGoogleReply(int $websiteId, string $platformReviewId, string $replyText): array
+    {
         $connections = (new PlatformConnection())->where([
             'website_id' => $websiteId,
             'platform' => 'google_business',
@@ -986,7 +1028,8 @@ JS;
     }
 
     /** DELETE /api/reputation/review/{id} */
-    public function deleteReview(array $params): array {
+    public function deleteReview(array $params): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -1007,7 +1050,8 @@ JS;
      * لذا نُعيد استجابة صريحة بدل التظاهر بربط ناجح.
      */
     /** GET /reputation/connect/tripadvisor/{website_id} - صفحة البحث عن الموقع */
-    public function connectTripAdvisor(array $params = []): array {
+    public function connectTripAdvisor(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             header('Location: /login?redirect=' . urlencode('/reputation/platforms'));
             exit;
@@ -1087,7 +1131,8 @@ JS;
     }
 
     /** GET /api/reputation/tripadvisor/search?q= */
-    public function searchTripAdvisor(array $params = []): array {
+    public function searchTripAdvisor(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -1106,7 +1151,8 @@ JS;
     }
 
     /** POST /api/reputation/connect/tripadvisor */
-    public function finalizeTripAdvisorConnection(array $params = []): array {
+    public function finalizeTripAdvisorConnection(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -1156,7 +1202,8 @@ JS;
     }
 
     /** POST /api/reputation/disconnect/tripadvisor/{website_id} */
-    public function disconnectTripAdvisor(array $params = []): array {
+    public function disconnectTripAdvisor(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -1185,7 +1232,8 @@ JS;
     // لـ Business Profile API قبل ما يشتغل فعليًا - شوف .env.example.
 
     /** GET /reputation/connect/google/{website_id} - يبدأ تدفّق OAuth */
-    public function connectGoogleBusiness(array $params = []): array {
+    public function connectGoogleBusiness(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             header('Location: /login?redirect=' . urlencode('/reputation/platforms'));
             exit;
@@ -1215,7 +1263,8 @@ JS;
     }
 
     /** GET /reputation/connect/google/callback - Google بيرجّع العميل هنا */
-    public function googleOAuthCallback(array $params = []): array {
+    public function googleOAuthCallback(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             header('Location: /login');
             exit;
@@ -1267,7 +1316,8 @@ JS;
     }
 
     /** GET /reputation/connect/google/choose - يختار العميل حسابه/فرعه */
-    public function showGoogleLocationPicker(array $params = []): array {
+    public function showGoogleLocationPicker(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             header('Location: /login');
             exit;
@@ -1357,7 +1407,8 @@ JS;
     }
 
     /** POST /api/reputation/connect/google/finalize */
-    public function finalizeGoogleConnection(array $params = []): array {
+    public function finalizeGoogleConnection(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -1435,7 +1486,8 @@ JS;
     }
 
     /** POST /api/reputation/disconnect/google/{website_id} */
-    public function disconnectGoogleBusiness(array $params = []): array {
+    public function disconnectGoogleBusiness(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -1463,7 +1515,8 @@ JS;
         }
     }
 
-    private function renderOAuthError(string $message): void {
+    private function renderOAuthError(string $message): void
+    {
         $body = '<div class="p-card"><div class="p-empty"><div class="p-empty-icon">⚠️</div>' . $message . '<br><br><a href="/reputation/platforms" class="p-btn primary">الرجوع لمنصات المراجعات</a></div></div>';
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderPanelPage('reputation', 'تعذر الربط', 'Google Business Profile', $body, '');
@@ -1474,7 +1527,8 @@ JS;
     // ============================================
 
     /** GET /reputation/overview */
-    public function showOverview(array $params = []): array {
+    public function showOverview(array $params = []): array
+    {
         $body = <<<'HTML'
         <div class="p-grid cols-4" id="repoKpis">
             <div class="p-card stat-tile"><div class="stat-icon blue">⭐</div><div class="stat-info"><div class="stat-value" id="kpiTotal">0</div><div class="stat-label">إجمالي المراجعات (30 يوم)</div></div></div>
@@ -1718,7 +1772,8 @@ JS;
     }
 
     /** GET /api/reputation/overview-data */
-    public function getOverviewData(array $params = []): array {
+    public function getOverviewData(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -1776,7 +1831,8 @@ JS;
     }
 
     /** POST /api/reputation/review/{id}/dismiss */
-    public function dismissReply(array $params): array {
+    public function dismissReply(array $params): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }

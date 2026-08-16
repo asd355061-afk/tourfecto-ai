@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Import / Export Service (بند 20/21)
  * @version 1.0.0
@@ -8,12 +9,14 @@
  * المستخدم الصريحة على الصفوف المطلوب استيرادها. لا يوجد استيراد صامت
  * لبيانات تالفة (بند 20).
  */
-class CrmImportExportService {
+class CrmImportExportService
+{
     private const REQUIRED_FIELDS = ['name'];
     private const ALLOWED_FIELDS = ['name', 'email', 'phone', 'country', 'language', 'source', 'notes'];
 
     /** يحلل CSV نصي، يتحقق من الصفوف، ويكتشف التكرار المحتمل - بدون حفظ */
-    public function preview(int $userId, string $csvContent, array $fieldMapping): array {
+    public function preview(int $userId, string $csvContent, array $fieldMapping): array
+    {
         $rows = $this->parseCsv($csvContent);
         if (empty($rows)) {
             throw new Exception('ملف CSV فارغ أو غير صالح');
@@ -53,14 +56,14 @@ class CrmImportExportService {
                 'data' => $mapped,
                 'valid' => empty($errors),
                 'errors' => $errors,
-                'duplicate_candidates' => array_map(fn($d) => ['id' => $d['id'], 'name' => $d['name']], $duplicates),
+                'duplicate_candidates' => array_map(fn ($d) => ['id' => $d['id'], 'name' => $d['name']], $duplicates),
             ];
         }
 
         return [
             'total_rows' => count($results),
-            'valid_rows' => count(array_filter($results, fn($r) => $r['valid'])),
-            'invalid_rows' => count(array_filter($results, fn($r) => !$r['valid'])),
+            'valid_rows' => count(array_filter($results, fn ($r) => $r['valid'])),
+            'invalid_rows' => count(array_filter($results, fn ($r) => !$r['valid'])),
             'rows' => $results,
         ];
     }
@@ -73,7 +76,8 @@ class CrmImportExportService {
      * `commit()` القديمة (Synchronous) لسه موجودة زي ما هي بدون أي تعديل -
      * دي إضافة بديلة اختيارية، مش استبدال.
      */
-    public function commitAsync(int $userId, array $rowsToImport, bool $skipDuplicates = true): CrmImportBatch {
+    public function commitAsync(int $userId, array $rowsToImport, bool $skipDuplicates = true): CrmImportBatch
+    {
         $batch = new CrmImportBatch([
             'user_id' => $userId, 'status' => 'pending', 'total_rows' => count($rowsToImport),
         ]);
@@ -99,7 +103,8 @@ class CrmImportExportService {
         return $batch;
     }
 
-    public function importBatchStatus(int $userId, int $batchId): ?CrmImportBatch {
+    public function importBatchStatus(int $userId, int $batchId): ?CrmImportBatch
+    {
         $batch = (new CrmImportBatch())->find($batchId);
         if (!$batch || (int) $batch->getAttribute('user_id') !== $userId) {
             return null;
@@ -108,7 +113,8 @@ class CrmImportExportService {
     }
 
     /** يستورد فعليًا فقط الصفوف اللي المستخدم أكّد استيرادها بعد المعاينة */
-    public function commit(int $userId, array $rowsToImport, bool $skipDuplicates = true): array {
+    public function commit(int $userId, array $rowsToImport, bool $skipDuplicates = true): array
+    {
         $imported = 0;
         $skipped = 0;
         $contactService = new CrmContactService();
@@ -137,7 +143,8 @@ class CrmImportExportService {
         return ['imported' => $imported, 'skipped' => $skipped];
     }
 
-    public function exportContactsCsv(int $userId): string {
+    public function exportContactsCsv(int $userId): string
+    {
         $contacts = (new CrmContact())->allForUser($userId, 100000);
         $handle = fopen('php://temp', 'r+');
         fputcsv($handle, ['id', 'name', 'email', 'phone', 'country', 'language', 'source', 'status', 'created_at']);
@@ -155,7 +162,8 @@ class CrmImportExportService {
     }
 
     /** Export لصفقات الحساب (بند 20 - استكمال المرحلة 9، كان Contacts بس قبل كده) */
-    public function exportDealsCsv(int $userId): string {
+    public function exportDealsCsv(int $userId): string
+    {
         $db = Database::getInstance();
         $deals = $db->query(
             "SELECT d.id, d.title, d.value, d.currency, d.status, s.name AS stage_name,
@@ -179,7 +187,8 @@ class CrmImportExportService {
     }
 
     /** Export لمهام الحساب (بند 20) */
-    public function exportTasksCsv(int $userId): string {
+    public function exportTasksCsv(int $userId): string
+    {
         $tasks = (new CrmTask())->allForUser($userId, 100000);
         $handle = fopen('php://temp', 'r+');
         fputcsv($handle, ['id', 'title', 'priority', 'status', 'due_date', 'completed_at', 'created_at']);
@@ -196,7 +205,8 @@ class CrmImportExportService {
     }
 
     /** Export لـLeads الحساب (بند 20) */
-    public function exportLeadsCsv(int $userId): string {
+    public function exportLeadsCsv(int $userId): string
+    {
         $db = Database::getInstance();
         $leads = $db->query(
             "SELECT l.id, c.name AS contact_name, c.email AS contact_email, c.phone AS contact_phone,
@@ -219,7 +229,8 @@ class CrmImportExportService {
         return $csv;
     }
 
-    private function parseCsv(string $content): array {
+    private function parseCsv(string $content): array
+    {
         $lines = preg_split("/\r\n|\n|\r/", trim($content));
         return array_map('str_getcsv', $lines);
     }

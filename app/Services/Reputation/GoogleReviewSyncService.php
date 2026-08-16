@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Google Review Sync Service
  * سحب المراجعات الجديدة من كل حسابات Google Business المربوطة
@@ -8,7 +9,8 @@
  * الرسمية الوحيدة هي polling دوري - السكريبت ده مصمم يتنده من Cron Job
  * (شوف cron/sync_google_reviews.php) كل فترة (مثلاً كل 6 ساعات).
  */
-class GoogleReviewSyncService {
+class GoogleReviewSyncService
+{
     /** @var Database */
     private $db;
     /** @var Encryption */
@@ -16,7 +18,8 @@ class GoogleReviewSyncService {
     private GoogleOAuthClient $oauthClient;
     private ReputationManager $reputationManager;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
         $this->encryption = new Encryption();
         $this->oauthClient = new GoogleOAuthClient();
@@ -27,7 +30,8 @@ class GoogleReviewSyncService {
      * مزامنة كل الاتصالات المربوطة (كل عملاء المنصة دفعة واحدة).
      * @return array ['synced'=>int, 'new_reviews'=>int, 'errors'=>int]
      */
-    public function syncAll(): array {
+    public function syncAll(): array
+    {
         $summary = ['synced' => 0, 'new_reviews' => 0, 'errors' => 0];
 
         try {
@@ -66,11 +70,13 @@ class GoogleReviewSyncService {
      * حوالين syncConnection() الموجودة بالفعل، من غير تكرار منطقها.
      * @since 2026-08-09 (GBP Module Upgrade)
      */
-    public function syncOne(PlatformConnection $connection): array {
+    public function syncOne(PlatformConnection $connection): array
+    {
         return $this->syncConnection($connection);
     }
 
-    private function syncConnection(PlatformConnection $connection): array {
+    private function syncConnection(PlatformConnection $connection): array
+    {
         $accessToken = $this->getValidAccessToken($connection);
 
         $api = new GoogleBusinessAPI(
@@ -98,7 +104,7 @@ class GoogleReviewSyncService {
                 continue; // مراجعة موجودة بالفعل أو بدون معرف صالح
             }
 
-            $this->reputationManager->processWebhook([
+            $processed = $this->reputationManager->processWebhook([
                 'user_id' => $userId,
                 'website_id' => $websiteId,
                 'platform' => 'google_business',
@@ -109,6 +115,18 @@ class GoogleReviewSyncService {
                 'review_date' => $review['date'] ?? date('Y-m-d H:i:s'),
                 'review_language' => 'ar',
             ]);
+
+            // GBP Automated Reply Rules (2026-08-15): بعد ما المراجعة تتسجّل،
+            // نشغّل قواعد الرد التلقائي (BirdAI/Podium-style) عليها فورًا -
+            // لو في قاعدة مطابقة مفعّلة، بتتولّد الرد وتتبعت (أو إشعار بس).
+            // فشل صامت: القواعد تحسين ثانوي مش لازم يوقف المزامنة الأساسية.
+            if (isset($processed['review_id']) && (int) $processed['review_id'] > 0 && class_exists('GbpReplyRuleService')) {
+                try {
+                    (new GbpReplyRuleService())->applyRulesToReview((int) $processed['review_id']);
+                } catch (Throwable $e) {
+                    // تجاهل - يفضل مزامنة المراجعات الأساسية شغالة
+                }
+            }
 
             // ربط جديد: نفحص لو المراجعة الجديدة دي جت من ضيف بعتنالوه
             // طلب مراجعة قبل كده (اسم متطابق + لسه مفيش رد "قيّم فعلاً") -
@@ -143,9 +161,10 @@ class GoogleReviewSyncService {
         return ['new_reviews' => $newCount];
     }
 
-    private function reviewExists(int $websiteId, string $platform, string $platformReviewId): bool {
+    private function reviewExists(int $websiteId, string $platform, string $platformReviewId): bool
+    {
         try {
-            $sql = "SELECT id FROM reviews WHERE website_id = ? AND platform = ? AND platform_review_id = ? LIMIT 1";
+            $sql = "SELECT id FROM reviews WHERE website_id = ? AND source_platform = ? AND external_review_id = ? LIMIT 1";
             $result = $this->db->query($sql, [$websiteId, $platform, $platformReviewId]);
             return !empty($result);
         } catch (Exception $e) {
@@ -175,7 +194,8 @@ class GoogleReviewSyncService {
      * جدّد التوكن وإحنا مستنيين القفل، بنستخدم التوكن الجديد بتاعه بدل
      * ما نعمل تجديد تاني من غير داعي.
      */
-    public function getValidAccessToken(PlatformConnection $connection): string {
+    public function getValidAccessToken(PlatformConnection $connection): string
+    {
         if (!$connection->isTokenExpired()) {
             return $this->encryption->decrypt((string) $connection->getAttribute('access_token'));
         }
@@ -260,7 +280,8 @@ class GoogleReviewSyncService {
     }
 
     /** المسار القديم (من غير قفل) - Fallback بس لو الاتصال لسه من غير id */
-    private function refreshAndPersist(PlatformConnection $connection): string {
+    private function refreshAndPersist(PlatformConnection $connection): string
+    {
         $refreshTokenEncrypted = $connection->getAttribute('refresh_token');
         if (!$refreshTokenEncrypted) {
             $connection->setAttribute('status', 'error');

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Meta Social Publishing API Client
  * نشر منشورات حقيقية على صفحة فيسبوك وحساب انستجرام العميل عن طريق
@@ -7,11 +8,13 @@
  * instagram_content_publish) اتضافت في MetaOAuthClient.
  * @version 1.0.0
  */
-class MetaSocialAPI {
+class MetaSocialAPI
+{
     private string $apiVersion;
     private string $accessToken;
 
-    public function __construct(string $accessToken) {
+    public function __construct(string $accessToken)
+    {
         $this->apiVersion = env('META_API_VERSION') ?: 'v25.0';
         $this->accessToken = $accessToken;
     }
@@ -23,7 +26,8 @@ class MetaSocialAPI {
      * بيتستخدم فعليًا للنشر).
      * @return array ['success'=>bool, 'pages'=>[['id','name','access_token','instagram_id']], 'error'=>?]
      */
-    public function listPages(): array {
+    public function listPages(): array
+    {
         $result = $this->get('me/accounts', [
             'fields' => 'id,name,access_token,instagram_business_account{id,username}',
         ]);
@@ -53,7 +57,8 @@ class MetaSocialAPI {
      * @param string|null $imageUrl رابط صورة عام (لازم يكون accessible من الإنترنت، مش رابط محلي)
      * @return array ['success'=>bool, 'post_id'=>?string, 'post_url'=>?string, 'error'=>?string]
      */
-    public function publishToFacebookPage(string $pageId, string $pageAccessToken, string $message, ?string $imageUrl = null): array {
+    public function publishToFacebookPage(string $pageId, string $pageAccessToken, string $message, ?string $imageUrl = null): array
+    {
         $endpoint = $imageUrl ? "{$pageId}/photos" : "{$pageId}/feed";
         $payload = $imageUrl
             ? ['url' => $imageUrl, 'caption' => $message]
@@ -83,7 +88,8 @@ class MetaSocialAPI {
      * @param string $imageUrl رابط صورة عام (مطلوب - انستجرام مش بيقبل نشر نص بس من غير صورة)
      * @param string $caption
      */
-    public function publishToInstagram(string $igUserId, string $pageAccessToken, string $imageUrl, string $caption = ''): array {
+    public function publishToInstagram(string $igUserId, string $pageAccessToken, string $imageUrl, string $caption = ''): array
+    {
         $containerResult = $this->post("{$igUserId}/media", [
             'image_url' => $imageUrl,
             'caption' => $caption,
@@ -117,7 +123,8 @@ class MetaSocialAPI {
      * @param string $videoUrl رابط فيديو عام (mp4) - لازم يكون accessible من الإنترنت
      * @return array ['success'=>bool, 'post_id'=>?string, 'post_url'=>?string, 'error'=>?string]
      */
-    public function publishVideoToFacebookPage(string $pageId, string $pageAccessToken, string $message, string $videoUrl): array {
+    public function publishVideoToFacebookPage(string $pageId, string $pageAccessToken, string $message, string $videoUrl): array
+    {
         $result = $this->post("{$pageId}/videos", [
             'file_url' => $videoUrl,
             'description' => $message,
@@ -143,7 +150,8 @@ class MetaSocialAPI {
      * يبقى FINISHED قبل النداء على publishInstagramContainer().
      * @return array ['success'=>bool, 'container_id'=>?string, 'error'=>?string]
      */
-    public function createInstagramVideoContainer(string $igUserId, string $pageAccessToken, string $videoUrl, string $caption = ''): array {
+    public function createInstagramVideoContainer(string $igUserId, string $pageAccessToken, string $videoUrl, string $caption = ''): array
+    {
         $result = $this->post("{$igUserId}/media", [
             'media_type' => 'REELS',
             'video_url' => $videoUrl,
@@ -166,7 +174,8 @@ class MetaSocialAPI {
      * فحص حالة معالجة container الفيديو في انستجرام.
      * @return array ['success'=>bool, 'status'=>?string (IN_PROGRESS|FINISHED|ERROR|EXPIRED), 'error'=>?string]
      */
-    public function checkInstagramContainerStatus(string $containerId, string $pageAccessToken): array {
+    public function checkInstagramContainerStatus(string $containerId, string $pageAccessToken): array
+    {
         $result = $this->request('GET', $containerId, ['fields' => 'status_code', 'access_token' => $pageAccessToken]);
 
         if (!$result['success']) {
@@ -180,7 +189,8 @@ class MetaSocialAPI {
      * نشر container (صورة أو فيديو) بعد التأكد إنه جاهز.
      * @return array ['success'=>bool, 'post_id'=>?string, 'error'=>?string]
      */
-    public function publishInstagramContainer(string $igUserId, string $pageAccessToken, string $containerId): array {
+    public function publishInstagramContainer(string $igUserId, string $pageAccessToken, string $containerId): array
+    {
         $publishResult = $this->post("{$igUserId}/media_publish", [
             'creation_id' => $containerId,
         ], $pageAccessToken);
@@ -192,17 +202,20 @@ class MetaSocialAPI {
         return ['success' => true, 'post_id' => $publishResult['data']['id'] ?? null];
     }
 
-    private function get(string $path, array $query = []): array {
+    private function get(string $path, array $query = []): array
+    {
         $query['access_token'] = $this->accessToken;
         return $this->request('GET', $path, $query);
     }
 
-    private function post(string $path, array $data, ?string $tokenOverride = null): array {
+    private function post(string $path, array $data, ?string $tokenOverride = null): array
+    {
         $data['access_token'] = $tokenOverride ?? $this->accessToken;
         return $this->request('POST', $path, [], $data);
     }
 
-    private function request(string $method, string $path, array $query = [], array $data = []): array {
+    private function request(string $method, string $path, array $query = [], array $data = []): array
+    {
         try {
             $url = "https://graph.facebook.com/{$this->apiVersion}/{$path}";
             if (!empty($query)) {

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Auth Controller
  * تسجيل الدخول / التسجيل / تسجيل الخروج / استعادة كلمة المرور
@@ -19,8 +20,8 @@
  *    'active' ليقدر المستخدم يدخل فورًا بعد التسجيل.
  */
 
-class AuthController extends Controller {
-
+class AuthController extends Controller
+{
     /**
      * ===================== Two-Factor Authentication (TOTP) =====================
      * تطبيق RFC 6238 (TOTP) يتم تفويضه إلى app/Services/TotpService.php
@@ -35,7 +36,8 @@ class AuthController extends Controller {
      */
 
     /** توليد secret عشوائي جديد (160-bit، القياس الموصى به لـTOTP) */
-    public static function generateTotpSecret(): string {
+    public static function generateTotpSecret(): string
+    {
         if (class_exists('TotpService')) {
             return TotpService::generateSecret();
         }
@@ -47,7 +49,8 @@ class AuthController extends Controller {
      * فرق بسيط في ساعة جهاز المستخدم - ده معيار شائع ومقبول أمنيًا، مش
      * توسيع مبالغ فيه (لسه بيرفض أي كود قديم من أكتر من 30 ثانية).
      */
-    public static function verifyTotpCode(string $base32Secret, string $code): bool {
+    public static function verifyTotpCode(string $base32Secret, string $code): bool
+    {
         if (class_exists('TotpService')) {
             return TotpService::verify($base32Secret, $code, 1);
         }
@@ -65,7 +68,8 @@ class AuthController extends Controller {
     }
 
     /** توليد 8 recovery codes (نص عادي مرة واحدة بس وقت العرض، بعدها مبيتخزنش إلا مُشفّر) */
-    public static function generateRecoveryCodes(int $count = 8): array {
+    public static function generateRecoveryCodes(int $count = 8): array
+    {
         if (class_exists('TotpService')) {
             return TotpService::generateRecoveryCodes($count);
         }
@@ -78,7 +82,8 @@ class AuthController extends Controller {
 
     /** ===== Fallback داخلي (لو TotpService مش محمّل لسبب ما) - نفس الخوارزمية ===== */
 
-    private static function fallbackBase32Encode(string $data): string {
+    private static function fallbackBase32Encode(string $data): string
+    {
         $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
         $binary = '';
         foreach (str_split($data) as $char) {
@@ -92,7 +97,8 @@ class AuthController extends Controller {
         return $output;
     }
 
-    private static function fallbackTotpCode(string $base32Secret, ?int $timestamp = null): string {
+    private static function fallbackTotpCode(string $base32Secret, ?int $timestamp = null): string
+    {
         $timestamp = $timestamp ?? time();
         $counter = intdiv($timestamp, 30);
         $binCounter = pack('N*', 0) . pack('N*', $counter);
@@ -106,7 +112,8 @@ class AuthController extends Controller {
         return str_pad((string) ($truncated % 1000000), 6, '0', STR_PAD_LEFT);
     }
 
-    private static function fallbackBase32Decode(string $b32): string {
+    private static function fallbackBase32Decode(string $b32): string
+    {
         $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
         $b32 = strtoupper(preg_replace('/[^A-Z2-7]/i', '', $b32));
         $binary = '';
@@ -132,7 +139,8 @@ class AuthController extends Controller {
      * عرض نموذج تسجيل الدخول
      * GET /login
      */
-    public function showLoginForm(array $params = []): array {
+    public function showLoginForm(array $params = []): array
+    {
         if ($this->hasValidSessionUser()) {
             header('Location: /dashboard');
             exit;
@@ -158,7 +166,8 @@ class AuthController extends Controller {
      * الدالة دي بتكسر الحلقة عند مصدرها: لو السيشن مش متطابقة فعليًا مع
      * قاعدة البيانات، بنمسحها ونعرض صفحة الدخول العادية بدل التحويل.
      */
-    private function hasValidSessionUser(): bool {
+    private function hasValidSessionUser(): bool
+    {
         if (empty($_SESSION['user_id'])) {
             return false;
         }
@@ -201,7 +210,8 @@ class AuthController extends Controller {
      * تسجيل الدخول
      * POST /login و POST /api/auth/login
      */
-    public function login(array $params = []): array {
+    public function login(array $params = []): array
+    {
         if ($csrfError = $this->csrfGuard()) {
             return $csrfError;
         }
@@ -289,7 +299,8 @@ class AuthController extends Controller {
      * المنطق نفسه (شامل current_refresh_token_id لصفحة الأمان)، فقط
      * لتفادي تكرار نفس الكود في verifyTwoFactor().
      */
-    private function completeLogin(User $user): array {
+    private function completeLogin(User $user): array
+    {
         $userData = $user->toArray();
 
         // جلسة الويب
@@ -330,7 +341,8 @@ class AuthController extends Controller {
         ], 'تم تسجيل الدخول بنجاح');
     }
 
-    public function showTwoFactorChallenge(array $params = []): array {
+    public function showTwoFactorChallenge(array $params = []): array
+    {
         if (empty($_SESSION['pending_2fa_user_id']) || time() > ($_SESSION['pending_2fa_expires'] ?? 0)) {
             header('Location: /login');
             exit;
@@ -419,7 +431,8 @@ HTML;
      * فقط من $_SESSION['pending_2fa_user_id'] (مش من أي user_id جاي من
      * الطلب نفسه) عشان محدش يقدر يتحقق بدل مستخدم تاني.
      */
-    public function verifyTwoFactor(array $params = []): array {
+    public function verifyTwoFactor(array $params = []): array
+    {
         $pendingUserId = $_SESSION['pending_2fa_user_id'] ?? null;
         $expires = $_SESSION['pending_2fa_expires'] ?? 0;
 
@@ -472,7 +485,8 @@ HTML;
      * عرض نموذج التسجيل
      * GET /register
      */
-    public function showRegisterForm(array $params = []): array {
+    public function showRegisterForm(array $params = []): array
+    {
         if ($this->hasValidSessionUser()) {
             header('Location: /dashboard');
             exit;
@@ -483,7 +497,8 @@ HTML;
     }
 
     /** حماية CSRF: يتأكد إن توكن الفورم مطابق لتوكن الجلسة قبل أي عملية تغيير بيانات */
-    private function csrfGuard(): ?array {
+    private function csrfGuard(): ?array
+    {
         $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 
         // نداءات /api/* أو المصحوبة بـ Authorization Bearer مش معتمدة على
@@ -508,7 +523,8 @@ HTML;
      * تسجيل مستخدم جديد
      * POST /register و POST /api/auth/register
      */
-    public function register(array $params = []): array {
+    public function register(array $params = []): array
+    {
         if ($csrfError = $this->csrfGuard()) {
             return $csrfError;
         }
@@ -587,7 +603,8 @@ HTML;
      * تسجيل الخروج
      * GET /logout و POST /api/auth/logout
      */
-    public function logout(array $params = []): array {
+    public function logout(array $params = []): array
+    {
         $currentRefreshId = $_SESSION['current_refresh_token_id'] ?? null;
         if ($currentRefreshId) {
             $token = (new RefreshToken())->find((int) $currentRefreshId);
@@ -624,7 +641,8 @@ HTML;
      * ويحوّل المستخدم لصفحة موافقة المنصة.
      * GET /auth/{provider}
      */
-    public function socialRedirect(array $params = []): array {
+    public function socialRedirect(array $params = []): array
+    {
         $provider = (string) ($params['provider'] ?? '');
         if (!in_array($provider, self::SOCIAL_PROVIDERS, true)) {
             header('Location: /login?error=' . rawurlencode('منصة تسجيل دخول غير معروفة'));
@@ -667,7 +685,8 @@ HTML;
      * استقبال رجوع Google/Facebook/Microsoft بعد الموافقة (GET، فيه code و state).
      * GET /auth/{provider}/callback
      */
-    public function socialCallback(array $params = []): array {
+    public function socialCallback(array $params = []): array
+    {
         $provider = (string) ($params['provider'] ?? '');
         if (!in_array($provider, self::SOCIAL_PROVIDERS, true) || $provider === 'apple') {
             header('Location: /login?error=' . rawurlencode('منصة تسجيل دخول غير معروفة'));
@@ -715,7 +734,8 @@ HTML;
      * حقل user بصيغة JSON فيه الاسم).
      * POST /auth/apple/callback
      */
-    public function appleCallback(array $params = []): array {
+    public function appleCallback(array $params = []): array
+    {
         $code = (string) ($_POST['code'] ?? '');
         $state = (string) ($_POST['state'] ?? '');
 
@@ -761,7 +781,8 @@ HTML;
         }
     }
 
-    private function verifyOAuthState(string $provider, string $state): bool {
+    private function verifyOAuthState(string $provider, string $state): bool
+    {
         $valid = !empty($_SESSION['oauth_state'])
             && ($_SESSION['oauth_provider'] ?? '') === $provider
             && hash_equals($_SESSION['oauth_state'], $state);
@@ -773,7 +794,8 @@ HTML;
      * يلاقي/ينشئ المستخدم المرتبط بحساب اجتماعي معيّن، يفتحله جلسة دخول
      * (زي login() بالظبط)، ثم يحوّله لـ /dashboard.
      */
-    private function completeSocialLogin(string $provider, string $providerUserId, ?string $email, ?string $name): void {
+    private function completeSocialLogin(string $provider, string $providerUserId, ?string $email, ?string $name): void
+    {
         $db = Database::getInstance();
         $userModel = new User();
 
@@ -881,7 +903,8 @@ HTML;
      * تحديث جلسة/توكن قصير الأجل
      * POST /api/auth/refresh
      */
-    public function refresh(array $params = []): array {
+    public function refresh(array $params = []): array
+    {
         if (empty($_SESSION['user_id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -892,7 +915,8 @@ HTML;
      * إصدار زوج JWT (access + refresh) لمستخدم - يُستخدم من login() وأي
      * مكان تاني محتاج يولّد توكنات جديدة لنفس المستخدم.
      */
-    private function issueJwtTokenPair(int $userId): array {
+    private function issueJwtTokenPair(int $userId): array
+    {
         $accessTtl = defined('JWT_ACCESS_TOKEN_TTL') ? JWT_ACCESS_TOKEN_TTL : 900;
         $accessToken = JwtService::issue(['sub' => $userId, 'type' => 'access'], $accessTtl);
 
@@ -916,7 +940,8 @@ HTML;
      * POST /api/auth/token/refresh
      * body: { refresh_token }
      */
-    public function refreshJwtToken(array $params = []): array {
+    public function refreshJwtToken(array $params = []): array
+    {
         $rawToken = (string) $this->get('refresh_token', '');
         if ($rawToken === '') {
             return $this->error('refresh_token is required', 400);
@@ -959,7 +984,8 @@ HTML;
      * POST /api/auth/token/revoke
      * body: { refresh_token }
      */
-    public function revokeJwtToken(array $params = []): array {
+    public function revokeJwtToken(array $params = []): array
+    {
         $rawToken = (string) $this->get('refresh_token', '');
         if ($rawToken === '') {
             return $this->error('refresh_token is required', 400);
@@ -980,7 +1006,8 @@ HTML;
      * عرض نموذج نسيت كلمة المرور
      * GET /forgot-password
      */
-    public function showForgotForm(array $params = []): array {
+    public function showForgotForm(array $params = []): array
+    {
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderForgotPasswordPage();
         exit;
@@ -990,7 +1017,8 @@ HTML;
      * إرسال رابط استعادة كلمة المرور
      * POST /forgot-password و POST /api/auth/forgot-password
      */
-    public function forgotPassword(array $params = []): array {
+    public function forgotPassword(array $params = []): array
+    {
         if (!$this->validate(['email' => 'required|email'])) {
             return $this->error('بريد إلكتروني غير صحيح', 422, $this->getErrors());
         }
@@ -1010,7 +1038,9 @@ HTML;
             // آخر 15 دقيقة لنفس الحساب، منوقفش تظاهريًا (لسه بنرجع نفس
             // الرسالة العامة) لكن مبنبعتش إيميل جديد فعليًا.
             $recentRequests = (new PasswordResetToken())->where(
-                ['user_id' => $user->getAttribute('id')], ['created_at' => 'DESC'], 10
+                ['user_id' => $user->getAttribute('id')],
+                ['created_at' => 'DESC'],
+                10
             );
             $recentCount = 0;
             foreach ($recentRequests as $rt) {
@@ -1065,7 +1095,8 @@ HTML;
      * عرض نموذج إعادة تعيين كلمة المرور
      * GET /reset-password/{token}
      */
-    public function showResetForm(array $params): array {
+    public function showResetForm(array $params): array
+    {
         $token = (string) ($params['token'] ?? '');
         $valid = $this->findValidResetToken($token) !== null;
 
@@ -1078,7 +1109,8 @@ HTML;
      * إعادة تعيين كلمة المرور
      * POST /reset-password و POST /api/auth/reset-password
      */
-    public function resetPassword(array $params = []): array {
+    public function resetPassword(array $params = []): array
+    {
         if (!$this->validate(['token' => 'required', 'password' => 'required|min:8'])) {
             return $this->error('بيانات غير صحيحة', 422, $this->getErrors());
         }
@@ -1111,7 +1143,8 @@ HTML;
     }
 
     /** يدوّر على توكن صالح (مش مستخدم ومش منتهي) عن طريق hash التوكن الخام المُستلم */
-    private function findValidResetToken(string $rawToken): ?PasswordResetToken {
+    private function findValidResetToken(string $rawToken): ?PasswordResetToken
+    {
         if ($rawToken === '') {
             return null;
         }
@@ -1134,7 +1167,8 @@ HTML;
         return $resetToken;
     }
 
-    private function renderResetEmailHtml(string $name, string $resetUrl): string {
+    private function renderResetEmailHtml(string $name, string $resetUrl): string
+    {
         $appName = defined('APP_NAME') ? APP_NAME : 'Tourfecto';
         $safeName = htmlspecialchars($name ?: 'عزيزي العميل', ENT_QUOTES, 'UTF-8');
         $safeUrl = htmlspecialchars($resetUrl, ENT_QUOTES, 'UTF-8');
@@ -1152,7 +1186,8 @@ HTML;
 HTML;
     }
 
-    private function authPageShell(string $title, string $bodyHtml): string {
+    private function authPageShell(string $title, string $bodyHtml): string
+    {
         $appName = defined('APP_NAME') ? APP_NAME : 'Tourfecto';
         $brandHtml = site_brand_html();
         $faviconHtml = site_favicon_html();
@@ -1222,7 +1257,8 @@ HTML;
 HTML;
     }
 
-    private function renderForgotPasswordPage(): string {
+    private function renderForgotPasswordPage(): string
+    {
         $title = $this->tr('auth.forgot.title');
         $sub = $this->tr('auth.forgot.sub');
         $emailLabel = $this->tr('auth.email');
@@ -1292,7 +1328,8 @@ HTML;
         return $this->authPageShell($title, $body);
     }
 
-    private function renderResetPasswordPage(string $token, bool $valid): string {
+    private function renderResetPasswordPage(string $token, bool $valid): string
+    {
         $tokenEsc = htmlspecialchars($token, ENT_QUOTES, 'UTF-8');
 
         if (!$valid) {
@@ -1399,7 +1436,8 @@ HTML;
      * تأكيد البريد الإلكتروني
      * GET /verify-email/{token} و POST /api/auth/verify-email
      */
-    public function verifyEmail(array $params = []): array {
+    public function verifyEmail(array $params = []): array
+    {
         return $this->error('ميزة تأكيد البريد الإلكتروني غير مفعّلة بعد في هذه النسخة', 501);
     }
 
@@ -1407,7 +1445,8 @@ HTML;
      * إعادة إرسال بريد التأكيد
      * POST /api/auth/resend-verification
      */
-    public function resendVerification(array $params = []): array {
+    public function resendVerification(array $params = []): array
+    {
         return $this->error('ميزة إعادة إرسال بريد التأكيد غير مفعّلة بعد في هذه النسخة', 501);
     }
 
@@ -1417,7 +1456,8 @@ HTML;
      * @param string $mode 'login' أو 'register'
      * @return string
      */
-    private function renderAuthPage(string $mode): string {
+    private function renderAuthPage(string $mode): string
+    {
         $appName = defined('APP_NAME') ? APP_NAME : 'Tourfecto';
         $topNavBrandHtml = site_brand_html();
         $faviconHtml = site_favicon_html();
@@ -1643,7 +1683,8 @@ HTML;
      * العادي (5 غلطات نادر حد يوصلها وهو بيكتب صح).
      * @return array|null رسالة خطأ لو محظور، أو null لو مسموح يكمّل
      */
-    private function checkLoginRateLimit(string $email): ?array {
+    private function checkLoginRateLimit(string $email): ?array
+    {
         try {
             $db = Database::getInstance();
             $rows = $db->query(
@@ -1667,7 +1708,8 @@ HTML;
         return null;
     }
 
-    protected function recordLoginHistory(?int $userId, string $email, string $status, bool $isImpersonation = false): void {
+    protected function recordLoginHistory(?int $userId, string $email, string $status, bool $isImpersonation = false): void
+    {
         try {
             $ip = function_exists('get_client_ip') ? get_client_ip() : ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
             $userAgent = function_exists('get_user_agent') ? get_user_agent() : ($_SERVER['HTTP_USER_AGENT'] ?? 'Unknown');

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Onboarding Controller
  * Phase 16 + Phase 18 + Phase 19.
@@ -23,8 +24,8 @@
  *
  * @version 1.0.0
  */
-class OnboardingController extends Controller {
-
+class OnboardingController extends Controller
+{
     /**
      * POST /api/onboarding/complete
      * { business_name, main_url, industry, target_country, target_language?,
@@ -36,8 +37,11 @@ class OnboardingController extends Controller {
      *   - processing = false: كل حاجة اتخلصت في نفس الـ request (fallback
      *     لما الطابور مش متاح) - الواجهة بتعرض النتيجة مباشرة.
      */
-    public function complete(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function complete(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $userId = (int) $this->user['id'];
 
         if (!$this->validate(['main_url' => 'required', 'business_name' => 'required'])) {
@@ -50,12 +54,16 @@ class OnboardingController extends Controller {
         }
 
         $competitorsInput = $this->get('competitors', []);
-        if (!is_array($competitorsInput)) $competitorsInput = [];
+        if (!is_array($competitorsInput)) {
+            $competitorsInput = [];
+        }
         $competitorsInput = array_slice($competitorsInput, 0, 3);
 
         $competitors = [];
         foreach ($competitorsInput as $c) {
-            if (!is_array($c) || empty($c['domain'])) continue;
+            if (!is_array($c) || empty($c['domain'])) {
+                continue;
+            }
             $domain = $this->canonicalizeUrl((string) $c['domain']);
             $competitors[] = [
                 'name' => trim((string) ($c['name'] ?? '')),
@@ -65,7 +73,9 @@ class OnboardingController extends Controller {
 
         try {
             $websiteId = $this->findOrCreateWebsite($userId, $mainUrl, $competitors);
-            if (!$websiteId) return $this->error($this->tr('onboarding.api.create_failed'), 500);
+            if (!$websiteId) {
+                return $this->error($this->tr('onboarding.api.create_failed'), 500);
+            }
 
             // ============ Async أولًا (طابور الخلفية) ============
             $queue = new QueueManager();
@@ -117,7 +127,8 @@ class OnboardingController extends Controller {
      * @param array $payload ['user_id','website_id','competitors']
      * @return array
      */
-    public function runSetup(array $payload = []): array {
+    public function runSetup(array $payload = []): array
+    {
         $userId = (int) ($payload['user_id'] ?? 0);
         $websiteId = (int) ($payload['website_id'] ?? 0);
         $competitors = (array) ($payload['competitors'] ?? []);
@@ -127,7 +138,9 @@ class OnboardingController extends Controller {
         if (class_exists('CompetitorAnalysisService')) {
             $competitorService = new CompetitorAnalysisService();
             foreach ($competitors as $c) {
-                if (empty($c['domain'])) continue;
+                if (empty($c['domain'])) {
+                    continue;
+                }
                 try {
                     $exists = $this->db->query(
                         "SELECT id FROM competitors WHERE user_id = ? AND website_id = ? AND competitor_domain = ? LIMIT 1",
@@ -194,16 +207,21 @@ class OnboardingController extends Controller {
      * تطبيع الرابط: بيضيف https:// لو مفيش scheme، بيخلي الـhost lowercase،
      * وبيشيل أي trailing slash. بيرجع null لو الرابط مش صالح خالص.
      */
-    private function canonicalizeUrl(string $raw): ?string {
+    private function canonicalizeUrl(string $raw): ?string
+    {
         $raw = trim($raw);
-        if ($raw === '') return null;
+        if ($raw === '') {
+            return null;
+        }
 
         if (!preg_match('#^https?://#i', $raw)) {
             $raw = 'https://' . $raw;
         }
 
         $parts = parse_url($raw);
-        if (!$parts || empty($parts['host'])) return null;
+        if (!$parts || empty($parts['host'])) {
+            return null;
+        }
 
         $host = strtolower((string) $parts['host']);
         $port = isset($parts['port']) ? ':' . $parts['port'] : '';
@@ -222,7 +240,8 @@ class OnboardingController extends Controller {
      * إيجاد موقع بنفس الرابط لنفس المستخدم أو إنشاؤه. بيحدّث الموقع الموجود
      * بدل ما يعمل نسخة مكررة كل مرة العميل يعيد تشغيل الـWizard.
      */
-    private function findOrCreateWebsite(int $userId, string $mainUrl, array $competitors): int {
+    private function findOrCreateWebsite(int $userId, string $mainUrl, array $competitors): int
+    {
         $urlCol = Website::urlColumn();
         $rows = $this->db->query(
             "SELECT id FROM websites WHERE user_id = ? AND {$urlCol} = ? ORDER BY id DESC LIMIT 1",
@@ -254,7 +273,8 @@ class OnboardingController extends Controller {
     }
 
     /** GET /onboarding - صفحة الـWizard */
-    public function showWizard(array $params = []): array {
+    public function showWizard(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             header('Location: /login');
             exit;
@@ -278,7 +298,8 @@ class OnboardingController extends Controller {
      *  - تخطّي (skip) لسهولة الخروج للداشبورد، وتنقّل بالـ Enter
      *  - تعبئة مسبقة من آخر موقع (تحديث البيانات بدل البدء من الصفر)
      */
-    private function renderWizardPage(): string {
+    private function renderWizardPage(): string
+    {
         $appName = defined('APP_NAME') ? APP_NAME : 'Tourfecto';
         $topNavBrandHtml = site_brand_html();
         $faviconHtml = site_favicon_html();
@@ -286,7 +307,7 @@ class OnboardingController extends Controller {
         $dir = current_dir();
         $panelJsUrl = asset_v('/assets/js/panel.js');
 
-        $t = fn($key) => $this->tr($key);
+        $t = fn ($key) => $this->tr($key);
 
         // تعبئة مسبقة من آخر موقع للعميل (لو راجع يحدّث بياناته)
         $prefill = null;
@@ -874,8 +895,11 @@ HTML;
     }
 
     /** GET /api/onboarding/status?website_id=X (اختياري - بدونه بيرجع حالة كل مواقع الحساب) */
-    public function status(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function status(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $websiteId = $this->get('website_id') ? (int) $this->get('website_id') : null;
         $userId = (int) $this->user['id'];
@@ -885,7 +909,9 @@ HTML;
             $out = [];
             foreach ($websites as $w) {
                 $id = (int) $w->getAttribute('id');
-                if ($websiteId && $id !== $websiteId) continue;
+                if ($websiteId && $id !== $websiteId) {
+                    continue;
+                }
 
                 $audit = $this->websiteAuditStatus($id);
                 $growth = $this->websiteGrowthPlan($id);
@@ -918,14 +944,17 @@ HTML;
     }
 
     /** حالة أحدث تدقيق SEO للموقع (wo_audits). */
-    private function websiteAuditStatus(int $websiteId): array {
+    private function websiteAuditStatus(int $websiteId): array
+    {
         $empty = ['status' => 'none', 'score' => null, 'completed_at' => null, 'findings_count' => 0, 'category_scores' => []];
         try {
             $rows = $this->db->query(
                 "SELECT id, status, overall_score, completed_at FROM wo_audits WHERE website_id = ? ORDER BY id DESC LIMIT 1",
                 [$websiteId]
             );
-            if (empty($rows)) return $empty;
+            if (empty($rows)) {
+                return $empty;
+            }
 
             $auditId = (int) $rows[0]['id'];
             $findingsCount = (int) ($this->db->query(
@@ -940,7 +969,9 @@ HTML;
             $categoryScores = [];
             foreach ($catRows as $cr) {
                 $total = (int) ($cr['total'] ?? 0);
-                if ($total <= 0) continue;
+                if ($total <= 0) {
+                    continue;
+                }
                 $passed = (int) ($cr['passed'] ?? 0);
                 $categoryScores[] = [
                     'category' => (string) $cr['category'],
@@ -961,14 +992,17 @@ HTML;
     }
 
     /** حالة خطة النمو (seo_strategy_plans) للموقع. */
-    private function websiteGrowthPlan(int $websiteId): array {
+    private function websiteGrowthPlan(int $websiteId): array
+    {
         $empty = ['ready' => false, 'tasks' => 0, 'summary' => null];
         try {
             $planRows = $this->db->query(
                 "SELECT id, summary FROM seo_strategy_plans WHERE website_id = ? ORDER BY id DESC LIMIT 1",
                 [$websiteId]
             );
-            if (empty($planRows)) return $empty;
+            if (empty($planRows)) {
+                return $empty;
+            }
 
             $tasksCount = (int) ($this->db->query(
                 "SELECT COUNT(*) AS c FROM seo_strategy_tasks WHERE plan_id = ?",
@@ -986,7 +1020,8 @@ HTML;
     }
 
     /** عدد المنافسين المسجلين للموقع. */
-    private function websiteCompetitorsCount(int $websiteId): int {
+    private function websiteCompetitorsCount(int $websiteId): int
+    {
         try {
             return (int) ($this->db->query(
                 "SELECT COUNT(*) AS c FROM competitors WHERE website_id = ?",

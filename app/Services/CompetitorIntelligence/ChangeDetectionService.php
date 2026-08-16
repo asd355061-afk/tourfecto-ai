@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Change Detection Service
  * @version 1.0.0
@@ -8,13 +9,14 @@
  * ثقة التغيير. لا يعتمد على تخمين - كله مبني على فرق فعلي بين نصين
  * مُطبَّعين محفوظين فعليًا.
  */
-class ChangeDetectionService {
-
+class ChangeDetectionService
+{
     /**
      * يقارن لقطة جديدة باللقطة السابقة (لو موجودة) لنفس الصفحة، ويسجّل
      * تغيير في ci_changes لو فيه فرق فعلي. يرجّع الـ CiChange الناتج أو null.
      */
-    public function detectAndRecord(Competitor $competitor, string $pageType, CiSnapshot $newSnapshot): ?CiChange {
+    public function detectAndRecord(Competitor $competitor, string $pageType, CiSnapshot $newSnapshot): ?CiChange
+    {
         $userId = (int) $competitor->getAttribute('user_id');
         $competitorId = (int) $competitor->getAttribute('id');
 
@@ -90,7 +92,8 @@ class ChangeDetectionService {
      * PriceExtractor. لو مفيش سعر واضح في أي من النصين، نرجّع null
      * (مش هنخزن قيم جزئية مضللة). العملة المفضلة = اللي في النص الجديد.
      */
-    private function extractPriceChange(CiSnapshot $previous, CiSnapshot $new): ?array {
+    private function extractPriceChange(CiSnapshot $previous, CiSnapshot $new): ?array
+    {
         $before = PriceExtractor::extract((string) $previous->getAttribute('normalized_excerpt'));
         $after = PriceExtractor::extract((string) $new->getAttribute('normalized_excerpt'));
 
@@ -105,7 +108,8 @@ class ChangeDetectionService {
         ];
     }
 
-    private function getPreviousSnapshot(int $competitorId, string $pageType, int $excludeId): ?CiSnapshot {
+    private function getPreviousSnapshot(int $competitorId, string $pageType, int $excludeId): ?CiSnapshot
+    {
         $db = Database::getInstance();
         $rows = $db->query(
             "SELECT * FROM `ci_snapshots` WHERE competitor_id = ? AND page_type = ? AND id != ?
@@ -121,7 +125,8 @@ class ChangeDetectionService {
      * headline/positioning. صفحة pricing/offers تغيّرت = خطورة أعلى من
      * تغيير بسيط في صفحة blog.
      */
-    private function classify(string $pageType, CiSnapshot $previous, CiSnapshot $new): array {
+    private function classify(string $pageType, CiSnapshot $previous, CiSnapshot $new): array
+    {
         $prevTitle = (string) $previous->getAttribute('title');
         $newTitle = (string) $new->getAttribute('title');
         $titleChanged = $prevTitle !== '' && $prevTitle !== $newTitle;
@@ -174,7 +179,8 @@ class ChangeDetectionService {
      * نص before/after محدود للعرض في الواجهة (مش المقطع الكامل 20000
      * حرف) - أول 600 حرف كافية لإظهار الفرق للمستخدم مع رابط للمصدر.
      */
-    private function diffExcerpt(string $text): string {
+    private function diffExcerpt(string $text): string
+    {
         return mb_substr($text, 0, 600);
     }
 }

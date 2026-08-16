@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Send Alert Webhook Job
  * @version 1.0.0
@@ -8,10 +9,12 @@
  * فبيتطبق عليه SsrfGuard زي أي URL خارجي تاني في الموديول ده (نفس
  * الحماية المُستخدمة في WebsiteSnapshotFetcher لمنع SSRF).
  */
-class SendCompetitorAlertWebhookJob implements QueueJobInterface {
+class SendCompetitorAlertWebhookJob implements QueueJobInterface
+{
     private const TIMEOUT_SECONDS = 8;
 
-    public function handle(array $payload): void {
+    public function handle(array $payload): void
+    {
         $url = (string) ($payload['url'] ?? '');
         $format = (string) ($payload['format'] ?? 'generic'); // 'generic' | 'slack'
         $title = (string) ($payload['title'] ?? '');

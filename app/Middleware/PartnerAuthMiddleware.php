@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Partner Auth Middleware
  * مصادقة مستقلة تمامًا عن AuthMiddleware (اللي مصمم لجلسة/توكن المستخدم
@@ -13,7 +14,8 @@
  * @version 1.0.0
  */
 
-class PartnerAuthMiddleware {
+class PartnerAuthMiddleware
+{
     /** @var string|null $requiredScope - الصلاحية المطلوبة لهذا المسار */
     private $requiredScope = null;
 
@@ -24,11 +26,13 @@ class PartnerAuthMiddleware {
      * دعم صيغة 'PartnerAuthMiddleware:scope_name' من الـ Router
      * (نفس آلية applyModifier المستخدمة بالفعل في SubscriptionMiddleware)
      */
-    public function applyModifier(string $modifier): void {
+    public function applyModifier(string $modifier): void
+    {
         $this->requiredScope = $modifier;
     }
 
-    public function handle(): ?array {
+    public function handle(): ?array
+    {
         $rawKey = $this->getKeyFromRequest();
 
         if (!$rawKey) {
@@ -65,7 +69,8 @@ class PartnerAuthMiddleware {
      * هو، مش حد ثابت للجميع زي RateLimitMiddleware العادي) - عشان شريك
      * كبير يقدر ياخد حد أعلى من شريك تجريبي بدون أي تغيير في الكود.
      */
-    private function checkRateLimit(PartnerApiKey $partner, string $rawKey): ?array {
+    private function checkRateLimit(PartnerApiKey $partner, string $rawKey): ?array
+    {
         if (!class_exists('RateLimiter')) {
             return null;
         }
@@ -86,7 +91,8 @@ class PartnerAuthMiddleware {
         return null;
     }
 
-    private function getKeyFromRequest(): ?string {
+    private function getKeyFromRequest(): ?string
+    {
         $headers = function_exists('getallheaders') ? (getallheaders() ?: []) : [];
         $key = $headers['X-API-Key'] ?? ($headers['x-api-key'] ?? null);
 
@@ -97,7 +103,8 @@ class PartnerAuthMiddleware {
         return $key ? trim($key) : null;
     }
 
-    private function reject(int $code, string $message): array {
+    private function reject(int $code, string $message): array
+    {
         http_response_code($code);
         return [
             'success' => false,
@@ -106,7 +113,8 @@ class PartnerAuthMiddleware {
         ];
     }
 
-    public function getPartner(): ?PartnerApiKey {
+    public function getPartner(): ?PartnerApiKey
+    {
         return $this->partner;
     }
 }

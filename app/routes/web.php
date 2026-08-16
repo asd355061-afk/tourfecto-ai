@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Web Routes
  * تعريف مسارات الويب الخاصة بواجهة المستخدم
@@ -44,7 +45,7 @@ $router->get('/onboarding', 'OnboardingController', 'showWizard', ['AuthMiddlewa
 // ============================================
 // لوحة التحكم (Dashboard)
 // ============================================
-$router->group('/dashboard', function($router) {
+$router->group('/dashboard', function ($router) {
     $router->get('', 'DashboardController', 'index', ['AuthMiddleware']);
     $router->get('/overview', 'DashboardController', 'overview', ['AuthMiddleware']);
     $router->get('/analytics', 'DashboardController', 'analytics', ['AuthMiddleware']);
@@ -67,7 +68,7 @@ $router->get('/competitor-intelligence/reports/{id}/export', 'CompetitorIntellig
 // ============================================
 // صفحات الذكاء الاصطناعي
 // ============================================
-$router->group('/ai', function($router) {
+$router->group('/ai', function ($router) {
     $router->get('/analyze', 'AIController', 'showAnalyze', ['AuthMiddleware']);
     $router->get('/reports', 'AIController', 'showReports', ['AuthMiddleware']);
     $router->get('/report/{id}', 'AIController', 'showReport', ['AuthMiddleware']);
@@ -130,7 +131,7 @@ $router->post('/sites/{slug}/review', 'WebsiteBuilderController', 'submitReview'
 // ============================================
 // صفحات إدارة السمعة
 // ============================================
-$router->group('/reputation', function($router) {
+$router->group('/reputation', function ($router) {
     $router->get('/overview', 'ReputationController', 'showOverview', ['AuthMiddleware']);
     $router->get('/reviews', 'ReputationController', 'showReviews', ['AuthMiddleware']);
     $router->get('/review/{id}', 'ReputationController', 'showReview', ['AuthMiddleware']);
@@ -145,7 +146,7 @@ $router->group('/reputation', function($router) {
 // ============================================
 // صفحات ربط Google Search Console
 // ============================================
-$router->group('/search-console', function($router) {
+$router->group('/search-console', function ($router) {
     $router->get('/callback', 'SearchConsoleController', 'callback', ['AuthMiddleware']);
     $router->get('/choose', 'SearchConsoleController', 'showSitePicker', ['AuthMiddleware']);
     $router->get('/connect/{website_id}', 'SearchConsoleController', 'connect', ['AuthMiddleware']);
@@ -159,7 +160,7 @@ $router->get('/integrations', 'IntegrationsController', 'index', ['AuthMiddlewar
 // ============================================
 // صفحات الشات
 // ============================================
-$router->group('/chat', function($router) {
+$router->group('/chat', function ($router) {
     $router->get('', 'ChatController', 'index', ['AuthMiddleware']);
     $router->get('/conversation/{id}', 'ChatController', 'showConversation', ['AuthMiddleware']);
     $router->get('/pending', 'ChatController', 'showPending', ['AuthMiddleware']);
@@ -181,7 +182,7 @@ $router->get('/invoice/{id}', 'SubscriptionController', 'showInvoice', ['AuthMid
 // ============================================
 // صفحات الملف الشخصي
 // ============================================
-$router->group('/profile', function($router) {
+$router->group('/profile', function ($router) {
     $router->get('', 'UserController', 'showProfile', ['AuthMiddleware']);
     $router->get('/edit', 'UserController', 'showEditProfile', ['AuthMiddleware']);
     $router->post('/update', 'UserController', 'updateProfile', ['AuthMiddleware']);
@@ -196,7 +197,7 @@ $router->group('/profile', function($router) {
 // ============================================
 // صفحات المواقع
 // ============================================
-$router->group('/websites', function($router) {
+$router->group('/websites', function ($router) {
     $router->get('', 'WebsiteController', 'index', ['AuthMiddleware']);
     $router->get('/create', 'WebsiteController', 'create', ['AuthMiddleware']);
     $router->post('/store', 'WebsiteController', 'store', ['AuthMiddleware']);
@@ -209,7 +210,7 @@ $router->group('/websites', function($router) {
 // ============================================
 // صفحات التقارير
 // ============================================
-$router->group('/reports', function($router) {
+$router->group('/reports', function ($router) {
     $router->get('', 'ReportController', 'index', ['AuthMiddleware']);
     $router->get('/export', 'ReportController', 'export', ['AuthMiddleware']);
     $router->get('/scheduled', 'ReportController', 'scheduled', ['AuthMiddleware']);
@@ -238,7 +239,7 @@ $router->get('/data-deletion', 'LegalController', 'dataDeletion');
 // ============================================
 // مسارات إدارية (Admin Web)
 // ============================================
-$router->group('/admin', function($router) {
+$router->group('/admin', function ($router) {
     $router->get('', 'AdminController', 'index', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/platform', 'AdminController', 'platform', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/users', 'AdminController', 'users', ['AuthMiddleware', 'AdminMiddleware']);

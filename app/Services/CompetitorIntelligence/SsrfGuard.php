@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: SSRF Guard
  * @version 1.0.0
@@ -11,7 +12,8 @@
  * (لحماية فحص ملكية الموقع)، اتنقل هنا لكلاس مشترك قابل لإعادة الاستخدام
  * بدل تكراره، ومُوسَّع بفحص الـ scheme ومنع منافذ غير http/https.
  */
-class SsrfGuard {
+class SsrfGuard
+{
     /** @var string[] Metadata / link-local endpoints يجب منعها دائمًا حتى لو عدّت فحص الـ IP range العام */
     private const BLOCKED_HOSTS = [
         'metadata.google.internal',
@@ -25,7 +27,8 @@ class SsrfGuard {
      * @param string $url
      * @return array ['safe' => bool, 'reason' => string|null, 'host' => string|null]
      */
-    public static function validateUrl(string $url): array {
+    public static function validateUrl(string $url): array
+    {
         $url = trim($url);
 
         if ($url === '') {
@@ -62,7 +65,8 @@ class SsrfGuard {
         return ['safe' => true, 'reason' => null, 'host' => $host];
     }
 
-    public static function isSafe(string $url): bool {
+    public static function isSafe(string $url): bool
+    {
         return self::validateUrl($url)['safe'];
     }
 
@@ -78,7 +82,8 @@ class SsrfGuard {
      * لو متاح - فبمنع أي دومين أي سجل من سجلاته خاص. فشل الـ resolution
      * بالكامل = مرفوض (fail-closed).
      */
-    public static function isPubliclyRoutableHost(string $host): bool {
+    public static function isPubliclyRoutableHost(string $host): bool
+    {
         $host = rtrim(strtolower(trim($host)), '.');
 
         if (filter_var($host, FILTER_VALIDATE_IP)) {
@@ -157,7 +162,8 @@ class SsrfGuard {
      * الـ scheme/host الأساسي للمنافس، لمنع أي محاولة لتمرير URL كامل
      * مختلف (host مختلف) عبر باراميتر page_type.
      */
-    public static function buildSubPageUrl(string $baseUrl, string $path): ?string {
+    public static function buildSubPageUrl(string $baseUrl, string $path): ?string
+    {
         $base = parse_url($baseUrl);
         if (!$base || empty($base['host']) || empty($base['scheme'])) {
             return null;

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Invoice Lifecycle Service
  * @version 1.0.0
@@ -8,16 +9,19 @@
  * (pending/paid/failed/cancelled/draft/issued/partially_paid/overdue/refunded)
  * المؤكد من dump قاعدة البيانات الفعلية.
  */
-class InvoiceLifecycleService {
+class InvoiceLifecycleService
+{
     /** @var Database */
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
     /** @return array{marked_overdue: int, marked_refunded: int} */
-    public function runLifecycleChecks(): array {
+    public function runLifecycleChecks(): array
+    {
         return [
             'marked_overdue' => $this->markOverdueInvoices(),
             'marked_refunded' => $this->syncRefundedInvoices(),
@@ -25,7 +29,8 @@ class InvoiceLifecycleService {
     }
 
     /** pending + due_date فاتت → overdue */
-    private function markOverdueInvoices(): int {
+    private function markOverdueInvoices(): int
+    {
         try {
             $rows = $this->db->query(
                 "SELECT id, user_id FROM invoices WHERE status = 'pending' AND due_date < CURDATE()"
@@ -33,8 +38,13 @@ class InvoiceLifecycleService {
             foreach ($rows as $row) {
                 $this->db->exec("UPDATE invoices SET status = 'overdue' WHERE id = ?", [(int) $row['id']]);
                 if (class_exists('Notification')) {
-                    Notification::notify((int) $row['user_id'], 'invoice_overdue', 'فاتورة متأخرة السداد',
-                        'عندك فاتورة تجاوزت تاريخ استحقاقها.', '/subscription');
+                    Notification::notify(
+                        (int) $row['user_id'],
+                        'invoice_overdue',
+                        'فاتورة متأخرة السداد',
+                        'عندك فاتورة تجاوزت تاريخ استحقاقها.',
+                        '/subscription'
+                    );
                 }
             }
             return count($rows);
@@ -52,7 +62,8 @@ class InvoiceLifecycleService {
      * (مفيش FK مباشر بين invoices و payment_transactions في التصميم
      * الحالي) - موثّق هنا كقيد معماري معروف، مش سلوك مضمون 100%.
      */
-    private function syncRefundedInvoices(): int {
+    private function syncRefundedInvoices(): int
+    {
         try {
             $rows = $this->db->query(
                 "SELECT i.id, i.transaction_id

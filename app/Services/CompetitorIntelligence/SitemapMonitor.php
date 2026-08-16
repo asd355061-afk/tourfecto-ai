@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Sitemap Monitor
  * @version 1.0.0
@@ -10,11 +11,13 @@
  * أي رابط جديد = new_page، أي رابط اختفى = removed_page - كلها أدلة
  * حقيقية (روابط فعلية) مش تخمين.
  */
-class SitemapMonitor {
+class SitemapMonitor
+{
     private const MAX_URLS_STORED = 500; // سقف معقول - بعض المواقع عندها آلاف الروابط
     private const TIMEOUT_SECONDS = 10;
 
-    public function checkAndRecord(Competitor $competitor): ?CiChange {
+    public function checkAndRecord(Competitor $competitor): ?CiChange
+    {
         $baseUrl = $this->resolveBaseUrl($competitor);
         if ($baseUrl === null) {
             return null;
@@ -124,7 +127,8 @@ class SitemapMonitor {
     /**
      * @return string[]|null قائمة الروابط، أو null لو sitemap مش متاح/غير صالح
      */
-    private function fetchSitemapUrls(string $sitemapUrl): ?array {
+    private function fetchSitemapUrls(string $sitemapUrl): ?array
+    {
         if (!function_exists('curl_init')) {
             return null;
         }
@@ -183,7 +187,8 @@ class SitemapMonitor {
         return array_slice(array_unique($urls), 0, self::MAX_URLS_STORED);
     }
 
-    private function getPreviousSitemapSnapshot(int $competitorId, int $excludeId): ?CiSnapshot {
+    private function getPreviousSitemapSnapshot(int $competitorId, int $excludeId): ?CiSnapshot
+    {
         $db = Database::getInstance();
         $rows = $db->query(
             "SELECT * FROM ci_snapshots WHERE competitor_id = ? AND page_type = 'sitemap' AND id != ? ORDER BY captured_at DESC, id DESC LIMIT 1",
@@ -192,7 +197,8 @@ class SitemapMonitor {
         return !empty($rows) ? new CiSnapshot($rows[0]) : null;
     }
 
-    private function resolveBaseUrl(Competitor $competitor): ?string {
+    private function resolveBaseUrl(Competitor $competitor): ?string
+    {
         return CompetitorDomain::normalizeSafe($competitor->getAttribute('competitor_domain'));
     }
 }

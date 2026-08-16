@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Subscription Model
  * نموذج الاشتراك مع إدارة الفوترة والاستخدام
@@ -7,12 +8,13 @@
  * @copyright 2026 Tourfecto
  */
 
-class Subscription extends Model {
+class Subscription extends Model
+{
     /**
      * @var string $table - اسم الجدول
      */
     protected $table = 'subscriptions';
-    
+
     /**
      * @var array $fillable - الحقول القابلة للتعبئة
      */
@@ -43,7 +45,8 @@ class Subscription extends Model {
      * (انظر شرح expiryColumn() تحت) عشان mass-assignment يقبله حتى لو مختلف
      * عن 'expiry_date' الموجود في fillable الثابتة فوق.
      */
-    public function __construct(array $attributes = []) {
+    public function __construct(array $attributes = [])
+    {
         $col = self::expiryColumn();
         if ($col && !in_array($col, $this->fillable, true)) {
             $this->fillable[] = $col;
@@ -68,7 +71,8 @@ class Subscription extends Model {
      * بيستخدموا الدالة دي بدل ما كل واحد يخمّن لوحده.
      * @return string اسم العمود الحقيقي، أو '' لو مفيش عمود انتهاء أصلاً
      */
-    public static function expiryColumn(): string {
+    public static function expiryColumn(): string
+    {
         if (self::$expiryColumnCache !== null) {
             return self::$expiryColumnCache;
         }
@@ -99,17 +103,18 @@ class Subscription extends Model {
         self::$expiryColumnCache = '';
         return '';
     }
-    
+
     /**
      * الحصول على خطط الاشتراك المتاحة
      * @return array
      */
-    public static function getAvailablePlans(): array {
+    public static function getAvailablePlans(): array
+    {
         // تصحيح: بقت الباقات قابلة للتعديل من لوحة الأدمن (جدول
         // subscription_plans) بدل ما تكون مكتوبة في كود PHP ثابت.
         return SubscriptionPlan::allAsLegacyArray();
     }
-    
+
     /**
      * تصحيح جذري (2026-07-13): بعد ما شفنا بنية الجدول الحقيقية فعليًا في
      * phpMyAdmin، اتضح إن subscriptions مصمم بشكل مختلف تمامًا عن افتراض
@@ -134,7 +139,8 @@ class Subscription extends Model {
      * @param int $userId
      * @return array|null
      */
-    public static function activeSubscriptionRow(int $userId): ?array {
+    public static function activeSubscriptionRow(int $userId): ?array
+    {
         try {
             $db = Database::getInstance();
             $sql = "SELECT 
@@ -191,7 +197,8 @@ class Subscription extends Model {
      * @param string $planType
      * @return Subscription|false
      */
-    public static function createSubscription(int $userId, string $planName, string $planType = 'monthly'): ?Subscription {
+    public static function createSubscription(int $userId, string $planName, string $planType = 'monthly'): ?Subscription
+    {
         try {
             $db = Database::getInstance();
             $planCode = $planName . '_' . $planType;
@@ -242,26 +249,27 @@ class Subscription extends Model {
      * وهمية (ai_credits, expiry_date...) مش موجودة في الجدول الحقيقي. باقية
      * هنا لغرض توثيقي بس - مش بتتنفذ.
      */
-    private static function createSubscriptionLegacyUnused(int $userId, string $planName, string $planType = 'monthly'): ?Subscription {
+    private static function createSubscriptionLegacyUnused(int $userId, string $planName, string $planType = 'monthly'): ?Subscription
+    {
         $plans = self::getAvailablePlans();
-        
+
         if (!isset($plans[$planName])) {
             Logger::error('Invalid plan', ['plan' => $planName]);
             return false;
         }
-        
+
         $plan = $plans[$planName];
         $features = $plan['features'];
-        
+
         // حساب السعر
         $price = $planType === 'yearly' ? $plan['price_yearly'] : $plan['price_monthly'];
-        
+
         // حساب تاريخ الانتهاء
         $startDate = date('Y-m-d H:i:s');
-        $expiryDate = $planType === 'yearly' 
+        $expiryDate = $planType === 'yearly'
             ? date('Y-m-d H:i:s', strtotime('+1 year'))
             : date('Y-m-d H:i:s', strtotime('+1 month'));
-        
+
         $data = [
             'user_id' => $userId,
             'plan_name' => $planName,
@@ -286,22 +294,23 @@ class Subscription extends Model {
         if ($expiryCol) {
             $data[$expiryCol] = $expiryDate;
         }
-        
+
         $subscription = new static($data);
         $id = $subscription->save();
-        
+
         if ($id) {
             return $subscription->find($id);
         }
-        
+
         return false;
     }
-    
+
     /**
      * تجديد الاشتراك
      * @return bool
      */
-    public function renew(): bool {
+    public function renew(): bool
+    {
         $expiryCol = self::expiryColumn();
         $currentExpiry = $expiryCol ? ($this->attributes[$expiryCol] ?? null) : null;
 
@@ -310,7 +319,7 @@ class Subscription extends Model {
         } else {
             $newExpiry = date('Y-m-d H:i:s', strtotime('+1 month', $currentExpiry ? strtotime($currentExpiry) : time()));
         }
-        
+
         // إعادة تعيين الاستخدام
         $this->attributes['ai_credits_used'] = 0;
         $this->attributes['chat_credits_used'] = 0;
@@ -322,103 +331,110 @@ class Subscription extends Model {
         $this->attributes['next_billing_at'] = $newExpiry;
         $this->attributes['last_billed_at'] = date('Y-m-d H:i:s');
         $this->attributes['status'] = 'active';
-        
+
         return $this->save() !== false;
     }
-    
+
     /**
      * إلغاء الاشتراك
      * @return bool
      */
-    public function cancel(): bool {
+    public function cancel(): bool
+    {
         $this->attributes['status'] = 'cancelled';
         return $this->save() !== false;
     }
-    
+
     /**
      * التحقق من صلاحية الاشتراك
      * @return bool
      */
-    public function isValid(): bool {
+    public function isValid(): bool
+    {
         if ($this->attributes['status'] !== 'active') {
             return false;
         }
-        
+
         $expiryCol = self::expiryColumn();
         $expiryDate = $expiryCol ? ($this->attributes[$expiryCol] ?? null) : null;
         if ($expiryDate && strtotime($expiryDate) < time()) {
             return false;
         }
-        
+
         return true;
     }
-    
+
     /**
      * التحقق من وجود رصيد AI
      * @param int $required
      * @return bool
      */
-    public function hasAICredits(int $required = 1): bool {
+    public function hasAICredits(int $required = 1): bool
+    {
         if (!$this->isValid()) {
             return false;
         }
-        
+
         $remaining = $this->attributes['ai_credits'] - $this->attributes['ai_credits_used'];
         return $remaining >= $required;
     }
-    
+
     /**
      * استهلاك رصيد AI
      * @param int $amount
      * @return bool
      */
-    public function consumeAICredits(int $amount = 1): bool {
+    public function consumeAICredits(int $amount = 1): bool
+    {
         if (!$this->hasAICredits($amount)) {
             return false;
         }
-        
+
         $this->attributes['ai_credits_used'] += $amount;
         return $this->save() !== false;
     }
-    
+
     /**
      * الحصول على الرصيد المتبقي للـ AI
      * @return int
      */
-    public function getRemainingAICredits(): int {
+    public function getRemainingAICredits(): int
+    {
         return $this->attributes['ai_credits'] - $this->attributes['ai_credits_used'];
     }
-    
+
     /**
      * الحصول على المستخدم
      * @return User|null
      */
-    public function getUser(): ?User {
+    public function getUser(): ?User
+    {
         $sql = "SELECT * FROM users WHERE id = ? LIMIT 1";
         $result = $this->db->query($sql, [$this->attributes['user_id']]);
-        
+
         if (empty($result)) {
             return null;
         }
-        
+
         return new User($result[0]);
     }
-    
+
     /**
      * تحديث الباقة
      * @param string $newPlan
      * @return bool
      */
-    public function upgrade(string $newPlan): bool {
+    public function upgrade(string $newPlan): bool
+    {
         $plans = self::getAvailablePlans();
-        
+
         if (!isset($plans[$newPlan])) {
             return false;
         }
-        
+
         $plan = $plans[$newPlan];
         $features = $plan['features'];
-        
+
         // تحديث الميزات
         $this->attributes['plan_name'] = $newPlan;
         $this->attributes['ai_credits'] = $features['ai_analysis'] ?? 0;
@@ -426,22 +442,23 @@ class Subscription extends Model {
         $this->attributes['review_credits'] = $features['review_credits'] ?? 0;
         $this->attributes['competitor_analysis_limit'] = $features['competitor_analysis'] ?? 0;
         $this->attributes['auto_pilot'] = $features['auto_pilot'] ? 1 : 0;
-        
+
         // تحديث السعر
-        $this->attributes['price'] = $this->attributes['plan_type'] === 'yearly' 
-            ? $plan['price_yearly'] 
+        $this->attributes['price'] = $this->attributes['plan_type'] === 'yearly'
+            ? $plan['price_yearly']
             : $plan['price_monthly'];
-        
+
         return $this->save() !== false;
     }
-    
+
     /**
      * الحصول على نسبة الاستخدام
      * @return array
      */
-    public function getUsagePercentage(): array {
+    public function getUsagePercentage(): array
+    {
         return [
-            'ai' => $this->attributes['ai_credits'] > 0 
+            'ai' => $this->attributes['ai_credits'] > 0
                 ? round(($this->attributes['ai_credits_used'] / $this->attributes['ai_credits']) * 100, 2)
                 : 0,
             'chat' => $this->attributes['chat_credits'] > 0

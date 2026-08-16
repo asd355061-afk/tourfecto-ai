@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Ads Autopilot Engine
  * القلب المسؤول عن: قراءة أداء حقيقي من ad_performance_reports، اقتراح
@@ -11,13 +12,15 @@
  * يماثله لـ Google)، الدالة بترجع 'insufficient_data' بدل ما تخترع رقم.
  * @version 1.0.0
  */
-class AdAutopilotEngine {
+class AdAutopilotEngine
+{
     /** أقل عدد أيام بيانات أداء متاحة قبل ما نسمح بأي توصية على الإطلاق */
     private const MIN_DATA_POINTS = 3;
 
     private Database $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
@@ -25,7 +28,8 @@ class AdAutopilotEngine {
     // إعدادات Guardrails
     // ================================================================
 
-    public function getSettings(int $userId): AdAutopilotSetting {
+    public function getSettings(int $userId): AdAutopilotSetting
+    {
         return AdAutopilotSetting::forUser($userId);
     }
 
@@ -33,7 +37,8 @@ class AdAutopilotEngine {
      * حفظ إعدادات Autopilot. كل الحدود اختيارية عدا max_changes_per_day
      * و نسب الزيادة/التخفيض (لها قيم افتراضية آمنة لو العميل سابهم فاضيين).
      */
-    public function saveSettings(int $userId, array $data): AdAutopilotSetting {
+    public function saveSettings(int $userId, array $data): AdAutopilotSetting
+    {
         $existing = (new AdAutopilotSetting())->where(['user_id' => $userId], [], 1);
         $settings = !empty($existing) ? $existing[0] : new AdAutopilotSetting(['user_id' => $userId]);
 
@@ -96,7 +101,8 @@ class AdAutopilotEngine {
         return $settings;
     }
 
-    private function nullableFloat($value): ?float {
+    private function nullableFloat($value): ?float
+    {
         return ($value === null || $value === '') ? null : (float) $value;
     }
 
@@ -109,7 +115,8 @@ class AdAutopilotEngine {
      * (أو null لو الأداء طبيعي ومفيش داعي لأي تغيير).
      * @return array{action_type:string, after_daily_budget:?float, reasoning:string, confidence_level:string}|array{insufficient_data:true}|null
      */
-    public function evaluateCampaign(AdCampaign $campaign, AdAutopilotSetting $settings): ?array {
+    public function evaluateCampaign(AdCampaign $campaign, AdAutopilotSetting $settings): ?array
+    {
         $campaignId = (int) $campaign->getAttribute('id');
 
         $reports = (new AdPerformanceReport())->where(
@@ -122,12 +129,18 @@ class AdAutopilotEngine {
             return ['insufficient_data' => true, 'reason' => 'not enough synced performance data (need at least ' . self::MIN_DATA_POINTS . ' reports)'];
         }
 
-        $spend = 0.0; $conversions = 0.0; $revenue = 0.0; $hasRevenue = false;
+        $spend = 0.0;
+        $conversions = 0.0;
+        $revenue = 0.0;
+        $hasRevenue = false;
         foreach ($reports as $r) {
             $spend += (float) ($r->getAttribute('spend') ?? 0);
             $conversions += (float) ($r->getAttribute('conversions') ?? 0);
             $rowRevenue = $r->getAttribute('revenue');
-            if ($rowRevenue !== null) { $hasRevenue = true; $revenue += (float) $rowRevenue; }
+            if ($rowRevenue !== null) {
+                $hasRevenue = true;
+                $revenue += (float) $rowRevenue;
+            }
         }
 
         if ($spend <= 0) {
@@ -144,7 +157,9 @@ class AdAutopilotEngine {
         // 1) إشارة مؤكدة: تجاوز صريح لسقف CPA اللي حدده العميل نفسه
         if ($maxCpa !== null && $cpa !== null && $cpa > $maxCpa) {
             return $this->buildBudgetRecommendation(
-                'decrease_budget', $currentBudget, 0.25,
+                'decrease_budget',
+                $currentBudget,
+                0.25,
                 sprintf('تكلفة الاكتساب الفعلية %.2f تجاوزت الحد الأقصى المحدد %.2f خلال آخر %d يوم', $cpa, $maxCpa, count($reports)),
                 'confirmed_signal'
             );
@@ -153,7 +168,9 @@ class AdAutopilotEngine {
         // 2) إشارة مؤكدة: ROAS فعلي أقل من الحد الأدنى اللي حدده العميل
         if ($minRoas !== null && $roas !== null && $roas < $minRoas) {
             return $this->buildBudgetRecommendation(
-                'decrease_budget', $currentBudget, 0.30,
+                'decrease_budget',
+                $currentBudget,
+                0.30,
                 sprintf('العائد على الإنفاق الإعلاني الفعلي %.2fx أقل من الحد الأدنى المطلوب %.2fx', $roas, $minRoas),
                 'confirmed_signal'
             );
@@ -162,7 +179,9 @@ class AdAutopilotEngine {
         // 3) سبب مرجّح: إنفاق حقيقي بدون أي تحويل خلال فترة كافية من البيانات
         if ($conversions == 0.0 && count($reports) >= self::MIN_DATA_POINTS) {
             return $this->buildBudgetRecommendation(
-                'decrease_budget', $currentBudget, 0.40,
+                'decrease_budget',
+                $currentBudget,
+                0.40,
                 sprintf('صفر تحويلات رغم إنفاق %.2f خلال %d يوم متتالي - سبب مرجّح: تعب الإعلان/عدم ملاءمة الجمهور أو صفحة الهبوط. يُنصح بمراجعة الاستهداف والنصوص الإعلانية.', $spend, count($reports)),
                 'likely_cause'
             );
@@ -171,7 +190,9 @@ class AdAutopilotEngine {
         // 4) سبب مرجّح: أداء أفضل من الحد المسموح بمسافة مريحة -> فرصة توسّع
         if ($maxCpa !== null && $cpa !== null && $cpa < ($maxCpa * 0.7)) {
             return $this->buildBudgetRecommendation(
-                'increase_budget', $currentBudget, 0.15,
+                'increase_budget',
+                $currentBudget,
+                0.15,
                 sprintf('تكلفة الاكتساب الفعلية %.2f أقل بوضوح من الحد الأقصى %.2f - إشارة مرجّحة إن الحملة تقدر تستوعب ميزانية أكبر', $cpa, $maxCpa),
                 'likely_cause'
             );
@@ -180,7 +201,8 @@ class AdAutopilotEngine {
         return null; // no_action_recommended - الأداء ضمن النطاق الطبيعي
     }
 
-    private function buildBudgetRecommendation(string $actionType, float $currentBudget, float $pct, string $reasoning, string $confidence): array {
+    private function buildBudgetRecommendation(string $actionType, float $currentBudget, float $pct, string $reasoning, string $confidence): array
+    {
         $delta = $currentBudget * $pct;
         $after = $actionType === 'increase_budget' ? ($currentBudget + $delta) : max(0.0, $currentBudget - $delta);
 
@@ -208,7 +230,8 @@ class AdAutopilotEngine {
      * تحليل أداء تلقائي. بتاخد نفس مسار الوضع/الـGuardrails بالظبط - مفيش
      * أي طريق مختصر يتجاوز الحدود المحفوظة حتى لو الطلب جاي من الشات.
      */
-    public function applyExplicitRecommendation(int $userId, AdCampaign $campaign, array $rec): array {
+    public function applyExplicitRecommendation(int $userId, AdCampaign $campaign, array $rec): array
+    {
         $settings = $this->getSettings($userId);
         $mode = (string) $settings->getAttribute('optimization_mode');
 
@@ -230,7 +253,8 @@ class AdAutopilotEngine {
         return $this->execute($userId, $campaign, $rec, 'autopilot');
     }
 
-    public function processCampaign(int $userId, AdCampaign $campaign): array {
+    public function processCampaign(int $userId, AdCampaign $campaign): array
+    {
         $settings = $this->getSettings($userId);
         $recommendation = $this->evaluateCampaign($campaign, $settings);
 
@@ -268,7 +292,8 @@ class AdAutopilotEngine {
      * لو القرار مسموح ينفّذ تلقائيًا، أو نص يوضّح سبب الرفض عشان يتحوّل
      * القرار لموافقة بدل ما يتنفذ أو يتجاهل بصمت.
      */
-    private function checkGuardrails(int $userId, AdCampaign $campaign, AdAutopilotSetting $settings, array $rec): ?string {
+    private function checkGuardrails(int $userId, AdCampaign $campaign, AdAutopilotSetting $settings, array $rec): ?string
+    {
         $campaignId = (int) $campaign->getAttribute('id');
 
         $allowedCampaigns = $settings->allowedCampaignIds();
@@ -326,7 +351,8 @@ class AdAutopilotEngine {
      * اللي اتعملت قبل إضافة العمود ده لسه تقدر تتفحص صح بدل ما تتمنع
      * بالغلط كأن مفيش بيانات خالص.
      */
-    private function campaignTargetCountries(AdCampaign $campaign): array {
+    private function campaignTargetCountries(AdCampaign $campaign): array
+    {
         $raw = $campaign->getAttribute('target_countries_json');
         $list = $raw ? json_decode((string) $raw, true) : null;
         if (is_array($list) && !empty($list)) {
@@ -344,7 +370,8 @@ class AdAutopilotEngine {
         return [];
     }
 
-    private function campaignPlatform(AdCampaign $campaign): ?string {
+    private function campaignPlatform(AdCampaign $campaign): ?string
+    {
         $connId = $campaign->getAttribute('platform_connection_id');
         if (!$connId) {
             return null;
@@ -357,7 +384,8 @@ class AdAutopilotEngine {
     // تنفيذ فعلي عبر API المنصة الرسمي
     // ================================================================
 
-    private function execute(int $userId, AdCampaign $campaign, array $rec, string $mode): array {
+    private function execute(int $userId, AdCampaign $campaign, array $rec, string $mode): array
+    {
         $connId = $campaign->getAttribute('platform_connection_id');
         if (!$connId) {
             $log = $this->writeLog($userId, $campaign, $rec, $mode, false, null, 'failed: no platform_connection_id');
@@ -403,7 +431,8 @@ class AdAutopilotEngine {
 
         if (class_exists('Notification')) {
             Notification::notify(
-                $userId, 'ads_autopilot_action',
+                $userId,
+                'ads_autopilot_action',
                 'Autopilot نفّذ إجراء على حملة "' . $campaign->getAttribute('name') . '"',
                 $rec['reasoning'] . " ({$before} ← {$after})",
                 '/ads/campaigns/' . $campaign->getAttribute('id')
@@ -413,7 +442,8 @@ class AdAutopilotEngine {
         return ['status' => 'executed', 'log_id' => $log->getAttribute('id'), 'before' => $before, 'after' => $after];
     }
 
-    private function callPlatformWrite(string $platform, string $accessToken, PlatformConnection $conn, AdCampaign $campaign, string $externalCampaignId, array $rec, float $afterBudget): array {
+    private function callPlatformWrite(string $platform, string $accessToken, PlatformConnection $conn, AdCampaign $campaign, string $externalCampaignId, array $rec, float $afterBudget): array
+    {
         if ($platform === 'meta_ads') {
             $api = new MetaAdsAPI($accessToken);
             if ($rec['action_type'] === 'decrease_budget' && $afterBudget <= 0) {
@@ -441,7 +471,8 @@ class AdAutopilotEngine {
         return ['success' => false, 'error' => "منصة غير مدعومة للتنفيذ التلقائي: {$platform}"];
     }
 
-    private function writeLog(int $userId, AdCampaign $campaign, array $rec, string $mode, bool $applied, ?string $before, ?string $externalResult, ?string $after = null): AdOptimizationLog {
+    private function writeLog(int $userId, AdCampaign $campaign, array $rec, string $mode, bool $applied, ?string $before, ?string $externalResult, ?string $after = null): AdOptimizationLog
+    {
         $log = new AdOptimizationLog([
             'campaign_id' => (int) $campaign->getAttribute('id'),
             'user_id' => $userId,
@@ -459,7 +490,8 @@ class AdAutopilotEngine {
         return $log;
     }
 
-    private function confidenceToScore(string $level): float {
+    private function confidenceToScore(string $level): float
+    {
         return ['confirmed_signal' => 90.0, 'likely_cause' => 65.0, 'possible_cause' => 40.0][$level] ?? 40.0;
     }
 
@@ -467,7 +499,8 @@ class AdAutopilotEngine {
     // طابور الموافقات (Approval Mode)
     // ================================================================
 
-    private function queueForApproval(int $userId, AdCampaign $campaign, array $rec, ?string $blockedReason): AdPendingAction {
+    private function queueForApproval(int $userId, AdCampaign $campaign, array $rec, ?string $blockedReason): AdPendingAction
+    {
         $action = new AdPendingAction([
             'user_id' => $userId,
             'campaign_id' => (int) $campaign->getAttribute('id'),
@@ -497,7 +530,8 @@ class AdAutopilotEngine {
     }
 
     /** العميل بيوافق على قرار معلّق -> يتنفذ فعليًا الآن عبر نفس مسار autopilot execute() */
-    public function approvePendingAction(int $userId, int $pendingActionId): array {
+    public function approvePendingAction(int $userId, int $pendingActionId): array
+    {
         $pending = (new AdPendingAction())->find($pendingActionId);
         if (!$pending || (int) $pending->getAttribute('user_id') !== $userId || $pending->getAttribute('status') !== 'pending') {
             return ['status' => 'not_found'];
@@ -527,7 +561,8 @@ class AdAutopilotEngine {
         return $result;
     }
 
-    public function rejectPendingAction(int $userId, int $pendingActionId): bool {
+    public function rejectPendingAction(int $userId, int $pendingActionId): bool
+    {
         $pending = (new AdPendingAction())->find($pendingActionId);
         if (!$pending || (int) $pending->getAttribute('user_id') !== $userId || $pending->getAttribute('status') !== 'pending') {
             return false;
@@ -554,7 +589,8 @@ class AdAutopilotEngine {
      * إعادة تنفيذ القيمة السابقة (before_value) عبر نفس API المنصة،
      * وتسجيل صف Audit جديد يشير لصف الأصل عبر rollback_of_log_id.
      */
-    public function rollback(int $userId, int $logId): array {
+    public function rollback(int $userId, int $logId): array
+    {
         $log = (new AdOptimizationLog())->find($logId);
         if (!$log || (int) $log->getAttribute('user_id') !== $userId) {
             return ['status' => 'not_found'];
@@ -597,7 +633,8 @@ class AdAutopilotEngine {
     // عداد التغييرات اليومي (max_changes_per_day)
     // ================================================================
 
-    private function changesUsedToday(int $userId): int {
+    private function changesUsedToday(int $userId): int
+    {
         $rows = $this->db->query(
             "SELECT changes_executed FROM ad_autopilot_daily_counters WHERE user_id = ? AND counter_date = CURDATE() LIMIT 1",
             [$userId]
@@ -605,7 +642,8 @@ class AdAutopilotEngine {
         return !empty($rows) ? (int) $rows[0]['changes_executed'] : 0;
     }
 
-    private function incrementDailyCounter(int $userId): void {
+    private function incrementDailyCounter(int $userId): void
+    {
         $this->db->exec(
             "INSERT INTO ad_autopilot_daily_counters (user_id, counter_date, changes_executed)
              VALUES (?, CURDATE(), 1)
@@ -622,7 +660,8 @@ class AdAutopilotEngine {
      * يعالج كل حملات كل العملاء المفعّلين auto_optimize=1 والحملة status=active.
      * @return array ملخّص للـ cron log
      */
-    public function runForAllUsers(): array {
+    public function runForAllUsers(): array
+    {
         $summary = ['processed' => 0, 'no_action' => 0, 'logged' => 0, 'pending' => 0, 'executed' => 0, 'insufficient_data' => 0, 'errors' => 0];
 
         $campaigns = (new AdCampaign())->where(['status' => 'active', 'auto_optimize' => 1]);

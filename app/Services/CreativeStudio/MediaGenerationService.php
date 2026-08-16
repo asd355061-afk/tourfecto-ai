@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Media Generation Service (Creative Studio)
  * توليد صور تسويقية بالذكاء الاصطناعي (GeminiClient::generateImage -
@@ -7,7 +8,8 @@
  * المشروع لكل خدمات الذكاء الاصطناعي - مفيش أي مفتاح/حساب جديد مطلوب.
  * @version 2.0.0
  */
-class MediaGenerationService {
+class MediaGenerationService
+{
     private const SUPPORTED_TYPES = [
         'social_image', 'marketing_image', 'instagram_post', 'facebook_cover',
         'youtube_thumbnail', 'story', 'reels_cover', 'short_video',
@@ -41,11 +43,13 @@ class MediaGenerationService {
         'general_landscape' => '16:9',
     ];
 
-    public function isSupportedType(string $type): bool {
+    public function isSupportedType(string $type): bool
+    {
         return in_array($type, self::SUPPORTED_TYPES, true);
     }
 
-    public static function stylePresets(): array {
+    public static function stylePresets(): array
+    {
         return self::STYLE_PRESETS;
     }
 
@@ -53,7 +57,8 @@ class MediaGenerationService {
      * توليد صورة تسويقية احترافية.
      * @param string $style مفتاح من STYLE_PRESETS (اختياري)
      */
-    public function requestGeneration(int $userId, string $type, string $prompt, string $style = 'photo'): MediaItem {
+    public function requestGeneration(int $userId, string $type, string $prompt, string $style = 'photo'): MediaItem
+    {
         if (!in_array($type, self::SUPPORTED_TYPES, true) || $type === 'short_video') {
             throw new InvalidArgumentException("نوع وسائط غير مدعوم: {$type}");
         }
@@ -90,7 +95,8 @@ class MediaGenerationService {
      * @param int    $durationSeconds 4 | 6 | 8
      * @param string $style مفتاح من STYLE_PRESETS
      */
-    public function requestVideoGeneration(int $userId, string $prompt, string $platform = 'instagram_reels', int $durationSeconds = 8, string $style = 'cinematic'): MediaItem {
+    public function requestVideoGeneration(int $userId, string $prompt, string $platform = 'instagram_reels', int $durationSeconds = 8, string $style = 'cinematic'): MediaItem
+    {
         $aspectRatio = self::VIDEO_ASPECT_RATIOS[$platform] ?? '9:16';
         $durationSeconds = in_array($durationSeconds, [4, 6, 8], true) ? $durationSeconds : 8;
         $finalPrompt = $this->buildVideoPrompt($prompt, $style);
@@ -118,12 +124,14 @@ class MediaGenerationService {
         return $item;
     }
 
-    private function buildImagePrompt(string $prompt, string $style): string {
+    private function buildImagePrompt(string $prompt, string $style): string
+    {
         $styleDescriptor = self::STYLE_PRESETS[$style] ?? self::STYLE_PRESETS['photo'];
         return trim($prompt) . '. Style: ' . $styleDescriptor . '.';
     }
 
-    private function buildVideoPrompt(string $prompt, string $style): string {
+    private function buildVideoPrompt(string $prompt, string $style): string
+    {
         $styleDescriptor = self::STYLE_PRESETS[$style] ?? self::STYLE_PRESETS['cinematic'];
         return trim($prompt) . '. Visual style: ' . $styleDescriptor . '. Smooth camera motion, professional social-media advertising video.';
     }

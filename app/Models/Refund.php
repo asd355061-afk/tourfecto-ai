@@ -1,9 +1,11 @@
 <?php
+
 /**
  * Tourfecto - Refund Model
  * @version 1.0.0
  */
-class Refund extends Model {
+class Refund extends Model
+{
     protected $table = 'refunds';
 
     protected $fillable = [

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Queue Manager
  * @version 1.0.0
@@ -25,7 +26,8 @@
  *   // في سكريبت الـ cron:
  *   $queue->processDue(20); // شغّل حتى 20 مهمة مستحقة
  */
-class QueueManager {
+class QueueManager
+{
     private const TABLE = 'jobs';
     private const MAX_ATTEMPTS = 3;
     /** ثواني - أي مهمة "processing" أكتر من كده تعتبر عالقة وترجع pending */
@@ -37,12 +39,14 @@ class QueueManager {
     /** @var bool */
     private $tableExists;
 
-    public function __construct(?Database $db = null) {
+    public function __construct(?Database $db = null)
+    {
         $this->db = $db ?? Database::getInstance();
         $this->tableExists = $this->checkTableExists();
     }
 
-    private function checkTableExists(): bool {
+    private function checkTableExists(): bool
+    {
         try {
             $rows = $this->db->query(
                 "SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?",
@@ -62,7 +66,8 @@ class QueueManager {
      * @param int $delaySeconds تأخير قبل ما تبقى قابلة للتنفيذ
      * @return int|false معرف المهمة، أو false لو فشل
      */
-    public function push(string $jobClass, array $payload = [], string $queue = 'default', int $delaySeconds = 0) {
+    public function push(string $jobClass, array $payload = [], string $queue = 'default', int $delaySeconds = 0)
+    {
         if (!$this->tableExists) {
             if (class_exists('Logger')) {
                 Logger::warning('QueueManager: جدول jobs غير موجود، شغّل migration جدول jobs الأول', ['job' => $jobClass]);
@@ -83,7 +88,8 @@ class QueueManager {
      * @param int $limit
      * @return array ملخص التنفيذ ['processed' => n, 'failed' => n]
      */
-    public function processDue(int $limit = 20): array {
+    public function processDue(int $limit = 20): array
+    {
         if (!$this->tableExists) {
             return ['processed' => 0, 'failed' => 0, 'error' => 'jobs table missing'];
         }
@@ -116,7 +122,8 @@ class QueueManager {
         return ['processed' => $processed, 'failed' => $failed, 'total' => count($jobs)];
     }
 
-    private function runJob(array $job): void {
+    private function runJob(array $job): void
+    {
         $jobClass = $job['job_class'];
 
         if (!class_exists($jobClass)) {
@@ -132,21 +139,24 @@ class QueueManager {
         $instance->handle($payload);
     }
 
-    private function markProcessing(int $id): void {
+    private function markProcessing(int $id): void
+    {
         $this->db->query(
             "UPDATE `" . self::TABLE . "` SET status = 'processing', attempts = attempts + 1, reserved_at = NOW() WHERE id = ?",
             [$id]
         );
     }
 
-    private function markCompleted(int $id): void {
+    private function markCompleted(int $id): void
+    {
         $this->db->query(
             "UPDATE `" . self::TABLE . "` SET status = 'completed', completed_at = NOW() WHERE id = ?",
             [$id]
         );
     }
 
-    private function markFailed(int $id, int $attemptsBefore, string $errorMessage): void {
+    private function markFailed(int $id, int $attemptsBefore, string $errorMessage): void
+    {
         $attemptsNow = $attemptsBefore + 1;
         $status = $attemptsNow >= self::MAX_ATTEMPTS ? 'failed' : 'pending';
         // إعادة المحاولة بتأخير تصاعدي بسيط (backoff): 30s, 60s, 90s...
@@ -168,7 +178,8 @@ class QueueManager {
      * أي مهمة فضلت "processing" أكتر من STALE_LOCK_SECONDS (يعني cron
      * سابق اتقفل فجأة/timeout) - نرجّعها pending تاني بدل ما تفضل عالقة للأبد.
      */
-    private function releaseStaleLocks(): void {
+    private function releaseStaleLocks(): void
+    {
         $this->db->query(
             "UPDATE `" . self::TABLE . "` SET status = 'pending'
              WHERE status = 'processing' AND reserved_at < DATE_SUB(NOW(), INTERVAL ? SECOND)",
@@ -176,7 +187,8 @@ class QueueManager {
         );
     }
 
-    public function isReady(): bool {
+    public function isReady(): bool
+    {
         return $this->tableExists;
     }
 }

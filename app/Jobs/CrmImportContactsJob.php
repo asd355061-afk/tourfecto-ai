@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Import Contacts Job (بند 37)
  * @version 1.0.0
@@ -8,8 +9,10 @@
  * المنطق الفعلي للاستيراد (`CrmImportExportService::commit()`) لم يتغيّر -
  * هذا الـJob غلاف Background حوله بس.
  */
-class CrmImportContactsJob implements QueueJobInterface {
-    public function handle(array $payload): void {
+class CrmImportContactsJob implements QueueJobInterface
+{
+    public function handle(array $payload): void
+    {
         $batchId = (int) ($payload['batch_id'] ?? 0);
         $userId = (int) ($payload['user_id'] ?? 0);
         $rows = $payload['rows'] ?? [];
@@ -34,7 +37,8 @@ class CrmImportContactsJob implements QueueJobInterface {
 
             if (class_exists('Notification')) {
                 Notification::notify(
-                    $userId, 'crm_import_completed',
+                    $userId,
+                    'crm_import_completed',
                     'اكتمل استيراد جهات الاتصال',
                     "تم استيراد {$result['imported']} جهة اتصال ({$result['skipped']} تم تخطيها).",
                     '/crm/contacts'

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Generate Video Job (Creative Studio)
  * توليد فيديو قصير حقيقي بـ Veo 3.1 Fast (عبر Gemini API، نفس
@@ -10,12 +11,14 @@
  * المستخدمة فعلاً في PublishSocialPostJob بس هنا بتتكرر أكتر من مرة.
  * @version 1.0.0
  */
-class GenerateVideoJob implements QueueJobInterface {
+class GenerateVideoJob implements QueueJobInterface
+{
     /** أقصى عدد محاولات فحص (poll) قبل ما نستسلم - 40 × ~20 ثانية = ~13 دقيقة (أكتر من أقصى مهلة Veo موثّقة وهي 6 دقايق) */
     private const MAX_POLL_ATTEMPTS = 40;
     private const POLL_DELAY_SECONDS = 20;
 
-    public function handle(array $payload): void {
+    public function handle(array $payload): void
+    {
         $itemId = (int) ($payload['media_item_id'] ?? 0);
         $item = (new MediaItem())->find($itemId);
 
@@ -42,7 +45,8 @@ class GenerateVideoJob implements QueueJobInterface {
         }
     }
 
-    private function startOperation(MediaItem $item, VeoClient $veo, string $prompt): void {
+    private function startOperation(MediaItem $item, VeoClient $veo, string $prompt): void
+    {
         $aspectRatio = (string) ($item->getAttribute('aspect_ratio') ?: '16:9');
         $duration = (int) ($item->getAttribute('duration_seconds') ?: 8);
 
@@ -63,7 +67,8 @@ class GenerateVideoJob implements QueueJobInterface {
         $this->requeue((int) $item->getAttribute('id'));
     }
 
-    private function pollOperation(MediaItem $item, VeoClient $veo, string $operationName): void {
+    private function pollOperation(MediaItem $item, VeoClient $veo, string $operationName): void
+    {
         $itemId = (int) $item->getAttribute('id');
         $attempts = (int) $item->getAttribute('poll_attempts');
 
@@ -133,7 +138,8 @@ class GenerateVideoJob implements QueueJobInterface {
         Logger::info('Video Generated', ['media_item_id' => $itemId, 'file_path' => $item->getAttribute('file_path')]);
     }
 
-    private function requeue(int $itemId): void {
+    private function requeue(int $itemId): void
+    {
         $queue = Container::getInstance()->make(QueueManager::class);
         $queue->push(GenerateVideoJob::class, ['media_item_id' => $itemId], 'media', self::POLL_DELAY_SECONDS);
     }

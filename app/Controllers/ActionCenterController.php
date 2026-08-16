@@ -1,18 +1,24 @@
 <?php
+
 /**
  * Tourfecto - Action Center Controller
  * Phase 12. Endpoint واحد Read-Only بيجمع "ماذا أفعل الآن؟" من كل الـAgents.
  * @version 1.0.0
  */
-class ActionCenterController extends Controller {
-
+class ActionCenterController extends Controller
+{
     /** GET /api/action-center?website_id=X (اختياري) */
-    public function list(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function list(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $websiteId = $this->get('website_id') ? (int) $this->get('website_id') : null;
 
-        if (!class_exists('ActionCenterService')) return $this->error('الخدمة غير متاحة', 500);
+        if (!class_exists('ActionCenterService')) {
+            return $this->error('الخدمة غير متاحة', 500);
+        }
 
         try {
             $service = new ActionCenterService();
@@ -24,7 +30,9 @@ class ActionCenterController extends Controller {
 
         $counts = ['critical' => 0, 'high' => 0, 'medium' => 0, 'low' => 0];
         foreach ($items as $item) {
-            if (isset($counts[$item['priority']])) $counts[$item['priority']]++;
+            if (isset($counts[$item['priority']])) {
+                $counts[$item['priority']]++;
+            }
         }
 
         return $this->success([

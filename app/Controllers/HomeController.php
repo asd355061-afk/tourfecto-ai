@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Home Controller
  * الصفحة الرئيسية للموقع
@@ -8,11 +9,12 @@
  * الدولار هو العملة الأساسية.
  */
 
-class HomeController extends Controller {
-
+class HomeController extends Controller
+{
     /** GET / */
     /** GET /sitemap.xml - خريطة موقع ديناميكية حقيقية تشمل كل الصفحات العامة */
-    public function sitemap(array $params = []): array {
+    public function sitemap(array $params = []): array
+    {
         $baseUrl = 'https://tourfecto.pro';
         $today = date('Y-m-d');
 
@@ -50,7 +52,8 @@ XML;
         exit;
     }
 
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $appName = defined('APP_NAME') ? APP_NAME : 'Tourfecto';
 
         header('Content-Type: text/html; charset=utf-8');
@@ -58,7 +61,8 @@ XML;
         exit;
     }
 
-    private function renderHomePage(string $appName): string {
+    private function renderHomePage(string $appName): string
+    {
         $year = date('Y');
         $lang = current_lang();
         $dir = current_dir();

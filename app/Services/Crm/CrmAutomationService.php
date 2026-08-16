@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Automation Workflow Engine (بند 12، 36)
  * @version 1.0.0
@@ -21,7 +22,8 @@
  * CrmWhatsAppService/CrmEmailService (بند 10: "لا ينفذ Action خارجي
  * تلقائيًا إلا إذا كان هناك Integration رسمي وصلاحية واضحة").
  */
-class CrmAutomationService {
+class CrmAutomationService
+{
     private $db;
 
     /** أمثلة جاهزة مطابقة حرفيًا لما ورد في الطلب الأصلي (بند 12) */
@@ -78,12 +80,14 @@ class CrmAutomationService {
         ],
     ];
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
     /** ينفّذ كل القواعد المفعّلة المطابقة لحدث معيّن لحساب معيّن */
-    public function trigger(string $event, int $userId, array $context): void {
+    public function trigger(string $event, int $userId, array $context): void
+    {
         if ($userId <= 0) {
             return; // لا يوجد Tenant واضح - لا شيء ينفّذ (أأمن من التخمين)
         }
@@ -121,7 +125,8 @@ class CrmAutomationService {
     }
 
     /** شروط بسيطة: كل شرط لازم يتحقق (AND) - field/operator/value مقابل $context */
-    private function conditionsMatch(array $conditions, array $context): bool {
+    private function conditionsMatch(array $conditions, array $context): bool
+    {
         foreach ($conditions as $cond) {
             $field = $cond['field'] ?? null;
             $operator = $cond['operator'] ?? '=';
@@ -145,7 +150,8 @@ class CrmAutomationService {
         return true;
     }
 
-    private function executeAction(array $action, int $userId, array $context): void {
+    private function executeAction(array $action, int $userId, array $context): void
+    {
         $type = $action['type'] ?? '';
 
         switch ($type) {
@@ -206,10 +212,17 @@ class CrmAutomationService {
         }
     }
 
-    private function resolveRelated(array $context): array {
-        if (!empty($context['deal_id'])) return ['crm_deals', (int) $context['deal_id']];
-        if (!empty($context['lead_id'])) return ['crm_leads', (int) $context['lead_id']];
-        if (!empty($context['contact_id'])) return ['crm_contacts', (int) $context['contact_id']];
+    private function resolveRelated(array $context): array
+    {
+        if (!empty($context['deal_id'])) {
+            return ['crm_deals', (int) $context['deal_id']];
+        }
+        if (!empty($context['lead_id'])) {
+            return ['crm_leads', (int) $context['lead_id']];
+        }
+        if (!empty($context['contact_id'])) {
+            return ['crm_contacts', (int) $context['contact_id']];
+        }
         return [null, null];
     }
 
@@ -217,7 +230,8 @@ class CrmAutomationService {
     // إدارة القواعد (CRUD) - يستخدمها CrmApiController
     // ================================================================
 
-    public function create(int $userId, array $data): CrmAutomationRule {
+    public function create(int $userId, array $data): CrmAutomationRule
+    {
         if (empty($data['name']) || empty($data['trigger_event']) || empty($data['actions'])) {
             throw new Exception('بيانات القاعدة ناقصة (الاسم/الحدث/الإجراءات مطلوبة)');
         }
@@ -233,7 +247,8 @@ class CrmAutomationService {
         return $rule;
     }
 
-    public function createFromTemplate(int $userId, string $templateKey): CrmAutomationRule {
+    public function createFromTemplate(int $userId, string $templateKey): CrmAutomationRule
+    {
         if (!isset(self::TEMPLATES[$templateKey])) {
             throw new Exception('قالب غير معروف');
         }
@@ -245,7 +260,8 @@ class CrmAutomationService {
     }
 
     /** تعديل قاعدة موجودة بالكامل (Visual Builder - بند 12) */
-    public function update(int $userId, int $ruleId, array $data): CrmAutomationRule {
+    public function update(int $userId, int $ruleId, array $data): CrmAutomationRule
+    {
         $rule = (new CrmAutomationRule())->find($ruleId);
         if (!$rule || (int) $rule->getAttribute('user_id') !== $userId) {
             throw new Exception('القاعدة غير موجودة', 404);
@@ -261,7 +277,8 @@ class CrmAutomationService {
         return $rule;
     }
 
-    public function toggle(int $userId, int $ruleId): CrmAutomationRule {
+    public function toggle(int $userId, int $ruleId): CrmAutomationRule
+    {
         $rule = (new CrmAutomationRule())->find($ruleId);
         if (!$rule || (int) $rule->getAttribute('user_id') !== $userId) {
             throw new Exception('القاعدة غير موجودة', 404);
@@ -271,7 +288,8 @@ class CrmAutomationService {
         return $rule;
     }
 
-    public function delete(int $userId, int $ruleId): bool {
+    public function delete(int $userId, int $ruleId): bool
+    {
         $rule = (new CrmAutomationRule())->find($ruleId);
         if (!$rule || (int) $rule->getAttribute('user_id') !== $userId) {
             throw new Exception('القاعدة غير موجودة', 404);
@@ -279,7 +297,8 @@ class CrmAutomationService {
         return $rule->delete();
     }
 
-    public function listForUser(int $userId): array {
+    public function listForUser(int $userId): array
+    {
         return (new CrmAutomationRule())->allForUser($userId);
     }
 }

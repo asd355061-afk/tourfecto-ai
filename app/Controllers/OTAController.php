@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - OTA Controller
  * ربط منصات وساطة السياحة (OTA - Online Travel Agencies) بحساب كل عميل:
@@ -17,10 +18,11 @@
  * platform_connections (نفس الجدول المستخدم لـ Google/TripAdvisor/UltraMsg).
  * @version 1.0.0
  */
-class OTAController extends Controller {
-
+class OTAController extends Controller
+{
     /** الإعدادات الخاصة بكل منصة OTA مدعومة */
-    private function platformMeta(string $platform): ?array {
+    private function platformMeta(string $platform): ?array
+    {
         $map = [
             'getyourguide' => [
                 'label' => 'GetYourGuide',
@@ -36,7 +38,8 @@ class OTAController extends Controller {
         return $map[$platform] ?? null;
     }
 
-    private function client(string $platform, string $credential): ?object {
+    private function client(string $platform, string $credential): ?object
+    {
         if ($platform === 'getyourguide') {
             return new GetYourGuideAPI($credential);
         }
@@ -47,7 +50,8 @@ class OTAController extends Controller {
     }
 
     /** GET /api/ota/status?website_id=&platform= */
-    public function getStatus(array $params = []): array {
+    public function getStatus(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -72,7 +76,8 @@ class OTAController extends Controller {
     }
 
     /** POST /api/ota/connect  { website_id, platform: getyourguide|viator, credential, partner_id? } */
-    public function connect(array $params = []): array {
+    public function connect(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -133,7 +138,8 @@ class OTAController extends Controller {
     }
 
     /** POST /api/ota/disconnect/{platform}/{website_id} */
-    public function disconnect(array $params = []): array {
+    public function disconnect(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('غير مسجل دخول', 401);
         }

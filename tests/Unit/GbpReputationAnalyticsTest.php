@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - GBP Reputation Analytics Test
  * اختبارات منطق Reputation Intelligence (Tier 1): KPIs + Risk Signals +
@@ -11,7 +12,8 @@
 
 require_once __DIR__ . '/../../app/Services/GoogleBusiness/GbpReputationAnalyticsService.php';
 
-class GbpReputationAnalyticsTest {
+class GbpReputationAnalyticsTest
+{
     /** @var int */
     private $passed = 0;
     /** @var int */
@@ -19,7 +21,8 @@ class GbpReputationAnalyticsTest {
     /** @var array */
     private $testResults = [];
 
-    public function runAll(): void {
+    public function runAll(): void
+    {
         echo "\n⭐ GBP Reputation Analytics Tests\n";
         echo "=================================\n";
 
@@ -36,7 +39,8 @@ class GbpReputationAnalyticsTest {
         $this->printSummary();
     }
 
-    private function testAllClearLowRisk(): void {
+    private function testAllClearLowRisk(): void
+    {
         $result = GbpReputationAnalyticsService::scoreRisk([
             'avg7' => 4.5, 'avg30' => 4.4, 'cnt7' => 3, 'cnt30' => 90, 'neg7' => 0, 'neg30' => 9,
         ]);
@@ -46,7 +50,8 @@ class GbpReputationAnalyticsTest {
         );
     }
 
-    private function testRatingDropDetection(): void {
+    private function testRatingDropDetection(): void
+    {
         $result = GbpReputationAnalyticsService::scoreRisk([
             'avg7' => 3.5, 'avg30' => 4.4, 'cnt7' => 5, 'cnt30' => 60, 'neg7' => 3, 'neg30' => 6,
         ]);
@@ -60,7 +65,8 @@ class GbpReputationAnalyticsTest {
         );
     }
 
-    private function testReviewSpikeDetection(): void {
+    private function testReviewSpikeDetection(): void
+    {
         $result = GbpReputationAnalyticsService::scoreRisk([
             'avg7' => 4.6, 'avg30' => 4.6, 'cnt7' => 14, 'cnt30' => 60, 'neg7' => 1, 'neg30' => 5,
         ]);
@@ -74,7 +80,8 @@ class GbpReputationAnalyticsTest {
         );
     }
 
-    private function testNegativeSpikeDetection(): void {
+    private function testNegativeSpikeDetection(): void
+    {
         $result = GbpReputationAnalyticsService::scoreRisk([
             'avg7' => 4.0, 'avg30' => 4.4, 'cnt7' => 10, 'cnt30' => 60, 'neg7' => 4, 'neg30' => 6,
         ]);
@@ -84,7 +91,8 @@ class GbpReputationAnalyticsTest {
         );
     }
 
-    private function testSuspiciousPatternDetection(): void {
+    private function testSuspiciousPatternDetection(): void
+    {
         $result = GbpReputationAnalyticsService::scoreRisk([
             'avg7' => 4.6, 'avg30' => 4.6, 'cnt7' => 2, 'cnt30' => 30, 'neg7' => 0, 'neg30' => 0,
         ], [['date' => '2026-08-01', 'negative_reviews' => 4]]);
@@ -98,7 +106,8 @@ class GbpReputationAnalyticsTest {
         );
     }
 
-    private function testRatingDropBoundary(): void {
+    private function testRatingDropBoundary(): void
+    {
         $result = GbpReputationAnalyticsService::scoreRisk([
             'avg7' => 4.0, 'avg30' => 4.5, 'cnt7' => 3, 'cnt30' => 30, 'neg7' => 1, 'neg30' => 2,
         ]);
@@ -108,7 +117,8 @@ class GbpReputationAnalyticsTest {
         );
     }
 
-    private function testBelowRatingDropBoundary(): void {
+    private function testBelowRatingDropBoundary(): void
+    {
         $result = GbpReputationAnalyticsService::scoreRisk([
             'avg7' => 4.1, 'avg30' => 4.5, 'cnt7' => 3, 'cnt30' => 30, 'neg7' => 1, 'neg30' => 2,
         ]);
@@ -118,7 +128,8 @@ class GbpReputationAnalyticsTest {
         );
     }
 
-    private function testRiskLevelEscalation(): void {
+    private function testRiskLevelEscalation(): void
+    {
         $result = GbpReputationAnalyticsService::scoreRisk([
             'avg7' => 3.5, 'avg30' => 4.4, 'cnt7' => 5, 'cnt30' => 60, 'neg7' => 3, 'neg30' => 6,
         ]);
@@ -128,7 +139,8 @@ class GbpReputationAnalyticsTest {
         );
     }
 
-    private function testEmptyMetrics(): void {
+    private function testEmptyMetrics(): void
+    {
         $result = GbpReputationAnalyticsService::scoreRisk([
             'avg7' => null, 'avg30' => null, 'cnt7' => 0, 'cnt30' => 0, 'neg7' => 0, 'neg30' => 0,
         ]);
@@ -138,7 +150,8 @@ class GbpReputationAnalyticsTest {
         );
     }
 
-    private function assertTrue(bool $condition, string $message): void {
+    private function assertTrue(bool $condition, string $message): void
+    {
         if ($condition) {
             echo "    ✅ {$message}\n";
             $this->passed++;
@@ -150,7 +163,8 @@ class GbpReputationAnalyticsTest {
         }
     }
 
-    private function printSummary(): void {
+    private function printSummary(): void
+    {
         $total = $this->passed + $this->failed;
         $percentage = $total > 0 ? round(($this->passed / $total) * 100, 2) : 0;
 

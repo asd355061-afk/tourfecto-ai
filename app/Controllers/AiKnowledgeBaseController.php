@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * إدارة قاعدة معرفة الشركة الخاصة بـ AI Chat (بند 4 + 13 Brand Voice).
@@ -7,15 +8,16 @@
  * @copyright 2026 Tourfecto
  */
 
-class AiKnowledgeBaseController extends Controller {
-
+class AiKnowledgeBaseController extends Controller
+{
     /** @var KnowledgeBaseService */
     private $knowledgeBase;
 
     /** @var AiKnowledgeBase */
     private $model;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->knowledgeBase = new KnowledgeBaseService();
         $this->model = new AiKnowledgeBase();
@@ -25,7 +27,8 @@ class AiKnowledgeBaseController extends Controller {
      * كل عناصر قاعدة المعرفة لموقع معيّن، مجمّعة حسب القسم.
      * GET /api/ai-chat/websites/{id}/knowledge-base
      */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -53,7 +56,8 @@ class AiKnowledgeBaseController extends Controller {
      * إضافة عنصر جديد لقاعدة المعرفة.
      * POST /api/ai-chat/websites/{id}/knowledge-base
      */
-    public function store(array $params = []): array {
+    public function store(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -94,7 +98,8 @@ class AiKnowledgeBaseController extends Controller {
      * تحديث عنصر موجود.
      * PUT /api/ai-chat/websites/{id}/knowledge-base/{entryId}
      */
-    public function update(array $params = []): array {
+    public function update(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -118,7 +123,8 @@ class AiKnowledgeBaseController extends Controller {
      * حذف (منطقي) لعنصر من قاعدة المعرفة.
      * DELETE /api/ai-chat/websites/{id}/knowledge-base/{entryId}
      */
-    public function destroy(array $params = []): array {
+    public function destroy(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -143,7 +149,8 @@ class AiKnowledgeBaseController extends Controller {
      * والتأكد أن المعلومات المحفوظة صحيحة قبل تفعيل AI Chat).
      * GET /api/ai-chat/websites/{id}/knowledge-base/preview
      */
-    public function preview(array $params = []): array {
+    public function preview(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -164,7 +171,8 @@ class AiKnowledgeBaseController extends Controller {
      * @param int $websiteId
      * @return Website|null
      */
-    private function authorizedWebsite(int $websiteId): ?Website {
+    private function authorizedWebsite(int $websiteId): ?Website
+    {
         if ($websiteId <= 0) {
             return null;
         }
@@ -179,7 +187,8 @@ class AiKnowledgeBaseController extends Controller {
      * @param AiKnowledgeBase $entry
      * @return array
      */
-    private function serialize(AiKnowledgeBase $entry): array {
+    private function serialize(AiKnowledgeBase $entry): array
+    {
         return [
             'id' => $entry->getAttribute('id'),
             'section' => $entry->getAttribute('section'),

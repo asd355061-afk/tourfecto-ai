@@ -1,10 +1,12 @@
 <?php
+
 /**
  * Tourfecto - Business Model
  * Business Profile - منفصل عن User Profile (Business Control Center Phase 2)
  * @version 1.0.0
  */
-class Business extends Model {
+class Business extends Model
+{
     protected $table = 'businesses';
 
     protected $fillable = [
@@ -36,7 +38,8 @@ class Business extends Model {
      * إضافة نوع جديد محتاجة سطر واحد هنا، مش Migration لتعديل ENUM).
      * @return array<string,string> key => English label (تترجم في الواجهة عبر i18n)
      */
-    public static function allowedBusinessTypes(): array {
+    public static function allowedBusinessTypes(): array
+    {
         return [
             'travel_agency' => 'Travel Agency',
             'tour_operator' => 'Tour Operator',
@@ -58,7 +61,8 @@ class Business extends Model {
      * بنفسه ويكرر نفس المنطق.
      * @return string[]
      */
-    public function getSupportedLanguages(): array {
+    public function getSupportedLanguages(): array
+    {
         $raw = $this->getAttribute('supported_languages');
         if (empty($raw)) {
             return [];
@@ -77,7 +81,8 @@ class Business extends Model {
      * لـPolicy/Gate حقيقي في Phase 11 - RBAC، لكن دلوقتي في مرحلة
      * Business Profile الأساسية، مركزية الفحص هي الأهم).
      */
-    public function isOwnedBy(int $userId): bool {
+    public function isOwnedBy(int $userId): bool
+    {
         return (int) $this->getAttribute('owner_user_id') === $userId;
     }
 }

@@ -1,12 +1,14 @@
 <?php
+
 /**
  * Tourfecto - Business Location Controller
  * Business Control Center - Phase 3
  * @version 1.0.0
  */
-class BusinessLocationController extends Controller {
-
-    private function currentUser(): ?User {
+class BusinessLocationController extends Controller
+{
+    private function currentUser(): ?User
+    {
         $id = $_SESSION['user_id'] ?? null;
         if (!$id) {
             return null;
@@ -16,7 +18,8 @@ class BusinessLocationController extends Controller {
     }
 
     /** يتأكد إن الـBusiness موجود وملك المستخدم الحالي - نفس مبدأ IDOR-safety المستخدم في BusinessController */
-    private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
+    private function loadOwnedBusiness(int $businessId, int $userId): ?Business
+    {
         $model = new Business();
         $business = $model->find($businessId);
         if (!$business || !$business->isOwnedBy($userId)) {
@@ -31,7 +34,8 @@ class BusinessLocationController extends Controller {
      * إن الـLocation موجودة، لازم نتأكد إن الـBusiness اللي بتتبعها ملك
      * المستخدم فعليًا.
      */
-    private function loadOwnedLocation(int $locationId, int $userId): ?BusinessLocation {
+    private function loadOwnedLocation(int $locationId, int $userId): ?BusinessLocation
+    {
         $location = (new BusinessLocation())->find($locationId);
         if (!$location) {
             return null;
@@ -44,7 +48,8 @@ class BusinessLocationController extends Controller {
     }
 
     /** GET /api/business/{businessId}/locations */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -60,11 +65,12 @@ class BusinessLocationController extends Controller {
             ['is_primary' => 'DESC', 'id' => 'ASC']
         );
 
-        return $this->success(['locations' => array_map(fn($l) => $l->toArray(), $locations)]);
+        return $this->success(['locations' => array_map(fn ($l) => $l->toArray(), $locations)]);
     }
 
     /** POST /api/business/{businessId}/locations */
-    public function store(array $params = []): array {
+    public function store(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -96,7 +102,8 @@ class BusinessLocationController extends Controller {
     }
 
     /** PUT /api/business/locations/{id} */
-    public function update(array $params = []): array {
+    public function update(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -130,7 +137,8 @@ class BusinessLocationController extends Controller {
     }
 
     /** DELETE /api/business/locations/{id} */
-    public function destroy(array $params = []): array {
+    public function destroy(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -153,7 +161,8 @@ class BusinessLocationController extends Controller {
         return $this->success([], 'تم حذف الموقع');
     }
 
-    private function validateLocationInput(): ?array {
+    private function validateLocationInput(): ?array
+    {
         $rules = [
             'name' => 'max_length:255',
             'city' => 'max_length:150',

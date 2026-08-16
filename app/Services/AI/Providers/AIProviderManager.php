@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * AI Provider Manager - نقطة الدخول الوحيدة لتوليد ردود الذكاء الاصطناعي
@@ -23,8 +24,8 @@
  * @version 1.0.0
  */
 
-class AIProviderManager {
-
+class AIProviderManager
+{
     /** @var AIProviderInterface[] */
     private $providers = [];
 
@@ -34,14 +35,23 @@ class AIProviderManager {
     /**
      * @param array $preferredOrder ترتيب مخصص اختياري لأسماء المزودين، مثال: ['openai', 'gemini']
      */
-    public function __construct(array $preferredOrder = []) {
+    public function __construct(array $preferredOrder = [])
+    {
         $this->db = Database::getInstance();
 
         $registry = [
-            'gemini' => function () { return new GeminiProvider(); },
-            'openai' => function () { return new OpenAIProvider(); },
-            'deepseek' => function () { return new DeepSeekProvider(); },
-            'kimi' => function () { return new KimiProvider(); },
+            'gemini' => function () {
+                return new GeminiProvider();
+            },
+            'openai' => function () {
+                return new OpenAIProvider();
+            },
+            'deepseek' => function () {
+                return new DeepSeekProvider();
+            },
+            'kimi' => function () {
+                return new KimiProvider();
+            },
         ];
 
         $order = !empty($preferredOrder) ? $preferredOrder : $this->getDefaultOrder();
@@ -59,7 +69,8 @@ class AIProviderManager {
      * لأنه المزود الوحيد المُفعّل فعليًا في هذا المشروع حاليًا.
      * @return array
      */
-    private function getDefaultOrder(): array {
+    private function getDefaultOrder(): array
+    {
         $configured = defined('AI_PROVIDER_PRIORITY') ? AI_PROVIDER_PRIORITY : (env('AI_PROVIDER_PRIORITY') ?: '');
         if (!empty($configured)) {
             return array_map('trim', explode(',', $configured));
@@ -71,7 +82,8 @@ class AIProviderManager {
      * قائمة أسماء المزودين المهيّئين فعليًا (لهم API key صالح).
      * @return string[]
      */
-    public function getConfiguredProviders(): array {
+    public function getConfiguredProviders(): array
+    {
         $names = [];
         foreach ($this->providers as $provider) {
             if ($provider->isConfigured()) {
@@ -90,7 +102,8 @@ class AIProviderManager {
      * @param int|null $websiteId لو محدد، يحصر الملخص في موقع معيّن.
      * @return array
      */
-    public function health(?int $websiteId = null): array {
+    public function health(?int $websiteId = null): array
+    {
         $modelByProvider = [
             'gemini' => defined('GEMINI_MODEL') ? GEMINI_MODEL : 'gemini-1.5-flash',
             'openai' => defined('OPENAI_MODEL') ? OPENAI_MODEL : 'gpt-4o-mini',
@@ -188,7 +201,8 @@ class AIProviderManager {
      * @param array $context ['website_id','user_id','conversation_id','feature','temperature','max_tokens','model']
      * @return array نفس شكل AIProviderInterface::generateReply + 'fallback_used' => bool
      */
-    public function generateReply(string $systemPrompt, array $messages, array $context = []): array {
+    public function generateReply(string $systemPrompt, array $messages, array $context = []): array
+    {
         $feature = $context['feature'] ?? 'chat_reply';
         $attempted = [];
         $lastResult = null;
@@ -238,7 +252,8 @@ class AIProviderManager {
      * @param array $context
      * @param string $status success|failed|fallback_used
      */
-    private function logUsage(array $result, array $context, string $status): void {
+    private function logUsage(array $result, array $context, string $status): void
+    {
         try {
             $log = new AiUsageLog();
             $log->fill([

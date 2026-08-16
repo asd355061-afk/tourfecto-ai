@@ -1,10 +1,13 @@
 <?php
+
 /** Tourfecto - CRM Appointment Service (بند 18) @version 1.1.0 */
-class CrmAppointmentService {
+class CrmAppointmentService
+{
     use CrmPaginationHelper;
 
     /** $actorUserId اختياري (بند 30 - استكمال) - راجع نفس الشرح في CrmTaskService::create() */
-    public function create(int $userId, array $data, ?int $actorUserId = null): CrmMeeting {
+    public function create(int $userId, array $data, ?int $actorUserId = null): CrmMeeting
+    {
         if (empty($data['title']) || empty($data['starts_at'])) {
             throw new Exception('عنوان وتاريخ الموعد مطلوبان');
         }
@@ -34,7 +37,8 @@ class CrmAppointmentService {
         return $meeting;
     }
 
-    public function findOwned(int $userId, int $meetingId): CrmMeeting {
+    public function findOwned(int $userId, int $meetingId): CrmMeeting
+    {
         $meeting = (new CrmMeeting())->find($meetingId);
         if (!$meeting || (int) $meeting->getAttribute('user_id') !== $userId) {
             throw new Exception('الموعد غير موجود', 404);
@@ -42,7 +46,8 @@ class CrmAppointmentService {
         return $meeting;
     }
 
-    public function updateStatus(int $userId, int $meetingId, string $status): CrmMeeting {
+    public function updateStatus(int $userId, int $meetingId, string $status): CrmMeeting
+    {
         $allowed = ['scheduled', 'confirmed', 'completed', 'cancelled', 'no_show'];
         if (!in_array($status, $allowed, true)) {
             throw new Exception('حالة غير صحيحة');
@@ -58,19 +63,33 @@ class CrmAppointmentService {
         return $meeting;
     }
 
-    public function listForUser(int $userId, int $limit = 200): array {
+    public function listForUser(int $userId, int $limit = 200): array
+    {
         return (new CrmMeeting())->allForUser($userId, $limit);
     }
 
     /** Filters + Pagination حقيقي (بند 29، 37) */
-    public function search(int $userId, array $filters = [], int $page = 1, int $perPage = 25): array {
+    public function search(int $userId, array $filters = [], int $page = 1, int $perPage = 25): array
+    {
         $where = ['user_id = ?'];
         $params = [$userId];
 
-        if (!empty($filters['status'])) { $where[] = 'status = ?'; $params[] = $filters['status']; }
-        if (!empty($filters['from'])) { $where[] = 'starts_at >= ?'; $params[] = $filters['from'] . ' 00:00:00'; }
-        if (!empty($filters['to'])) { $where[] = 'starts_at <= ?'; $params[] = $filters['to'] . ' 23:59:59'; }
-        if (!empty($filters['search'])) { $where[] = 'title LIKE ?'; $params[] = '%' . $filters['search'] . '%'; }
+        if (!empty($filters['status'])) {
+            $where[] = 'status = ?';
+            $params[] = $filters['status'];
+        }
+        if (!empty($filters['from'])) {
+            $where[] = 'starts_at >= ?';
+            $params[] = $filters['from'] . ' 00:00:00';
+        }
+        if (!empty($filters['to'])) {
+            $where[] = 'starts_at <= ?';
+            $params[] = $filters['to'] . ' 23:59:59';
+        }
+        if (!empty($filters['search'])) {
+            $where[] = 'title LIKE ?';
+            $params[] = '%' . $filters['search'] . '%';
+        }
 
         return $this->paginateQuery('crm_meetings', implode(' AND ', $where), $params, $page, $perPage, 'starts_at ASC');
     }

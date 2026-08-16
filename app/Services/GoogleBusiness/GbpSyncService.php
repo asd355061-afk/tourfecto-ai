@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - GBP Sync Engine
  * مزامنة يدوية/خلفية لبيانات Google Business Profile (بروفايل + توكن).
@@ -7,13 +8,15 @@
  * @version 1.0.0
  * @since 2026-08-09 (GBP Module Upgrade)
  */
-class GbpSyncService {
+class GbpSyncService
+{
     /** @var Database */
     private $db;
     /** @var GoogleReviewSyncService - بنعيد استخدام getValidAccessToken() الموجودة فعلاً هناك بدل تكرارها */
     private $reviewSync;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
         $this->reviewSync = new GoogleReviewSyncService();
     }
@@ -23,7 +26,8 @@ class GbpSyncService {
      * تجيب أحدث بيانات البروفايل من Google، وتحدّث last_synced_at.
      * الاستدعاء الثقيل (المراجعات) بيتحط في الطابور بدل ما يبطّئ الصفحة.
      */
-    public function syncWebsite(int $websiteId, int $userId): array {
+    public function syncWebsite(int $websiteId, int $userId): array
+    {
         $connection = $this->findConnection($websiteId, $userId);
         if (!$connection) {
             return ['success' => false, 'error' => 'الموقع ده مش مربوط بـ Google Business Profile'];
@@ -76,7 +80,8 @@ class GbpSyncService {
         }
     }
 
-    public function findConnection(int $websiteId, int $userId): ?PlatformConnection {
+    public function findConnection(int $websiteId, int $userId): ?PlatformConnection
+    {
         $rows = (new PlatformConnection())->where([
             'website_id' => $websiteId,
             'user_id' => $userId,
@@ -86,7 +91,8 @@ class GbpSyncService {
         return !empty($rows) ? $rows[0] : null;
     }
 
-    private function startLog(int $websiteId, int $userId, int $connectionId, string $type): ?int {
+    private function startLog(int $websiteId, int $userId, int $connectionId, string $type): ?int
+    {
         try {
             $insertId = $this->db->query(
                 "INSERT INTO gbp_sync_logs (website_id, user_id, connection_id, sync_type, status, started_at)
@@ -101,7 +107,8 @@ class GbpSyncService {
         }
     }
 
-    private function finishLog(?int $logId, string $status, ?string $message): void {
+    private function finishLog(?int $logId, string $status, ?string $message): void
+    {
         if (!$logId) {
             return;
         }

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - نقطة الدخول الرئيسية
  * @version 1.0.1
@@ -270,6 +271,15 @@ $optionalNewClassFiles = [
     APP_PATH . '/Models/CrmImportBatch.php',
     APP_PATH . '/Services/Crm/CrmPaginationHelper.php',
     APP_PATH . '/Jobs/CrmImportContactsJob.php',
+    // CRM Upgrade Phase 12 (2026-08-15) - Message Templates / Sales Goals /
+    // Custom Fields. نفس السبب: مش مسجّلة في classmap القديم.
+    APP_PATH . '/Models/CrmMessageTemplate.php',
+    APP_PATH . '/Models/CrmSalesGoal.php',
+    APP_PATH . '/Models/CrmCustomField.php',
+    APP_PATH . '/Models/CrmCustomFieldValue.php',
+    APP_PATH . '/Services/Crm/CrmMessageTemplateService.php',
+    APP_PATH . '/Services/Crm/CrmReportService.php',
+    APP_PATH . '/Services/Crm/CrmCustomFieldService.php',
     // GBP Module Upgrade (2026-08-09/10) - Setup Wizard/Connection Center/
     // Sync/Profile/Photos/Insights/AI/Attributes. نفس السبب زي كل
     // الكلاسات فوق: مش مسجّلة في classmap القديم بتاع composer.
@@ -289,6 +299,8 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/GoogleBusiness/GbpCompetitorBenchmarkService.php',
     // GBP Reputation Intelligence (2026-08-15): KPIs + اتجاهات + مخاطر + حصة ظهور
     APP_PATH . '/Services/GoogleBusiness/GbpReputationAnalyticsService.php',
+    // GBP Automated Reply Rules (2026-08-15): قواعد الرد التلقائي BirdAI-style
+    APP_PATH . '/Services/GoogleBusiness/GbpReplyRuleService.php',
     // Consolidated Multi-Phase Module (2026-08-08) - إضافات جديدة فقط.
     // ملحوظة: تعمّدنا استبعاد ملفات AI Orchestrator/Providers الجديدة
     // (AIOrchestrator/ModelRouter/TaskClassifier/BaseOpenAICompatibleProvider/
@@ -457,7 +469,8 @@ if (!empty($_SERVER['HTTPS'])) {
  * خام - كان أي رابط غلط أو صفحة اتمسحت بيوري الزائر نص JSON مباشر،
  * أسوأ انطباع ممكن يحصل لزائر جديد.
  */
-function send_response(array $data, ?int $httpCode = null): void {
+function send_response(array $data, ?int $httpCode = null): void
+{
     // بند خاص بـ AI Chat Platform: بعض الـWebhooks الخارجية (مثال: Meta
     // hub.challenge verification handshake الخاص بـMessenger/Instagram)
     // تتطلب استجابة نصية خام حرفية، وليست JSON مغلَّفة. مفتاح محجوز جديد
@@ -497,7 +510,8 @@ function send_response(array $data, ?int $httpCode = null): void {
 }
 
 /** صفحة خطأ HTML بسيطة ومتّسقة مع هوية الموقع - بدل JSON خام */
-function render_error_page(int $code, string $message): string {
+function render_error_page(int $code, string $message): string
+{
     $appName = defined('APP_NAME') ? APP_NAME : 'Tourfecto';
     $title = $code === 404 ? 'الصفحة مش موجودة' : 'حصل خطأ غير متوقع';
     $emoji = $code === 404 ? '🧭' : '⚠️';
@@ -535,7 +549,8 @@ HTML;
 /**
  * رسالة خطأ عامة آمنة حسب كود الحالة (لا تكشف تفاصيل داخلية في الإنتاج)
  */
-function default_error_message(int $code): string {
+function default_error_message(int $code): string
+{
     $messages = [
         400 => 'طلب غير صالح',
         401 => 'غير مصرح بالوصول',

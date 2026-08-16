@@ -1,10 +1,12 @@
 <?php
+
 /**
  * Tourfecto - Business AI Context Model
  * صف واحد بس لكل Business (1:1) - Business Control Center Phase 6
  * @version 1.0.0
  */
-class BusinessAiContext extends Model {
+class BusinessAiContext extends Model
+{
     protected $table = 'business_ai_context';
 
     /**
@@ -16,7 +18,8 @@ class BusinessAiContext extends Model {
      * business_brand_settings.writing_style بدل قيمة ثابتة هنا.
      * @return string[]
      */
-    public static function allowedBrandVoicePresets(): array {
+    public static function allowedBrandVoicePresets(): array
+    {
         return ['professional', 'friendly', 'luxury', 'adventure', 'family', 'corporate', 'custom'];
     }
 
@@ -37,15 +40,37 @@ class BusinessAiContext extends Model {
         'important_notes',
     ];
 
-    public function getUniqueSellingPoints(): array { return $this->decodeJsonArray('unique_selling_points'); }
-    public function getForbiddenClaims(): array { return $this->decodeJsonArray('forbidden_claims'); }
-    public function getPreferredKeywords(): array { return $this->decodeJsonArray('preferred_keywords'); }
-    public function getBusinessGoals(): array { return $this->decodeJsonArray('business_goals'); }
-    public function getSeoGoals(): array { return $this->decodeJsonArray('seo_goals'); }
-    public function getContentGoals(): array { return $this->decodeJsonArray('content_goals'); }
-    public function getCompetitors(): array { return $this->decodeJsonArray('competitors'); }
+    public function getUniqueSellingPoints(): array
+    {
+        return $this->decodeJsonArray('unique_selling_points');
+    }
+    public function getForbiddenClaims(): array
+    {
+        return $this->decodeJsonArray('forbidden_claims');
+    }
+    public function getPreferredKeywords(): array
+    {
+        return $this->decodeJsonArray('preferred_keywords');
+    }
+    public function getBusinessGoals(): array
+    {
+        return $this->decodeJsonArray('business_goals');
+    }
+    public function getSeoGoals(): array
+    {
+        return $this->decodeJsonArray('seo_goals');
+    }
+    public function getContentGoals(): array
+    {
+        return $this->decodeJsonArray('content_goals');
+    }
+    public function getCompetitors(): array
+    {
+        return $this->decodeJsonArray('competitors');
+    }
 
-    private function decodeJsonArray(string $field): array {
+    private function decodeJsonArray(string $field): array
+    {
         $raw = $this->getAttribute($field);
         if (empty($raw)) {
             return [];

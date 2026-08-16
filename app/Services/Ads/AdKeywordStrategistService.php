@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Ad Keyword Strategist Service
  * يولّد حزمة كلمات مفتاحية احترافية (مجموعة حسب نية البحث) لحملة، ويحفظها
@@ -9,14 +10,16 @@
  * للعميل في الواجهة، راجع الـDisclaimer في الرد).
  * @version 1.0.0
  */
-class AdKeywordStrategistService {
+class AdKeywordStrategistService
+{
     private const MAX_PER_GROUP = 10;
     private const MAX_TOTAL = 40;
 
     /** @var GeminiClient */
     private $ai;
 
-    public function __construct(?GeminiClient $ai = null) {
+    public function __construct(?GeminiClient $ai = null)
+    {
         $this->ai = $ai ?? new GeminiClient();
     }
 
@@ -26,7 +29,8 @@ class AdKeywordStrategistService {
      *
      * @return array{high_intent: array, commercial: array, long_tail: array, local: array, negative: array, disclaimer: string}
      */
-    public function generateForCampaign(AdCampaign $campaign, string $goalDescription, ?string $targetCountry = null): array {
+    public function generateForCampaign(AdCampaign $campaign, string $goalDescription, ?string $targetCountry = null): array
+    {
         $campaignName = (string) $campaign->getAttribute('name');
         $platform = (string) $campaign->getAttribute('platform');
         $product = (string) $campaign->getAttribute('product_or_service');
@@ -88,11 +92,15 @@ PROMPT;
             $clean = [];
             foreach ($items as $k) {
                 $keywordText = trim((string) ($k['keyword'] ?? ''));
-                if ($keywordText === '') continue;
+                if ($keywordText === '') {
+                    continue;
+                }
                 $keywordText = mb_substr($keywordText, 0, 255);
 
                 $matchType = $this->cleanMatchType($k['match_type'] ?? ($group === 'negative' ? 'negative' : 'phrase'));
-                if ($group === 'negative') $matchType = 'negative';
+                if ($group === 'negative') {
+                    $matchType = 'negative';
+                }
 
                 $relevance = $this->clampInt($k['ai_relevance_score'] ?? null, 0, 100, 50);
                 $volume = $this->clampInt($k['estimated_search_volume'] ?? null, 0, 1000000, null);
@@ -134,24 +142,39 @@ PROMPT;
         return $result;
     }
 
-    private function parseJsonResponse(string $raw): ?array {
+    private function parseJsonResponse(string $raw): ?array
+    {
         $clean = preg_replace('/^```(json)?|```$/m', '', trim($raw));
         $parsed = json_decode(trim((string) $clean), true);
         return is_array($parsed) ? $parsed : null;
     }
 
-    private function cleanMatchType(string $matchType): string {
+    private function cleanMatchType(string $matchType): string
+    {
         return in_array($matchType, ['exact', 'phrase', 'broad', 'negative'], true) ? $matchType : 'phrase';
     }
 
-    private function clampInt($value, int $min, int $max, ?int $default): ?int {
-        if ($value === null || $value === '') return $default;
+    private function clampInt($value, int $min, int $max, ?int $default): ?int
+    {
+        if ($value === null || $value === '') {
+            return $default;
+        }
         $n = (int) $value;
-        if ($n < $min) return $min;
-        if ($n > $max) return $max;
+        if ($n < $min) {
+            return $min;
+        }
+        if ($n > $max) {
+            return $max;
+        }
         return $n;
     }
 
-    private function maxPerGroup(): int { return self::MAX_PER_GROUP; }
-    private function maxTotal(): int { return self::MAX_TOTAL; }
+    private function maxPerGroup(): int
+    {
+        return self::MAX_PER_GROUP;
+    }
+    private function maxTotal(): int
+    {
+        return self::MAX_TOTAL;
+    }
 }

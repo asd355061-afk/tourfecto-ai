@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Website Snapshot Fetcher
  * @version 1.0.0
@@ -10,7 +11,8 @@
  * لا يحاول أبدًا الوصول لصفحات محمية بتسجيل دخول - فقط GET بسيط بدون
  * أي credentials، وبيحترم robots.txt الأساسي (لا يتخطى أي حماية).
  */
-class WebsiteSnapshotFetcher {
+class WebsiteSnapshotFetcher
+{
     private const MAX_BYTES = 1_500_000; // ~1.5MB سقف لأي صفحة، كافي لصفحة HTML عادية
     private const TIMEOUT_SECONDS = 12;
     private const MAX_REDIRECTS = 3;
@@ -20,7 +22,8 @@ class WebsiteSnapshotFetcher {
      * @return array{success:bool, http_status:?int, title:?string, meta_description:?string,
      *   normalized_excerpt:?string, content_hash:?string, structured_data_hash:?string, error:?string}
      */
-    public function fetch(string $url): array {
+    public function fetch(string $url): array
+    {
         $check = SsrfGuard::validateUrl($url);
         if (!$check['safe']) {
             return $this->failure('blocked_by_ssrf_guard: ' . $check['reason']);
@@ -51,7 +54,8 @@ class WebsiteSnapshotFetcher {
         return $this->failure('too_many_redirects');
     }
 
-    private function httpGet(string $url): array {
+    private function httpGet(string $url): array
+    {
         if (!function_exists('curl_init')) {
             return ['error' => 'curl_extension_missing', 'body' => null, 'http_status' => null, 'redirect_to' => null, 'headers' => []];
         }
@@ -109,7 +113,8 @@ class WebsiteSnapshotFetcher {
     }
 
     /** يحوّل نص الـ headers الخام لمصفوفة name=>value (lowercase keys) */
-    private function parseHeaders(string $rawHeaders): array {
+    private function parseHeaders(string $rawHeaders): array
+    {
         $headers = [];
         foreach (explode("\r\n", $rawHeaders) as $line) {
             if (strpos($line, ':') === false) {
@@ -121,7 +126,8 @@ class WebsiteSnapshotFetcher {
         return $headers;
     }
 
-    private function getRedirectLocation(string $url): ?string {
+    private function getRedirectLocation(string $url): ?string
+    {
         $ch = curl_init();
         curl_setopt_array($ch, [
             CURLOPT_URL => $url,
@@ -153,7 +159,8 @@ class WebsiteSnapshotFetcher {
         return null;
     }
 
-    private function extract(?string $html, ?int $httpStatus, array $headers = []): array {
+    private function extract(?string $html, ?int $httpStatus, array $headers = []): array
+    {
         if ($html === null || trim($html) === '') {
             return $this->failure('empty_body', $httpStatus);
         }
@@ -224,7 +231,8 @@ class WebsiteSnapshotFetcher {
         ];
     }
 
-    private function failure(string $reason, ?int $httpStatus = null): array {
+    private function failure(string $reason, ?int $httpStatus = null): array
+    {
         return [
             'success' => false,
             'http_status' => $httpStatus,

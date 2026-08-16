@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Auth Middleware
  * التحقق من مصادقة المستخدم والصلاحيات
@@ -7,49 +8,52 @@
  * @copyright 2026 Tourfecto
  */
 
-class AuthMiddleware {
+class AuthMiddleware
+{
     /**
      * @var Database $db - اتصال قاعدة البيانات
      */
     private $db;
-    
+
     /**
      * @var array $user - بيانات المستخدم الحالي
      */
     private $user = [];
-    
+
     /**
      * @var bool $authenticated - حالة المصادقة
      */
     private $authenticated = false;
-    
+
     /**
      * @var array $requiredRoles - الأدوار المطلوبة
      */
     private $requiredRoles = [];
-    
+
     /**
      * @var array $requiredPermissions - الصلاحيات المطلوبة
      */
     private $requiredPermissions = [];
-    
+
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
-    
+
     /**
      * معالجة الطلب
      * @return array|null
      */
-    public function handle(): ?array {
+    public function handle(): ?array
+    {
         // استثناء مسارات معينة
         if ($this->isPublicRoute()) {
             return null;
         }
-        
+
         // الحصول على التوكن من الطلب
         $token = $this->getTokenFromRequest();
         $user = $token ? $this->validateToken($token) : false;
@@ -86,114 +90,121 @@ class AuthMiddleware {
         if (!$user) {
             return $this->unauthorized('Authentication token required');
         }
-        
+
         // تخزين بيانات المستخدم
         $this->user = $user;
         $this->authenticated = true;
-        
+
         // التحقق من الأدوار المطلوبة
         if (!empty($this->requiredRoles)) {
             if (!$this->hasRequiredRole()) {
                 return $this->forbidden('Insufficient role permissions');
             }
         }
-        
+
         // التحقق من الصلاحيات المطلوبة
         if (!empty($this->requiredPermissions)) {
             if (!$this->hasRequiredPermissions()) {
                 return $this->forbidden('Insufficient permissions');
             }
         }
-        
+
         // إضافة المستخدم إلى الطلب
         $this->addUserToRequest();
-        
+
         return null;
     }
-    
+
     /**
      * التحقق من وجود صلاحية معينة
      * @param string $permission
      * @return AuthMiddleware
      */
-    public function requirePermission(string $permission): self {
+    public function requirePermission(string $permission): self
+    {
         $this->requiredPermissions[] = $permission;
         return $this;
     }
-    
+
     /**
      * التحقق من وجود دور معين
      * @param string $role
      * @return AuthMiddleware
      */
-    public function requireRole(string $role): self {
+    public function requireRole(string $role): self
+    {
         $this->requiredRoles[] = $role;
         return $this;
     }
-    
+
     /**
      * التحقق من وجود أي من الأدوار المطلوبة
      * @param array $roles
      * @return AuthMiddleware
      */
-    public function requireAnyRole(array $roles): self {
+    public function requireAnyRole(array $roles): self
+    {
         $this->requiredRoles = array_merge($this->requiredRoles, $roles);
         return $this;
     }
-    
+
     /**
      * الحصول على بيانات المستخدم الحالي
      * @return array
      */
-    public function getUser(): array {
+    public function getUser(): array
+    {
         return $this->user;
     }
-    
+
     /**
      * التحقق من المصادقة
      * @return bool
      */
-    public function isAuthenticated(): bool {
+    public function isAuthenticated(): bool
+    {
         return $this->authenticated;
     }
-    
+
     /**
      * الحصول على التوكن من الطلب
      * @return string|null
      */
-    private function getTokenFromRequest(): ?string {
+    private function getTokenFromRequest(): ?string
+    {
         // من Header Authorization
         $headers = getallheaders();
         $authHeader = $headers['Authorization'] ?? '';
-        
+
         if (strpos($authHeader, 'Bearer ') === 0) {
             return substr($authHeader, 7);
         }
-        
+
         // من Cookie
         if (isset($_COOKIE['auth_token'])) {
             return $_COOKIE['auth_token'];
         }
-        
+
         // من معلمات GET
         if (isset($_GET['token'])) {
             return $_GET['token'];
         }
-        
+
         // من معلمات POST
         if (isset($_POST['token'])) {
             return $_POST['token'];
         }
-        
+
         return null;
     }
-    
+
     /**
      * التحقق من صحة التوكن
      * @param string $token
      * @return array|false
      */
-    private function validateToken(string $token) {
+    private function validateToken(string $token)
+    {
         try {
             // دعم JWT (Bearer access token) - المرحلة 2 من خطة API Gateway.
             // بنميّزه عن التوكن القديم بشكل التوكن نفسه: JWT دايمًا 3 أجزاء
@@ -234,25 +245,25 @@ class AuthMiddleware {
                     WHERE api_token = :token 
                     AND status = 'active' 
                     LIMIT 1";
-            
+
             $result = $this->db->query($sql, [':token' => $token]);
-            
+
             if (empty($result)) {
                 return false;
             }
-            
+
             $user = $result[0];
-            
+
             // التحقق من صلاحية التوكن
             if ($this->isTokenExpired($user)) {
                 return false;
             }
-            
+
             // تحديث آخر نشاط
             $this->updateLastActivity($user['id']);
-            
+
             return $user;
-            
+
         } catch (Exception $e) {
             Logger::error('Token Validation Error', [
                 'error' => $e->getMessage()
@@ -267,7 +278,8 @@ class AuthMiddleware {
      * بيتفحصوا جوه JwtService::verify نفسها (بترجع null لو أي منهم
      * غلط)، فمفيش داعي نكررهم هنا.
      */
-    private function validateJwtToken(string $token) {
+    private function validateJwtToken(string $token)
+    {
         $payload = JwtService::verify($token);
         if (!$payload || ($payload['type'] ?? null) !== 'access' || empty($payload['sub'])) {
             return false;
@@ -286,22 +298,23 @@ class AuthMiddleware {
         $this->updateLastActivity($userId);
         return $result[0];
     }
-    
+
     /**
      * التحقق من انتهاء صلاحية التوكن
      * @param array $user
      * @return bool
      */
-    private function isTokenExpired(array $user): bool {
+    private function isTokenExpired(array $user): bool
+    {
         $expiry = $user['token_expiry'] ?? null;
-        
+
         if (!$expiry) {
             return false;
         }
-        
+
         return strtotime($expiry) < time();
     }
-    
+
     /** @var string|null $lastActivityColumnCache - كاش ثابت لاسم العمود الحقيقي */
     private static $lastActivityColumnCache = null;
 
@@ -312,7 +325,8 @@ class AuthMiddleware {
      * وطلب DB إضافي ضايع كل مرة). بنكتشف اسم عمود بديل مناسب أو نتجاهل
      * التحديث تمامًا لو مفيش عمود مناسب أصلاً، بدل المحاولة والفشل المتكرر.
      */
-    private function detectLastActivityColumn(): string {
+    private function detectLastActivityColumn(): string
+    {
         if (self::$lastActivityColumnCache !== null) {
             return self::$lastActivityColumnCache;
         }
@@ -345,7 +359,8 @@ class AuthMiddleware {
      * تحديث آخر نشاط
      * @param int $userId
      */
-    private function updateLastActivity(int $userId): void {
+    private function updateLastActivity(int $userId): void
+    {
         $column = $this->detectLastActivityColumn();
         if (!$column) {
             return; // مفيش عمود مناسب أصلاً - متحاولش تاني
@@ -355,90 +370,95 @@ class AuthMiddleware {
             $sql = "UPDATE users 
                     SET `{$column}` = NOW() 
                     WHERE id = :user_id";
-            
+
             $this->db->query($sql, [':user_id' => $userId]);
-            
+
         } catch (Exception $e) {
             // تجاهل
         }
     }
-    
+
     /**
      * التحقق من وجود الدور المطلوب
      * @return bool
      */
-    private function hasRequiredRole(): bool {
+    private function hasRequiredRole(): bool
+    {
         if (empty($this->requiredRoles)) {
             return true;
         }
-        
+
         $userRole = $this->user['role'] ?? 'user';
-        
+
         foreach ($this->requiredRoles as $role) {
             if ($userRole === $role) {
                 return true;
             }
         }
-        
+
         return false;
     }
-    
+
     /**
      * التحقق من وجود الصلاحيات المطلوبة
      * @return bool
      */
-    private function hasRequiredPermissions(): bool {
+    private function hasRequiredPermissions(): bool
+    {
         if (empty($this->requiredPermissions)) {
             return true;
         }
-        
+
         // جلب صلاحيات المستخدم
         $userPermissions = $this->getUserPermissions($this->user['id']);
-        
+
         foreach ($this->requiredPermissions as $permission) {
             if (!in_array($permission, $userPermissions)) {
                 return false;
             }
         }
-        
+
         return true;
     }
-    
+
     /**
      * الحصول على صلاحيات المستخدم
      * @param int $userId
      * @return array
      */
-    private function getUserPermissions(int $userId): array {
+    private function getUserPermissions(int $userId): array
+    {
         try {
             $sql = "SELECT permission FROM user_permissions WHERE user_id = :user_id";
             $result = $this->db->query($sql, [':user_id' => $userId]);
-            
+
             return array_column($result, 'permission');
-            
+
         } catch (Exception $e) {
             return [];
         }
     }
-    
+
     /**
      * إضافة المستخدم إلى الطلب
      */
-    private function addUserToRequest(): void {
+    private function addUserToRequest(): void
+    {
         // تخزين في متغيرات البيئة
         $_SERVER['auth_user_id'] = $this->user['id'];
         $_SERVER['auth_user'] = $this->user;
-        
+
         // تخزين في الجلسة
         $_SESSION['user_id'] = $this->user['id'];
         $_SESSION['user'] = $this->user;
     }
-    
+
     /**
      * التحقق من المسار العام
      * @return bool
      */
-    private function isPublicRoute(): bool {
+    private function isPublicRoute(): bool
+    {
         $publicRoutes = [
             '/api/auth/login',
             '/api/auth/register',
@@ -451,7 +471,7 @@ class AuthMiddleware {
             '/health',
             '/ping'
         ];
-        
+
         $currentRoute = $_SERVER['REQUEST_URI'] ?? '';
 
         // تطبيع /api/v1/xxx إلى /api/xxx قبل المقارنة - نفس الـ alias
@@ -464,16 +484,17 @@ class AuthMiddleware {
                 return true;
             }
         }
-        
+
         return false;
     }
-    
+
     /**
      * إرجاع استجابة غير مصرح بها
      * @param string $message
      * @return array
      */
-    private function unauthorized(string $message = 'Unauthorized'): array {
+    private function unauthorized(string $message = 'Unauthorized'): array
+    {
         // ملاحظة: كانت بترجع JSON دايمًا حتى لصفحات الويب العادية (زي /dashboard)،
         // يعني زائر مش مسجل دخول كان بيشوف {"success":false,"error":...} بدل ما
         // يتحول لصفحة تسجيل الدخول. دلوقتي بنفرّق بين طلبات الـ API (تفضل JSON)
@@ -496,7 +517,8 @@ class AuthMiddleware {
      * هل الطلب الحالي صفحة ويب عادية (مش نداء API/AJAX)؟
      * @return bool
      */
-    private function isWebPageRequest(): bool {
+    private function isWebPageRequest(): bool
+    {
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
             return false;
         }
@@ -519,13 +541,14 @@ class AuthMiddleware {
 
         return true;
     }
-    
+
     /**
      * إرجاع استجابة ممنوعة
      * @param string $message
      * @return array
      */
-    private function forbidden(string $message = 'Forbidden'): array {
+    private function forbidden(string $message = 'Forbidden'): array
+    {
         http_response_code(403);
         return [
             'success' => false,

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Documentation Controller
  * صفحات التوثيق (دليل الاستخدام وتوثيق API)
@@ -9,9 +10,10 @@
  * (موجّهة لمطوّرين/دعم فني)، فمش أولوية عالية زي صفحات المساعدة، لكن
  * برضو لازم تبقى صفحات حقيقية مش نص برمجي لو حد فتحها.
  */
-class DocumentationController extends Controller {
-
-    private function pageShell(string $title, string $bodyHtml): string {
+class DocumentationController extends Controller
+{
+    private function pageShell(string $title, string $bodyHtml): string
+    {
         $appName = defined('APP_NAME') ? APP_NAME : 'Tourfecto';
         $brandHtml = site_brand_html();
         $lang = function_exists('current_lang') ? current_lang() : 'ar';
@@ -149,7 +151,8 @@ HTML;
     }
 
     /** GET /docs */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $body = <<<'HTML'
 <h1>التوثيق</h1>
 <p class="lead">دليل استخدام المنصة، وتوثيق فني لكل نقاط الـ API لو محتاج تتكامل برمجيًا.</p>
@@ -174,7 +177,8 @@ HTML;
     }
 
     /** GET /docs/api */
-    public function api(array $params = []): array {
+    public function api(array $params = []): array
+    {
         $router = new Router();
         require_once dirname(__DIR__) . '/routes/api.php';
 
@@ -236,7 +240,8 @@ HTML;
      * حدة وقت ما يحتاج توثيق أدق.
      * GET /api/docs/openapi.json
      */
-    public function openapi(array $params = []): array {
+    public function openapi(array $params = []): array
+    {
         $router = new Router();
         require_once dirname(__DIR__) . '/routes/api.php';
 
@@ -338,7 +343,8 @@ HTML;
     }
 
     /** GET /docs/guide */
-    public function guide(array $params = []): array {
+    public function guide(array $params = []): array
+    {
         $body = <<<'HTML'
 <h1>دليل الاستخدام</h1>
 <p class="lead">دليل سريع لكل ميزة رئيسية في تورفكتو.</p>

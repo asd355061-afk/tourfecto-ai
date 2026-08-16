@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Base Model Class
  * كلاس النموذج الأساسي مع ORM بسيط
@@ -7,42 +8,43 @@
  * @copyright 2026 Tourfecto
  */
 
-abstract class Model {
+abstract class Model
+{
     /**
      * @var Database $db - اتصال قاعدة البيانات
      */
     protected $db;
-    
+
     /**
      * @var string $table - اسم الجدول
      */
     protected $table;
-    
+
     /**
      * @var string $primaryKey - المفتاح الأساسي
      */
     protected $primaryKey = 'id';
-    
+
     /**
      * @var array $fillable - الحقول القابلة للتعبئة
      */
     protected $fillable = [];
-    
+
     /**
      * @var array $hidden - الحقول المخفية
      */
     protected $hidden = [];
-    
+
     /**
      * @var array $attributes - قيم النموذج
      */
     protected $attributes = [];
-    
+
     /**
      * @var array $original - القيم الأصلية
      */
     protected $original = [];
-    
+
     /**
      * @var array $relations - العلاقات
      */
@@ -57,12 +59,13 @@ abstract class Model {
      * الفعلية المنشورة عن أسماء الأعمدة المفترضة في الكود/الـ migrations.
      */
     protected $columnAliases = [];
-    
+
     /**
      * Constructor
      * @param array $attributes
      */
-    public function __construct(array $attributes = []) {
+    public function __construct(array $attributes = [])
+    {
         $this->db = Database::getInstance();
         $this->fill($attributes);
 
@@ -75,13 +78,14 @@ abstract class Model {
             $this->attributes[$this->primaryKey] = $attributes[$this->primaryKey];
         }
     }
-    
+
     /**
      * تعبئة النموذج بالبيانات
      * @param array $attributes
      * @return Model
      */
-    public function fill(array $attributes): self {
+    public function fill(array $attributes): self
+    {
         foreach ($attributes as $key => $value) {
             if (in_array($key, $this->fillable)) {
                 $this->attributes[$key] = $value;
@@ -89,46 +93,50 @@ abstract class Model {
         }
         return $this;
     }
-    
+
     /**
      * الحصول على قيمة حقل
      * @param string $key
      * @return mixed
      */
-    public function getAttribute(string $key) {
+    public function getAttribute(string $key)
+    {
         return $this->attributes[$key] ?? null;
     }
-    
+
     /**
      * تعيين قيمة حقل
      * @param string $key
      * @param mixed $value
      * @return Model
      */
-    public function setAttribute(string $key, $value): self {
+    public function setAttribute(string $key, $value): self
+    {
         if (in_array($key, $this->fillable)) {
             $this->attributes[$key] = $value;
         }
         return $this;
     }
-    
+
     /**
      * حفظ النموذج
      * @return bool|int
      */
-    public function save() {
+    public function save()
+    {
         if (isset($this->attributes[$this->primaryKey])) {
             return $this->update();
         }
         return $this->insert();
     }
-    
+
     /**
      * ترجمة مفاتيح المصفوفة (attribute keys) لأسماء الأعمدة الحقيقية في
      * قاعدة البيانات حسب $columnAliases، لو موجودة. بدون تأثير لو
      * $columnAliases فاضية (السلوك الافتراضي لكل الـ Models القديمة).
      */
-    protected function toDbAttributes(array $attrs): array {
+    protected function toDbAttributes(array $attrs): array
+    {
         if (empty($this->columnAliases)) {
             return $attrs;
         }
@@ -143,7 +151,8 @@ abstract class Model {
      * العكس: ترجمة صف حقيقي من قاعدة البيانات (بأسماء الأعمدة الحقيقية)
      * لمفاتيح الكود المتوقعة، قبل ما نبني الكائن منه.
      */
-    protected function fromDbRow(array $row): array {
+    protected function fromDbRow(array $row): array
+    {
         if (empty($this->columnAliases)) {
             return $row;
         }
@@ -159,94 +168,98 @@ abstract class Model {
      * إدراج سجل جديد
      * @return int
      */
-    private function insert(): int {
+    private function insert(): int
+    {
         $dbAttributes = $this->toDbAttributes($this->attributes);
         $fields = array_keys($dbAttributes);
         $values = array_values($dbAttributes);
-        
+
         $placeholders = implode(', ', array_fill(0, count($fields), '?'));
         $fieldsList = implode('`, `', $fields);
-        
+
         $sql = "INSERT INTO `{$this->table}` (`{$fieldsList}`) VALUES ({$placeholders})";
-        
+
         $id = $this->db->query($sql, $values);
-        
+
         if ($id) {
             $this->attributes[$this->primaryKey] = $id;
             $this->original = $this->attributes;
         }
-        
+
         return $id;
     }
-    
+
     /**
      * تحديث سجل
      * @return bool
      */
-    private function update(): bool {
+    private function update(): bool
+    {
         $id = $this->attributes[$this->primaryKey];
         $attrsWithoutPk = $this->attributes;
         unset($attrsWithoutPk[$this->primaryKey]);
-        
+
         $dbAttributes = $this->toDbAttributes($attrsWithoutPk);
         $fields = array_keys($dbAttributes);
         $values = array_values($dbAttributes);
-        
+
         $sets = [];
         foreach ($fields as $field) {
             $sets[] = "`{$field}` = ?";
         }
-        
-        $sql = "UPDATE `{$this->table}` SET " . implode(', ', $sets) . 
+
+        $sql = "UPDATE `{$this->table}` SET " . implode(', ', $sets) .
                " WHERE `{$this->primaryKey}` = ?";
-        
+
         $values[] = $id;
-        
+
         $result = $this->db->query($sql, $values);
         $this->original = $this->attributes;
         $this->attributes[$this->primaryKey] = $id;
-        
+
         return $result !== false;
     }
-    
+
     /**
      * حذف السجل
      * @return bool
      */
-    public function delete(): bool {
+    public function delete(): bool
+    {
         if (!isset($this->attributes[$this->primaryKey])) {
             return false;
         }
-        
+
         $sql = "DELETE FROM `{$this->table}` WHERE `{$this->primaryKey}` = ?";
         $result = $this->db->query($sql, [$this->attributes[$this->primaryKey]]);
-        
+
         if ($result !== false) {
             $this->attributes = [];
             $this->original = [];
         }
-        
+
         return $result !== false;
     }
-    
+
     /**
      * البحث عن سجل بالمفتاح الأساسي
      * @param mixed $id
      * @return Model|null
      */
-    public function find($id): ?self {
+    public function find($id): ?self
+    {
         $sql = "SELECT * FROM `{$this->table}` WHERE `{$this->primaryKey}` = ? LIMIT 1";
         $result = $this->db->query($sql, [$id]);
-        
+
         if (empty($result)) {
             return null;
         }
-        
+
         $model = new static($this->fromDbRow($result[0]));
         $model->original = $result[0];
         return $model;
     }
-    
+
     /**
      * البحث عن سجلات حسب الشرط
      * @param array $conditions
@@ -254,16 +267,17 @@ abstract class Model {
      * @param int $limit
      * @return array
      */
-    public function where(array $conditions, array $orderBy = [], int $limit = 0): array {
+    public function where(array $conditions, array $orderBy = [], int $limit = 0): array
+    {
         $sql = "SELECT * FROM `{$this->table}` WHERE 1=1";
         $params = [];
-        
+
         $dbConditions = $this->toDbAttributes($conditions);
         foreach ($dbConditions as $key => $value) {
             $sql .= " AND `{$key}` = ?";
             $params[] = $value;
         }
-        
+
         if (!empty($orderBy)) {
             $sql .= " ORDER BY ";
             $orderParts = [];
@@ -273,57 +287,60 @@ abstract class Model {
             }
             $sql .= implode(', ', $orderParts);
         }
-        
+
         if ($limit > 0) {
             $sql .= " LIMIT ?";
             $params[] = $limit;
         }
-        
+
         $result = $this->db->query($sql, $params);
-        
-        return array_map(function($data) {
+
+        return array_map(function ($data) {
             return new static($this->fromDbRow($data));
         }, $result);
     }
-    
+
     /**
      * الحصول على جميع السجلات
      * @param array $orderBy
      * @param int $limit
      * @return array
      */
-    public function all(array $orderBy = [], int $limit = 0): array {
+    public function all(array $orderBy = [], int $limit = 0): array
+    {
         return $this->where([], $orderBy, $limit);
     }
-    
+
     /**
      * تحويل النموذج إلى مصفوفة
      * @return array
      */
-    public function toArray(): array {
+    public function toArray(): array
+    {
         $data = $this->attributes;
-        
+
         // إخفاء الحقول المحمية
         foreach ($this->hidden as $field) {
             unset($data[$field]);
         }
-        
+
         // إضافة العلاقات
         foreach ($this->relations as $key => $value) {
             $data[$key] = $value;
         }
-        
+
         return $data;
     }
-    
+
     /**
      * تحويل النموذج إلى JSON
      * @return string
      */
-    public function toJson(): string {
+    public function toJson(): string
+    {
         return json_encode($this->toArray(), JSON_UNESCAPED_UNICODE);
     }
-    
+
     /**
      * تعريف علاقة belongsTo
      * @param string $related
@@ -331,17 +348,18 @@ abstract class Model {
      * @param string $localKey
      * @return Model|null
      */
-    protected function belongsTo(string $related, string $foreignKey, string $localKey = 'id'): ?Model {
+    protected function belongsTo(string $related, string $foreignKey, string $localKey = 'id'): ?Model
+    {
         $relatedModel = new $related();
         $value = $this->attributes[$foreignKey] ?? null;
-        
+
         if (!$value) {
             return null;
         }
-        
+
         return $relatedModel->find($value);
     }
-    
+
     /**
      * تعريف علاقة hasMany
      * @param string $related
@@ -349,41 +367,45 @@ abstract class Model {
      * @param string $localKey
      * @return array
      */
-    protected function hasMany(string $related, string $foreignKey, string $localKey = 'id'): array {
+    protected function hasMany(string $related, string $foreignKey, string $localKey = 'id'): array
+    {
         $relatedModel = new $related();
         $value = $this->attributes[$localKey] ?? null;
-        
+
         if (!$value) {
             return [];
         }
-        
+
         return $relatedModel->where([$foreignKey => $value]);
     }
-    
+
     /**
      * __get magic method
      * @param string $key
      * @return mixed
      */
-    public function __get(string $key) {
+    public function __get(string $key)
+    {
         return $this->getAttribute($key);
     }
-    
+
     /**
      * __set magic method
      * @param string $key
      * @param mixed $value
      */
-    public function __set(string $key, $value) {
+    public function __set(string $key, $value)
+    {
         $this->setAttribute($key, $value);
     }
-    
+
     /**
      * __isset magic method
      * @param string $key
      * @return bool
      */
-    public function __isset(string $key): bool {
+    public function __isset(string $key): bool
+    {
         return isset($this->attributes[$key]);
     }
 }

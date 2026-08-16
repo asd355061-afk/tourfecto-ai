@@ -1,10 +1,12 @@
 <?php
+
 /**
  * Tourfecto - Business Service Model
  * الخدمات اللي بتقدمها الشركة (Egypt Tours, Nile Cruises...) - Business Control Center Phase 4
  * @version 1.0.0
  */
-class BusinessService extends Model {
+class BusinessService extends Model
+{
     protected $table = 'business_services';
 
     protected $fillable = [
@@ -25,7 +27,8 @@ class BusinessService extends Model {
      * business_type لكن أكثر مرونة لأن فئات الخدمات السياحية أوسع بكتير.
      * @return string[]
      */
-    public static function suggestedCategories(): array {
+    public static function suggestedCategories(): array
+    {
         return [
             'egypt_tours', 'nile_cruises', 'safari', 'honeymoon', 'religious_tourism',
             'beach_holidays', 'airport_transfers', 'hotels', 'flights', 'custom_tours',
@@ -34,15 +37,18 @@ class BusinessService extends Model {
         ];
     }
 
-    public function getTargetMarkets(): array {
+    public function getTargetMarkets(): array
+    {
         return $this->decodeJsonArray('target_markets');
     }
 
-    public function getTargetLanguages(): array {
+    public function getTargetLanguages(): array
+    {
         return $this->decodeJsonArray('target_languages');
     }
 
-    private function decodeJsonArray(string $field): array {
+    private function decodeJsonArray(string $field): array
+    {
         $raw = $this->getAttribute($field);
         if (empty($raw)) {
             return [];

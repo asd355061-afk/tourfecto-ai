@@ -1,12 +1,14 @@
 <?php
+
 /**
  * Tourfecto - Business AI Context Controller
  * Business Control Center - Phase 6
  * @version 1.0.0
  */
-class BusinessAiContextController extends Controller {
-
-    private function currentUser(): ?User {
+class BusinessAiContextController extends Controller
+{
+    private function currentUser(): ?User
+    {
         $id = $_SESSION['user_id'] ?? null;
         if (!$id) {
             return null;
@@ -15,7 +17,8 @@ class BusinessAiContextController extends Controller {
         return $model->find($id);
     }
 
-    private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
+    private function loadOwnedBusiness(int $businessId, int $userId): ?Business
+    {
         $model = new Business();
         $business = $model->find($businessId);
         if (!$business || !$business->isOwnedBy($userId)) {
@@ -25,7 +28,8 @@ class BusinessAiContextController extends Controller {
     }
 
     /** GET /api/business/{businessId}/ai-context */
-    public function show(array $params = []): array {
+    public function show(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -50,7 +54,8 @@ class BusinessAiContextController extends Controller {
      * + AI Context) عبر BusinessContextService - نفس البيانات اللي أي
      * AI Module في المنصة هيستخدمها فعليًا، مش نسخة تانية.
      */
-    public function full(array $params = []): array {
+    public function full(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -68,7 +73,8 @@ class BusinessAiContextController extends Controller {
     }
 
     /** PUT /api/business/{businessId}/ai-context */
-    public function upsert(array $params = []): array {
+    public function upsert(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);

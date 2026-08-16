@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Lead Service
  * @version 1.1.0
@@ -7,8 +8,10 @@
  * إطلاقًا - تمت فقط إضافة عمليات ناقصة (list/get/assign/delete) بدون لمس
  * المنطق الحالي، حفاظًا على "لا تعمل Refactor شامل" (بند 40).
  */
-class CrmLeadService {
-    public function createContact(int $userId, array $data): CrmContact {
+class CrmLeadService
+{
+    public function createContact(int $userId, array $data): CrmContact
+    {
         $contact = new CrmContact([
             'user_id' => $userId,
             'agency_id' => $data['agency_id'] ?? null,
@@ -31,7 +34,8 @@ class CrmLeadService {
         return $contact;
     }
 
-    public function createLead(int $contactId, ?int $ownerUserId = null): CrmLead {
+    public function createLead(int $contactId, ?int $ownerUserId = null): CrmLead
+    {
         $lead = new CrmLead([
             'contact_id' => $contactId,
             'owner_user_id' => $ownerUserId,
@@ -53,7 +57,8 @@ class CrmLeadService {
     }
 
     /** نسخة موسّعة من createLead تدعم المصدر/القيمة/الاهتمام/الملاحظات (بند 3) */
-    public function createLeadWithData(int $contactId, ?int $ownerUserId, array $data): CrmLead {
+    public function createLeadWithData(int $contactId, ?int $ownerUserId, array $data): CrmLead
+    {
         $lead = new CrmLead([
             'contact_id' => $contactId,
             'owner_user_id' => $ownerUserId,
@@ -79,7 +84,8 @@ class CrmLeadService {
         return $lead;
     }
 
-    public function updateStatus(int $leadId, string $status, ?int $tenantUserId = null): CrmLead {
+    public function updateStatus(int $leadId, string $status, ?int $tenantUserId = null): CrmLead
+    {
         $lead = (new CrmLead())->find($leadId);
         if (!$lead) {
             throw new Exception('Lead غير موجود');
@@ -114,7 +120,8 @@ class CrmLeadService {
     }
 
     /** يتأكد إن الـLead ملك حساب (Tenant) معيّن قبل أي تعديل - إصلاح المرحلة 9 (بند 31) */
-    private function assertLeadBelongsToTenant(CrmLead $lead, int $tenantUserId): void {
+    private function assertLeadBelongsToTenant(CrmLead $lead, int $tenantUserId): void
+    {
         $contact = (new CrmContact())->find((int) $lead->getAttribute('contact_id'));
         if (!$contact || (int) $contact->getAttribute('user_id') !== $tenantUserId) {
             throw new Exception('Lead غير موجود', 404);
@@ -122,7 +129,8 @@ class CrmLeadService {
     }
 
     /** GET قائمة كاملة مع بيانات جهة الاتصال (Tenant-scoped) */
-    public function listForUser(int $userId, int $limit = 200): array {
+    public function listForUser(int $userId, int $limit = 200): array
+    {
         return (new CrmLead())->allForUser($userId, $limit);
     }
 
@@ -132,7 +140,8 @@ class CrmLeadService {
      * CrmController::listLeads تمامًا) - JOIN بالتالي مش هيستخدم
      * CrmPaginationHelper العام (مبني لجدول واحد بسيط).
      */
-    public function search(int $userId, array $filters = [], int $page = 1, int $perPage = 25): array {
+    public function search(int $userId, array $filters = [], int $page = 1, int $perPage = 25): array
+    {
         $page = max(1, $page);
         $perPage = max(1, min(100, $perPage));
         $offset = ($page - 1) * $perPage;
@@ -140,11 +149,26 @@ class CrmLeadService {
         $where = ['c.user_id = ?'];
         $params = [$userId];
 
-        if (!empty($filters['status'])) { $where[] = 'l.status = ?'; $params[] = $filters['status']; }
-        if (!empty($filters['source'])) { $where[] = 'l.source = ?'; $params[] = $filters['source']; }
-        if (!empty($filters['priority'])) { $where[] = 'l.priority = ?'; $params[] = $filters['priority']; }
-        if (!empty($filters['owner_user_id'])) { $where[] = 'l.owner_user_id = ?'; $params[] = (int) $filters['owner_user_id']; }
-        if (!empty($filters['min_score'])) { $where[] = 'l.score >= ?'; $params[] = (int) $filters['min_score']; }
+        if (!empty($filters['status'])) {
+            $where[] = 'l.status = ?';
+            $params[] = $filters['status'];
+        }
+        if (!empty($filters['source'])) {
+            $where[] = 'l.source = ?';
+            $params[] = $filters['source'];
+        }
+        if (!empty($filters['priority'])) {
+            $where[] = 'l.priority = ?';
+            $params[] = $filters['priority'];
+        }
+        if (!empty($filters['owner_user_id'])) {
+            $where[] = 'l.owner_user_id = ?';
+            $params[] = (int) $filters['owner_user_id'];
+        }
+        if (!empty($filters['min_score'])) {
+            $where[] = 'l.score >= ?';
+            $params[] = (int) $filters['min_score'];
+        }
         if (!empty($filters['search'])) {
             $where[] = '(c.name LIKE ? OR c.email LIKE ? OR c.phone LIKE ?)';
             $like = '%' . $filters['search'] . '%';
@@ -154,7 +178,8 @@ class CrmLeadService {
 
         $db = Database::getInstance();
         $total = (int) ($db->query(
-            "SELECT COUNT(*) AS c FROM crm_leads l JOIN crm_contacts c ON c.id = l.contact_id WHERE {$whereSql}", $params
+            "SELECT COUNT(*) AS c FROM crm_leads l JOIN crm_contacts c ON c.id = l.contact_id WHERE {$whereSql}",
+            $params
         )[0]['c'] ?? 0);
 
         $items = $db->query(
@@ -170,12 +195,14 @@ class CrmLeadService {
         ];
     }
 
-    public function find(int $leadId): ?CrmLead {
+    public function find(int $leadId): ?CrmLead
+    {
         return (new CrmLead())->find($leadId);
     }
 
     /** تعيين مسؤول مبيعات لـLead (بند 3: Assign) */
-    public function assignOwner(int $leadId, int $ownerUserId, ?int $tenantUserId = null): CrmLead {
+    public function assignOwner(int $leadId, int $ownerUserId, ?int $tenantUserId = null): CrmLead
+    {
         $lead = $this->find($leadId);
         if (!$lead) {
             throw new Exception('Lead غير موجود');
@@ -205,12 +232,14 @@ class CrmLeadService {
     }
 
     /** أرشفة/حذف Lead (بند 3: Archive) - حذف ناعم عبر status، بدون فقد بيانات */
-    public function archive(int $leadId, ?int $tenantUserId = null): CrmLead {
+    public function archive(int $leadId, ?int $tenantUserId = null): CrmLead
+    {
         return $this->updateStatus($leadId, 'disqualified', $tenantUserId);
     }
 
     /** تحويل Lead لصفقة (بند 3: Convert) - ينشئ Deal في أول مرحلة من المسار الافتراضي */
-    public function convertToDeal(int $leadId, int $ownerUserId, ?int $stageId = null, ?float $value = null): CrmDeal {
+    public function convertToDeal(int $leadId, int $ownerUserId, ?int $stageId = null, ?float $value = null): CrmDeal
+    {
         $lead = $this->find($leadId);
         if (!$lead) {
             throw new Exception('Lead غير موجود');

@@ -1,38 +1,43 @@
 <?php
+
 /**
  * Tourfecto - Admin Controller
  * إدارة المستخدمين والاشتراكات والنظام (محمي بـ AuthMiddleware + AdminMiddleware)
  * @version 1.0.0
  */
 
-class AdminController extends Controller {
-
+class AdminController extends Controller
+{
     /** GET /admin */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderAdminPage('overview');
         exit;
     }
 
     /** GET /admin/platform - نظرة شاملة على كل خدمات وعملاء المنصة */
-    public function platform(array $params = []): array {
+    public function platform(array $params = []): array
+    {
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderAdminPage('platform');
         exit;
     }
 
     /** GET /admin/users و GET /api/admin/users */
-    public function users(array $params = []): array {
+    public function users(array $params = []): array
+    {
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderAdminPage('users');
         exit;
     }
 
-    public function getUsers(array $params = []): array {
+    public function getUsers(array $params = []): array
+    {
         try {
             $userModel = new User();
             $users = $userModel->all(['created_at' => 'DESC'], 200);
-            return $this->success(['users' => array_map(fn($u) => $u instanceof User ? $u->toArray() : $u, $users)]);
+            return $this->success(['users' => array_map(fn ($u) => $u instanceof User ? $u->toArray() : $u, $users)]);
         } catch (Exception $e) {
             Logger::error('Admin getUsers Error', ['message' => $e->getMessage()]);
             return $this->error('تعذر جلب المستخدمين', 500);
@@ -43,7 +48,8 @@ class AdminController extends Controller {
      * GET /admin/export/users - تصدير قائمة كل العملاء لملف Excel (CSV)
      * حقيقي قابل للتحميل المباشر.
      */
-    public function exportUsers(array $params = []): array {
+    public function exportUsers(array $params = []): array
+    {
         if (!$this->isAuthenticated() || !in_array($this->user['role'] ?? '', ['admin', 'super_admin'], true)) {
             header('Content-Type: text/plain; charset=utf-8');
             http_response_code(403);
@@ -85,7 +91,8 @@ class AdminController extends Controller {
     /**
      * GET /admin/export/subscriptions - تصدير قائمة كل الاشتراكات لملف Excel (CSV).
      */
-    public function exportSubscriptions(array $params = []): array {
+    public function exportSubscriptions(array $params = []): array
+    {
         if (!$this->isAuthenticated() || !in_array($this->user['role'] ?? '', ['admin', 'super_admin'], true)) {
             header('Content-Type: text/plain; charset=utf-8');
             http_response_code(403);
@@ -128,7 +135,8 @@ class AdminController extends Controller {
     }
 
     /** GET /admin/users/{id} و GET /api/admin/users/{id} */
-    public function userDetail(array $params): array {
+    public function userDetail(array $params): array
+    {
         return $this->getUserById($params);
     }
 
@@ -138,7 +146,8 @@ class AdminController extends Controller {
      * وده PHP Fatal Error وقت تحميل الكلاس (Declaration ... must be compatible)
      * يوقف صفحة /admin بالكامل. الحل: اسم مختلف تمامًا عن دالة الأب.
      */
-    public function getUserById(array $params): array {
+    public function getUserById(array $params): array
+    {
         $userModel = new User();
         $user = $userModel->find((int) ($params['id'] ?? 0));
 
@@ -154,7 +163,7 @@ class AdminController extends Controller {
         // منفصلة. دلوقتي كل حاجة في مكان واحد.
         try {
             $websites = (new Website())->where(['user_id' => $userId], ['created_at' => 'DESC']);
-            $websitesData = array_map(fn($w) => [
+            $websitesData = array_map(fn ($w) => [
                 'id' => $w->getAttribute('id'),
                 'main_url' => $w->getAttribute('main_url'),
                 'company_name' => $w->getAttribute('company_name'),
@@ -205,7 +214,8 @@ class AdminController extends Controller {
     }
 
     /** PUT /api/admin/users/{id} */
-    public function updateUser(array $params): array {
+    public function updateUser(array $params): array
+    {
         $userModel = new User();
         $user = $userModel->find((int) ($params['id'] ?? 0));
 
@@ -246,7 +256,8 @@ class AdminController extends Controller {
 
     /** GET /api/admin/faq */
     /** PUT /api/admin/branding - super_admin بس */
-    public function updateBranding(array $params = []): array {
+    public function updateBranding(array $params = []): array
+    {
         if (($this->user['role'] ?? '') !== 'super_admin') {
             return $this->error('الصفحة دي متاحة للـ Super Admin بس', 403);
         }
@@ -267,7 +278,8 @@ class AdminController extends Controller {
     }
 
     /** POST /api/admin/branding/logo - رفع لوجو الموقع - super_admin بس */
-    public function uploadLogo(array $params = []): array {
+    public function uploadLogo(array $params = []): array
+    {
         if (($this->user['role'] ?? '') !== 'super_admin') {
             return $this->error('الصفحة دي متاحة للـ Super Admin بس', 403);
         }
@@ -297,7 +309,8 @@ class AdminController extends Controller {
      * نفس منطق uploadLogo بالظبط، بس بيخزّن في site_favicon_url وبيتفرض
      * png/ico/svg فقط (jpg/webp مش مدعومين رسميًا كـ favicon في كل المتصفحات).
      */
-    public function uploadFavicon(array $params = []): array {
+    public function uploadFavicon(array $params = []): array
+    {
         if (($this->user['role'] ?? '') !== 'super_admin') {
             return $this->error('الصفحة دي متاحة للـ Super Admin بس', 403);
         }
@@ -323,7 +336,8 @@ class AdminController extends Controller {
     }
 
     /** POST /api/admin/users/{id}/feature-overrides */
-    public function addUserFeatureOverride(array $params = []): array {
+    public function addUserFeatureOverride(array $params = []): array
+    {
         try {
             $userId = (int) ($params['id'] ?? 0);
             $featureKey = (string) $this->get('feature_key', '');
@@ -341,7 +355,8 @@ class AdminController extends Controller {
     }
 
     /** DELETE /api/admin/users/{id}/feature-overrides/{key} */
-    public function removeUserFeatureOverride(array $params = []): array {
+    public function removeUserFeatureOverride(array $params = []): array
+    {
         try {
             $userId = (int) ($params['id'] ?? 0);
             $featureKey = (string) ($params['key'] ?? '');
@@ -355,7 +370,8 @@ class AdminController extends Controller {
     }
 
     /** GET /api/admin/new-features-stats */
-    public function newFeaturesStats(array $params = []): array {
+    public function newFeaturesStats(array $params = []): array
+    {
         try {
             $stats = ['sites_total' => 0, 'sites_published' => 0, 'sites_draft' => 0,
                       'ai_conversations' => 0, 'ai_messages' => 0,
@@ -365,15 +381,20 @@ class AdminController extends Controller {
                 $rows = $this->db->query("SELECT status, COUNT(*) AS c FROM generated_websites GROUP BY status");
                 foreach ($rows as $row) {
                     $stats['sites_total'] += (int) $row['c'];
-                    if ($row['status'] === 'published') $stats['sites_published'] = (int) $row['c'];
-                    if ($row['status'] === 'draft') $stats['sites_draft'] = (int) $row['c'];
+                    if ($row['status'] === 'published') {
+                        $stats['sites_published'] = (int) $row['c'];
+                    }
+                    if ($row['status'] === 'draft') {
+                        $stats['sites_draft'] = (int) $row['c'];
+                    }
                 }
             }
 
             try {
                 $stats['ai_conversations'] = (int) ($this->db->query("SELECT COUNT(*) AS c FROM ai_assistant_conversations")[0]['c'] ?? 0);
                 $stats['ai_messages'] = (int) ($this->db->query("SELECT COUNT(*) AS c FROM ai_assistant_messages")[0]['c'] ?? 0);
-            } catch (Exception $e) { }
+            } catch (Exception $e) {
+            }
 
             try {
                 $rrRows = $this->db->query("SELECT status, COUNT(*) AS c FROM review_requests GROUP BY status");
@@ -382,9 +403,12 @@ class AdminController extends Controller {
                     if (in_array($row['status'], ['sent', 'reminded', 'reviewed'], true)) {
                         $stats['review_requests_sent'] += (int) $row['c'];
                     }
-                    if ($row['status'] === 'reviewed') $stats['review_requests_reviewed'] = (int) $row['c'];
+                    if ($row['status'] === 'reviewed') {
+                        $stats['review_requests_reviewed'] = (int) $row['c'];
+                    }
                 }
-            } catch (Exception $e) { }
+            } catch (Exception $e) {
+            }
 
             return $this->success(['stats' => $stats]);
         } catch (Exception $e) {
@@ -394,7 +418,8 @@ class AdminController extends Controller {
     }
 
     /** GET /api/admin/features */
-    public function listFeatures(array $params = []): array {
+    public function listFeatures(array $params = []): array
+    {
         try {
             $service = new FeatureFlagService();
             return $this->success(['features' => $service->getAllGlobal()]);
@@ -405,7 +430,8 @@ class AdminController extends Controller {
     }
 
     /** PUT /api/admin/features/{key} */
-    public function updateFeature(array $params = []): array {
+    public function updateFeature(array $params = []): array
+    {
         try {
             $service = new FeatureFlagService();
             $service->setGlobal((string) ($params['key'] ?? ''), (bool) $this->get('is_enabled', true));
@@ -418,7 +444,8 @@ class AdminController extends Controller {
     }
 
     /** PUT /api/admin/legal-content - super_admin بس */
-    public function updateLegalContent(array $params = []): array {
+    public function updateLegalContent(array $params = []): array
+    {
         if (($this->user['role'] ?? '') !== 'super_admin') {
             return $this->error('الصفحة دي متاحة للـ Super Admin بس', 403);
         }
@@ -439,7 +466,8 @@ class AdminController extends Controller {
     }
 
     /** GET /api/admin/system-settings - super_admin بس، مش أي أدمن عادي (بيانات حساسة جدًا) */
-    public function getSystemSettings(array $params = []): array {
+    public function getSystemSettings(array $params = []): array
+    {
         if (($this->user['role'] ?? '') !== 'super_admin') {
             return $this->error('الصفحة دي متاحة للـ Super Admin بس', 403);
         }
@@ -453,7 +481,8 @@ class AdminController extends Controller {
     }
 
     /** PUT /api/admin/system-settings - super_admin بس */
-    public function updateSystemSettings(array $params = []): array {
+    public function updateSystemSettings(array $params = []): array
+    {
         if (($this->user['role'] ?? '') !== 'super_admin') {
             return $this->error('الصفحة دي متاحة للـ Super Admin بس', 403);
         }
@@ -480,10 +509,11 @@ class AdminController extends Controller {
         }
     }
 
-    public function listFaqAdmin(array $params = []): array {
+    public function listFaqAdmin(array $params = []): array
+    {
         try {
             $items = (new FaqItem())->where([], ['sort_order' => 'ASC']);
-            return $this->success(['items' => array_map(fn($f) => $f->toArray(), $items)]);
+            return $this->success(['items' => array_map(fn ($f) => $f->toArray(), $items)]);
         } catch (Exception $e) {
             Logger::error('Admin listFaqAdmin Error', ['message' => $e->getMessage()]);
             return $this->error('تعذر جلب الأسئلة', 500);
@@ -491,7 +521,8 @@ class AdminController extends Controller {
     }
 
     /** POST /api/admin/faq */
-    public function createFaq(array $params = []): array {
+    public function createFaq(array $params = []): array
+    {
         if (!$this->validate(['question' => 'required', 'answer' => 'required'])) {
             return $this->error('البيانات ناقصة', 422);
         }
@@ -514,10 +545,13 @@ class AdminController extends Controller {
     }
 
     /** PUT /api/admin/faq/{id} */
-    public function updateFaq(array $params = []): array {
+    public function updateFaq(array $params = []): array
+    {
         try {
             $faq = (new FaqItem())->find((int) ($params['id'] ?? 0));
-            if (!$faq) return $this->error('السؤال غير موجود', 404);
+            if (!$faq) {
+                return $this->error('السؤال غير موجود', 404);
+            }
 
             foreach (['question', 'answer', 'is_active'] as $field) {
                 if ($this->get($field) !== null) {
@@ -534,10 +568,13 @@ class AdminController extends Controller {
     }
 
     /** DELETE /api/admin/faq/{id} */
-    public function deleteFaq(array $params = []): array {
+    public function deleteFaq(array $params = []): array
+    {
         try {
             $faq = (new FaqItem())->find((int) ($params['id'] ?? 0));
-            if (!$faq) return $this->error('السؤال غير موجود', 404);
+            if (!$faq) {
+                return $this->error('السؤال غير موجود', 404);
+            }
             $faq->delete();
             $this->log('Admin Deleted FAQ', ['id' => $params['id'] ?? null]);
             return $this->success([], 'تم الحذف');
@@ -551,7 +588,8 @@ class AdminController extends Controller {
      * POST /api/admin/broadcast - إرسال إشعار جماعي لكل العملاء (أو
      * مجموعة مفلترة منهم) دفعة واحدة.
      */
-    public function broadcast(array $params = []): array {
+    public function broadcast(array $params = []): array
+    {
         if (!$this->validate(['title' => 'required'])) {
             return $this->error('العنوان مطلوب', 422);
         }
@@ -592,7 +630,8 @@ class AdminController extends Controller {
     }
 
     /** DELETE /api/admin/users/{id} */
-    public function deleteUser(array $params): array {
+    public function deleteUser(array $params): array
+    {
         $userModel = new User();
         $user = $userModel->find((int) ($params['id'] ?? 0));
 
@@ -608,16 +647,19 @@ class AdminController extends Controller {
     }
 
     /** POST /api/admin/users/{id}/suspend */
-    public function suspendUser(array $params): array {
+    public function suspendUser(array $params): array
+    {
         return $this->toggleActive($params, 0, 'تم إيقاف المستخدم');
     }
 
     /** POST /api/admin/users/{id}/activate */
-    public function activateUser(array $params): array {
+    public function activateUser(array $params): array
+    {
         return $this->toggleActive($params, 1, 'تم تفعيل المستخدم');
     }
 
-    private function toggleActive(array $params, int $active, string $message): array {
+    private function toggleActive(array $params, int $active, string $message): array
+    {
         $userModel = new User();
         $user = $userModel->find((int) ($params['id'] ?? 0));
 
@@ -635,13 +677,15 @@ class AdminController extends Controller {
     }
 
     /** GET /admin/subscriptions و GET /api/admin/subscriptions */
-    public function subscriptions(array $params = []): array {
+    public function subscriptions(array $params = []): array
+    {
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderAdminPage('subscriptions');
         exit;
     }
 
-    public function getSubscriptions(array $params = []): array {
+    public function getSubscriptions(array $params = []): array
+    {
         try {
             // Section 7/15: نفس نمط MRR Snapshot الكسول - مفيش Cron حقيقي
             // في المشروع، فبنشغّل فحص دورة حياة الاشتراكات (past_due،
@@ -687,7 +731,8 @@ class AdminController extends Controller {
      * لو فيه Cron حقيقي هيتضاف مستقبلًا، ده الـ endpoint اللي المفروض
      * يستدعيه بدل الاعتماد على فتح صفحة الأدمن.
      */
-    public function runSubscriptionLifecycleChecks(array $params = []): array {
+    public function runSubscriptionLifecycleChecks(array $params = []): array
+    {
         try {
             $result = (new SubscriptionLifecycleService())->runLifecycleChecks();
             $this->log('Admin Ran Subscription Lifecycle Checks', $result);
@@ -699,7 +744,8 @@ class AdminController extends Controller {
     }
 
     /** POST /api/admin/invoices/run-lifecycle-checks */
-    public function runInvoiceLifecycleChecks(array $params = []): array {
+    public function runInvoiceLifecycleChecks(array $params = []): array
+    {
         try {
             $result = (new InvoiceLifecycleService())->runLifecycleChecks();
             $this->log('Admin Ran Invoice Lifecycle Checks', $result);
@@ -711,7 +757,8 @@ class AdminController extends Controller {
     }
 
     /** GET /api/admin/subscriptions/{id} */
-    public function getSubscription(array $params): array {
+    public function getSubscription(array $params): array
+    {
         try {
             $sql = "SELECT * FROM subscriptions WHERE id = ? LIMIT 1";
             $result = $this->db->query($sql, [(int) ($params['id'] ?? 0)]);
@@ -727,7 +774,8 @@ class AdminController extends Controller {
     }
 
     /** POST /api/admin/subscriptions/{id}/cancel */
-    public function cancelSubscription(array $params): array {
+    public function cancelSubscription(array $params): array
+    {
         try {
             // تصحيح: cancelled_at مش عمود حقيقي في الجدول (الأعمدة الحقيقية:
             // status, updated_at, cancel_at_period_end فقط)
@@ -745,7 +793,8 @@ class AdminController extends Controller {
      * تفعيل اشتراك يدوي لعميل دفع خارج المنصة (واتساب/تحويل بنكي...)
      * بدل ما ننتظر بوابة دفع إلكتروني مش مفعّلة لسه.
      */
-    public function activateSubscription(array $params = []): array {
+    public function activateSubscription(array $params = []): array
+    {
         $email = trim((string) $this->get('email', ''));
         $planName = $this->get('plan_name', 'starter');
         $planType = $this->get('plan_type', 'monthly');
@@ -781,8 +830,13 @@ class AdminController extends Controller {
             // غير أي إشعار للعميل أو سجل تدقيق حقيقي (كان بس $this->log()
             // اللي بيكتب في ملف اللوج العادي مش activity_logs).
             if (class_exists('Notification')) {
-                Notification::notify($userId, 'subscription_created', 'تم تفعيل اشتراكك',
-                    'تم تفعيل باقتك بنجاح من فريق الدعم.', '/subscription');
+                Notification::notify(
+                    $userId,
+                    'subscription_created',
+                    'تم تفعيل اشتراكك',
+                    'تم تفعيل باقتك بنجاح من فريق الدعم.',
+                    '/subscription'
+                );
             }
             ActivityLog::record('subscription', 'subscription.created_by_admin', [
                 'user_id' => (int) $this->user['id'],
@@ -799,26 +853,30 @@ class AdminController extends Controller {
     }
 
     /** GET /admin/system */
-    public function system(array $params = []): array {
+    public function system(array $params = []): array
+    {
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderAdminPage('system');
         exit;
     }
 
     /** GET /api/admin/system/health */
-    public function systemHealth(array $params = []): array {
+    public function systemHealth(array $params = []): array
+    {
         $health = new HealthController();
         return $health->detailed($params);
     }
 
     /** GET /admin/logs و GET /api/admin/system/logs */
-    public function logs(array $params = []): array {
+    public function logs(array $params = []): array
+    {
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderAdminPage('logs');
         exit;
     }
 
-    public function getLogs(array $params = []): array {
+    public function getLogs(array $params = []): array
+    {
         try {
             $sql = "SELECT * FROM activity_logs ORDER BY created_at DESC LIMIT 100";
             $logs = $this->db->query($sql);
@@ -830,17 +888,19 @@ class AdminController extends Controller {
     }
 
     /** GET /admin/contact-messages */
-    public function contactMessages(array $params = []): array {
+    public function contactMessages(array $params = []): array
+    {
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderAdminPage('contact-messages');
         exit;
     }
 
     /** GET /api/admin/contact-messages */
-    public function getContactMessages(array $params = []): array {
+    public function getContactMessages(array $params = []): array
+    {
         try {
             $messages = (new ContactSubmission())->where([], ['created_at' => 'DESC'], 200);
-            return $this->success(['messages' => array_map(fn($m) => $m->toArray(), $messages)]);
+            return $this->success(['messages' => array_map(fn ($m) => $m->toArray(), $messages)]);
         } catch (Exception $e) {
             Logger::error('Admin getContactMessages Error', ['message' => $e->getMessage()]);
             return $this->error('تعذر جلب الرسائل', 500);
@@ -848,7 +908,8 @@ class AdminController extends Controller {
     }
 
     /** POST /api/admin/contact-messages/{id}/read */
-    public function markContactMessageRead(array $params = []): array {
+    public function markContactMessageRead(array $params = []): array
+    {
         try {
             $message = (new ContactSubmission())->find((int) ($params['id'] ?? 0));
             if (!$message) {
@@ -864,17 +925,19 @@ class AdminController extends Controller {
     }
 
     /** GET /admin/plans */
-    public function plans(array $params = []): array {
+    public function plans(array $params = []): array
+    {
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderAdminPage('plans');
         exit;
     }
 
     /** GET /api/admin/plans */
-    public function listPlansAdmin(array $params = []): array {
+    public function listPlansAdmin(array $params = []): array
+    {
         try {
             $plans = (new SubscriptionPlan())->where([], ['sort_order' => 'ASC']);
-            return $this->success(['plans' => array_map(fn($p) => $p->toArray(), $plans)]);
+            return $this->success(['plans' => array_map(fn ($p) => $p->toArray(), $plans)]);
         } catch (Exception $e) {
             Logger::error('Admin listPlansAdmin Error', ['message' => $e->getMessage()]);
             return $this->error('تعذر جلب الباقات', 500);
@@ -882,7 +945,8 @@ class AdminController extends Controller {
     }
 
     /** PUT /api/admin/plans/{id} */
-    public function updatePlan(array $params = []): array {
+    public function updatePlan(array $params = []): array
+    {
         try {
             $plan = (new SubscriptionPlan())->find((int) ($params['id'] ?? 0));
             if (!$plan) {
@@ -911,7 +975,8 @@ class AdminController extends Controller {
     }
 
     /** POST /api/admin/system/cache/clear */
-    public function clearCache(array $params = []): array {
+    public function clearCache(array $params = []): array
+    {
         try {
             if (class_exists('Cache')) {
                 $cache = new Cache();
@@ -926,7 +991,8 @@ class AdminController extends Controller {
     }
 
     /** GET /api/admin/system/stats */
-    public function getSystemStats(array $params = []): array {
+    public function getSystemStats(array $params = []): array
+    {
         try {
             $usersCount = $this->db->query("SELECT COUNT(*) AS c FROM users")[0]['c'] ?? 0;
             $activeSubs = $this->db->query("SELECT COUNT(*) AS c FROM subscriptions WHERE status = 'active'")[0]['c'] ?? 0;
@@ -952,7 +1018,8 @@ class AdminController extends Controller {
      * (زي مشاكل أسامي الأعمدة اللي اكتشفناها قبل كده) الصفحة كلها
      * منقعش، بس الرقم ده بيرجع صفر/فاضي بدل ما يوقف كل الطلب.
      */
-    public function getPlatformOverview(array $params = []): array {
+    public function getPlatformOverview(array $params = []): array
+    {
         $safe = function (string $sql, array $bindings = []) {
             try {
                 $rows = $this->db->query($sql, $bindings);
@@ -1009,28 +1076,32 @@ class AdminController extends Controller {
     }
 
     /** GET /admin/settings */
-    public function settings(array $params = []): array {
+    public function settings(array $params = []): array
+    {
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderAdminPage('settings');
         exit;
     }
 
     /** GET /admin/login-history */
-    public function loginHistory(array $params = []): array {
+    public function loginHistory(array $params = []): array
+    {
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderAdminPage('login-history');
         exit;
     }
 
     /** GET /admin/visitors */
-    public function visitorStatsPage(array $params = []): array {
+    public function visitorStatsPage(array $params = []): array
+    {
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderAdminPage('visitors');
         exit;
     }
 
     /** GET /api/admin/login-history — سجل دخول كل الحسابات */
-    public function getAllLoginHistory(array $params = []): array {
+    public function getAllLoginHistory(array $params = []): array
+    {
         try {
             $limit = min(500, max(1, (int) ($this->get('limit', 100))));
             $sql = "SELECT lh.*, u.company_name, u.email AS user_email
@@ -1047,7 +1118,8 @@ class AdminController extends Controller {
     }
 
     /** GET /api/admin/users/{id}/login-history — سجل دخول حساب معيّن */
-    public function getUserLoginHistory(array $params): array {
+    public function getUserLoginHistory(array $params): array
+    {
         try {
             $userId = (int) ($params['id'] ?? 0);
             $sql = "SELECT * FROM login_history WHERE user_id = ? ORDER BY created_at DESC LIMIT 100";
@@ -1064,7 +1136,8 @@ class AdminController extends Controller {
      * الدخول بحساب عميل لأغراض الدعم الفني. يُمنع انتحال أدمن آخر أو حساب موقوف،
      * وتُسجَّل العملية بالكامل في impersonation_logs و login_history.
      */
-    public function impersonateUser(array $params): array {
+    public function impersonateUser(array $params): array
+    {
         try {
             $targetId = (int) ($params['id'] ?? 0);
             $userModel = new User();
@@ -1113,7 +1186,8 @@ class AdminController extends Controller {
     }
 
     /** POST /api/admin/impersonate/stop — الرجوع لحساب الأدمن الأصلي */
-    public function stopImpersonation(array $params = []): array {
+    public function stopImpersonation(array $params = []): array
+    {
         try {
             if (empty($_SESSION['impersonator_admin_id']) || empty($_SESSION['impersonator_admin_user'])) {
                 return $this->error('لا توجد جلسة انتحال حالية', 400);
@@ -1151,7 +1225,8 @@ class AdminController extends Controller {
      * لأن ده صلاحية حساسة جدًا، بنطلب تأكيد كلمة مرور الأدمن نفسه ونسجّل
      * العملية في اللوج بمين عمل إيه ولمين - Audit Trail حقيقي.
      */
-    public function resetUserTwoFactor(array $params): array {
+    public function resetUserTwoFactor(array $params): array
+    {
         if (empty($_SESSION['user_id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -1196,7 +1271,8 @@ class AdminController extends Controller {
     /**
      * تسجيل دخول عبر الانتحال في login_history (نسخة مبسطة بدون الاعتماد على AuthController)
      */
-    private function recordLoginHistoryForImpersonation(int $userId, string $email, bool $isImpersonation): void {
+    private function recordLoginHistoryForImpersonation(int $userId, string $email, bool $isImpersonation): void
+    {
         try {
             $ip = function_exists('get_client_ip') ? get_client_ip() : ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
             $userAgent = function_exists('get_user_agent') ? get_user_agent() : ($_SERVER['HTTP_USER_AGENT'] ?? 'Unknown');
@@ -1223,7 +1299,8 @@ class AdminController extends Controller {
     }
 
     /** GET /api/admin/visitors/stats?days=30 */
-    public function visitorStats(array $params = []): array {
+    public function visitorStats(array $params = []): array
+    {
         try {
             $days = min(90, max(1, (int) ($this->get('days', 30))));
 
@@ -1290,7 +1367,8 @@ class AdminController extends Controller {
     }
 
     /** GET /api/admin/visitors/log */
-    public function visitorLog(array $params = []): array {
+    public function visitorLog(array $params = []): array
+    {
         try {
             $limit = min(500, max(1, (int) ($this->get('limit', 100))));
             $sql = "SELECT vl.*, u.company_name, u.email AS user_email
@@ -1314,7 +1392,8 @@ class AdminController extends Controller {
      * @param string $tab
      * @return string
      */
-    private function renderAdminPage(string $tab): string {
+    private function renderAdminPage(string $tab): string
+    {
         $appName = defined('APP_NAME') ? APP_NAME : 'Tourfecto';
         $panelBrandHtml = site_brand_html();
         $adminName = htmlspecialchars($this->user['company_name'] ?? $this->tr('admin.default_name'), ENT_QUOTES, 'UTF-8');
@@ -2620,7 +2699,8 @@ HTML;
      * @param string $activeTab
      * @return string
      */
-    private function renderAdminSidebar(string $activeTab): string {
+    private function renderAdminSidebar(string $activeTab): string
+    {
         $groups = [
             $this->tr('admin.nav.general') => [
                 'overview' => [$this->tr('admin.nav.overview'), '📊', '/admin'],
@@ -2662,7 +2742,8 @@ HTML;
      * @param string $tab
      * @return string
      */
-    private function renderAdminPanelBody(string $tab): string {
+    private function renderAdminPanelBody(string $tab): string
+    {
         switch ($tab) {
             case 'users':
                 return <<<HTML

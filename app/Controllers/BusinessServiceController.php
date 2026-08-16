@@ -1,12 +1,14 @@
 <?php
+
 /**
  * Tourfecto - Business Service Controller
  * Business Control Center - Phase 4
  * @version 1.0.0
  */
-class BusinessServiceController extends Controller {
-
-    private function currentUser(): ?User {
+class BusinessServiceController extends Controller
+{
+    private function currentUser(): ?User
+    {
         $id = $_SESSION['user_id'] ?? null;
         if (!$id) {
             return null;
@@ -15,7 +17,8 @@ class BusinessServiceController extends Controller {
         return $model->find($id);
     }
 
-    private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
+    private function loadOwnedBusiness(int $businessId, int $userId): ?Business
+    {
         $model = new Business();
         $business = $model->find($businessId);
         if (!$business || !$business->isOwnedBy($userId)) {
@@ -24,7 +27,8 @@ class BusinessServiceController extends Controller {
         return $business;
     }
 
-    private function loadOwnedService(int $serviceId, int $userId): ?BusinessService {
+    private function loadOwnedService(int $serviceId, int $userId): ?BusinessService
+    {
         $service = (new BusinessService())->find($serviceId);
         if (!$service) {
             return null;
@@ -37,7 +41,8 @@ class BusinessServiceController extends Controller {
     }
 
     /** GET /api/business/{businessId}/services */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -53,11 +58,12 @@ class BusinessServiceController extends Controller {
             ['active' => 'DESC', 'name' => 'ASC']
         );
 
-        return $this->success(['services' => array_map(fn($s) => $s->toArray(), $services)]);
+        return $this->success(['services' => array_map(fn ($s) => $s->toArray(), $services)]);
     }
 
     /** POST /api/business/{businessId}/services */
-    public function store(array $params = []): array {
+    public function store(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -93,7 +99,8 @@ class BusinessServiceController extends Controller {
     }
 
     /** PUT /api/business/services/{id} */
-    public function update(array $params = []): array {
+    public function update(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -148,7 +155,8 @@ class BusinessServiceController extends Controller {
     }
 
     /** DELETE /api/business/services/{id} */
-    public function destroy(array $params = []): array {
+    public function destroy(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -170,7 +178,8 @@ class BusinessServiceController extends Controller {
         return $this->success([], 'تم حذف الخدمة');
     }
 
-    private function applyOptionalFields(BusinessService $service): void {
+    private function applyOptionalFields(BusinessService $service): void
+    {
         if ($this->has('description')) {
             $service->setAttribute('description', trim((string) $this->get('description')));
         }
