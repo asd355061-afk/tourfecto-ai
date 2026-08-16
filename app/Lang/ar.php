@@ -320,6 +320,7 @@ return [
     'sidebar.reputation' => 'إدارة السمعة والتقييمات',
     'sidebar.reputation_overview' => 'نظرة عامة على السمعة',
     'sidebar.reputation_stats' => 'إحصائيات السمعة',
+    'sidebar.reputation_intelligence' => 'ذكاء السمعة',
     'sidebar.dashboard' => 'لوحة التحكم',
     'dashboard.my_account' => 'حسابي',
     'dashboard.tab.overview' => 'نظرة عامة',
@@ -2010,7 +2011,6 @@ return [
     'crm.activities.not_found' => 'النشاط غير موجود',
     'crm.activities.empty' => 'لا توجد أنشطة بعد',
     'crm.activities.distribution' => 'التوزيع حسب النوع',
-
 
     'rep.reviews.page.title' => 'إدارة السمعة',
     'rep.reviews.page.subtitle' => 'مراجعات العملاء من كل المنصات',

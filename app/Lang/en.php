@@ -330,6 +330,7 @@ return [
     'sidebar.reputation' => 'Reputation & Reviews',
     'sidebar.reputation_overview' => 'Reputation Overview',
     'sidebar.reputation_stats' => 'Reputation Stats',
+    'sidebar.reputation_intelligence' => 'Reputation Intelligence',
     'sidebar.dashboard' => 'Dashboard',
     'dashboard.my_account' => 'My Account',
     'dashboard.tab.overview' => 'Overview',
