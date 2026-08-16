@@ -85,8 +85,8 @@ class CompetitorDiscoveryService
                     'country' => $c['country'] ?? null,
                     'market_segment' => $c['market_segment'] ?? null,
                     'source' => 'integration:' . $source->sourceName(),
-                    'category' => in_array($c['category'] ?? '', ['direct', 'indirect', 'emerging', 'potential'], true) ? $c['category'] : 'potential',
-                    'confidence' => in_array($c['confidence'] ?? '', ['high', 'medium', 'low'], true) ? $c['confidence'] : 'low',
+                    'category' => CiConstants::within(CiConstants::CATEGORIES, $c['category'] ?? '', 'potential'),
+                    'confidence' => CiConstants::within(CiConstants::CONFIDENCE_LEVELS, $c['confidence'] ?? '', 'low'),
                     'status' => 'pending',
                     'discovered_at' => date('Y-m-d H:i:s'),
                 ]);

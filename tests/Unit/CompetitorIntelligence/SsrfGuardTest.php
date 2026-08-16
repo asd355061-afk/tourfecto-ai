@@ -24,7 +24,12 @@ class SsrfGuardTest
         $this->testBlocksMetadataEndpoint();
         $this->testBlocksNonHttpScheme();
         $this->testBlocksUnusualPort();
+        $this->testAllowsStandardPorts();
         $this->testAllowsStandardPublicUrl();
+        $this->testBlocksIpv6Private();
+        $this->testBlocksIpv4MappedIpv6();
+        $this->testBlocksAdditionalMetadataHosts();
+        $this->testBlocksUnparseable();
         $this->testBuildSubPageUrlKeepsHost();
 
         $this->printSummary();
@@ -84,6 +89,57 @@ class SsrfGuardTest
         } else {
             $this->fail('Unexpected result for example.com: ' . json_encode($r));
         }
+    }
+
+    private function testAllowsStandardPorts(): void
+    {
+        $this->startTest('Allows standard HTTP/S ports');
+        $r1 = SsrfGuard::validateUrl('http://example.com:8080/');
+        $r2 = SsrfGuard::validateUrl('https://example.com:8443/');
+        $r1['safe'] === true || $r1['reason'] === 'private_or_unresolvable_host'
+            ? $this->pass('port 8080 allowed')
+            : $this->fail('port 8080 NOT allowed (reason=' . ($r1['reason'] ?? 'null') . ')');
+        $r2['safe'] === true || $r2['reason'] === 'private_or_unresolvable_host'
+            ? $this->pass('port 8443 allowed')
+            : $this->fail('port 8443 NOT allowed (reason=' . ($r2['reason'] ?? 'null') . ')');
+    }
+
+    private function testBlocksIpv6Private(): void
+    {
+        $this->startTest('Blocks IPv6 loopback / ULA');
+        foreach (['http://[::1]/', 'http://[fc00::1]/', 'http://[fe80::1]/', 'http://[::ffff:192.168.1.1]/'] as $url) {
+            $r = SsrfGuard::validateUrl($url);
+            $r['safe'] === false ? $this->pass("{$url} blocked") : $this->fail("{$url} NOT blocked");
+        }
+    }
+
+    private function testBlocksIpv4MappedIpv6(): void
+    {
+        $this->startTest('Blocks IPv4-mapped IPv6 private addresses');
+        // ::ffff:127.0.0.1 = loopback مُغلّف - لازم يتفك ويترفض رغم إن
+        // filter_var لوحده ممكن يسمح بيه كـ IPv6.
+        $r = SsrfGuard::validateUrl('http://[::ffff:127.0.0.1]/');
+        $r['safe'] === false ? $this->pass('::ffff:127.0.0.1 blocked') : $this->fail('::ffff:127.0.0.1 NOT blocked');
+    }
+
+    private function testBlocksAdditionalMetadataHosts(): void
+    {
+        $this->startTest('Blocks known metadata hostnames (defense-in-depth)');
+        foreach (['http://instance-data/latest/meta-data/', 'http://metadata/'] as $url) {
+            $r = SsrfGuard::validateUrl($url);
+            $r['safe'] === false ? $this->pass("{$url} blocked") : $this->fail("{$url} NOT blocked");
+        }
+    }
+
+    private function testBlocksUnparseable(): void
+    {
+        $this->startTest('Blocks unparseable / empty URLs');
+        $r1 = SsrfGuard::validateUrl('');
+        $r2 = SsrfGuard::validateUrl('not a url at all');
+        $r3 = SsrfGuard::validateUrl('https://');
+        $r1['safe'] === false ? $this->pass('empty URL blocked') : $this->fail('empty URL NOT blocked');
+        $r2['safe'] === false ? $this->pass('garbage URL blocked') : $this->fail('garbage URL NOT blocked');
+        $r3['safe'] === false ? $this->pass('hostless URL blocked') : $this->fail('hostless URL NOT blocked');
     }
 
     private function testBuildSubPageUrlKeepsHost(): void

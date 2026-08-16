@@ -194,6 +194,7 @@ $router->put('/api/competitor-intelligence/competitors/{id}', 'CompetitorIntelli
 $router->delete('/api/competitor-intelligence/competitors/{id}', 'CompetitorIntelligenceController', 'apiDeleteCompetitor', ['AuthMiddleware']);
 $router->post('/api/competitor-intelligence/competitors/{id}/check-now', 'CompetitorIntelligenceController', 'apiCheckNow', ['AuthMiddleware']);
 $router->get('/api/competitor-intelligence/competitors/{id}/timeline', 'CompetitorIntelligenceController', 'apiTimeline', ['AuthMiddleware']);
+$router->get('/api/competitor-intelligence/competitors/{id}/price-history', 'CompetitorIntelligenceController', 'apiPriceHistory', ['AuthMiddleware']);
 $router->post('/api/competitor-intelligence/competitors/{id}/scan-insights', 'CompetitorIntelligenceController', 'apiScanInsights', ['AuthMiddleware']);
 $router->post('/api/competitor-intelligence/competitors/{id}/analyze-profile', 'CompetitorIntelligenceController', 'apiAnalyzeProfile', ['AuthMiddleware']);
 $router->post('/api/competitor-intelligence/competitors/{id}/compute-scorecard', 'CompetitorIntelligenceController', 'apiComputeScorecard', ['AuthMiddleware']);
@@ -211,11 +212,15 @@ $router->delete('/api/competitor-intelligence/watchlist/{id}', 'CompetitorIntell
 
 $router->get('/api/competitor-intelligence/activity', 'CompetitorIntelligenceController', 'apiActivityFeed', ['AuthMiddleware']);
 $router->post('/api/competitor-intelligence/comparison', 'CompetitorIntelligenceController', 'apiComparison', ['AuthMiddleware']);
+$router->post('/api/competitor-intelligence/comparison/export', 'CompetitorIntelligenceController', 'apiComparisonExport', ['AuthMiddleware']);
 
 $router->get('/api/competitor-intelligence/alerts', 'CompetitorIntelligenceController', 'apiAlerts', ['AuthMiddleware']);
 $router->post('/api/competitor-intelligence/alerts/{id}/read', 'CompetitorIntelligenceController', 'apiMarkAlertRead', ['AuthMiddleware']);
+$router->post('/api/competitor-intelligence/alerts/read-all', 'CompetitorIntelligenceController', 'apiMarkAllAlertsRead', ['AuthMiddleware']);
+$router->get('/api/competitor-intelligence/alerts/unread-count', 'CompetitorIntelligenceController', 'apiUnreadAlertsCount', ['AuthMiddleware']);
 
 $router->get('/api/competitor-intelligence/insights', 'CompetitorIntelligenceController', 'apiInsights', ['AuthMiddleware']);
+$router->post('/api/competitor-intelligence/insights/{id}/status', 'CompetitorIntelligenceController', 'apiInsightStatus', ['AuthMiddleware']);
 $router->post('/api/competitor-intelligence/ai/ask', 'CompetitorIntelligenceController', 'apiAiAsk', ['AuthMiddleware']);
 $router->get('/api/competitor-intelligence/ai/weekly-summary', 'CompetitorIntelligenceController', 'apiAiWeeklySummary', ['AuthMiddleware']);
 

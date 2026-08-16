@@ -1,4 +1,48 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## v1.6.0 — واجهة احترافية لموديول ذكاء المنافسة (Professional UI) — 2026-08-16
+
+تمرير احترافي كامل على واجهة موديول **Competitor Intelligence** في
+`CompetitorIntelligenceController` (renderShell + renderScript) بما يتوافق مع
+نظام التصميم الموحد "Compass" (`panel.css`) — بلا تغيير في أي API/route/migration
+قائمة، وكله على مستوى الواجهة فقط.
+
+### التصميم والاتساق
+- اعتماد كلاسات نظام التصميم (`p-tabs`/`p-tab`، `pill`، `p-kv`، `p-empty`،
+  `p-modal`، `p-card-head`، `p-badge`) بدل أنماط `.ci-*` المنسوخة القديمة.
+- **استبدال كل الإيموجي بأيقونات SVG** (Lucide-style) عبر sprite موحّد واحد
+  (`CI_ICONS` + `<symbol>` + `<use href="#ci-icon-...">`) يستخدمه PHP وJS من
+  مصدر واحد — بدون تكرار paths.
+- **بطاقات إحصائية** (Stat Tiles) بأيقونات ملونة موزونة بدل الإيموجي، وألوان
+  الرسوم البيانية (Chart.js) مشتقة من متغيرات CSS الثيمية (`--panel-*`) بدل
+  ألوان ثابتة، مع شبكات/نصوص رمادية متناسقة مع الوضع الليلي.
+
+### تجربة المستخدم وإمكانية الوصول
+- **حالات فارغة (Empty States)** موحّدة لكل التبويبات بأيقونات + عناوين
+  ونصوص مترجمة (`ci.empty.*`).
+- **حالات تحميل (Skeleton loading)** أثناء جلب الجداول.
+- **مودال تأكيد/إدخال** مخصص (`ciConfirm`/`ciPromptValue`) مبني على `.p-modal`
+  يحل محل `confirm()`/`prompt()` الفطريين — مع إدارة التركيز (focus)، إغلاق
+  بـ Escape/خارج المودال، واسترجاع التركيز للعنصر الأصلي.
+- **ARIA**: `role=tab/tabpanel` + `aria-selected`، `role=dialog` للمودالات،
+  `aria-label` لأزرار الأيقونات، `aria-live` لإجابة الذكاء الاصطناعي.
+- **أزرار أيقونية** (عرض/فحص/حذف) في جداول المنافسين/الاكتشاف بأدوات
+  تلميح (title) بدل أزرار نصية متزاحمة.
+- دعم `prefers-reduced-motion` وإبراز `:focus-visible`.
+- شارات الخطورة/التصنيف/الحالة موحّدة عبر `.pill` مع ألوان دلالية وترجمة
+  (`ci.sev.*`).
+
+### الترجمة
+- 33 مفتاح `ci.*` جديد في `en.php`/`ar.php` (تأكيدات الحذف، تسميات ملف
+  المنافس، حالات الفراغ، مستويات الخطورة، تلميحات الكلمات المفتاحية).
+- إزالة إيموجي من قيم أزرار التصدير (`ci.js.export_csv`/`export_pdf`).
+
+### التحقق
+- `php -l` نظيف على الـ controller + ملفي اللغة.
+- سكربت الواجهة المستخرج من heredoc سليم عبر `node --check`.
+- اختبارات الـ offline السبع لموديول ذكاء المنافسة: **126/0**.
+
+---
+
 ## المرحلة 14: الجولة 3 من خطة الترقية التنافسية — 2026-08-16
 
 تنفيذ الجولة الثالثة والأخيرة من فجوات التحليل التنافسي (راجع
@@ -42,6 +86,64 @@ G4 Win/Loss + Sales Goals. التفاصيل الكاملة للترقية في �
 حقول مخصصة)، 4 Models، 3 Services (`CrmMessageTemplateService`/
 `CrmReportService`/`CrmCustomFieldService`)، 16 مسار API، 72 مفتاح Lang
 (`crm.templates.*`/`crm.reports.*`/`crm.goals.*`/`crm.custom_fields.*`).
+
+---
+
+## المرحلة 6: احتراف موديول ذكاء المنافسة (Competitor Intelligence) v1.5.0 — 2026-08-14
+
+هذا التسليم هو تمرير احترافي (Professionalization) على موديول
+**Competitor Intelligence** الحالي — بلا أي تعديل على الموديولات الأخرى،
+وكله إضافي (Additive) على الـ migrations والـ routes القائمة.
+
+### الإصلاحات والأمان
+- إصلاح **خطأ Parse حقيقي في الإنتاج**: كان في `cron/monitor_competitors.php`
+  سطر docblock يحتوي `*/30 * * * *` (جدول cron) — النص `*/` كان ينهي تعليق PHP
+  مبكرًا ويسبب **خطأ Parse فادح** يكسر كرون المراقبة بالكامل. استُبدل بـ
+  `cron: كل 30 دقيقة كل ساعة`.
+- **Rate Limiting** لكل مستخدم على الـ 6 endpoints المكلفة (AI ask / profile /
+  insights / weekly summary، discovery run، report generate) عبر `CiRateLimiter`
+  + جدول `ci_rate_limits` الجديد (Migration جديد إضافي).
+- **SsrfGuard** أصبح يحلّ **كل** سجلات A + AAAA (كان IPv4 فقط بسجل واحد) ويرفض
+  أي دومين فيه سجل خاص واحد على الأقل، بما فيها IPv4-mapped IPv6
+  (`::ffff:127.0.0.1`)؛ وطبقة curl صارت تُثبّت `CURLOPT_IPRESOLVE` على IPv4.
+- اقتراحات Discovery اليدوية تُفحص SSRF مسبقًا، وإدخالات AI (سؤال/اسم) محدودة الطول.
+- `CiPermissions` يفشل مغلقًا (دور غير معروف → `viewer`).
+
+### ميزات وواجهة
+- `POST /alerts/read-all` (تعليم كل التنبيهات كمقروءة)،
+  `POST /insights/{id}/status` (مراجعة/إهمال insight)،
+  `GET /alerts/unread-count` (عدّاد غير المقروء) — كلها مقيدة بملكية المستخدم.
+- شارة غير المقروء + "تعليم الكل كمقروء" في تبويب التنبيهات، وpills لحالة
+  الـ insights مع أزرار موافقة/إهمال.
+- ترجمة عربية/إنجليزية كاملة للنصوص الثابتة الجديدة (T() بدل الحروف الميتة).
+
+### اختبارات
+- `CompetitorDomainTest` (17)، `CiRateLimiterTest` (9)، `CiConstantsTest` (21)،
+  `SsrfGuardTest` موسّع (23) + `CiPermissionsTest` (10) — 80 Assertion بدون أي فشل،
+  كلها بدون اتصال (Offline). التوثيق في `docs/competitor-intelligence/README.md`.
+
+### v1.5.1 (2026-08-15) — تحسينات تنافسية (Competitive Gap-Fill)
+
+بناءً على مقارنة تنافسية مع المنصات العالمية الرائدة في نفس الخدمة
+(Klue، Crayon، Kompyte/Semrush، Prisync، SEMrush/Similarweb)، تم سدّ
+ثلاث فجوات مباشرة قابلة للتنفيذ (المقارنة الكاملة في
+`docs/competitor-intelligence/README.md`):
+
+- **أسعار مهيكلة (تاريخ أسعار)** — `PriceExtractor` يستخرج الرقم والعملة
+  من نص تغيير pricing/offers/new_product، تُحفظ في `price_before` /
+  `price_after` / `currency` (Migration 049، إضافي). Endpoint جديد
+  `GET /competitors/{id}/price-history` + بطاقة تاريخ أسعار في
+  التايم لاين (ميزة Prisync).
+- **إشارة توظيف (Job Postings)** — `SitemapMonitor::isCareerUrl()`
+  يكتشف صفحات careers/jobs/join/hiring/vacancies في sitemap ويعلّمها
+  `page_type=careers` بخطورة `high` (ميزة Crayon/Kompyte).
+- **تصدير CSV للمقارنة** — `POST /comparison/export` بنفس بيانات
+  المقارنة كملف CSV قابل للتنزيل (ميزة تقارير Prisync Excel).
+- اختبارات جديدة: `PriceExtractorTest` (31) + `SitemapMonitorTest` (13) +
+  تحديث `CiConstantsTest` (23) — الإجمالي **126 Assertion، صفر فشل**،
+  كلها offline.
+
+---
 
 ## المرحلة 5: Notifications + Rate Limiting — 2026-08-08
 
