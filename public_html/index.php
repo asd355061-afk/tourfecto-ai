@@ -211,6 +211,15 @@ $optionalNewClassFiles = [
     // بيستخدم GeminiClient جوه RevenueAssistantService::askWithCopilot).
     APP_PATH . '/Services/RevenueIntelligence/RevenueRetentionService.php',
     APP_PATH . '/Services/RevenueIntelligence/RevenueCopilotService.php',
+    // v1.5.0 (2026-08-16): Subscriptions (MRR/ARR/NRR/GRR) + Deal-level
+    // forecast & attribution + Benchmarks & Churn + Stripe mapper - كلاسات
+    // جديدة مش في classmap composer (لا SSH)، تتحمّل يدويًا بنفس النمط.
+    // الترتيب مهم: Controller الجديد بيناديهم في الـ actions.
+    APP_PATH . '/Services/RevenueIntelligence/BizSubscriptionService.php',
+    APP_PATH . '/Services/RevenueIntelligence/DealLevelForecastService.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueBenchmarkService.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueChurnService.php',
+    APP_PATH . '/Services/RevenueIntelligence/StripeRevenueMapper.php',
     APP_PATH . '/Controllers/RevenueIntelligenceController.php',
     APP_PATH . '/Jobs/RecomputeRevenueInsightsJob.php',
     APP_PATH . '/Jobs/SendRevenueDigestJob.php',

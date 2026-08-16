@@ -167,6 +167,11 @@ $router->get('/api/revenue-intelligence/actions', 'RevenueIntelligenceController
 $router->get('/api/revenue-intelligence/executive-summary', 'RevenueIntelligenceController', 'apiExecutiveSummary', ['AuthMiddleware']);
 $router->post('/api/revenue-intelligence/assistant/ask', 'RevenueIntelligenceController', 'apiAssistantAsk', ['AuthMiddleware']);
 $router->get('/api/revenue-intelligence/retention', 'RevenueIntelligenceController', 'apiRetention', ['AuthMiddleware']);
+$router->get('/api/revenue-intelligence/subscriptions', 'RevenueIntelligenceController', 'apiSubscriptionMetrics', ['AuthMiddleware']);
+$router->get('/api/revenue-intelligence/forecast/deals', 'RevenueIntelligenceController', 'apiDealForecast', ['AuthMiddleware']);
+$router->get('/api/revenue-intelligence/attribution', 'RevenueIntelligenceController', 'apiSalesAttribution', ['AuthMiddleware']);
+$router->get('/api/revenue-intelligence/benchmarks', 'RevenueIntelligenceController', 'apiBenchmarks', ['AuthMiddleware']);
+$router->get('/api/revenue-intelligence/churn', 'RevenueIntelligenceController', 'apiChurnAnalytics', ['AuthMiddleware']);
 $router->get('/api/revenue-intelligence/reports/export', 'RevenueIntelligenceController', 'apiExportReport', ['AuthMiddleware']);
 
 $router->get('/api/website-optimizer/websites', 'WebsiteOptimizerController', 'listWebsites', ['AuthMiddleware']);

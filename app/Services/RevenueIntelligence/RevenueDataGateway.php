@@ -244,4 +244,164 @@ class RevenueDataGateway
             [$userId, $limit]
         );
     }
+
+    // ============================================================
+    // v1.5.0: Biz Subscriptions (biz_subscriptions + biz_subscription_events)
+    // ============================================================
+
+    /** كل اشتراكات عملاء العميل (بأمان مع استثناء الجدول الغائب -> []). */
+    public function getBizSubscriptions(int $userId): array
+    {
+        try {
+            return $this->db->query(
+                "SELECT * FROM biz_subscriptions WHERE user_id = ? ORDER BY started_at DESC",
+                [$userId]
+            );
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    /** أحداث تغيير الاشتراكات (new/expansion/contraction/churn) خلال فترة. */
+    public function getBizSubscriptionEvents(int $userId, string $fromDate = '1970-01-01', string $toDate = '9999-12-31'): array
+    {
+        try {
+            return $this->db->query(
+                "SELECT * FROM biz_subscription_events
+                 WHERE user_id = ? AND occurred_at >= ? AND occurred_at <= ?
+                 ORDER BY occurred_at ASC, id ASC",
+                [$userId, $fromDate, $toDate]
+            );
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    /** هل جداول الـBiz Subscriptions موجودة فعلًا (تجنب أخطاء غير ضرورية)؟ */
+    public function hasBizSubscriptionTables(): bool
+    {
+        try {
+            $this->db->query("SELECT COUNT(*) AS c FROM biz_subscriptions WHERE 1=0");
+            $this->db->query("SELECT COUNT(*) AS c FROM biz_subscription_events WHERE 1=0");
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    // ============================================================
+    // v1.5.0: Sales Attribution (sales_teams + sales_reps + crm_deals.assigned_rep_id)
+    // ============================================================
+
+    /** كل مندوبي البيع مع أسماء فرقهم (Tenant-scoped). */
+    public function getSalesReps(int $userId): array
+    {
+        try {
+            return $this->db->query(
+                "SELECT r.*, t.name AS team_name
+                 FROM sales_reps r
+                 LEFT JOIN sales_teams t ON t.id = r.team_id
+                 WHERE r.user_id = ? ORDER BY r.name ASC",
+                [$userId]
+            );
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    /** فرق البيع. */
+    public function getSalesTeams(int $userId): array
+    {
+        try {
+            return $this->db->query(
+                "SELECT * FROM sales_teams WHERE user_id = ? ORDER BY name ASC",
+                [$userId]
+            );
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    /** الصفقات مع اسم المندوب المكلّف (للتوزيع على المندوب/الفريق). */
+    public function getDealsWithRep(int $userId): array
+    {
+        try {
+            return $this->db->query(
+                "SELECT d.id, d.title, d.value, d.currency, d.status, d.expected_close_date, d.closed_at,
+                        d.probability, d.assigned_rep_id, d.stage_id,
+                        r.name AS rep_name, r.team_id, t.name AS team_name
+                 FROM crm_deals d
+                 LEFT JOIN sales_reps r ON r.id = d.assigned_rep_id AND r.user_id = d.owner_user_id
+                 LEFT JOIN sales_teams t ON t.id = r.team_id
+                 WHERE d.owner_user_id = ?",
+                [$userId]
+            );
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    // ============================================================
+    // v1.5.0: Benchmarks (revai_benchmarks - مشتقة من بيانات المنصة)
+    // ============================================================
+
+    /** هل جدول benchmarks مثبت؟ */
+    public function hasBenchmarkTables(): bool
+    {
+        try {
+            $this->db->query("SELECT 1 FROM revai_benchmarks LIMIT 1");
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    /** أحدث صفوف benchmarks المنصية (أحدث as_of_date) - لا تحتوي user_id (بيانات مجهولة). */
+    public function getPlatformBenchmarks(): array
+    {
+        try {
+            $rows = $this->db->query(
+                "SELECT metric_key, metric_label, p25, p50, p75, basis, sample_size, as_of_date
+                 FROM revai_benchmarks
+                 WHERE as_of_date = (SELECT MAX(as_of_date) FROM revai_benchmarks)
+                 ORDER BY metric_key ASC"
+            );
+            return $rows ?: [];
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    /** أحدث قيم الـBenchmark المتاحة لمجموعة مقاييس، وعدد الحسابات الداخلة. */
+    public function getBenchmarkRow(string $metricKey, ?string $asOfDate = null): ?array
+    {
+        try {
+            $sql = "SELECT * FROM revai_benchmarks WHERE metric_key = ?";
+            $params = [$metricKey];
+            if ($asOfDate !== null) {
+                $sql .= " AND as_of_date = ?";
+                $params[] = $asOfDate;
+            } else {
+                $sql .= " ORDER BY as_of_date DESC";
+            }
+            $sql .= " LIMIT 1";
+            $rows = $this->db->query($sql, $params);
+            return $rows[0] ?? null;
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    /** كل المقياس المتاحة (للواجهة). */
+    public function getBenchmarkRows(string $asOfDate): array
+    {
+        try {
+            return $this->db->query(
+                "SELECT * FROM revai_benchmarks WHERE as_of_date = ? ORDER BY metric_key ASC",
+                [$asOfDate]
+            );
+        } catch (Exception $e) {
+            return [];
+        }
+    }
 }

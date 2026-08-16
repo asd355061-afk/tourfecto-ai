@@ -538,3 +538,102 @@ Feature موجودة يمكن إعادة استخدامها، استخدمها �
 - الاختبارات التي تحتاج MySQL (DatabaseTest وفحص الفلترة الفعلية) تُشغَّل
   على السيرفر حيث يوجد الـDriver.
 
+# AI Revenue Intelligence — الترقية v1.5.0 (Subscriptions + Stripe + Deal Forecast & Attribution + Benchmarks & Churn) — 2026-08-16
+
+## 1) ما الذي أُضيف ولماذا
+
+الجولة الأولى من خطة رفع الموديول لمستوى المنافسين (Clari/Gong/Baremetrics).
+أربع مجموعات ميزات، بشفافية تامة (نفس قاعدة الموديول: أرقام من بيانات
+حقيقية فقط، وإلا "Not enough data"):
+
+### (D) الاشتراكات وMRR/ARR/NRR/GRR الحرفية — `BizSubscriptionService` v1.0.0
+- Migration جديد `2026_08_16_000010_...sql`: جدول `biz_subscriptions`
+  (اشتراكات **عملاء أعمال العميل**) + `biz_subscription_events`
+  (new/expansion/contraction/churn) + `sales_teams` + `sales_reps`
+  + `ALTER TABLE crm_deals ADD assigned_rep_id`.
+- فصل جوهري عن جدول `subscriptions` القديم: هذا الأخير = خطة المستخدم
+  نفسه في Tourfecto (صف لكل مستخدم، لا يمثل عملاءه) ولا يصح أساسًا
+  لحساب NRR/GRR. الجدول الجديد `biz_subscriptions` بامتياز يحمل
+  `customer_name`/`contact_id`/`mrr`/`billing_cycle` — أساس حقيقي.
+- `computeMrr` / `computeArrFromMrr` / `computeMrrByCycle` /
+  `computeMrrBreakdown` (New/Expansion/Contraction/Churn + Net) /
+  `computeNrr` (حرفي: MRR حالي لعملاء الفترة المرساة ÷ MRR مرساة) /
+  `computeGrr` (الاحتفاظ من MRR المرساة) / `computeChurnRate` —
+  كلها pure functions تعمل على بيانات حقيقية، مع إفصاح واضح أن GRR
+  هنا يقرّب الاحتفاظ من نموذج الصف الواحد (التوسعات غير منفصلة).
+
+### (A) تكامل Stripe — `StripeRevenueMapper` v1.0.0 (pure)
+- تطبيع أحداث Stripe القياسية إلى صفوف الموديول الجاهزة للإدراج:
+  `customer.subscription.created` → `biz_subscriptions` + حدث `new`؛
+  `invoice.payment_succeeded` → حدث `expansion`؛
+  `customer.subscription.deleted` → حدث `churn` (delta سالب).
+- `normalizeAmountForCurrency` (سنتات، يشمل عملات بلا كسور كـ JPY) /
+  `mapIntervalToCycle` / `convertSubscriptionToMrr` (سنوي÷12، ربع÷3).
+- بلا مفاتيح في الكود، بلا شبكة: mapper نقي قابل للاختبار بفيكسشرات.
+
+### (B) Deal-level forecast + Sales attribution — `DealLevelForecastService` v1.0.0
+- `groupOpenDealsByCloseWindow`: توزيع الصفقات المفتوحة على
+  هذا الشهر / هذا الربع / لاحقًا / **غير موقّت** (لا تاريخ مخترع —
+  غير الموقّتة تُعرض منفصلة وتُستثنى من إجمالي التوقيت).
+- `weightedDealValue`: value × probability (مع fallback صريح لـ
+  stage_win_probability؛ لو لا probability → 0، لا افتراض خفي).
+- `aggregateByRep` / `aggregateByTeam`: توزيع الإيراد/الخط على
+  المندوبين والفرق مع رصد "Unassigned" بصدق.
+
+### (C) Benchmarks + Churn analytics — `RevenueBenchmarkService` + `RevenueChurnService`
+- `revai_benchmarks`: جدول منصّي بلا `user_id` (بيانات مجهولة). يُعبَّأ
+  بواسطة `cron/revai_benchmarks_rebuild.php` (تجميع أسبوعي) من
+  نمو المؤشرات الحقيقي عبر كل الحسابات المؤهلة (حد أدنى 10 حسابات،
+  وإلا لا شيء — "Not enough data" منصّي) أو سجلات يدوية مسجلة المصدر.
+- `classifyChurnReason` / `aggregateChurnReasons`: أسباب التوقف من
+  بيانات حقيقية فقط (lost_reason / churn_reason / حالة cancelled) مع
+  موثوقية (high/low) — لا أسباب مخترعة.
+
+## 2) الملفات المعدَّلة
+
+- `database/migrations/2026_08_16_000010_create_revai_subscriptions_teams_benchmarks.sql` (جديد)
+- `app/Services/RevenueIntelligence/BizSubscriptionService.php` (جديد)
+- `app/Services/RevenueIntelligence/StripeRevenueMapper.php` (جديد)
+- `app/Services/RevenueIntelligence/DealLevelForecastService.php` (جديد)
+- `app/Services/RevenueIntelligence/RevenueBenchmarkService.php` (جديد)
+- `app/Services/RevenueIntelligence/RevenueChurnService.php` (جديد)
+- `app/Services/RevenueIntelligence/RevenueDataGateway.php` (طرق جديدة + hasBenchmarkTables/getPlatformBenchmarks)
+- `cron/revai_benchmarks_rebuild.php` (جديد - rebuild أسبوعي للـbenchmarks)
+- `app/Controllers/RevenueIntelligenceController.php` (4 endpoints + 4 تابات + i18n)
+- `app/routes/api.php` (5 مسارات جديدة)
+- `public_html/index.php` + `cron/bootstrap.php` (قائمة التحميل اليدوي - إضافة فقط)
+- `app/Lang/ar.php` + `app/Lang/en.php` (مفاتيح v1.5.0 + إصلاح ضرر سابق)
+- `tests/Unit/RevenueIntelligenceTest.php` (24 اختبارًا جديدًا)
+
+## 3) قاعدة البيانات
+
+شغّل migration واحدًا بعد نسخة احتياطية:
+`database/migrations/2026_08_16_000010_create_revai_subscriptions_teams_benchmarks.sql`
+(إضافي بالكامل: 4 جداول جديدة + عمود `assigned_rep_id` على `crm_deals`).
+لجدولة rebuild الـbenchmarks أسبوعيًا أضف من لوحة التحكم:
+`0 4 * * 1 php /path/to/project/cron/revai_benchmarks_rebuild.php`.
+
+## 4) الصدق في الأرقام
+
+- MRR/ARR/NRR/GRR/Churn = من صفوف `biz_subscriptions`/`biz_subscription_events`
+  الحقيقية للمستخدم. لا جدول → إفصاح "not installed". جدول فاضي → "No biz
+  subscriptions...". لا يوجد تقدير.
+- GRR: نموذج الصف الواحد لا يفصل التوسعات، فـ GRR هنا = نسبة MRR المرساة
+  المحتفظ به، بإفصاح نصّي صريح في `note`.
+- الـbenchmarks: مشتقة من تجميع حقيقي أو مسجلة يدويًا بمصدر، وإلا لا صفوف.
+- أسباب التوقف: من حقول حقيقية (lost_reason / churn_reason / status) فقط.
+
+## 5) الاختبارات
+
+- `php -l` على كل الملفات المعدَّلة - لا أخطاء.
+- `php tests/Unit/RevenueIntelligenceTest.php` → **234/234 ✅ (100%)**
+  (24 اختبارًا جديدًا: MRR/ARR/breakdown/NRR/GRR/churn + Stripe mapper ×6
+  + deal forecast ×3 + attribution ×2 + benchmarks/churn ×5 + no-data guards).
+
+## 6) ملحق: ربط التحميل اليدوي (لا SSH)
+
+- `public_html/index.php`: أُضيفت الخمس خدمات الجديدة إلى
+  `$optionalNewClassFiles` قبل الـController.
+- `cron/bootstrap.php`: أُضيفت الخمس خدمات إلى `$optionalJobDependencyFiles`.
+- `cron/revai_benchmarks_rebuild.php`: يُحمّل `RevenueDataGateway` يدويًا
+  بنفس النمط قبل استخدامه.

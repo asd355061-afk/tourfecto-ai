@@ -55,6 +55,10 @@ class RevenueIntelligenceController extends Controller
             'sources' => $this->tr('revai.tab.sources'),
             'anomalies' => $this->tr('revai.tab.anomalies'),
             'retention' => $this->tr('revai.tab.retention'),
+            'subscriptions' => $this->tr('revai.tab.subscriptions'),
+            'attribution' => $this->tr('revai.tab.attribution'),
+            'benchmarks' => $this->tr('revai.tab.benchmarks'),
+            'churn' => $this->tr('revai.tab.churn'),
             'assistant' => $this->tr('revai.tab.assistant'),
             'reports' => $this->tr('revai.tab.reports'),
         ];
@@ -359,6 +363,82 @@ HTML;
             return $this->success($retention);
         } catch (Throwable $e) {
             return $this->serverError('retention', $e);
+        }
+    }
+
+    /**
+     * GET /api/revenue-intelligence/subscriptions
+     * v1.5.0: MRR/ARR/NRR/GRR حرفية من جدول biz_subscriptions + events.
+     */
+    public function apiSubscriptionMetrics(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $metrics = (new BizSubscriptionService())->getSubscriptionMetrics((int) $this->user['id']);
+            ActivityLog::record('revenue_intelligence', 'subscriptions.metrics_viewed', ['user_id' => (int) $this->user['id']]);
+            return $this->success($metrics);
+        } catch (Throwable $e) {
+            return $this->serverError('subscriptions', $e);
+        }
+    }
+
+    /**
+     * GET /api/revenue-intelligence/forecast/deals
+     * v1.5.0: Deal-level forecast (this month/quarter/later/undated).
+     */
+    public function apiDealForecast(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $deals = (new RevenueDataGateway())->getDealsWithRep((int) $this->user['id']);
+            $forecast = DealLevelForecastService::groupOpenDealsByCloseWindow($deals);
+            return $this->success($forecast);
+        } catch (Throwable $e) {
+            return $this->serverError('forecast/deals', $e);
+        }
+    }
+
+    /**
+     * GET /api/revenue-intelligence/attribution
+     * v1.5.0: Sales attribution بالمناديب والفرق.
+     */
+    public function apiSalesAttribution(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $deals = (new RevenueDataGateway())->getDealsWithRep((int) $this->user['id']);
+            $attribution = [
+                'by_rep' => DealLevelForecastService::aggregateByRep($deals),
+                'by_team' => DealLevelForecastService::aggregateByTeam($deals),
+            ];
+            return $this->success($attribution);
+        } catch (Throwable $e) {
+            return $this->serverError('attribution', $e);
+        }
+    }
+
+    /**
+     * GET /api/revenue-intelligence/benchmarks
+     * v1.5.0: Benchmarks منصية حقيقية (أو يدوية مسجلة). لا أرقام مخترعة.
+     */
+    public function apiBenchmarks(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $benchmarks = (new RevenueBenchmarkService())->getBenchmarks((int) $this->user['id']);
+            return $this->success($benchmarks);
+        } catch (Throwable $e) {
+            return $this->serverError('benchmarks', $e);
+        }
+    }
+
+    /**
+     * GET /api/revenue-intelligence/churn
+     * v1.5.0: Churn analytics + أسباب التوقف من بيانات حقيقية فقط.
+     */
+    public function apiChurnAnalytics(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $churn = (new RevenueChurnService())->getChurnAnalytics((int) $this->user['id']);
+            return $this->success($churn);
+        } catch (Throwable $e) {
+            return $this->serverError('churn', $e);
         }
     }
 
@@ -819,6 +899,75 @@ HTML;
             <div class="p-card" style="margin-top:14px;font-size:13px;opacity:.85;">${esc(d.mrr_grr_note || '')}</div>`;
     }
 
+    async function renderSubscriptions() {
+        panel.innerHTML = loadingHtml();
+        const res = await fetchJSON('/api/revenue-intelligence/subscriptions');
+        if (!res.success) { panel.innerHTML = emptyHtml(res.error); return; }
+        const d = res.data;
+        if (!d.has_data) { panel.innerHTML = emptyHtml(I18N['revai.no_revenue_data']); return; }
+        const nrr = d.nrr || {}, grr = d.grr || {}, brk = d.breakdown || {};
+        panel.innerHTML = `
+            <div class="p-grid cols-4" style="margin-bottom:18px;">
+                <div class="p-card stat-tile"><div class="stat-info"><div class="stat-value">${fmt(d.mrr)}</div><div class="stat-label">MRR</div></div></div>
+                <div class="p-card stat-tile"><div class="stat-info"><div class="stat-value">${fmt(d.arr)}</div><div class="stat-label">ARR</div></div></div>
+                <div class="p-card stat-tile"><div class="stat-info"><div class="stat-value">${d.active_subscriptions}</div><div class="stat-label">${I18N['revai.subscriptions.active']}</div></div></div>
+                <div class="p-card stat-tile"><div class="stat-info"><div class="stat-value">${nrr.has_data ? nrr.nrr_percent + '%' : '-'}</div><div class="stat-label">NRR</div></div></div>
+            </div>
+            <div class="p-grid cols-2">
+                <div class="p-card"><h4>${I18N['revai.subscriptions.grr']}</h4>
+                    ${grr.has_data ? `<p style="font-size:26px;font-weight:700;">${grr.grr_percent}%</p><p style="font-size:13px;opacity:.8;">${esc(grr.note || '')}</p>` : `<div class="p-empty">${I18N['common.no_records_yet']}</div>`}
+                </div>
+                <div class="p-card"><h4>${I18N['revai.subscriptions.mrr_breakdown']}</h4>
+                    ${brk.has_data ? `<p>${I18N['revai.subscriptions.new']}: ${fmt(brk.new)}</p><p>${I18N['revai.subscriptions.expansion']}: ${fmt(brk.expansion)}</p><p>${I18N['revai.subscriptions.contraction']}: ${fmt(brk.contraction)}</p><p>${I18N['revai.subscriptions.churn']}: ${fmt(brk.churn)}</p><p style="font-weight:600;margin-top:8px;">${I18N['revai.subscriptions.net']}: ${fmt(brk.net)}</p>` : `<div class="p-empty">${I18N['common.no_records_yet']}</div>`}
+                </div>
+            </div>
+            ${d.by_cycle && d.by_cycle.has_data ? `<div class="p-card" style="margin-top:14px;"><h4>${I18N['revai.subscriptions.mrr_by_cycle']}</h4>
+                ${Object.entries(d.by_cycle.mrr_by_cycle || {}).map(([k,v]) => `<span style="display:inline-block;margin:4px;padding:4px 10px;border-radius:16px;background:#F3F4F6;font-size:12px;">${esc(k)} — ${fmt(v)}</span>`).join('')}</div>` : ''}
+            ${d.reason ? `<p style="margin-top:12px;font-size:13px;opacity:.8;">${esc(d.reason)}</p>` : ''}`;
+    }
+
+    async function renderAttribution() {
+        panel.innerHTML = loadingHtml();
+        const res = await fetchJSON('/api/revenue-intelligence/attribution');
+        if (!res.success) { panel.innerHTML = emptyHtml(res.error); return; }
+        const d = res.data;
+        if (!d.by_rep || !d.by_rep.has_data) { panel.innerHTML = emptyHtml(I18N['revai.no_revenue_data']); return; }
+        panel.innerHTML = `
+            <div class="p-card" style="margin-bottom:18px;"><h4>${I18N['revai.attribution.by_rep']}</h4>
+            <div class="p-table-scroll"><table class="p-table"><thead><tr><th>${I18N['revai.attribution.rep']}</th><th>${I18N['revai.attribution.team']}</th><th>${I18N['revai.attribution.open_weighted']}</th><th>${I18N['revai.attribution.won']}</th><th>#</th></tr></thead>
+            <tbody>${(d.by_rep.reps || []).map(r => `<tr><td>${esc(r.rep_name)}</td><td>${esc(r.team_name || '-')}</td><td>${fmt(r.open_weighted)}</td><td>${fmt(r.won_value)}</td><td>${r.open_count + r.won_count}</td></tr>`).join('')}</tbody></table></div></div>
+            <div class="p-card"><h4>${I18N['revai.attribution.by_team']}</h4>
+            <div class="p-table-scroll"><table class="p-table"><thead><tr><th>${I18N['revai.attribution.team']}</th><th>${I18N['revai.attribution.reps']}</th><th>${I18N['revai.attribution.open_weighted']}</th><th>${I18N['revai.attribution.won']}</th></tr></thead>
+            <tbody>${(d.by_team.teams || []).map(t => `<tr><td>${esc(t.team_name)}</td><td>${t.reps}</td><td>${fmt(t.open_weighted)}</td><td>${fmt(t.won_value)}</td></tr>`).join('')}</tbody></table></div></div>`;
+    }
+
+    async function renderBenchmarks() {
+        panel.innerHTML = loadingHtml();
+        const res = await fetchJSON('/api/revenue-intelligence/benchmarks');
+        if (!res.success) { panel.innerHTML = emptyHtml(res.error); return; }
+        const d = res.data;
+        if (!d.has_data) { panel.innerHTML = emptyHtml(d.reason || I18N['revai.no_revenue_data']); return; }
+        panel.innerHTML = `
+            <div class="p-card"><h4>${I18N['revai.benchmarks.title']}</h4>
+            <p style="font-size:13px;opacity:.8;">${I18N['revai.benchmarks.hint']} (${esc(d.source)}${d.rows && d.rows[0] ? ' · ' + esc(d.rows[0].as_of_date) : ''})</p>
+            <div class="p-table-scroll"><table class="p-table"><thead><tr><th>${I18N['revai.benchmarks.metric']}</th><th>P25</th><th>P50</th><th>P75</th><th>n</th></tr></thead>
+            <tbody>${(d.rows || []).map(r => `<tr><td>${esc(r.metric_label)}</td><td>${r.p25 !== null ? r.p25 : '-'}</td><td>${r.p50 !== null ? r.p50 : '-'}</td><td>${r.p75 !== null ? r.p75 : '-'}</td><td>${r.sample_size}</td></tr>`).join('')}</tbody></table></div></div>`;
+    }
+
+    async function renderChurn() {
+        panel.innerHTML = loadingHtml();
+        const res = await fetchJSON('/api/revenue-intelligence/churn');
+        if (!res.success) { panel.innerHTML = emptyHtml(res.error); return; }
+        const d = res.data;
+        if (!d.has_data) { panel.innerHTML = emptyHtml(d.reason || I18N['revai.no_revenue_data']); return; }
+        panel.innerHTML = `
+            <div class="p-card" style="margin-bottom:18px;"><h4>${I18N['revai.churn.title']} (${d.total_churned})</h4>
+            ${d.top_reason ? `<p style="font-size:14px;"><b>${I18N['revai.churn.top_reason']}:</b> ${esc(d.top_reason)}</p>` : ''}
+            <div class="p-table-scroll"><table class="p-table"><thead><tr><th>${I18N['revai.churn.reason']}</th><th>${I18N['revai.churn.count']}</th><th>${I18N['revai.churn.confidence']}</th></tr></thead>
+            <tbody>${(d.by_reason || []).map(r => `<tr><td>${esc(r.label)}</td><td>${r.count}</td><td>${esc(r.confidence)}</td></tr>`).join('')}</tbody></table></div>
+            ${d.note ? `<p style="margin-top:12px;font-size:13px;opacity:.8;">${esc(d.note)}</p>` : ''}</div>`;
+    }
+
     async function renderAssistant() {
         panel.innerHTML = `
             <div class="p-card">
@@ -921,6 +1070,10 @@ HTML;
         opportunities: renderOpportunities, risks: renderRisks, customers: renderCustomers,
         pipeline: renderPipeline, sources: renderSources, anomalies: renderAnomalies, assistant: renderAssistant,
         retention: renderRetention,
+        subscriptions: renderSubscriptions,
+        attribution: renderAttribution,
+        benchmarks: renderBenchmarks,
+        churn: renderChurn,
         reports: renderReports,
     };
 
