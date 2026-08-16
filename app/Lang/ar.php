@@ -404,6 +404,8 @@ return [
     'onboarding.result.categories_title' => 'الأداء حسب الفئة',
     'onboarding.result.category.speed' => 'السرعة',
     'onboarding.result.category.seo' => 'تحسين محركات البحث',
+    'onboarding.result.category.aeo' => 'ظهور محركات الذكاء الاصطناعي',
+    'onboarding.result.category.geo' => 'الاستشهاد في مساعدات الذكاء الاصطناعي',
     'onboarding.result.category.security' => 'الأمان',
     'onboarding.result.category.accessibility' => 'إمكانية الوصول',
     'onboarding.result.category.mobile' => 'الجوال',

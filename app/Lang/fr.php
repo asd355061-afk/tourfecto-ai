@@ -403,6 +403,8 @@ return [
     'onboarding.result.categories_title' => 'Performances par catégorie',
     'onboarding.result.category.speed' => 'Vitesse',
     'onboarding.result.category.seo' => 'SEO',
+    'onboarding.result.category.aeo' => 'Visibilité IA',
+    'onboarding.result.category.geo' => 'Citations dans les IA',
     'onboarding.result.category.security' => 'Sécurité',
     'onboarding.result.category.accessibility' => 'Accessibilité',
     'onboarding.result.category.mobile' => 'Mobile',

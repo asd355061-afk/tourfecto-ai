@@ -414,6 +414,8 @@ return [
     'onboarding.result.categories_title' => 'Performance by category',
     'onboarding.result.category.speed' => 'Speed',
     'onboarding.result.category.seo' => 'SEO',
+    'onboarding.result.category.aeo' => 'AI engine visibility',
+    'onboarding.result.category.geo' => 'AI assistant citations',
     'onboarding.result.category.security' => 'Security',
     'onboarding.result.category.accessibility' => 'Accessibility',
     'onboarding.result.category.mobile' => 'Mobile',

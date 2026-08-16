@@ -403,6 +403,8 @@ return [
     'onboarding.result.categories_title' => 'Leistung nach Kategorie',
     'onboarding.result.category.speed' => 'Geschwindigkeit',
     'onboarding.result.category.seo' => 'SEO',
+    'onboarding.result.category.aeo' => 'KI-Sichtbarkeit',
+    'onboarding.result.category.geo' => 'KI-Zitate',
     'onboarding.result.category.security' => 'Sicherheit',
     'onboarding.result.category.accessibility' => 'Barrierefreiheit',
     'onboarding.result.category.mobile' => 'Mobil',
