@@ -387,6 +387,7 @@ abstract class Controller
                 'reputation' => [t('sidebar.reputation'), '⭐', '/reputation/reviews'],
                 'reputation_overview' => [t('sidebar.reputation_overview'), '📊', '/reputation/overview'],
                 'reputation_stats' => [t('sidebar.reputation_stats'), '📈', '/reputation/stats'],
+                'reputation_intelligence' => [t('sidebar.reputation_intelligence'), '🧠', '/reputation/intelligence'],
                 'gbp_content' => [t('sidebar.gbp_content'), '📍', '/gbp-content'],
                 'review_requests' => [t('sidebar.review_requests'), '📨', '/review-requests'],
             ],
