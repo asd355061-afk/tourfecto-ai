@@ -1,4 +1,19 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## المرحلة 13: الجولة 2 من خطة الترقية التنافسية — 2026-08-16
+
+تنفيذ الجولة الثانية من فجوات التحليل التنافسي (راجع
+`docs/COMPETITIVE_ANALYSIS.md`): G3 Product Catalog، G5 Lead Routing،
+G6 Contact Lifecycle، G9 Team Invite. دمج Additive فقط — `CrmController`
+الأصلي لم يُلمس.
+
+**ملفات جديدة:** 3 migrations (`000009` منتجات + بنود صفقات، `000010` قواعد
+توجيه، `000011` مراحل دورة حياة مع ALTER `crm_contacts`)، 4 Models،
+4 Services (`CrmProductService`/`CrmLeadRoutingService`/`CrmLifecycleService`/
+`CrmTeamInviteService`)، 24 دالة Controller، 24 مسار API، 72 مفتاح Lang
+(`crm.products.*`/`crm.deal_items.*`/`crm.routing.*`/`crm.lifecycle.*`/
+`crm.team_invite.*`). كما أُصلح تلف سابق في `app/Lang/ar.php` (سطر
+`---count---`/`72` داخل مصفوفة المفاتيح كان يكسر الصياغة).
+
 ## المرحلة 12: دمج موديول CRM + الجولة 1 من خطة الترقية التنافسية — 2026-08-15
 
 دمج موديول Tourfecto AI CRM الكامل (137 مسار API موسّع + 8 صفحات ويب + 229 مفتاح
