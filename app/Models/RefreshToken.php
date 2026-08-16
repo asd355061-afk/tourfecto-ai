@@ -86,6 +86,26 @@ class RefreshToken extends Model
         }
     }
 
+    /**
+     * إلغاء كل توكنات مستخدم باستثناء توكن واحد (الجهاز الحالي).
+     * تُستخدم بعد تغيير كلمة المرور: تسجيل خروج من كل الأجهزة عدا
+     * الجهاز اللي نفّذ التغيير - نفس سلوك GitHub/Stripe عند تغيير
+     * كلمة المرور (أي جهاز تاني كان مسجل دخول بيتخرج فورًا).
+     */
+    public static function revokeAllForUserExcept(int $userId, ?int $exceptTokenId): void {
+        $model = new self();
+        $tokens = $model->where(['user_id' => $userId]);
+        foreach ($tokens as $token) {
+            if (!$token->getAttribute('revoked_at')) {
+                $tokenId = (int) $token->getAttribute('id');
+                if ($exceptTokenId !== null && $tokenId === (int) $exceptTokenId) {
+                    continue; // نحتفظ بالجلسة الحالية
+                }
+                $token->revoke();
+            }
+        }
+    }
+
     public function touchUsage(): void
     {
         try {

@@ -447,11 +447,40 @@ class ChatController extends Controller
      * التصميم والـCSS classes وطريقة الصفحة (Panel/panel.js) اتحافظ
      * عليها 100% زي ما هي - نفس نظام `.p-toolbar`/`.p-card`/`.p-table`.
      */
-    public function index(array $params = []): array
-    {
+    public function index(array $params = []): array {
+        $currentUserId = (int) ($this->user['id'] ?? 0);
         $body = <<<'HTML'
+        <style>
+            .ai-chat-split { display:grid; grid-template-columns: 372px minmax(0,1fr); gap:14px; align-items:start; }
+            .ai-chat-list-card { overflow:hidden; }
+            .ai-chat-list { max-height: calc(100vh - 235px); overflow-y:auto; }
+            .ai-chat-item { padding:12px 14px; border-bottom:1px solid var(--panel-border); cursor:pointer; transition:background .15s; }
+            .ai-chat-item:hover { background: var(--panel-sidebar-bg-hover); }
+            .ai-chat-item.active { background: var(--panel-accent-light); box-shadow: 3px 0 0 var(--panel-accent) inset; }
+            .ai-chat-item .r1 { display:flex; align-items:center; gap:10px; }
+            .ai-chat-avatar { width:38px; height:38px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px; background:var(--panel-info-light); color:var(--panel-info); }
+            .ai-chat-avatar.whatsapp { background:var(--panel-success-light); color:var(--panel-success); }
+            .ai-chat-avatar.email { background:var(--panel-warning-light); color:var(--panel-warning); }
+            .ai-chat-item .nm { flex:1; min-width:0; }
+            .ai-chat-item .nm b { display:block; font-size:13.5px; color:var(--panel-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+            .ai-chat-item .nm small { display:block; color:var(--panel-text-muted); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+            .ai-chat-item .ch { font-size:11px; white-space:nowrap; }
+            .ai-chat-item .tm { color:var(--panel-text-muted); font-size:11px; white-space:nowrap; }
+            .ai-chat-item .ub { min-width:20px; height:20px; border-radius:10px; background:var(--panel-danger); color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; padding:0 6px; }
+            .ai-chat-bubbles { display:flex; flex-direction:column; gap:8px; }
+            .ai-bubble { max-width:78%; padding:10px 14px; border-radius:14px; font-size:13.5px; line-height:1.6; word-break:break-word; }
+            .ai-bubble.in { background:var(--panel-card-bg-2); border:1px solid var(--panel-border); align-self:flex-start; border-bottom-left-radius:4px; }
+            .ai-bubble.out { background:var(--panel-accent); color:#14100a; align-self:flex-end; border-bottom-right-radius:4px; }
+            .ai-bubble .ai-tag { font-size:10px; opacity:.8; display:block; margin-bottom:2px; }
+            .ai-bubble .bt { font-size:10px; opacity:.65; margin-top:4px; text-align:left; }
+            .ai-sugg { border:1px solid var(--panel-info); background:var(--panel-info-light); }
+            .ai-sugg:hover { border-color:var(--panel-info); }
+            .ai-conv-head { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+            @media (max-width: 960px) { .ai-chat-split { grid-template-columns: 1fr; } .ai-chat-list { max-height: 320px; } }
+        </style>
+
         <div class="p-toolbar" style="flex-wrap:wrap;gap:8px;align-items:center;">
-            <input type="text" id="ucSearch" class="form-control" placeholder="ابحث بالاسم أو الهاتف أو الإيميل..." style="max-width:240px;flex:1;min-width:180px;">
+            <input type="text" id="ucSearch" class="form-control" placeholder="ابحث بالاسم أو الهاتف أو الإيميل..." style="max-width:230px;flex:1;min-width:170px;">
             <select id="ucStatus" class="p-select">
                 <option value="">كل الحالات</option>
                 <option value="open">مفتوحة</option>
@@ -495,72 +524,105 @@ class ChatController extends Controller
             </select>
             <button class="p-btn outline xs" onclick="ucApplyFilters()">🔍 بحث</button>
             <div style="flex:1 1 0;min-width:8px;"></div>
-            <a href="/chat/pending" class="p-btn outline xs">⏳ الرسائل المعلّقة</a>
-            <a href="/chat/leads" class="p-btn outline xs">🎯 Leads</a>
-            <a href="/chat/knowledge-base" class="p-btn outline xs">📚 قاعدة المعرفة</a>
-            <a href="/chat/followup-settings" class="p-btn outline xs">⏰ المتابعة التلقائية</a>
+            <a href="/chat/pending" class="p-btn outline xs">⏳ المعلّقة</a>
+            <a href="/chat/learning" class="p-btn outline xs">🧠 الفجوات</a>
+            <a href="/chat/knowledge-base" class="p-btn outline xs">📚 المعرفة</a>
             <a href="/chat/analytics" class="p-btn outline xs">📊 التحليلات</a>
-            <a href="/chat/settings" class="p-btn primary xs">⚙️ ربط واتساب والإعدادات</a>
+            <a href="/chat/settings" class="p-btn primary xs">⚙️ الإعدادات</a>
         </div>
+
         <div id="ucNoWebsite" class="p-card" style="display:none;">
             <div class="p-empty"><div class="p-empty-icon">🌐</div>اختر موقعًا من القائمة أعلى الصفحة أولًا لعرض محادثاته.</div>
         </div>
-        <div class="p-card no-pad" id="ucTableWrap">
-            <div class="p-table-scroll"><table class="p-table" id="conversationsTable">
-                <thead><tr>
-                    <th>القناة</th><th>العميل</th><th>الحالة</th><th>AI/موظف</th>
-                    <th>Lead</th><th>الأولوية</th><th>الوسوم</th><th>آخر رسالة</th><th></th>
-                </tr></thead>
-                <tbody><tr class="p-loading-row"><td colspan="9">جاري التحميل...</td></tr></tbody>
-            </table></div>
+
+        <div class="ai-chat-split" id="ucBody" style="display:none;">
+            <div class="p-card no-pad ai-chat-list-card">
+                <div class="p-card-head" style="padding:14px 16px 10px;">
+                    <h3>المحادثات</h3>
+                    <span class="p-card-sub" id="ucCount"></span>
+                </div>
+                <div class="ai-chat-list" id="ucList">
+                    <div class="p-empty" style="padding:26px 0;"><div class="p-empty-icon">⏳</div>جاري التحميل...</div>
+                </div>
+            </div>
+
+            <div>
+                <div id="ucEmptyState" class="p-card">
+                    <div class="p-empty"><div class="p-empty-icon">💬</div>اختر محادثة من القائمة لعرضها هنا</div>
+                </div>
+
+                <div id="ucThreadPanel" style="display:none;">
+                    <div class="p-card" id="convHeader" style="margin-bottom:14px;"></div>
+                    <div class="p-card" id="leadPanel" style="margin-bottom:14px;"></div>
+                    <div class="p-card" id="convThread" style="max-height:calc(100vh - 420px);min-height:260px;overflow-y:auto;"></div>
+                    <div class="p-card" style="margin-top:14px;">
+                        <div class="p-card-head"><h3>الرد</h3></div>
+                        <div id="aiSuggestions" style="display:none;margin-bottom:10px;"></div>
+                        <div class="form-group">
+                            <textarea id="manualMessage" class="form-control" rows="3" placeholder="اكتب ردك هنا..."></textarea>
+                        </div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button class="p-btn primary" id="sendManualBtn" onclick="sendManual()">➤ إرسال</button>
+                            <button class="p-btn outline" id="suggestBtn" onclick="loadSuggestions()">💡 اقتراح رد AI</button>
+                            <div style="flex:1;"></div>
+                            <a href="/chat/leads" class="p-btn outline xs" style="align-self:center;">🎯 عرض الـLeads</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 HTML;
 
         $script = <<<'JS'
 (function () {
     const P = window.Panel;
-    const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast;
+    const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast, timeAgo = P.timeAgo;
+    const currentUserId = __CURRENT_USER_ID__;
+    let websiteId = null;
+    let currentConversation = null;
+    let activeConvId = null;
 
     const CHANNEL_LABEL = {
-        whatsapp: '📱 واتساب', website_chat: '🌐 شات الموقع', webchat: '🌐 شات الموقع',
+        whatsapp: '📱 واتساب', website_chat: '🌐 الموقع', webchat: '🌐 الموقع',
         messenger: '📘 Messenger', instagram: '📷 Instagram', email: '✉️ إيميل',
     };
-    const STATUS_PILL = {
-        open: '<span class="pill green">مفتوحة</span>',
-        pending: '<span class="pill">قيد الانتظار</span>',
-        resolved: '<span class="pill">تم الحل</span>',
-        closed: '<span class="pill red">مغلقة</span>',
-    };
-    const AI_STATUS_PILL = {
-        ai: '<span class="pill green">🤖 AI</span>',
-        human: '<span class="pill">👤 موظف</span>',
-        paused: '<span class="pill red">⏸ متوقف</span>',
-    };
-    const LEAD_STATUS_PILL = {
-        none: '', new_inquiry: '<span class="pill">استفسار جديد</span>',
-        qualifying: '<span class="pill">قيد التأهيل</span>',
-        qualified: '<span class="pill green">مؤهّل</span>',
-        hot_lead: '<span class="pill red">🔥 ساخن</span>',
-        converted: '<span class="pill green">تم التحويل</span>',
-        lost: '<span class="pill red">فاقد</span>',
-    };
-    const PRIORITY_PILL = {
-        low: '<span class="pill">منخفضة</span>', normal: '', high: '<span class="pill">🔺 عالية</span>',
-        urgent: '<span class="pill red">🚨 عاجلة</span>',
-    };
+    const STATUS_OPTIONS = [
+        ['open', 'مفتوحة'], ['pending', 'قيد الانتظار'], ['resolved', 'تم الحل'], ['closed', 'مغلقة'],
+    ];
+    const PRIORITY_OPTIONS = [
+        ['low', 'منخفضة'], ['normal', 'عادية'], ['high', 'عالية'], ['urgent', 'عاجلة'],
+    ];
+    const STANDARD_TAGS = ['HOT_LEAD', 'NEW_INQUIRY', 'PRICE_REQUEST', 'COMPLAINT', 'FOLLOW_UP', 'BOOKING_INTENT', 'VIP', 'HUMAN_REQUIRED'];
 
     function ensureWebsiteSelected() {
         const id = P.getCurrentWebsiteId();
         document.getElementById('ucNoWebsite').style.display = id ? 'none' : 'block';
-        document.getElementById('ucTableWrap').style.display = id ? 'block' : 'none';
+        document.getElementById('ucBody').style.display = id ? 'grid' : 'none';
         return id;
     }
 
-    window.ucApplyFilters = function () { load(); };
+    function customerLabel(c) {
+        return c.customer_name || c.customer_phone || c.customer_email || 'عميل غير معروف';
+    }
 
-    async function load() {
-        const websiteId = ensureWebsiteSelected();
-        if (!websiteId) return;
+    function avatarClass(ch) {
+        return (ch === 'whatsapp' || ch === 'email') ? ' ' + ch : '';
+    }
+
+    function statusLine(c) {
+        const parts = [];
+        if (c.lead_status === 'hot_lead') parts.push('<span class="pill red" style="font-size:10px;">🔥</span>');
+        if (c.priority === 'urgent' || c.priority === 'high') parts.push('<span class="pill red" style="font-size:10px;">🔺</span>');
+        if (c.ai_status === 'ai') parts.push('<span class="pill green" style="font-size:10px;">AI</span>');
+        else if (c.ai_status === 'paused') parts.push('<span class="pill red" style="font-size:10px;">⏸</span>');
+        return parts.join(' ');
+    }
+
+    window.ucApplyFilters = function () { loadList(); };
+
+    async function loadList() {
+        const id = ensureWebsiteSelected();
+        if (!id) return;
 
         const qs = new URLSearchParams();
         const search = document.getElementById('ucSearch').value.trim();
@@ -576,56 +638,257 @@ HTML;
         if (channel) qs.set('channel', channel);
         if (tag) qs.set('tag', tag);
 
-        const tbody = document.querySelector('#conversationsTable tbody');
-        tbody.innerHTML = '<tr class="p-loading-row"><td colspan="9">جاري التحميل...</td></tr>';
+        const listEl = document.getElementById('ucList');
+        listEl.innerHTML = '<div class="p-empty" style="padding:26px 0;"><div class="p-empty-icon">⏳</div>جاري التحميل...</div>';
 
-        const res = await fetchJSON('/api/ai-chat/websites/' + encodeURIComponent(websiteId) + '/conversations?' + qs.toString());
-
+        const res = await fetchJSON('/api/ai-chat/websites/' + encodeURIComponent(id) + '/conversations?' + qs.toString());
         if (!res.success) {
-            tbody.innerHTML = '<tr><td colspan="9" class="p-cell-muted text-center">⚠️ ' + esc(res.error || 'تعذر تحميل المحادثات') + '</td></tr>';
+            listEl.innerHTML = '<div class="p-empty"><div class="p-empty-icon">⚠️</div>' + esc(res.error || 'تعذر تحميل المحادثات') + '</div>';
             return;
         }
 
         const list = (res.data && Array.isArray(res.data.conversations)) ? res.data.conversations : [];
+        document.getElementById('ucCount').textContent = list.length + ' محادثة';
         if (!list.length) {
-            tbody.innerHTML = '<tr><td colspan="9" class="p-cell-muted text-center">لا توجد محادثات بعد</td></tr>';
+            listEl.innerHTML = '<div class="p-empty" style="padding:26px 0;"><div class="p-empty-icon">🗒️</div>لا توجد محادثات تطابق الفلاتر</div>';
             return;
         }
 
-        tbody.innerHTML = list.map(c => {
-            const customer = c.customer_name || c.customer_phone || c.customer_email || 'عميل غير معروف';
-            const tags = (c.tags || []).map(t => '<span class="pill gray">' + esc(t) + '</span>').join(' ');
-            const unread = c.unread_count > 0 ? ' <span class="pill red">' + c.unread_count + '</span>' : '';
-            const rowStyle = c.unread_count > 0 ? 'font-weight:600;' : '';
+        listEl.innerHTML = list.map(c => {
+            const customer = customerLabel(c);
+            const initial = (customer || '?').trim().charAt(0).toUpperCase();
+            const active = c.id === activeConvId ? ' active' : '';
             return `
-                <tr style="${rowStyle}cursor:pointer;" onclick="window.location.href='/chat/conversation/${c.id}'">
-                    <td>${CHANNEL_LABEL[c.channel] || esc(c.channel || '-')}</td>
-                    <td>${esc(customer)}${unread}</td>
-                    <td>${STATUS_PILL[c.status] || esc(c.status || '-')}</td>
-                    <td>${AI_STATUS_PILL[c.ai_status] || esc(c.ai_status || '-')}</td>
-                    <td>${LEAD_STATUS_PILL[c.lead_status] || ''}</td>
-                    <td>${PRIORITY_PILL[c.priority] || ''}</td>
-                    <td>${tags}</td>
-                    <td class="p-cell-muted">${P.timeAgo(c.last_message_at)}</td>
-                    <td><a href="/chat/conversation/${c.id}" class="p-btn outline xs" onclick="event.stopPropagation();">فتح</a></td>
-                </tr>`;
+                <div class="ai-chat-item${active}" data-id="${c.id}" onclick="window.selectConversation(${c.id})">
+                    <div class="r1">
+                        <div class="ai-chat-avatar${avatarClass(c.channel)}">${esc(initial)}</div>
+                        <div class="nm">
+                            <b>${esc(customer)} ${c.unread_count > 0 ? '<span class="ub">' + c.unread_count + '</span>' : ''}</b>
+                            <small>${CHANNEL_LABEL[c.channel] || esc(c.channel || '-')} · ${esc(c.customer_phone || c.customer_email || '-')}</small>
+                        </div>
+                        <div class="ch">${statusLine(c)}</div>
+                    </div>
+                    <div class="r1" style="margin-top:6px;">
+                        <small class="tm" style="flex:1;">${timeAgo(c.last_message_at)}</small>
+                    </div>
+                </div>`;
         }).join('');
     }
 
-    document.getElementById('ucSearch').addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') load();
-    });
-    window.addEventListener('tourfecto:website-changed', load);
+    window.selectConversation = async function (id) {
+        if (!websiteId) websiteId = P.getCurrentWebsiteId();
+        if (!websiteId) return;
+        activeConvId = id;
+        document.querySelectorAll('.ai-chat-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.id === String(id));
+        });
 
-    load();
-})();
-JS;
+        document.getElementById('ucEmptyState').style.display = 'none';
+        document.getElementById('ucThreadPanel').style.display = 'block';
+        document.getElementById('convHeader').innerHTML = '<div class="p-empty" style="padding:20px 0;"><div class="p-empty-icon">⏳</div>جاري تحميل المحادثة...</div>';
+        document.getElementById('convThread').innerHTML = '';
 
-        header('Content-Type: text/html; charset=utf-8');
-        echo $this->renderPanelPage('chat', $this->tr('sidebar.chat'), $this->tr('chat.page_subtitle'), $body, $script);
-        exit;
+        const res = await fetchJSON('/api/ai-chat/websites/' + encodeURIComponent(websiteId) + '/conversations/' + id);
+        if (!res.success || !res.data || !res.data.conversation) {
+            toast(res.error || 'تعذر تحميل المحادثة', 'error');
+            return;
+        }
+
+        currentConversation = res.data.conversation;
+        renderHeader(currentConversation);
+        renderThread(res.data.messages || []);
+
+        const leadRes = await fetchJSON('/api/ai-chat/websites/' + encodeURIComponent(websiteId) + '/leads?conversation_id=' + id);
+        renderLeadPanel(leadRes.success ? leadRes.data.leads : []);
+    };
+
+    window.toggleHandoff = async function () {
+        const isAi = currentConversation.ai_status === 'ai';
+        const url = '/api/ai-chat/websites/' + websiteId + '/conversations/' + currentConversation.id + (isAi ? '/handoff' : '/resume-ai');
+        const res = await fetchJSON(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: isAi ? JSON.stringify({ reason: 'manual_takeover' }) : null,
+        });
+        if (res.success) { toast(isAi ? 'تم تحويل المحادثة لك' : 'تم استرجاع الرد الآلي', 'success'); loadList(); selectConversation(currentConversation.id); }
+        else { toast(res.error || 'فشلت العملية', 'error'); }
+    };
+
+    window.assignToggle = async function () {
+        const isMine = currentConversation.assigned_agent_id == currentUserId;
+        const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/conversations/' + currentConversation.id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assigned_agent_id: isMine ? null : currentUserId }),
+        });
+        if (res.success) { toast(isMine ? 'تم إلغاء التعيين' : 'تم تعيين المحادثة لك', 'success'); selectConversation(currentConversation.id); }
+        else { toast(res.error || 'فشلت العملية', 'error'); }
+    };
+
+    window.updateField = async function (field, value) {
+        const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/conversations/' + currentConversation.id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ [field]: value }),
+        });
+        if (res.success) { toast('تم التحديث', 'success'); loadList(); }
+        else { toast(res.error || 'فشل التحديث', 'error'); }
+    };
+
+    window.toggleTag = async function (tag) {
+        const tags = currentConversation.tags || [];
+        const has = tags.includes(tag);
+        const newTags = has ? tags.filter(t => t !== tag) : tags.concat([tag]);
+        await updateField('tags', newTags);
+    };
+
+    window.sendManual = async function () {
+        const message = document.getElementById('manualMessage').value.trim();
+        if (!message) { toast('اكتب رسالة أولاً', 'error'); return; }
+        const btn = document.getElementById('sendManualBtn');
+        btn.disabled = true;
+        const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/conversations/' + currentConversation.id + '/reply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: message }),
+        });
+        btn.disabled = false;
+        if (res.success) {
+            toast(res.data && res.data.sent === false ? 'اتحفظت الرسالة لكن فشل الإرسال الفعلي للعميل' : 'تم الإرسال', res.data && res.data.sent === false ? 'error' : 'success');
+            document.getElementById('manualMessage').value = '';
+            selectConversation(currentConversation.id);
+        } else {
+            toast(res.error || 'فشل الإرسال', 'error');
+        }
+    };
+
+    window.loadSuggestions = async function () {
+        const box = document.getElementById('aiSuggestions');
+        const btn = document.getElementById('suggestBtn');
+        btn.disabled = true;
+        box.style.display = 'block';
+        box.innerHTML = '<div class="p-cell-muted">🤖 جاري توليد اقتراحات...</div>';
+
+        const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/conversations/' + currentConversation.id + '/reply-suggestions');
+        btn.disabled = false;
+
+        if (!res.success || !res.data || !Array.isArray(res.data.suggestions) || !res.data.suggestions.length) {
+            box.innerHTML = '<div class="p-cell-muted">⚠️ ' + esc((res.data && res.data.error) || res.error || 'لا توجد اقتراحات متاحة الآن') + '</div>';
+            return;
+        }
+
+        box.innerHTML = res.data.suggestions.map((s, i) => `
+            <div class="p-card ai-sugg" style="padding:10px 12px;margin-bottom:6px;cursor:pointer;" onclick="document.getElementById('manualMessage').value = this.dataset.text;">
+                <span class="pill blue">اقتراح ${i + 1}</span>
+                <span data-text="${esc(s).replace(/"/g, '&quot;')}" style="display:block;margin-top:6px;color:var(--panel-text);">${esc(s)}</span>
+            </div>`).join('');
+    };
+
+    function renderHeader(c) {
+        const customer = customerLabel(c);
+        const isAi = c.ai_status === 'ai';
+        const isMine = c.assigned_agent_id == currentUserId;
+
+        const tagsHtml = STANDARD_TAGS.map(t => {
+            const active = (c.tags || []).includes(t);
+            return `<span class="pill ${active ? 'blue' : 'gray'}" style="cursor:pointer;" onclick="toggleTag('${t}')">${active ? '✓ ' : ''}${t}</span>`;
+        }).join(' ');
+
+        const statusSelect = '<select class="p-select" onchange="updateField(\'status\', this.value)">' +
+            STATUS_OPTIONS.map(([v, l]) => `<option value="${v}" ${c.status === v ? 'selected' : ''}>${l}</option>`).join('') + '</select>';
+        const prioritySelect = '<select class="p-select" onchange="updateField(\'priority\', this.value)">' +
+            PRIORITY_OPTIONS.map(([v, l]) => `<option value="${v}" ${c.priority === v ? 'selected' : ''}>${l}</option>`).join('') + '</select>';
+
+        const badges = [];
+        if (c.language) badges.push('<span class="pill gray">' + esc(c.language === 'ar' ? '🌍 عربي' : '🌍 English') + '</span>');
+        if (c.ai_confidence_score !== null && c.ai_confidence_score !== undefined) {
+            badges.push('<span class="pill ' + (c.ai_confidence_score >= 0.7 ? 'green' : (c.ai_confidence_score >= 0.4 ? '' : 'red')) + '">ثقة AI: ' + Math.round(c.ai_confidence_score * 100) + '%</span>');
+        }
+
+        document.getElementById('convHeader').innerHTML = `
+            <div class="p-card-head">
+                <h3>${esc(customer)} <span class="pill gray">${CHANNEL_LABEL[c.channel] || esc(c.channel || '')}</span></h3>
+                <span class="p-card-sub">${esc(c.customer_phone || c.customer_email || '')}</span>
+            </div>
+            <div class="ai-conv-head">
+                ${isAi ? '<span class="pill green">🤖 يرد الآن: الذكاء الاصطناعي</span>' : '<span class="pill">👤 يرد الآن: موظف</span>'}
+                <button class="p-btn ${isAi ? 'outline' : 'primary'} xs" onclick="toggleHandoff()">${isAi ? '⇄ تحويل لموظف' : '⇄ استرجاع الرد الآلي'}</button>
+                <button class="p-btn outline xs" onclick="assignToggle()">${isMine ? '✖ إلغاء التعيين مني' : '👤 تعيين لي'}</button>
+                ${statusSelect}
+                ${prioritySelect}
+                ${badges.join('')}
+            </div>
+            <div style="margin:10px 0 4px;display:flex;flex-wrap:wrap;gap:4px;">${tagsHtml}</div>
+            ${c.ai_summary ? '<div class="p-card" style="background:var(--panel-sidebar-bg-hover);padding:10px 14px;margin-top:8px;"><strong>ملخص AI:</strong> ' + esc(c.ai_summary) + '</div>' : ''}
+        `;
     }
 
+    function renderThread(messages) {
+        const thread = document.getElementById('convThread');
+        if (!messages.length) {
+            thread.innerHTML = '<div class="p-empty"><div class="p-empty-icon">💬</div>لا توجد رسائل في هذه المحادثة بعد</div>';
+            return;
+        }
+        thread.innerHTML = '<div class="ai-chat-bubbles">' + messages.map(m => {
+            const mine = m.message_direction === 'outgoing';
+            const text = m.message_text || m.ai_reply_generated || '';
+            const tag = (m.ai_reply_generated && !mine) ? '<span class="ai-tag">🤖 رد تلقائي' + (m.ai_confidence_score != null ? ' · ' + Math.round(m.ai_confidence_score * 100) + '%' : '') + '</span>' : '';
+            return `
+                <div class="ai-bubble ${mine ? 'out' : 'in'}">
+                    ${tag}
+                    <span>${esc(text)}</span>
+                    <div class="bt">${P.formatDate(m.sent_at || m.created_at)}</div>
+                </div>`;
+        }).join('') + '</div>';
+        thread.scrollTop = thread.scrollHeight;
+    }
+
+    function renderLeadPanel(leads) {
+        const panel = document.getElementById('leadPanel');
+        if (!panel) return;
+        const lead = (leads && leads.length) ? leads[0] : null;
+        if (!lead) {
+            panel.style.display = 'none';
+            return;
+        }
+        panel.style.display = 'block';
+        panel.innerHTML = `
+            <div class="p-card-head"><h3>📋 معلومات Lead</h3></div>
+            <div class="p-kv"><span class="k">الدرجة</span><span class="v">${lead.lead_score ?? '-'} / 100</span></div>
+            <div class="p-kv"><span class="k">نية الشراء</span><span class="v">${lead.intent_score ?? '-'} / 100</span></div>
+            <div class="p-kv"><span class="k">الوجهة</span><span class="v">${esc(lead.destination || '-')}</span></div>
+            <div class="p-kv"><span class="k">الاهتمام</span><span class="v">${esc(lead.interest || '-')}</span></div>
+            <div class="p-kv"><span class="k">الحالة</span><span class="v">${esc(lead.status || '-')}</span></div>
+            ${lead.next_recommended_action ? '<div style="margin-top:10px;padding:10px;background:var(--panel-sidebar-bg-hover);border-radius:8px;"><strong>الخطوة التالية المقترحة:</strong><br>' + esc(lead.next_recommended_action) + '</div>' : ''}
+        `;
+    }
+
+    async function refreshActive() {
+        if (activeConvId) selectConversation(activeConvId);
+    }
+
+    document.getElementById('ucSearch').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') loadList();
+    });
+    window.addEventListener('tourfecto:website-changed', function () {
+        activeConvId = null;
+        currentConversation = null;
+        document.getElementById('ucEmptyState').style.display = 'block';
+        document.getElementById('ucThreadPanel').style.display = 'none';
+        loadList();
+    });
+
+    loadList();
+    setInterval(loadList, 20000);
+    setInterval(refreshActive, 30000);
+})();
+JS;
+        $script = str_replace('__CURRENT_USER_ID__', (string) $currentUserId, $script);
+
+        header('Content-Type: text/html; charset=utf-8');
+        echo $this->renderPanelPage('ai_chat_inbox', $this->tr('sidebar.chat'), $this->tr('chat.page_subtitle'), $body, $script);
+        exit;
+    }
     /**
      * GET /chat/conversation/{id}
      *
@@ -904,7 +1167,7 @@ JS;
         );
 
         header('Content-Type: text/html; charset=utf-8');
-        echo $this->renderPanelPage('chat', $this->tr('chat.conv.title'), $this->tr('chat.conv.subtitle'), $body, $script);
+        echo $this->renderPanelPage('ai_chat_inbox', $this->tr('chat.conv.title'), $this->tr('chat.conv.subtitle'), $body, $script);
         exit;
     }
 
@@ -1043,7 +1306,7 @@ JS;
         );
 
         header('Content-Type: text/html; charset=utf-8');
-        echo $this->renderPanelPage('chat', $this->tr('chat.pending.title'), $this->tr('chat.pending.subtitle'), $body, $script);
+        echo $this->renderPanelPage('ai_chat_inbox', $this->tr('chat.pending.title'), $this->tr('chat.pending.subtitle'), $body, $script);
         exit;
     }
 
@@ -1375,7 +1638,7 @@ JS;
         );
 
         header('Content-Type: text/html; charset=utf-8');
-        echo $this->renderPanelPage('chat', $this->tr('chat.settings.title'), $this->tr('chat.settings.subtitle'), $body, $script);
+        echo $this->renderPanelPage('ai_chat_inbox', $this->tr('chat.settings.title'), $this->tr('chat.settings.subtitle'), $body, $script);
         exit;
     }
 
@@ -1447,8 +1710,17 @@ JS;
                     <div class="form-group" style="flex:1;min-width:180px;">
                         <label class="form-label">اللغة</label>
                         <select id="kbLanguage" class="form-control">
-                            <option value="ar">العربية</option>
                             <option value="en">English</option>
+                            <option value="ar">العربية</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex:1;min-width:180px;">
+                        <label class="form-label">الأولوية (لترتيب الرد)</label>
+                        <select id="kbPriority" class="form-control">
+                            <option value="0">عادية (0)</option>
+                            <option value="1">مرتفعة (1)</option>
+                            <option value="2">أولوية قصوى (2)</option>
+                            <option value="-1">منخفضة (-1)</option>
                         </select>
                     </div>
                 </div>
@@ -1494,6 +1766,7 @@ HTML;
         if (!id) return;
         const section = document.getElementById('kbSection').value;
         const language = document.getElementById('kbLanguage').value;
+        const priority = parseInt(document.getElementById('kbPriority').value, 10) || 0;
         const title = document.getElementById('kbTitle').value.trim();
         const content = document.getElementById('kbContent').value.trim();
         if (!content) { toast('اكتب المحتوى أولاً', 'error'); return; }
@@ -1501,7 +1774,7 @@ HTML;
         const res = await fetchJSON('/api/ai-chat/websites/' + id + '/knowledge-base', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ section: section, language: language, title: title || null, content: content }),
+            body: JSON.stringify({ section: section, language: language, priority: priority, title: title || null, content: content }),
         });
 
         if (res.success) {
@@ -1520,6 +1793,25 @@ HTML;
         const res = await fetchJSON('/api/ai-chat/websites/' + id + '/knowledge-base/' + entryId, { method: 'DELETE' });
         if (res.success) { toast('تم الحذف', 'success'); load(); }
         else { toast(res.error || 'فشل الحذف', 'error'); }
+    };
+
+    window.kbEditEntry = async function (entryId, currentContent, currentPriority) {
+        const id = websiteId();
+        const content = prompt('عدّل المحتوى:', currentContent || '');
+        if (content === null) return;
+        if (!content.trim()) { toast('المحتوى مطلوب', 'error'); return; }
+        const priorityInput = prompt('الأولوية (0 عادية، 1 مرتفعة، 2 قصوى، -1 منخفضة):', String(currentPriority ?? 0));
+        if (priorityInput === null) return;
+        const priority = parseInt(priorityInput, 10);
+        const priorityVal = isNaN(priority) ? 0 : priority;
+
+        const res = await fetchJSON('/api/ai-chat/websites/' + id + '/knowledge-base/' + entryId, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: content.trim(), priority: priorityVal }),
+        });
+        if (res.success) { toast('تم التعديل', 'success'); load(); }
+        else { toast(res.error || 'فشل التعديل', 'error'); }
     };
 
     window.kbSaveBrandVoice = async function () {
@@ -1578,8 +1870,12 @@ HTML;
                         ${e.title ? '<strong>' + esc(e.title) + '</strong><br>' : ''}
                         ${esc(e.content || '')}
                         <span class="p-cell-muted"> · ${e.language === 'en' ? 'EN' : 'AR'}</span>
+                        ${e.priority ? '<span class="pill blue">أولوية ' + e.priority + '</span>' : ''}
                     </span>
-                    <button class="p-btn danger xs" onclick="kbDeleteEntry(${e.id})">حذف</button>
+                    <span style="display:flex;gap:6px;">
+                        <button class="p-btn outline xs" onclick="kbEditEntry(${e.id}, ${JSON.stringify(e.content || '').replace(/"/g, '&quot;')}, ${e.priority ?? 0})">تعديل</button>
+                        <button class="p-btn danger xs" onclick="kbDeleteEntry(${e.id})">حذف</button>
+                    </span>
                 </div>`).join('');
             return `
                 <div class="p-card" style="margin-bottom:14px;">
@@ -1595,7 +1891,7 @@ HTML;
 JS;
 
         header('Content-Type: text/html; charset=utf-8');
-        echo $this->renderPanelPage('chat', 'قاعدة المعرفة', 'المعلومات التي يعتمد عليها الذكاء الاصطناعي في الرد على عملائك', $body, $script);
+        echo $this->renderPanelPage('ai_chat_knowledge', 'قاعدة المعرفة', 'المعلومات التي يعتمد عليها الذكاء الاصطناعي في الرد على عملائك', $body, $script);
         exit;
     }
 
@@ -1714,7 +2010,7 @@ HTML;
 JS;
 
         header('Content-Type: text/html; charset=utf-8');
-        echo $this->renderPanelPage('chat', 'المتابعة التلقائية', 'إعدادات الرسائل التلقائية للعملاء الذين لم يردّوا', $body, $script);
+        echo $this->renderPanelPage('ai_chat_followup', 'المتابعة التلقائية', 'إعدادات الرسائل التلقائية للعملاء الذين لم يردّوا', $body, $script);
         exit;
     }
 
@@ -1739,24 +2035,50 @@ JS;
             <div class="p-empty"><div class="p-empty-icon">🌐</div>اختر موقعًا من القائمة أعلى الصفحة أولًا.</div>
         </div>
         <div id="anBody" style="display:none;">
-            <div id="anStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:14px;"></div>
-            <div style="display:flex;gap:14px;flex-wrap:wrap;">
-                <div class="p-card" style="flex:1;min-width:260px;">
+
+            <div id="anStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px;"></div>
+
+            <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;">
+                <div class="p-card" style="flex:1 1 360px;min-width:280px;">
+                    <div class="p-card-head"><h3>📈 توزيع المحادثات</h3></div>
+                    <div style="padding:6px 4px;"><canvas id="anConvChart" height="120"></canvas></div>
+                </div>
+                <div class="p-card" style="flex:1 1 360px;min-width:280px;">
+                    <div class="p-card-head"><h3>🤖 صحة مزودي الذكاء الاصطناعي</h3></div>
+                    <div id="anHealth" style="padding:4px 2px;"></div>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;">
+                <div class="p-card" style="flex:1 1 360px;min-width:280px;">
                     <div class="p-card-head"><h3>🏷 أكثر الوسوم تكرارًا</h3></div>
                     <div id="anTags"></div>
                 </div>
-                <div class="p-card" style="flex:1;min-width:260px;">
+                <div class="p-card" style="flex:1 1 360px;min-width:280px;">
                     <div class="p-card-head"><h3>🎯 أكثر الخدمات طلبًا</h3></div>
                     <div id="anServices"></div>
                 </div>
             </div>
-            <div class="p-card" style="margin-top:14px;">
-                <div class="p-card-head"><h3>🤖 استخدام مزودي الذكاء الاصطناعي</h3></div>
+
+            <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;">
+                <div class="p-card" style="flex:1 1 360px;min-width:280px;">
+                    <div class="p-card-head"><h3>🧠 حلقة التعلّم: نتائج المحادثات</h3></div>
+                    <div id="anLearning"></div>
+                </div>
+                <div class="p-card" style="flex:1 1 360px;min-width:280px;">
+                    <div class="p-card-head"><h3>🔁 أسباب التحويل للموظف</h3></div>
+                    <div id="anEscalations"></div>
+                </div>
+            </div>
+
+            <div class="p-card">
+                <div class="p-card-head"><h3>📊 استخدام مزودي الذكاء الاصطناعي (آخر 24 ساعة)</h3></div>
                 <div class="p-table-scroll"><table class="p-table" id="anProviders">
-                    <thead><tr><th>المزود</th><th>عدد الطلبات</th><th>عدد الرموز (Tokens)</th><th>التكلفة التقديرية</th><th>طلبات فاشلة</th></tr></thead>
+                    <thead><tr><th>المزود</th><th>النموذج</th><th>الطلبات</th><th>ناجحة</th><th>فاشلة</th><th>Fallback</th><th>Tokens</th><th>التكلفة التقديرية</th></tr></thead>
                     <tbody></tbody>
                 </table></div>
             </div>
+
         </div>
 HTML;
 
@@ -1764,6 +2086,7 @@ HTML;
 (function () {
     const P = window.Panel;
     const esc = P.esc, fetchJSON = P.fetchJSON;
+    let convChart = null;
 
     function websiteId() { return P.getCurrentWebsiteId(); }
 
@@ -1776,9 +2099,118 @@ HTML;
 
     function statTile(label, value) {
         return `<div class="p-card" style="text-align:center;padding:16px;">
-            <div style="font-size:24px;font-weight:800;">${value}</div>
-            <div class="p-cell-muted">${label}</div>
+            <div style="font-size:22px;font-weight:800;">${value}</div>
+            <div class="p-cell-muted" style="font-size:11.5px;">${label}</div>
         </div>`;
+    }
+
+    function healthPill(provider, configured, status24h) {
+        if (!configured) return '<div class="p-kv"><span class="k">' + esc(provider) + '</span><span class="v"><span class="pill gray">غير مهيّأ</span></span></div>';
+        let pill;
+        if (status24h === 'healthy') pill = '<span class="pill green">✓ سليم</span>';
+        else if (status24h === 'degraded') pill = '<span class="pill red">⚠ متدهور</span>';
+        else pill = '<span class="pill">لا بيانات بعد</span>';
+        return '<div class="p-kv"><span class="k">' + esc(provider) + '</span><span class="v">' + pill + '</span></div>';
+    }
+
+    function renderHealth(health) {
+        const box = document.getElementById('anHealth');
+        if (!health || !Array.isArray(health.providers)) {
+            box.innerHTML = '<div class="p-cell-muted">لا توجد بيانات صحة متاحة</div>';
+            return;
+        }
+        const per = {};
+        (health.summary_last_24h && health.summary_last_24h.per_provider || []).forEach(p => { per[p.provider] = p; });
+
+        let html = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">';
+        if (health.status === 'healthy') html += '<span class="pill green">✓ الحالة العامة: سليمة</span>';
+        else if (health.status === 'degraded') html += '<span class="pill red">⚠ الحالة العامة: متدهورة (فشل في بعض الطلبات)</span>';
+        else html += '<span class="pill">الحالة العامة: لا استخدام مسجّل بعد</span>';
+        html += '</div>';
+
+        health.providers.forEach(p => {
+            const s = per[p.provider];
+            const status24h = s ? (s.failed_requests > 0 ? 'degraded' : 'healthy') : 'no_data';
+            html += healthPill(p.provider, !!p.configured, status24h);
+            if (p.configured) {
+                html += '<div class="p-kv"><span class="k">النموذج</span><span class="v">' + esc(p.model || '-') + '</span></div>';
+                html += '<div class="p-kv"><span class="k">ترتيب الأفضلية</span><span class="v">#' + (p.priority_position || '-') + '</span></div>';
+                if (s) {
+                    html += '<div class="p-kv"><span class="k">طلبات (24h)</span><span class="v">' + s.total_requests + ' · ' + s.failed_requests + ' فاشلة</span></div>';
+                }
+            }
+        });
+
+        const s = health.summary_last_24h;
+        if (s && s.total_requests > 0) {
+            html += '<div style="margin-top:10px;padding:10px;background:var(--panel-sidebar-bg-hover);border-radius:8px;">'
+                + '<strong>إجمالي آخر 24 ساعة:</strong> ' + s.total_requests + ' طلب · '
+                + s.failed_requests + ' فاشل · ' + (s.fallback_used_count || 0) + ' Fallback · '
+                + (s.total_tokens || 0).toLocaleString() + ' token · $' + parseFloat(s.total_cost_usd || 0).toFixed(4)
+                + '</div>';
+        }
+        box.innerHTML = html;
+    }
+
+    function renderLearning(learning) {
+        const box = document.getElementById('anLearning');
+        if (!learning) { box.innerHTML = '<div class="p-cell-muted">لا توجد بيانات حلقة تعلّم بعد</div>'; return; }
+
+        const breakdown = learning.resolution_events || {};
+        const total = Object.values(breakdown).reduce((a, b) => a + b, 0);
+        let html = '<div class="p-kv"><span class="k">معدّل حلّ الذكاء الاصطناعي</span><span class="v"><strong>' + (learning.ai_resolution_rate_percent || 0) + '%</strong></span></div>';
+        html += '<div class="p-kv"><span class="k">أحداث مسجّلة</span><span class="v">' + total + '</span></div>';
+        if (total > 0) {
+            const labels = {
+                ai_resolved: 'حلّها الذكاء الاصطناعي',
+                human_resolved: 'حلّها موظف',
+                abandoned: 'ترَك العميل',
+                reopened: 'أُعيد فتحها',
+            };
+            const keys = Object.keys(labels);
+            html += '<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">';
+            keys.forEach(k => {
+                const n = breakdown[k] || 0;
+                if (n <= 0) return;
+                const pct = Math.round((n / total) * 100);
+                html += '<div style="display:flex;align-items:center;gap:8px;">'
+                    + '<span style="width:130px;font-size:12px;">' + labels[k] + '</span>'
+                    + '<div style="flex:1;background:var(--panel-sidebar-bg-hover);border-radius:6px;height:8px;overflow:hidden;">'
+                    + '<div style="width:' + pct + '%;height:100%;background:var(--panel-teal);border-radius:6px;"></div></div>'
+                    + '<span style="width:44px;text-align:left;font-size:12px;">' + n + '</span></div>';
+            });
+            html += '</div>';
+        }
+        const gaps = learning.knowledge_gaps || [];
+        if (gaps.length) {
+            html += '<div style="margin-top:10px;"><strong>أبرز فجوات المعرفة:</strong></div>';
+            html += gaps.slice(0, 3).map(g =>
+                '<div class="p-kv"><span class="k">' + esc(g.question || g.normalized_question || '-') + '</span><span class="v">×' + (g.occurrence_count || 1) + '</span></div>'
+            ).join('');
+            html += '<a href="/chat/learning" class="p-btn outline xs" style="margin-top:8px;">مراجعة الفجوات كلها</a>';
+        }
+        box.innerHTML = html;
+    }
+
+    function renderEscalations(escalations) {
+        const box = document.getElementById('anEscalations');
+        const reasons = escalations || {};
+        const keys = Object.keys(reasons);
+        box.innerHTML = keys.length
+            ? keys.map(r => {
+                let label = r;
+                const map = {
+                    outside_knowledge_base: 'خارج قاعدة المعرفة',
+                    low_ai_confidence: 'ثقة AI منخفضة',
+                    ai_requested_handoff: 'طلب الـAI التحويل',
+                    manual_takeover: 'تدخل يدوي',
+                    customer_escalated: 'طلب العميل',
+                    'no_provider_configured': 'لا يوجد مزود مهيّأ',
+                };
+                label = map[r] || r;
+                return '<div class="p-kv"><span class="k">' + esc(label) + '</span><span class="v">' + reasons[r] + '</span></div>';
+            }).join('')
+            : '<div class="p-cell-muted">لا توجد أسباب تحويل مسجّلة</div>';
     }
 
     window.load = async function () {
@@ -1801,7 +2233,7 @@ HTML;
             statTile('Leads جديدة', d.leads_generated),
             statTile('Leads ساخنة 🔥', d.hot_leads),
             statTile('نسبة التحويل', d.conversion_rate_percent + '%'),
-            statTile('معدّل حل الذكاء الاصطناعي', d.ai_resolution_rate_percent + '%'),
+            statTile('معدّل حلّ الذكاء الاصطناعي', d.ai_resolution_rate_percent + '%'),
             statTile('نسبة التحويل لموظف', d.human_handoff_rate_percent + '%'),
             statTile('نجاح المتابعات', d.followup_success_rate_percent + '%'),
         ].join('');
@@ -1818,14 +2250,42 @@ HTML;
             ? serviceKeys.map(s => `<div class="p-kv"><span class="k">${esc(s)}</span><span class="v">${services[s]}</span></div>`).join('')
             : '<div class="p-cell-muted">لا توجد بيانات كافية بعد</div>';
 
+        if (typeof Chart !== 'undefined') {
+            const conv = { ai: d.ai_conversations || 0, human: d.human_conversations || 0 };
+            if (convChart) convChart.destroy();
+            convChart = new Chart(document.getElementById('anConvChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['ردّ الذكاء الاصطناعي', 'تحويل لموظف'],
+                    datasets: [{
+                        data: [conv.ai, conv.human],
+                        backgroundColor: ['#4ECDC4', '#EFB05E'],
+                        borderColor: '#0F1A2C',
+                        borderWidth: 2,
+                    }],
+                },
+                options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#8996AC' } } } },
+            });
+        }
+
+        renderHealth(res.data.provider_health);
+        renderLearning(res.data.learning_loop);
+        renderEscalations(res.data.learning_loop ? res.data.learning_loop.escalation_reasons : {});
+
         const providers = d.ai_usage_by_provider || [];
         const tbody = document.querySelector('#anProviders tbody');
         tbody.innerHTML = providers.length
             ? providers.map(p => `<tr>
-                <td>${esc(p.provider)}</td><td>${p.total_requests}</td><td>${p.total_tokens || 0}</td>
-                <td>$${parseFloat(p.total_cost_usd || 0).toFixed(4)}</td><td>${p.failed_requests || 0}</td>
+                <td>${esc(p.provider)}</td>
+                <td class="p-cell-muted">${esc(p.model || '-')}</td>
+                <td>${p.total_requests}</td>
+                <td>${p.total_requests - (p.failed_requests || 0)}</td>
+                <td>${p.failed_requests || 0}</td>
+                <td>${p.fallback_used_count || 0}</td>
+                <td>${(p.total_tokens || 0).toLocaleString()}</td>
+                <td>$${parseFloat(p.total_cost_usd || 0).toFixed(4)}</td>
             </tr>`).join('')
-            : '<tr><td colspan="5" class="p-cell-muted text-center">لا يوجد استخدام مسجَّل بعد</td></tr>';
+            : '<tr><td colspan="8" class="p-cell-muted text-center">لا يوجد استخدام مسجَّل بعد</td></tr>';
     };
 
     window.addEventListener('tourfecto:website-changed', load);
@@ -1834,10 +2294,199 @@ HTML;
 JS;
 
         header('Content-Type: text/html; charset=utf-8');
-        echo $this->renderPanelPage('chat', 'تحليلات AI Chat', 'أداء الذكاء الاصطناعي والمحادثات', $body, $script);
+        echo $this->renderPanelPage('ai_chat_analytics', 'تحليلات AI Chat', 'أداء الذكاء الاصطناعي، صحة المزودين، وحلقة التعلّم', $body, $script);
         exit;
     }
+    /**
+     * GET /chat/learning
+     * حلقة التعلّم (Learning Loop): مراجعة فجوات المعرفة اللي الـAI
+     * مش قادر يرد عليها، إعادة مسح المحادثات المحوّلة، وتحديث حالة
+     * كل فجوة (تمت الملاحظة / أُضيفت لقاعدة المعرفة / تجاهل).
+     * تستخدم Endpoints موجودة (AiLearningController) - صفر Endpoint جديد.
+     */
+    public function showLearning(array $params = []): array {
+        $body = <<<'HTML'
+        <div class="p-toolbar">
+            <a href="/chat" class="p-btn outline xs">← صندوق الوارد</a>
+            <div style="flex:1;"></div>
+            <button class="p-btn outline xs" onclick="lnScan()">🔄 إعادة مسح الفجوات</button>
+            <select id="lnSince" class="p-select" onchange="load()">
+                <option value="7">آخر 7 أيام</option>
+                <option value="30" selected>آخر 30 يوم</option>
+                <option value="90">آخر 90 يوم</option>
+            </select>
+        </div>
+        <div id="lnNoWebsite" class="p-card" style="display:none;">
+            <div class="p-empty"><div class="p-empty-icon">🌐</div>اختر موقعًا من القائمة أعلى الصفحة أولًا.</div>
+        </div>
+        <div id="lnBody" style="display:none;">
+            <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;">
+                <div class="p-card" style="flex:1 1 300px;min-width:240px;text-align:center;">
+                    <div style="font-size:30px;font-weight:800;font-family:var(--font-mono-num);color:var(--panel-teal);" id="lnResRate">-</div>
+                    <div class="p-cell-muted">معدّل حلّ الذكاء الاصطناعي</div>
+                </div>
+                <div class="p-card" style="flex:1 1 300px;min-width:240px;text-align:center;">
+                    <div style="font-size:30px;font-weight:800;font-family:var(--font-mono-num);color:var(--panel-accent);" id="lnGapCount">-</div>
+                    <div class="p-cell-muted">فجوات معرفة غير معالجة</div>
+                </div>
+                <div class="p-card" style="flex:1 1 100%;min-width:240px;">
+                    <div class="p-card-head"><h3>ℹ️ كيف تعمل حلقة التعلّم؟</h3></div>
+                    <div class="p-cell-muted" style="font-size:13px;line-height:1.8;">
+                        عندما يحوّل الذكاء الاصطناعي محادثة لموظف لأن السؤال خارج قاعدة المعرفة أو الثقة منخفضة،
+                        تُسجَّل السؤال تلقائيًا كـ"فجوة معرفة". أضف إجابة الفجوة لقاعدة المعرفة ليردّ عليها الـAI
+                        في المرة القادمة — هكذا يتحسّن النظام تدريجيًا (Flywheel).
+                    </div>
+                </div>
+            </div>
 
+            <div class="p-card no-pad">
+                <div class="p-card-head" style="padding:18px 20px 0;"><h3>🧠 فجوات المعرفة</h3></div>
+                <div class="p-table-scroll"><table class="p-table" id="lnTable">
+                    <thead><tr>
+                        <th>السؤال</th><th>اللغة</th><th>سبب التحويل</th><th>عدد المرات</th><th>الحالة</th><th>آخر ظهور</th><th></th>
+                    </tr></thead>
+                    <tbody><tr class="p-loading-row"><td colspan="7">جاري التحميل...</td></tr></tbody>
+                </table></div>
+            </div>
+        </div>
+HTML;
+
+        $script = <<<'JS'
+(function () {
+    const P = window.Panel;
+    const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast;
+
+    const STATUS_PILL = {
+        new: '<span class="pill red">جديدة</span>',
+        acknowledged: '<span class="pill">تمت الملاحظة</span>',
+        added_to_kb: '<span class="pill green">أُضيفت للمعرفة</span>',
+        dismissed: '<span class="pill gray">متجاهلة</span>',
+    };
+    const REASON_LABEL = {
+        outside_knowledge_base: 'خارج قاعدة المعرفة',
+        low_ai_confidence: 'ثقة AI منخفضة',
+        ai_requested_handoff: 'طلب الـAI التحويل',
+        manual_takeover: 'تدخل يدوي',
+        customer_escalated: 'طلب العميل',
+    };
+
+    function websiteId() { return P.getCurrentWebsiteId(); }
+
+    function ensureWebsite() {
+        const id = websiteId();
+        document.getElementById('lnNoWebsite').style.display = id ? 'none' : 'block';
+        document.getElementById('lnBody').style.display = id ? 'block' : 'none';
+        return id;
+    }
+
+    window.lnScan = async function () {
+        const id = ensureWebsite();
+        if (!id) return;
+        const res = await fetchJSON('/api/ai-chat/websites/' + id + '/learning/gaps/scan', { method: 'POST' });
+        if (res.success) {
+            toast('تم المسح: ' + (res.data && res.data.new_gaps_recorded != null ? res.data.new_gaps_recorded + ' فجوة جديدة' : 'بدون فجوات جديدة'), 'success');
+            load();
+        } else {
+            toast(res.error || 'فشل المسح', 'error');
+        }
+    };
+
+    window.lnSetStatus = async function (gapId, status) {
+        const id = websiteId();
+        if (!id) return;
+        const res = await fetchJSON('/api/ai-chat/websites/' + id + '/learning/gaps/' + gapId + '/status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: status }),
+        });
+        if (res.success) { toast('تم تحديث حالة الفجوة', 'success'); load(); }
+        else { toast(res.error || 'فشل التحديث', 'error'); }
+    };
+
+    window.lnAddToKb = async function (gapId, question) {
+        const id = websiteId();
+        if (!id) return;
+        const content = prompt('اكتب إجابة الفجوة لتُضاف لقاعدة المعرفة:', '');
+        if (content === null) return;
+        if (!content.trim()) { toast('الإجابة مطلوبة', 'error'); return; }
+
+        const addRes = await fetchJSON('/api/ai-chat/websites/' + id + '/knowledge-base', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                section: 'faq',
+                title: question,
+                content: content.trim(),
+                language: 'en',
+                priority: 1,
+            }),
+        });
+        if (!addRes.success) { toast(addRes.error || 'فشلت الإضافة', 'error'); return; }
+
+        const res = await fetchJSON('/api/ai-chat/websites/' + id + '/learning/gaps/' + gapId + '/status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'added_to_kb' }),
+        });
+        if (res.success) { toast('تمت إضافة الإجابة لقاعدة المعرفة وإغلاق الفجوة', 'success'); load(); }
+        else { toast('أُضيفت للمعرفة لكن فشل تحديث الحالة', 'error'); load(); }
+    };
+
+    async function load() {
+        const id = ensureWebsite();
+        if (!id) return;
+        const days = document.getElementById('lnSince').value;
+        const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+
+        const res = await fetchJSON('/api/ai-chat/websites/' + id + '/learning/gaps?since=' + since);
+        if (!res.success) {
+            document.querySelector('#lnTable tbody').innerHTML = '<tr><td colspan="7" class="p-cell-muted text-center">⚠️ ' + esc(res.error || 'تعذر التحميل') + '</td></tr>';
+            return;
+        }
+
+        const gaps = (res.data && Array.isArray(res.data.knowledge_gaps)) ? res.data.knowledge_gaps : [];
+        const summary = (res.data && res.data.summary) || {};
+
+        document.getElementById('lnResRate').textContent = (summary.ai_resolution_rate_percent != null ? summary.ai_resolution_rate_percent : '-') + '%';
+        const unresolved = gaps.filter(g => g.status === 'new' || g.status === 'acknowledged').length;
+        document.getElementById('lnGapCount').textContent = unresolved || 0;
+
+        const tbody = document.querySelector('#lnTable tbody');
+        if (!gaps.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="p-cell-muted text-center">لا توجد فجوات معرفة في هذه الفترة — الـAI يرد على كل الأسئلة 🎉</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = gaps.map(g => {
+            const actions = [];
+            if (g.status === 'new' || g.status === 'acknowledged') {
+                actions.push('<button class="p-btn outline xs" onclick="lnSetStatus(' + g.id + ', \'acknowledged\')">👁 ملاحظة</button>');
+                actions.push('<button class="p-btn primary xs" onclick="lnAddToKb(' + g.id + ', \'' + esc(String(g.question || '')).replace(/'/g, "\\'") + '\')">📚 أضِف للمعرفة</button>');
+                actions.push('<button class="p-btn outline xs" onclick="lnSetStatus(' + g.id + ', \'dismissed\')">✖ تجاهل</button>');
+            } else {
+                actions.push('<button class="p-btn outline xs" onclick="lnSetStatus(' + g.id + ', \'new\')">↺ إعادة فتح</button>');
+            }
+            return `<tr>
+                <td><div style="max-width:340px;">${esc(g.question || g.normalized_question || '-')}</div></td>
+                <td><span class="pill gray">${esc(g.language === 'ar' ? 'عربي' : (g.language || '-'))}</span></td>
+                <td class="p-cell-muted">${esc(REASON_LABEL[g.handoff_reason] || g.handoff_reason || '-')}</td>
+                <td><strong>×${g.occurrence_count || 1}</strong></td>
+                <td>${STATUS_PILL[g.status] || esc(g.status || '-')}</td>
+                <td class="p-cell-muted">${P.formatDate(g.last_seen_at)}</td>
+                <td style="white-space:nowrap;">${actions.join(' ')}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    window.addEventListener('tourfecto:website-changed', load);
+    load();
+})();
+JS;
+
+        header('Content-Type: text/html; charset=utf-8');
+        echo $this->renderPanelPage('ai_chat_learning', 'التعلّم وفجوات المعرفة', 'حلقة تعلّم الذكاء الاصطناعي: لاحظ الفجوات وعلّم النظام ليردّ أفضل في المرة القادمة', $body, $script);
+        exit;
+    }
     /**
      * GET /chat/leads
      * قائمة Leads مستقلة (بند 5، 6) - مرتّبة حسب Lead Score، قابلة
@@ -1950,7 +2599,7 @@ HTML;
 JS;
 
         header('Content-Type: text/html; charset=utf-8');
-        echo $this->renderPanelPage('chat', 'Leads', 'كل العملاء المحتملين مرتّبين حسب الأولوية', $body, $script);
+        echo $this->renderPanelPage('ai_chat_leads', 'Leads', 'كل العملاء المحتملين مرتّبين حسب الأولوية', $body, $script);
         exit;
     }
 

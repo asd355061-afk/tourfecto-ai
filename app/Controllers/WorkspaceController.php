@@ -35,6 +35,26 @@ class WorkspaceController extends Controller
         return (new User())->find((int) $ownerId);
     }
 
+    /**
+     * هل هذا العضو هو آخر أدمن فعّال (غير موقوف) في الـ Workspace؟
+     * لو هتفضل، منمنعش تغيير دوره/إيقافه/إزالته - الفريق لازم يفضل
+     * عنده على الأقل أدمن واحد قادر يدير الأعضاء (GitHub/Notion/Slack
+     * كلهم بيفرضوا القاعدة دي). المالك نفسه مش بيتحسب أدمن هنا لأنه
+     * محمي منفصلًا في كل عملية.
+     */
+    private function isLastActiveAdmin(User $owner, int $targetUserId): bool {
+        $members = (new User())->where(['owner_user_id' => (int) $owner->getAttribute('id')], [], 0);
+        foreach ($members as $member) {
+            if ((int) $member->getAttribute('id') === $targetUserId) {
+                continue; // بنشيل العضو المستهدف من العدّ
+            }
+            if ($member->getAttribute('status') === 'active' && $member->getAttribute('workspace_role') === 'admin') {
+                return false; // في أدمن فعّال تاني في الفريق
+            }
+        }
+        return true; // مفيش أدمن فعّال تاني غير المستهدف
+    }
+
     /** GET /api/workspace */
     public function getWorkspace(array $params = []): array
     {
@@ -413,7 +433,18 @@ class WorkspaceController extends Controller
             return $this->error('العضو غير موجود', 404);
         }
 
+        // الحماية من "آخر أدمن": منمنعش تغيير دور آخر عضو بدور admin
+        // لصلاحية أقل، عشان الفريق ميتبقاش من غير أي حد يقدر يدير
+        // الأعضاء (نفس قاعدة GitHub/Notion/Slack - الفريق لازم يفضل
+        // عنده على الأقل أدمن واحد).
         $newRole = (string) $this->get('role');
+        if ($newRole !== 'admin'
+            && (string) $target->getAttribute('workspace_role') === 'admin'
+            && $this->isLastActiveAdmin($owner, $targetId)
+        ) {
+            return $this->error('مش ممكن تغيّر دور آخر أدمن في الفريق - عيّن أدمن تاني الأول', 403);
+        }
+
         if ($newRole === 'admin' && $user->getAttribute('owner_user_id') !== null && $user->getAttribute('workspace_role') !== 'admin') {
             return $this->error('مش مسموح تدي صلاحيات أعلى من صلاحياتك', 403);
         }
@@ -466,6 +497,15 @@ class WorkspaceController extends Controller
             return $this->error('العضو غير موجود', 404);
         }
 
+        // حماية "آخر أدمن": منمنعش إيقاف آخر عضو بدور admin عشان الفريق
+        // ميتبقاش من غير أي مدير قادر يدير الأعضاء.
+        if ($status === 'suspended'
+            && (string) $target->getAttribute('workspace_role') === 'admin'
+            && $this->isLastActiveAdmin($owner, $targetId)
+        ) {
+            return $this->error('مش ممكن توقف آخر أدمن في الفريق - عيّن أدمن تاني الأول', 403);
+        }
+
         $target->setAttribute('status', $status);
         if ($target->save() === false) {
             return $this->error('تعذر تحديث حالة العضو', 500);
@@ -509,6 +549,12 @@ class WorkspaceController extends Controller
         $target = (new User())->find($targetId);
         if (!$target || (int) $target->getAttribute('owner_user_id') !== (int) $owner->getAttribute('id')) {
             return $this->error('العضو غير موجود', 404);
+        }
+
+        // حماية "آخر أدمن": منمنعش إزالة آخر عضو بدور admin من الفريق
+        // عشان الفريق ميتبقاش من غير أي مدير.
+        if ((string) $target->getAttribute('workspace_role') === 'admin' && $this->isLastActiveAdmin($owner, $targetId)) {
+            return $this->error('مش ممكن تشيل آخر أدمن في الفريق - عيّن أدمن تاني الأول', 403);
         }
 
         $target->setAttribute('status', 'suspended');

@@ -794,3 +794,25 @@ CREATE TABLE IF NOT EXISTS `gbp_reply_rules` (
     KEY `idx_reply_rules_user` (`user_id`),
     KEY `idx_reply_rules_enabled` (`enabled`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='قواعد الرد التلقائي على مراجعات GBP';
+
+-- ============================================================
+-- Onboarding Wizard v2 (Competitor Snapshots) - 2026-08-15
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS `onboarding_competitor_snapshots` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `website_id` BIGINT(20) UNSIGNED NOT NULL,
+    `user_id` BIGINT(20) UNSIGNED NOT NULL,
+    `competitor_id` BIGINT UNSIGNED DEFAULT NULL COMMENT 'id من جدول competitors لو تم التسجيل فيه بنجاح',
+    `domain` VARCHAR(500) NOT NULL,
+    `title` VARCHAR(500) DEFAULT NULL,
+    `meta_description` VARCHAR(1000) DEFAULT NULL,
+    `tech_signals` JSON DEFAULT NULL COMMENT 'إشارات تقنية حقيقية (مثلاً: cms_hint) من استجابة الـHTTP الفعلية',
+    `http_status` INT(11) DEFAULT NULL,
+    `error` VARCHAR(255) DEFAULT NULL,
+    `fetched_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_onsnap_website` (`website_id`),
+    KEY `idx_onsnap_user` (`user_id`),
+    KEY `idx_onsnap_competitor` (`competitor_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='لقطات لحظية للصفحات الرئيسية للمنافسين وقت الـOnboarding - عرض فوري فقط';

@@ -20,7 +20,8 @@ class WebsiteSnapshotFetcher
 
     /**
      * @return array{success:bool, http_status:?int, title:?string, meta_description:?string,
-     *   normalized_excerpt:?string, content_hash:?string, structured_data_hash:?string, error:?string}
+     *   normalized_excerpt:?string, content_hash:?string, structured_data_hash:?string,
+     *   tech_signals:?array, error:?string}
      */
     public function fetch(string $url): array
     {
