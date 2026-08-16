@@ -765,3 +765,16 @@ CREATE TABLE IF NOT EXISTS `analytics_country_breakdown` (
     FOREIGN KEY (`website_id`) REFERENCES `websites`(`id`) ON DELETE CASCADE,
     UNIQUE KEY `uniq_website_date_country` (`website_id`, `date`, `country_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='توزيع الزيارات حسب الدولة';
+
+-- ------------------------------------------------------------
+-- AI Chat Platform - تحسين تنافسي (2026-08-15):
+-- عمود next_recommended_action على ai_conversations
+-- (من migration منفصل 2026_08_15_000002_add_next_action_to_ai_conversations.sql)
+-- ------------------------------------------------------------
+ALTER TABLE `ai_conversations`
+    ADD COLUMN `next_recommended_action` VARCHAR(50) DEFAULT NULL
+        COMMENT 'آخر إجراء تالي موصى به من AIConversationEngine (next_action: ask_destination, ask_dates, ask_budget, send_quote, handoff_to_human...)'
+        AFTER `ai_summary`;
+
+ALTER TABLE `ai_conversations`
+    ADD INDEX `idx_next_recommended_action` (`next_recommended_action`);

@@ -172,3 +172,14 @@ Feature موجودة يمكن إعادة استخدامها، استخدمها �
 - لم تُستبدل أي ملفات مشتركة بالكامل؛ تم إضافة الدلتا فقط (routes،
   loader entries، ترجمات، إصلاحات موضعية).
 
+### سدّ ثغرات تكاملية بعد الدمج (2026-08-15)
+- `.env.example`: أُضيفت متغيرات الموديول الغائبة (`AI_PROVIDER_PRIORITY`،
+  `AI_CHAT_RATE_LIMIT_MAX`، `AI_CHAT_RATE_LIMIT_WINDOW_SECONDS`).
+- `database/migrations/_PENDING_TO_RUN_ON_SERVER.sql`: أُضيف عمود
+  `next_recommended_action` + الفهرس (نفس محتوى migration 000002) حتى
+  السيرفر اللي بيشتغل من الملف الموحّد يطبّق التغيير.
+- `public_html/system_check.php`: قسم جديد (6) يفحص وجود كل ملفات AI Chat
+  الـ27 + تحميل كلاساتها + وجود جداول الموديول الثمانية + عمود
+  `next_recommended_action` — فيكشف أي ملف/جدول ناقص على السيرفر فورًا.
+
+
