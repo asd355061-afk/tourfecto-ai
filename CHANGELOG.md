@@ -1,4 +1,20 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## المرحلة 14: الجولة 3 من خطة الترقية التنافسية — 2026-08-16
+
+تنفيذ الجولة الثالثة والأخيرة من فجوات التحليل التنافسي (راجع
+`docs/COMPETITIVE_ANALYSIS.md`): G7 Charts & Visualizations،
+G8 Email Open Tracking، G10 Custom Activity Types. دمج Additive فقط —
+`CrmController` الأصلي لم يُلمس، و`Mailer`/`CrmEmailService` لم يُعدّلا.
+
+**ملفات جديدة:** 2 migrations (`000012` تتبع فتح البريد، `000013` أنشطة
+مخصصة)، 3 Models، 3 Services (`CrmChartService`/`CrmEmailTrackingService`/
+`CrmActivityService`)، 16 دالة Controller، 16 مسار API، 50 مفتاح Lang
+(`crm.charts.*`/`crm.email_track.*`/`crm.activity_types.*`/`crm.activities.*`).
+
+بهذا اكتملت خطة الترقية التنافسية بالكامل: G1..G10 عبر المراحل 12/13/14.
+المتبقي خارج النطاق (AI تنبؤي ML، وكلاء AI مستقلون، Mobile App) موثّق
+بالقسم 3.3 من `docs/COMPETITIVE_ANALYSIS.md`.
+
 ## المرحلة 13: الجولة 2 من خطة الترقية التنافسية — 2026-08-16
 
 تنفيذ الجولة الثانية من فجوات التحليل التنافسي (راجع

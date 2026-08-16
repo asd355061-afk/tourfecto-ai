@@ -915,6 +915,28 @@ $router->post('/api/crm/team/invites/{id}/revoke', 'CrmApiController', 'revokeTe
 $router->get('/api/crm/team/invite/{token}', 'CrmApiController', 'showTeamInvite', []);
 $router->post('/api/crm/team/invite/{token}/accept', 'CrmApiController', 'acceptTeamInvite', []);
 
+// المرحلة 14 (G7) - Charts & Visualizations
+$router->get('/api/crm/charts/pipeline', 'CrmApiController', 'chartPipeline', ['AuthMiddleware']);
+$router->get('/api/crm/charts/revenue-trend', 'CrmApiController', 'chartRevenueTrend', ['AuthMiddleware']);
+$router->get('/api/crm/charts/win-loss', 'CrmApiController', 'chartWinLoss', ['AuthMiddleware']);
+$router->get('/api/crm/charts/lead-sources', 'CrmApiController', 'chartLeadSources', ['AuthMiddleware']);
+$router->get('/api/crm/charts/deal-status', 'CrmApiController', 'chartDealStatus', ['AuthMiddleware']);
+$router->get('/api/crm/charts/lifecycle', 'CrmApiController', 'chartLifecycle', ['AuthMiddleware']);
+
+// المرحلة 14 (G8) - Email Open Tracking
+$router->get('/api/crm/email-track/{token}.gif', 'CrmApiController', 'emailTrackingPixel', []);
+$router->post('/api/crm/email-track', 'CrmApiController', 'sendTrackedEmail', ['AuthMiddleware']);
+$router->get('/api/crm/email-track/stats', 'CrmApiController', 'emailTrackingStats', ['AuthMiddleware']);
+
+// المرحلة 14 (G10) - Custom Activity Types
+$router->get('/api/crm/activity-types', 'CrmApiController', 'listActivityTypes', ['AuthMiddleware']);
+$router->post('/api/crm/activity-types', 'CrmApiController', 'createActivityType', ['AuthMiddleware']);
+$router->put('/api/crm/activity-types/{id}', 'CrmApiController', 'updateActivityType', ['AuthMiddleware']);
+$router->delete('/api/crm/activity-types/{id}', 'CrmApiController', 'deleteActivityType', ['AuthMiddleware']);
+$router->get('/api/crm/activities', 'CrmApiController', 'listActivities', ['AuthMiddleware']);
+$router->post('/api/crm/activities', 'CrmApiController', 'createActivity', ['AuthMiddleware']);
+$router->delete('/api/crm/activities/{id}', 'CrmApiController', 'deleteActivity', ['AuthMiddleware']);
+
 // Webhook عام (بدون AuthMiddleware عمدًا - Meta هي اللي بتنادي عليه، راجع
 // تعليق CrmWhatsAppWebhookController للتفاصيل الأمنية).
 $router->get('/webhooks/crm/whatsapp', 'CrmWhatsAppWebhookController', 'verify', []);
