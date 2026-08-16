@@ -237,3 +237,51 @@ Migrations الجديدة الست (`database/migrations/2026_08_08_*.sql` و
 > "كسول" لما الأدمن يفتح صفحة الاشتراكات أو يضغط
 > `/api/admin/subscriptions/run-lifecycle-checks`. لأداء حقيقي لازم
 > Job runner يستدعي الـ endpoint ده دوريًا (يوميًا على الأقل).
+
+---
+
+## 7) Phase 19 — سكريبت Cron للفوترة (2026-08-15)
+
+سد فجوة "مفيش Cron حقيقي": السكريبت `cron/run_billing_lifecycle.php`
+بيشغّل كل فحوصات الفوترة دوريًا من غير أي تدخل بشري - فالتجديد
+التلقائي من الرصيد بقى يشتغل فعلاً في ميعاده، مش "كسول" لما الأدمن
+يفتح الصفحة بالصدفة.
+
+### بيعمل إيه (بالترتيب)
+1. `SubscriptionLifecycleService::runLifecycleChecks()` → التجديد التلقائي
+   + انتقالات الحالة (cancelled_at_period_end / past_due / trials / grace)
+   + التذكيرات المتدرجة والإنذار الأخير.
+2. `InvoiceLifecycleService::runLifecycleChecks()` → وضع علامة الـ overdue
+   والـ refunded على الفواتير.
+
+### الإعداد في cPanel (Hostinger)
+```
+Cron Job: Once a day
+php /home/USERNAME/domains/YOURSITE.com/cron/run_billing_lifecycle.php >> /home/USERNAME/domains/YOURSITE.com/storage/logs/billing_lifecycle.log 2>&1
+```
+
+### لماذا مرة واحدة يوميًا؟
+التجديد فترة سماحه 7 أيام والإنذارات بتتدرج على أيام — مرة يوميًا
+كفاية تمامًا ومش بتضغط على الاستضافة المشتركة. Idempotent بالكامل:
+حتى لو اتنفّذ مرتين بالغلط، مفيش خصم مزدوج (قفل FOR UPDATE +
+`idempotency_key`).
+
+### ملحوظة
+السكريبت بيطبع تقرير موجز للـ log (كم تجديد نجح/فشل، انتقالات الحالة،
+تذكيرات) + سطر لكل خطأ تجديد لو حصل — عشان تتابع صحة الفوترة من ملف
+`storage/logs/billing_lifecycle.log`.
+
+### 7.1 SubscriptionPeriod helper + اختبار
+
+- `app/Services/Subscription/SubscriptionPeriod.php` — كلاس pure لحسابات
+  فترات الاشتراك (`nextPeriodEnd` + `renewalIdempotencyKey`) - كان
+  المنطق مكرر في `Subscription::createSubscription` و
+  `WalletService::renewSubscriptionFromBalance`، اتحوّل لمرجع واحد.
+- `tests/Unit/SubscriptionPeriodTest.php` — اختبار offline بـ 8 حالات
+  (تمديد شهري/سنوي، التثبيت على تاريخ الإدخال مش now()، السلوك المحافظ
+  للأنواع المجهولة، الـ fallback للتاريخ غير الصالح، صيغة/تفرد/استقرار
+  مفتاح الـ idempotency). بيشتغل مباشرة:
+  ```
+  php tests/Unit/SubscriptionPeriodTest.php
+  ```
+  النتيجة الحالية: 8/8 نجحت.
