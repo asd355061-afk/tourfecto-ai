@@ -86,18 +86,18 @@ class OnboardingWizardLogicTest
     {
         $this->startTest('canonicalizeUrl - بيضيف https:// لو مفيش scheme');
         $r = $this->invokePrivate('canonicalizeUrl', ['example.com']);
-        $r === 'https://example.com/'
+        $r === 'https://example.com'
             ? $this->pass("example.com → {$r}")
-            : $this->fail("متوقع https://example.com/ لكن حصل: {$r}");
+            : $this->fail("متوقع https://example.com لكن حصل: {$r}");
     }
 
     private function testCanonicalizeUrlLowercasesHost(): void
     {
         $this->startTest('canonicalizeUrl - بيكتب الـhost lowercase');
         $r = $this->invokePrivate('canonicalizeUrl', ['https://MySite.Com']);
-        $r === 'https://mysite.com/'
+        $r === 'https://mysite.com'
             ? $this->pass("MySite.Com → {$r}")
-            : $this->fail("متوقع https://mysite.com/ لكن حصل: {$r}");
+            : $this->fail("متوقع https://mysite.com لكن حصل: {$r}");
     }
 
     private function testCanonicalizeUrlStripsTrailingSlash(): void
@@ -113,9 +113,9 @@ class OnboardingWizardLogicTest
     {
         $this->startTest('canonicalizeUrl - بيحافظ على الـport');
         $r = $this->invokePrivate('canonicalizeUrl', ['https://example.com:8080']);
-        $r === 'https://example.com:8080/'
+        $r === 'https://example.com:8080'
             ? $this->pass("port 8080 محفوظ → {$r}")
-            : $this->fail("متوقع https://example.com:8080/ لكن حصل: {$r}");
+            : $this->fail("متوقع https://example.com:8080 لكن حصل: {$r}");
     }
 
     private function testCanonicalizeUrlRejectsInvalid(): void
