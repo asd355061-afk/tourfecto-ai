@@ -32,6 +32,13 @@ class CrmApiController extends Controller
     private $templateService;
     private $reportService;
     private $customFieldService;
+    private $productService;
+    private $leadRoutingService;
+    private $lifecycleService;
+    private $teamInviteService;
+    private $chartService;
+    private $emailTrackingService;
+    private $activityService;
 
     public function __construct()
     {
@@ -52,6 +59,13 @@ class CrmApiController extends Controller
         $this->templateService = new CrmMessageTemplateService();
         $this->reportService = new CrmReportService();
         $this->customFieldService = new CrmCustomFieldService();
+        $this->productService = new CrmProductService();
+        $this->leadRoutingService = new CrmLeadRoutingService();
+        $this->lifecycleService = new CrmLifecycleService();
+        $this->teamInviteService = new CrmTeamInviteService();
+        $this->chartService = new CrmChartService();
+        $this->emailTrackingService = new CrmEmailTrackingService();
+        $this->activityService = new CrmActivityService();
     }
 
     /** المستخدم المسجّل دخوله فعليًا (Actor الحقيقي - يُستخدم لحقول "مين اللي عمل ده") */
@@ -1670,6 +1684,536 @@ class CrmApiController extends Controller
             return $this->success(['saved' => $saved], 'تم حفظ القيم');
         } catch (Exception $e) {
             return $this->handleException($e, 'setEntityCustomFields');
+        }
+    }
+    // المرحلة 13 (G3) - Product Catalog & Deal Line Items
+    // ============================================================
+
+    /** GET /api/crm/products?only_active=1 */
+    public function listProducts(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $products = $this->productService->listProducts($this->tenantId(), (int) $this->get('only_active', 0) === 1);
+            return $this->success(['products' => $products]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'listProducts');
+        }
+    }
+
+    /** POST /api/crm/products {name, price, currency?, description?, sku?} */
+    public function createProduct(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('create')) return $denied;
+        try {
+            $product = $this->productService->createProduct($this->tenantId(), $this->data);
+            return $this->success(['product' => $product->toArray()], 'تم إنشاء المنتج', 201);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'createProduct');
+        }
+    }
+
+    /** PUT /api/crm/products/{id} */
+    public function updateProduct(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('edit')) return $denied;
+        try {
+            $product = $this->productService->updateProduct($this->tenantId(), (int) ($params['id'] ?? 0), $this->data);
+            return $this->success(['product' => $product->toArray()], 'تم تحديث المنتج');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'updateProduct');
+        }
+    }
+
+    /** DELETE /api/crm/products/{id} */
+    public function deleteProduct(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('delete')) return $denied;
+        try {
+            $this->productService->deleteProduct($this->tenantId(), (int) ($params['id'] ?? 0));
+            return $this->success([], 'تم حذف المنتج');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'deleteProduct');
+        }
+    }
+
+    /** GET /api/crm/deals/{id}/items - بنود صفقة */
+    public function listDealItems(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $items = $this->productService->listDealItems($this->tenantId(), (int) ($params['id'] ?? 0));
+            return $this->success(['items' => $items]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'listDealItems');
+        }
+    }
+
+    /** POST /api/crm/deals/{id}/items {product_id?, product_name?, unit_price, quantity?, discount?} */
+    public function addDealItem(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('create')) return $denied;
+        try {
+            $item = $this->productService->addDealItem($this->tenantId(), (int) ($params['id'] ?? 0), $this->data);
+            return $this->success(['item' => $item->toArray()], 'تمت إضافة البند', 201);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'addDealItem');
+        }
+    }
+
+    /** PUT /api/crm/deals/{id}/items/{itemId} */
+    public function updateDealItem(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('edit')) return $denied;
+        try {
+            $item = $this->productService->updateDealItem(
+                $this->tenantId(), (int) ($params['id'] ?? 0), (int) ($params['itemId'] ?? 0), $this->data
+            );
+            return $this->success(['item' => $item->toArray()], 'تم تحديث البند');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'updateDealItem');
+        }
+    }
+
+    /** DELETE /api/crm/deals/{id}/items/{itemId} */
+    public function removeDealItem(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('delete')) return $denied;
+        try {
+            $this->productService->removeDealItem($this->tenantId(), (int) ($params['id'] ?? 0), (int) ($params['itemId'] ?? 0));
+            return $this->success([], 'تم حذف البند');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'removeDealItem');
+        }
+    }
+
+    // ============================================================
+    // المرحلة 13 (G5) - Lead Routing Rules
+    // ============================================================
+
+    /** GET /api/crm/routing-rules */
+    public function listRoutingRules(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            return $this->success(['rules' => $this->leadRoutingService->listRules($this->tenantId())]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'listRoutingRules');
+        }
+    }
+
+    /** POST /api/crm/routing-rules */
+    public function createRoutingRule(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+        try {
+            $rule = $this->leadRoutingService->createRule($this->tenantId(), $this->data);
+            return $this->success(['rule' => $rule->toArray()], 'تم إنشاء القاعدة', 201);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'createRoutingRule');
+        }
+    }
+
+    /** PUT /api/crm/routing-rules/{id} */
+    public function updateRoutingRule(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+        try {
+            $rule = $this->leadRoutingService->updateRule($this->tenantId(), (int) ($params['id'] ?? 0), $this->data);
+            return $this->success(['rule' => $rule->toArray()], 'تم تحديث القاعدة');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'updateRoutingRule');
+        }
+    }
+
+    /** DELETE /api/crm/routing-rules/{id} */
+    public function deleteRoutingRule(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+        try {
+            $this->leadRoutingService->deleteRule($this->tenantId(), (int) ($params['id'] ?? 0));
+            return $this->success([], 'تم حذف القاعدة');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'deleteRoutingRule');
+        }
+    }
+
+    /** POST /api/crm/leads/{id}/route - تطبيق قواعد التوجيه على Lead */
+    public function routeLead(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('edit')) return $denied;
+        try {
+            $result = $this->leadRoutingService->routeLead(
+                $this->tenantId(), (int) ($params['id'] ?? 0), is_array($this->data) ? $this->data : []
+            );
+            return $this->success($result, $result['assigned'] ? 'تم توجيه الـLead' : 'لا توجد قاعدة مطابقة');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'routeLead');
+        }
+    }
+
+    // ============================================================
+    // المرحلة 13 (G6) - Contact Lifecycle
+    // ============================================================
+
+    /** GET /api/crm/lifecycle/stages */
+    public function listLifecycleStages(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $stages = $this->lifecycleService->listStages($this->tenantId());
+            $distribution = $this->lifecycleService->distribution($this->tenantId());
+            return $this->success(['stages' => $stages, 'distribution' => $distribution]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'listLifecycleStages');
+        }
+    }
+
+    /** POST /api/crm/lifecycle/stages {stage_key, name, color?, sort_order?} - مرحلة مخصصة */
+    public function createLifecycleStage(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+        try {
+            $stage = $this->lifecycleService->createStage($this->tenantId(), $this->data);
+            return $this->success(['stage' => $stage->toArray()], 'تم إنشاء المرحلة', 201);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'createLifecycleStage');
+        }
+    }
+
+    /** PUT /api/crm/lifecycle/stages/{id} */
+    public function updateLifecycleStage(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+        try {
+            $stage = $this->lifecycleService->updateStage($this->tenantId(), (int) ($params['id'] ?? 0), $this->data);
+            return $this->success(['stage' => $stage->toArray()], 'تم تحديث المرحلة');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'updateLifecycleStage');
+        }
+    }
+
+    /** DELETE /api/crm/lifecycle/stages/{id} */
+    public function deleteLifecycleStage(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+        try {
+            $this->lifecycleService->deleteStage($this->tenantId(), (int) ($params['id'] ?? 0));
+            return $this->success([], 'تم حذف المرحلة');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'deleteLifecycleStage');
+        }
+    }
+
+    /** PUT /api/crm/contacts/{id}/lifecycle {stage_key} - تعيين مرحلة دورة حياة */
+    public function setContactLifecycle(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('edit')) return $denied;
+        try {
+            $contact = $this->lifecycleService->setStage(
+                $this->tenantId(), (int) ($params['id'] ?? 0), (string) $this->get('stage_key')
+            );
+            return $this->success(['contact' => $contact->toArray()], 'تم تحديث مرحلة دورة الحياة');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'setContactLifecycle');
+        }
+    }
+
+    /** GET /api/crm/lifecycle/contacts?stage_key=qualified - فلترة جهات الاتصال بالمرحلة */
+    public function contactsByLifecycle(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $contacts = $this->lifecycleService->contactsByStage($this->tenantId(), (string) $this->get('stage_key', ''));
+            return $this->success(['contacts' => $contacts]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'contactsByLifecycle');
+        }
+    }
+
+    // ============================================================
+    // المرحلة 13 (G9) - Team Invite (via WorkspaceInvite)
+    // ============================================================
+
+    /** POST /api/crm/team/invite {email, role} - دعوة عضو (بريد مسجّل → إضافة مباشرة) */
+    public function inviteTeamMember(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+        try {
+            $result = $this->teamInviteService->invite(
+                $this->tenantId(), $this->uid(), (string) $this->get('email'), (string) $this->get('role')
+            );
+            $message = $result['mode'] === 'direct_added'
+                ? 'أُضيف العضو مباشرة (البريد مسجّل مسبقًا)'
+                : ($result['email_sent'] ? 'تم إرسال الدعوة بالبريد الإلكتروني' : 'تم إنشاء الدعوة - انسخ الرابط وابعته يدويًا (البريد غير مُفعّل)');
+            return $this->success($result, $message, $result['mode'] === 'direct_added' ? 201 : 200);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'inviteTeamMember');
+        }
+    }
+
+    /** GET /api/crm/team/invites */
+    public function listTeamInvites(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            return $this->success(['invites' => $this->teamInviteService->listInvites($this->tenantId())]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'listTeamInvites');
+        }
+    }
+
+    /** POST /api/crm/team/invites/{id}/revoke */
+    public function revokeTeamInvite(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+        try {
+            $this->teamInviteService->revokeInvite($this->tenantId(), (int) ($params['id'] ?? 0));
+            return $this->success([], 'تم إلغاء الدعوة');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'revokeTeamInvite');
+        }
+    }
+
+    /** GET /api/crm/team/invite/{token} - عام (بلا Auth): بيانات دعوة لصفحة القبول */
+    public function showTeamInvite(array $params = []): array {
+        try {
+            return $this->success($this->teamInviteService->showInvite((string) ($params['token'] ?? '')));
+        } catch (Exception $e) {
+            return $this->handleException($e, 'showTeamInvite');
+        }
+    }
+
+    /** POST /api/crm/team/invite/{token}/accept - عام (بلا Auth): قبول دعوة وإنشاء حساب */
+    public function acceptTeamInvite(array $params = []): array {
+        try {
+            if (!$this->validate(['first_name' => 'required', 'last_name' => 'required', 'password' => 'required|min:8'])) {
+                return $this->error('بيانات غير صحيحة', 422, $this->getErrors());
+            }
+            $result = $this->teamInviteService->acceptInvite(
+                (string) ($params['token'] ?? ''),
+                (string) $this->get('first_name'),
+                (string) $this->get('last_name'),
+                (string) $this->get('password')
+            );
+            return $this->success($result, 'تم قبول الدعوة والانضمام للفريق', 201);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'acceptTeamInvite');
+        }
+    }
+    // المرحلة 14 (G7) - Charts & Visualizations
+    // ============================================================
+
+    /** GET /api/crm/charts/pipeline - توزيع الصفقات المفتوحة على المراحل */
+    public function chartPipeline(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            return $this->success(['chart' => $this->chartService->pipelineChart($this->tenantId())]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'chartPipeline');
+        }
+    }
+
+    /** GET /api/crm/charts/revenue-trend?months=12 */
+    public function chartRevenueTrend(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $months = (int) $this->get('months', 12);
+            return $this->success(['chart' => $this->chartService->revenueTrend($this->tenantId(), $months)]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'chartRevenueTrend');
+        }
+    }
+
+    /** GET /api/crm/charts/win-loss?from=YYYY-MM-DD&to=YYYY-MM-DD */
+    public function chartWinLoss(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $chart = $this->chartService->winLossTrend(
+                $this->tenantId(),
+                (string) $this->get('from'),
+                (string) $this->get('to')
+            );
+            return $this->success(['chart' => $chart]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'chartWinLoss');
+        }
+    }
+
+    /** GET /api/crm/charts/lead-sources */
+    public function chartLeadSources(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            return $this->success(['chart' => $this->chartService->leadSourceDistribution($this->tenantId())]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'chartLeadSources');
+        }
+    }
+
+    /** GET /api/crm/charts/deal-status */
+    public function chartDealStatus(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            return $this->success(['chart' => $this->chartService->dealStatusDistribution($this->tenantId())]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'chartDealStatus');
+        }
+    }
+
+    /** GET /api/crm/charts/lifecycle */
+    public function chartLifecycle(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            return $this->success(['chart' => $this->chartService->lifecycleDistribution($this->tenantId())]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'chartLifecycle');
+        }
+    }
+
+    // ============================================================
+    // المرحلة 14 (G8) - Email Open Tracking
+    // ============================================================
+
+    /**
+     * GET /api/crm/email-track/{token}.gif - بكسل التتبع (مسار عام بلا
+     * AuthMiddleware عمدًا: عميل البريد لا يحمل جلسة المستخدم). يرجع
+     * صورة GIF 1x1 شفافة بعد تسجيل الفتح.
+     */
+    public function emailTrackingPixel(array $params = []): array {
+        $raw = (string) ($params['token'] ?? '');
+        $token = preg_replace('/\.gif$/', '', $raw);
+
+        if ($token === '') {
+            http_response_code(404);
+            header('Content-Type: image/gif');
+            echo base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
+            exit;
+        }
+
+        $this->emailTrackingService->recordOpen($token);
+
+        header('Content-Type: image/gif');
+        header('Content-Length: 43');
+        http_response_code(200);
+        echo base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
+        exit;
+    }
+
+    /** POST /api/crm/email-track {contact_id, subject, html_body, message_id?} - يرسل إيميل ببكسل تتبع */
+    public function sendTrackedEmail(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $contactId = (int) $this->get('contact_id', 0);
+            $subject = (string) $this->get('subject');
+            $htmlBody = (string) $this->get('html_body');
+            if ($contactId <= 0) return $this->error('معرّف جهة الاتصال مطلوب', 422);
+            if ($subject === '' || $htmlBody === '') return $this->error('العنوان والجسم مطلوبان', 422);
+
+            $track = $this->emailTrackingService->appendPixel($htmlBody, $this->tenantId(), $contactId, $subject);
+            $sent = (new CrmEmailService())->sendToContact($this->tenantId(), $contactId, $subject, $track['html_body']);
+
+            return $this->success([
+                'sent' => $sent,
+                'tracking_token' => $track['token'],
+            ], 'تم إرسال الإيميل مع تتبع الفتح');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'sendTrackedEmail');
+        }
+    }
+
+    /** GET /api/crm/email-track/stats?contact_id= - إحصاءات الفتح */
+    public function emailTrackingStats(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $contactId = $this->get('contact_id') !== null ? (int) $this->get('contact_id') : null;
+            $stats = $this->emailTrackingService->stats($this->tenantId(), $contactId);
+            $stats['recent'] = $this->emailTrackingService->recent($this->tenantId(), 20);
+            return $this->success(['stats' => $stats]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'emailTrackingStats');
+        }
+    }
+
+    // ============================================================
+    // المرحلة 14 (G10) - Custom Activity Types
+    // ============================================================
+
+    /** GET /api/crm/activity-types */
+    public function listActivityTypes(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            return $this->success(['activity_types' => $this->activityService->listTypes($this->tenantId())]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'listActivityTypes');
+        }
+    }
+
+    /** POST /api/crm/activity-types {name, type_key?, icon?, color?} */
+    public function createActivityType(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('create')) return $denied;
+        try {
+            $type = $this->activityService->createType($this->tenantId(), $this->data);
+            return $this->success(['activity_type' => $type->toArray()], 'تم إنشاء النوع', 201);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'createActivityType');
+        }
+    }
+
+    /** PUT /api/crm/activity-types/{id} */
+    public function updateActivityType(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('edit')) return $denied;
+        try {
+            $type = $this->activityService->updateType($this->tenantId(), (int) ($params['id'] ?? 0), $this->data);
+            return $this->success(['activity_type' => $type->toArray()], 'تم تحديث النوع');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'updateActivityType');
+        }
+    }
+
+    /** DELETE /api/crm/activity-types/{id} */
+    public function deleteActivityType(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('delete')) return $denied;
+        try {
+            $this->activityService->deleteType($this->tenantId(), (int) ($params['id'] ?? 0));
+            return $this->success([], 'تم حذف النوع');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'deleteActivityType');
+        }
+    }
+
+    /** GET /api/crm/activities?related_type=contact&related_id=5&activity_type_id=2 */
+    public function listActivities(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $relatedType = $this->get('related_type') !== null ? (string) $this->get('related_type') : null;
+            $relatedId = $this->get('related_id') !== null ? (int) $this->get('related_id') : null;
+            $activityTypeId = $this->get('activity_type_id') !== null ? (int) $this->get('activity_type_id') : null;
+            $activities = $this->activityService->listActivities($this->tenantId(), $relatedType, $relatedId, $activityTypeId, (int) $this->get('limit', 100));
+            $distribution = $this->activityService->distributionByType($this->tenantId());
+            return $this->success(['activities' => $activities, 'distribution' => $distribution]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'listActivities');
+        }
+    }
+
+    /** POST /api/crm/activities {activity_type_id, subject, related_type?, related_id?, notes?, performed_at?} */
+    public function createActivity(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('create')) return $denied;
+        try {
+            $activity = $this->activityService->recordActivity($this->tenantId(), $this->data);
+            return $this->success(['activity' => $activity->toArray()], 'تم تسجيل النشاط', 201);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'createActivity');
+        }
+    }
+
+    /** DELETE /api/crm/activities/{id} */
+    public function deleteActivity(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('delete')) return $denied;
+        try {
+            $this->activityService->deleteActivity($this->tenantId(), (int) ($params['id'] ?? 0));
+            return $this->success([], 'تم حذف النشاط');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'deleteActivity');
         }
     }
 }

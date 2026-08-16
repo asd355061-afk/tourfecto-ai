@@ -288,6 +288,24 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/Crm/CrmMessageTemplateService.php',
     APP_PATH . '/Services/Crm/CrmReportService.php',
     APP_PATH . '/Services/Crm/CrmCustomFieldService.php',
+    // CRM Upgrade Phase 13 (2026-08-16) - Product Catalog / Lead Routing /
+    // Contact Lifecycle / Team Invite. نفس السبب: مش مسجّلة في classmap القديم.
+    APP_PATH . '/Models/CrmProduct.php',
+    APP_PATH . '/Models/CrmDealItem.php',
+    APP_PATH . '/Models/CrmLeadRoutingRule.php',
+    APP_PATH . '/Models/CrmLifecycleStage.php',
+    APP_PATH . '/Services/Crm/CrmProductService.php',
+    APP_PATH . '/Services/Crm/CrmLeadRoutingService.php',
+    APP_PATH . '/Services/Crm/CrmLifecycleService.php',
+    APP_PATH . '/Services/Crm/CrmTeamInviteService.php',
+    // CRM Upgrade Phase 14 (2026-08-16) - Charts / Email Open Tracking /
+    // Custom Activity Types. نفس السبب: مش مسجّلة في classmap القديم.
+    APP_PATH . '/Models/CrmEmailTracking.php',
+    APP_PATH . '/Models/CrmActivityType.php',
+    APP_PATH . '/Models/CrmActivity.php',
+    APP_PATH . '/Services/Crm/CrmChartService.php',
+    APP_PATH . '/Services/Crm/CrmEmailTrackingService.php',
+    APP_PATH . '/Services/Crm/CrmActivityService.php',
     // GBP Module Upgrade (2026-08-09/10) - Setup Wizard/Connection Center/
     // Sync/Profile/Photos/Insights/AI/Attributes. نفس السبب زي كل
     // الكلاسات فوق: مش مسجّلة في classmap القديم بتاع composer.

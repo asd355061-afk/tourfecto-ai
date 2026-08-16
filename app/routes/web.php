@@ -137,6 +137,7 @@ $router->group('/reputation', function ($router) {
     $router->get('/review/{id}', 'ReputationController', 'showReview', ['AuthMiddleware']);
     $router->get('/stats', 'ReputationController', 'showStats', ['AuthMiddleware']);
     $router->get('/platforms', 'ReputationController', 'showPlatforms', ['AuthMiddleware']);
+    $router->get('/intelligence', 'GbpProfileController', 'showReputationIntelligence', ['AuthMiddleware']);
     $router->get('/connect/google/callback', 'ReputationController', 'googleOAuthCallback', ['AuthMiddleware']);
     $router->get('/connect/google/choose', 'ReputationController', 'showGoogleLocationPicker', ['AuthMiddleware']);
     $router->get('/connect/google/{website_id}', 'ReputationController', 'connectGoogleBusiness', ['AuthMiddleware']);
@@ -166,6 +167,7 @@ $router->group('/chat', function ($router) {
     $router->get('/pending', 'ChatController', 'showPending', ['AuthMiddleware']);
     $router->get('/settings', 'ChatController', 'showSettings', ['AuthMiddleware']);
     $router->get('/knowledge-base', 'ChatController', 'showKnowledgeBase', ['AuthMiddleware']);
+    $router->get('/learning', 'ChatController', 'showLearning', ['AuthMiddleware']);
     $router->get('/followup-settings', 'ChatController', 'showFollowupSettings', ['AuthMiddleware']);
     $router->get('/analytics', 'ChatController', 'showAnalytics', ['AuthMiddleware']);
     $router->get('/leads', 'ChatController', 'showLeads', ['AuthMiddleware']);

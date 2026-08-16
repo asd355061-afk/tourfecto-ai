@@ -148,19 +148,19 @@
 |---|---|---|---|
 | G1 | **مكتبة قوالب الرسائل** (Email/WhatsApp/SMS + متغيرات) | كلهم | الرسائل تُرسل كنصوص مبعثرة بدون قوالب محفوظة قابلة لإعادة الاستخدام | ✅ منفَّذ في المرحلة 12 |
 | G2 | **الحقول المخصصة** (Custom Fields) على Contacts/Leads/Deals | كلهم | لا يوجد سوى الحقول الثابتة المعرّفة في الجداول | ✅ منفَّذ في المرحلة 12 |
-| G3 | **كتالوج منتجات + سطور بنود للصفقات** (Product Catalog/Line Items) | كلهم (Pipedrive/Zoho/Freshsales بصراحة) | قيمة الصفقة تُدخل رقميًا فقط، بدون منتجات/كميات/سعر | ⏳ الجولة 2 |
+| G3 | **كتالوج منتجات + سطور بنود للصفقات** (Product Catalog/Line Items) | كلهم (Pipedrive/Zoho/Freshsales بصراحة) | قيمة الصفقة تُدخل رقميًا فقط، بدون منتجات/كميات/سعر | ✅ منفَّذ في المرحلة 13 |
 | G4 | **تقرير Win/Loss + Sales Goals** | كلهم | `lost_reason` يُحفظ لكن لا يوجد تقرير تحليلي؛ لا توجد أهداف | ✅ منفَّذ في المرحلة 12 |
-| G5 | **التوجيه التلقائي للـLeads** (Auto-assignment Rules) | Freshsales/Pipedrive | تعيين يدوي فقط | ⏳ الجولة 2 |
+| G5 | **التوجيه التلقائي للـLeads** (Auto-assignment Rules) | Freshsales/Pipedrive | تعيين يدوي فقط | ✅ منفَّذ في المرحلة 13 |
 
 ### 3.2 أولوية متوسطة (تمايز قوي)
 
 | # | الفجوة | ملاحظات |
 |---|---|---|
-| G6 | **مراحل دورة حياة مخصصة للعملاء** (Contact Lifecycle) | تفصل "جديد/مؤهل/عميل/خامل/مفقود" عن حالة Lead |
-| G7 | **إحصائيات + رسوم بيانية للتقرير** (بحسب الفترة، رسم بياني للـPipeline) | حاليا جداول/تiles فقط |
-| G8 | **تتبع فتح البريد** (Email Open Tracking) | إضافة بكسل تتبع في Mailer |
-| G9 | **دعوة أعضاء الفريق عبر بريد إلكتروني** | رفع قيد "يجب أن يكون له حساب" |
-| G10 | **أنشطة/نتائج مخصصة** (Custom Activity Types) | مثل زيارات الموقع، مكالمات |
+| G6 | **مراحل دورة حياة مخصصة للعملاء** (Contact Lifecycle) | تفصل "جديد/مؤهل/عميل/خامل/مفقود" عن حالة Lead | ✅ منفَّذ في المرحلة 13 |
+| G7 | **إحصائيات + رسوم بيانية للتقرير** (بحسب الفترة، رسم بياني للـPipeline) | حاليا جداول/تiles فقط | ✅ منفَّذ في المرحلة 14 |
+| G8 | **تتبع فتح البريد** (Email Open Tracking) | إضافة بكسل تتبع في Mailer | ✅ منفَّذ في المرحلة 14 |
+| G9 | **دعوة أعضاء الفريق عبر بريد إلكتروني** | رفع قيد "يجب أن يكون له حساب" | ✅ منفَّذ في المرحلة 13 |
+| G10 | **أنشطة/نتائج مخصصة** (Custom Activity Types) | مثل زيارات الموقع، مكالمات | ✅ منفَّذ في المرحلة 14 |
 
 ### 3.3 أولوية منخفضة / خارج نطاق تنفيذ اليوم
 
@@ -204,6 +204,34 @@
 5. **G5 — Lead Routing Rules**: `crm_lead_routing_rules` (شرط مصدر/دولة → owner round-robin).
 6. **G6 — Contact Lifecycle**: عمود `lifecycle_stage` + قيم مخصصة + فلترة.
 7. **G9 — Team Invite**: إعادة استخدام `WorkspaceInvite` الموجود.
+
+### تنفيذ الجولة المقترحة 2 (المرحلة 13 — منفَّذة ✔)
+- **G3 ✔**: `crm_products` + `crm_deal_items` (FK → crm_deals) مع `CrmProductService::recomputeDealValue()`
+  التي تكتب Σ(line_total) في `crm_deals.value` — فقط عبر مسار الخدمة الجديد، بلا لمس `CrmController::createDeal` اليدوي.
+- **G5 ✔**: `crm_lead_routing_rules` مع `CrmLeadRoutingService` — أول قاعدة نشطة مطابقة
+  source/country/value تفوز؛ وضعان fixed وround_robin (توزيع على المالك + أعضاء الفريق مع `rotation_index`).
+- **G6 ✔**: `ALTER crm_contacts ADD lifecycle_stage` (يتبع سابقة 000044/000051) + جدول
+  `crm_lifecycle_stages` بخمس مراحل نظامية مبدوءة (lead/qualified/customer/inactive/churned).
+- **G9 ✔**: `CrmTeamInviteService` يعيد استخدام `WorkspaceInvite` + `Mailer`؛ بريد مسجّل → إضافة مباشرة،
+  غير مسجّل → دعوة + رابط `/crm/accept-invite?token=` يقبلها غير المسجّل بإنشاء حساب.
+- **التسليم**: migrations `000009/000010/000011` + 4 Models + 4 Services + 24 دالة Controller
+  + 24 مسارًا + ~95 مفتاح Lang ثنائي اللغة.
+
+### تنفيذ الجولة المقترحة 3 (المرحلة 14 — منفَّذة ✔)
+- **G7 ✔**: `CrmChartService` — بيانات جاهزة للرسوم (Chart.js) مباشرة من القاعدة:
+  pipelineChart (توزيع الصفقات على المراحل)، revenueTrend (آخر N شهر)،
+  winLossTrend (أعمدة Won/Lost)، leadSourceDistribution، dealStatusDistribution،
+  lifecycleDistribution. 6 دوال Controller + 6 مسارات.
+- **G8 ✔**: `CrmEmailTrackingService` — بكسل تتبع 1x1 يُضمّن في HTML الإيميل الصادر
+  عبر `/api/crm/email-track/{token}.gif` (مسار عام بلا AuthMiddleware لأن عميل البريد
+  بلا جلسة)؛ `recordOpen()` يسجّل أول/آخر فتح + العدد + IP + المتصفح. جدول
+  `crm_email_trackings` + إحصاءات open_rate. Additive: `Mailer`/`CrmEmailService` لم يُلمسا.
+- **G10 ✔**: `CrmActivityService` — أنواع أنشطة مخصصة (جدولان: `crm_activity_types`
+  + `crm_activities`) مرتبطة بأي كيان (contact/lead/deal/company)؛ 6 أنواع نظامية مبدوءة
+  (call/site_visit/follow_up/meeting/email/quote) + أنواع مخصصة لكل حساب.
+  7 دوال Controller + 7 مسارات.
+- **التسليم**: migrations `000012/000013` + 3 Models + 3 Services + 16 دالة Controller
+  + 16 مسارًا + ~50 مفتاح Lang ثنائي اللغة.
 
 ---
 

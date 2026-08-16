@@ -445,6 +445,17 @@ HTML;
             return $this->error('أدخل كود التحقق', 422, $this->getErrors());
         }
 
+        // حماية من محاولات تخمين كود 2FA المتكررة (Brute Force): كود
+        // TOTP مكوّن من 6 أرقام، فبدون حد أقصى للمحاولات أي مهاجم يقدر
+        // يجرّب آلاف الأكواد على نفس الجلسة المعلّقة. بنحسب محاولات
+        // الفشل على نفس المستخدم (لو معروف) أو على الـ IP (لو مش معروف)
+        // خلال آخر 15 دقيقة ونمنع الاستمرار بعد 5 محاولات فاشلة - نفس
+        // نهج checkLoginRateLimit() الموجود أصلًا لتسجيل الدخول.
+        $lockoutKey = $pendingUserId ? '2fa_user_' . (int) $pendingUserId : '2fa_ip_' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+        if ($this->checkTwoFactorRateLimit($lockoutKey)) {
+            return $this->error('محاولات فاشلة كتير للتحقق بخطوتين. استنى 15 دقيقة وسجّل الدخول من جديد.', 429);
+        }
+
         $userModel = new User();
         $user = $userModel->find((int) $pendingUserId);
         if (!$user || !(bool) $user->getAttribute('two_factor_enabled')) {
@@ -477,6 +488,7 @@ HTML;
         }
 
         unset($_SESSION['pending_2fa_user_id'], $_SESSION['pending_2fa_expires']);
+        $this->resetTwoFactorRateLimit($lockoutKey);
         $this->recordLoginHistory((int) $user->getAttribute('id'), (string) $user->getAttribute('email'), 'success');
         return $this->completeLogin($user);
     }
@@ -1130,6 +1142,13 @@ HTML;
 
             $user->updatePassword((string) $this->get('password'));
 
+            // أمان: إعادة تعيين كلمة المرور تخلي أي جلسة قديمة بكلمة
+            // المرور القديمة باطلة فورًا (كل الأجهزة) - نفس مبدأ
+            // updatePassword في UserController. حتى لو كان فيه جهاز مسجل
+            // دخول بجلسة مسروقة، بعد إعادة التعيين لازم يعيد تسجيل الدخول
+            // بكلمة المرور الجديدة.
+            RefreshToken::revokeAllForUser((int) $user->getAttribute('id'));
+
             $resetToken->setAttribute('used_at', date('Y-m-d H:i:s'));
             $resetToken->save();
 
@@ -1706,6 +1725,36 @@ HTML;
             Logger::error('checkLoginRateLimit Error', ['message' => $e->getMessage()]);
         }
         return null;
+    }
+
+    /**
+     * فحص حد محاولات التحقق بخطوتين (Brute-Force Protection) - Phase 15.
+     * يسمح بـ 5 محاولات خلال 15 دقيقة على نفس المستخدم (أو الـ IP لو
+     * المستخدم لسه مش معروف)، وبعدها يُحظر. يستخدم نفس RateLimiter
+     * الموجود أصلًا في المشروع (rate_limit_blocks) - لا أي اعتماد جديد.
+     *
+     * @return bool true = مقفل، يجب رفض الطلب
+     */
+    private function checkTwoFactorRateLimit(string $identifier): bool
+    {
+        try {
+            $limiter = new RateLimiter();
+            return !$limiter->check($identifier, '2fa_verify', 5, 900);
+        } catch (\Throwable $e) {
+            Logger::error('checkTwoFactorRateLimit Error', ['message' => $e->getMessage()]);
+            return false; // لو فشل الفحص لأي سبب، منمنعش التحقق بسببه
+        }
+    }
+
+    /** فك الحظر عن التحقق بخطوتين بعد نجاح الكود - يصفّر عدّاد المحاولات */
+    private function resetTwoFactorRateLimit(string $identifier): void
+    {
+        try {
+            $limiter = new RateLimiter();
+            $limiter->unblockIdentifier($identifier);
+        } catch (\Throwable $e) {
+            Logger::error('resetTwoFactorRateLimit Error', ['message' => $e->getMessage()]);
+        }
     }
 
     protected function recordLoginHistory(?int $userId, string $email, string $status, bool $isImpersonation = false): void

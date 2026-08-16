@@ -362,7 +362,22 @@ abstract class Controller
             ],
             t('sidebar.group.customers') => [
                 'crm' => [t('sidebar.crm'), '🧾', '/crm'],
-                'chat' => [t('sidebar.chat'), '💬', '/chat'],
+            ],
+            // ============================================================
+            // AI Chat Platform (2026-08-16) - مجموعة مستقلة كاملة لموديول
+            // الشات الذكي، تعادل منتجًا منفصلًا بذاته (Intercom/Zendesk).
+            // صندوق الوارد الموحّد + التحليلات + قاعدة المعرفة + حلقة
+            // التعلّم (فجوات المعرفة) + Leads + المتابعة التلقائية.
+            // ملاحظة: استُبدل العنصر الأحادي القديم 'chat' بهذه المجموعة
+            // الكاملة، وكل صفحة بتستخدم مفتاحها النشط المنفصل في الـSidebar.
+            // ============================================================
+            t('sidebar.group.ai_chat') => [
+                'ai_chat_inbox' => [t('sidebar.ai_chat_inbox'), '💬', '/chat'],
+                'ai_chat_analytics' => [t('sidebar.ai_chat_analytics'), '📊', '/chat/analytics'],
+                'ai_chat_knowledge' => [t('sidebar.ai_chat_knowledge'), '📚', '/chat/knowledge-base'],
+                'ai_chat_learning' => [t('sidebar.ai_chat_learning'), '🧠', '/chat/learning'],
+                'ai_chat_leads' => [t('sidebar.ai_chat_leads'), '🎯', '/chat/leads'],
+                'ai_chat_followup' => [t('sidebar.ai_chat_followup'), '⏰', '/chat/followup-settings'],
             ],
             // تصحيح تنظيمي: صفحات السمعة الثلاثة (المراجعات، نظرة عامة،
             // إحصائيات) + محتوى Google Business كانوا متفرّقين وسط مجموعة
@@ -372,6 +387,7 @@ abstract class Controller
                 'reputation' => [t('sidebar.reputation'), '⭐', '/reputation/reviews'],
                 'reputation_overview' => [t('sidebar.reputation_overview'), '📊', '/reputation/overview'],
                 'reputation_stats' => [t('sidebar.reputation_stats'), '📈', '/reputation/stats'],
+                'reputation_intelligence' => [t('sidebar.reputation_intelligence'), '🧠', '/reputation/intelligence'],
                 'gbp_content' => [t('sidebar.gbp_content'), '📍', '/gbp-content'],
                 'review_requests' => [t('sidebar.review_requests'), '📨', '/review-requests'],
             ],

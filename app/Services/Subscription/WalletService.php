@@ -936,7 +936,7 @@ class WalletService
                     ];
                 }
 
-                $idempotencyKey = 'renewal_' . $subscriptionId . '_' . strtotime((string) $sub['current_period_end']);
+                $idempotencyKey = SubscriptionPeriod::renewalIdempotencyKey($subscriptionId, (string) $sub['current_period_end']);
 
                 // خصم سعر الباقة من المحفظة (نفس نمط الاشتراك الجديد).
                 $chargeTx = new WalletTransaction();
@@ -972,9 +972,7 @@ class WalletService
                 // تمديد الفترة + إعادة تصفير عدادات الاستخدام (كل فترة
                 // جديدة بتفتح برصيد جديد). بيتنفذ مباشرة على الصف المقفول.
                 $newStart = $sub['current_period_end'];
-                $newEnd = $planType === 'yearly'
-                    ? date('Y-m-d H:i:s', strtotime('+1 year', strtotime((string) $newStart)))
-                    : date('Y-m-d H:i:s', strtotime('+1 month', strtotime((string) $newStart)));
+                $newEnd = SubscriptionPeriod::nextPeriodEnd((string) $newStart, $planType);
 
                 $this->db->exec(
                     "UPDATE subscriptions
