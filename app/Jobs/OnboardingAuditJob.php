@@ -38,7 +38,9 @@ class OnboardingAuditJob implements QueueJobInterface
             '/Controllers/OnboardingController.php',
             '/Controllers/WebsiteOptimizerController.php',
             '/Controllers/SeoStrategyController.php',
+            '/Services/CompetitorIntelligence/SsrfGuard.php',
             '/Services/CompetitorIntelligence/CompetitorAnalysisService.php',
+            '/Models/ActivityLog.php',
         ];
         foreach ($deps as $rel) {
             $file = APP_PATH . $rel;
@@ -85,6 +87,27 @@ class OnboardingAuditJob implements QueueJobInterface
                 'competitors_added' => count($result['competitors_added'] ?? []),
                 'growth_plan_ready' => (bool) ($result['growth_plan'] ?? null),
             ]);
+        }
+
+        // Phase 20 - فونيل Analytics: اكتمال الـOnboarding فعليًا (بعد ما
+        // الـAudit و خطة النمو خلصوا في الخلفية، مش بس لحظة الإرسال).
+        if (class_exists('ActivityLog')) {
+            try {
+                ActivityLog::record('onboarding', 'onboarding.completed', [
+                    'user_id' => $userId,
+                    'subject_type' => 'website',
+                    'subject_id' => $websiteId,
+                    'meta' => [
+                        'audit_success' => (bool) ($result['audit'] ?? null),
+                        'growth_plan_ready' => (bool) ($result['growth_plan'] ?? null),
+                        'competitors_added' => count($result['competitors_added'] ?? []),
+                    ],
+                ]);
+            } catch (Throwable $e) {
+                if (class_exists('Logger')) {
+                    Logger::error('OnboardingAuditJob ActivityLog failed: ' . $e->getMessage());
+                }
+            }
         }
     }
 }

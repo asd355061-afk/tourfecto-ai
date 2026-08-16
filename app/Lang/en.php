@@ -410,6 +410,7 @@ return [
     'onboarding.result.audit_pending' => 'The technical analysis is still running - check the "Growth & AI" dashboard shortly',
     'onboarding.result.audit_failed' => 'Could not complete the technical audit - try again from the dashboard',
     'onboarding.result.running_note' => 'We are still analyzing your website in the background - the full result will appear in your dashboard within a minute',
+    'onboarding.result.retry' => 'Try again',
     'onboarding.result.categories_title' => 'Performance by category',
     'onboarding.result.category.speed' => 'Speed',
     'onboarding.result.category.seo' => 'SEO',

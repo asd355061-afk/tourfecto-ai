@@ -400,6 +400,7 @@ return [
     'onboarding.result.audit_pending' => 'التحليل التقني لسه بيشتغل - راجع لوحة "النمو والذكاء الاصطناعي" بعد شوية',
     'onboarding.result.audit_failed' => 'تعذر إكمال التدقيق التقني - جرب تاني من لوحة التحكم',
     'onboarding.result.running_note' => 'لسه بنحلل موقعك في الخلفية - هتلاقي النتيجة كاملة في لوحة التحكم خلال دقيقة',
+    'onboarding.result.retry' => 'إعادة المحاولة',
     'onboarding.result.categories_title' => 'الأداء حسب الفئة',
     'onboarding.result.category.speed' => 'السرعة',
     'onboarding.result.category.seo' => 'تحسين محركات البحث',
