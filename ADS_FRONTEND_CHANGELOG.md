@@ -254,32 +254,51 @@ Tests Passed).
      كـhelpers في الـController لتوحيد الفحص عبر كل الـendpoints
    - صفحة `/ads/team` كاملة (إضافة عضو بالإيميل - لازم يكون له حساب
      Tourfecto بالفعل، تغيير دور، إزالة)
-   - **✅ تحديث - التغطية اتوسّعت من ~10 endpoint لـ 25+ endpoint حقيقي**:
-     `list`, `searchCampaigns`, `getCampaign`, `getAutopilotSettings`،
-     `listCopies`, `listKeywords`, `listAdGroups`, `listUtmLinks`,
-     `listAdsCompetitorInsights`, `showCampaignDetailsPage` (viewer+)؛
-     `updateCampaignStatus`, `deleteCampaign`, `bulkUpdateCampaignStatus`,
-     `generateCopies`, `approveCopy`/`rejectCopy`, `generateKeywords`,
-     `createAdGroup`, `updateAdGroupStatus`, `deleteAdGroup`,
-     `assignKeywordToGroup`, `analyzeLandingPage`, `createUtmLink`,
-     `analyzeAdsCompetitor` (manager+)؛ `saveAutopilotSettings` (admin+ -
-     بيتحكم في إنفاق تلقائي حقيقي). **مُختبَر فعليًا**: Viewer يقدر يشوف
-     تفاصيل حملة (`hasMinRole(viewer)=true`) لكن **فعليًا مايقدرش**
-     ينشئ Ad Group أو يحلل صفحة هبوط (`hasMinRole(manager)=false`)، وغريب
-     تمامًا لسه ممنوع بالكامل (`allowed=false`) حتى بعد ما أعضاء تانيين
-     اتضافوا للحساب - صفر تسريب.
-   - **الباقي (~40 endpoint) لسه بيستخدم فحص الملكية القديم (owner فقط)**:
-     أساسًا endpoints غير مرتبطة مباشرة بحملة معيّنة (Market Research
-     العام، Copilot، صفحات Reports/Budget الحسابية، ربط Google/Meta
-     الأولي/الـOAuth، Sync). دول محتاجين تصميم إضافي (هل الفحص هنا لازم
-     يبقى على مستوى الحساب كله زي `resolveAdsAccess()` بدل حملة معيّنة؟)
-     مش مجرد نفس نمط الاستبدال الميكانيكي اللي اتعمل هنا - قرار مقصود
-     لعدم استعجاله بدون تفكير كافٍ في كل حالة. **الأمان مش متأثر** - نفس
-     مبدأ Fail-safe (ممنوع افتراضيًا لغير المالك) لسه شغّال على الكل.
-   - **قيد UI صريح**: الأزرار (حذف/إيقاف/إلخ) لسه بتظهر لكل الأدوار في
-     الواجهة حتى لو Backend هيرفض الطلب لو Viewer ضغط عليها (الأمان
-     Server-side كامل، بس UX مش Role-aware 100% لسه - إخفاء الأزرار حسب
-     الدور محتاج شغل إضافي).
+    - **✅ تحديث - التغطية اتوسّعت من ~10 endpoint لـ 25+ endpoint حقيقي**:
+      `list`, `searchCampaigns`, `getCampaign`, `getAutopilotSettings`،
+      `listCopies`, `listKeywords`, `listAdGroups`, `listUtmLinks`,
+      `listAdsCompetitorInsights`, `showCampaignDetailsPage` (viewer+)؛
+      `updateCampaignStatus`, `deleteCampaign`, `bulkUpdateCampaignStatus`,
+      `generateCopies`, `approveCopy`/`rejectCopy`, `generateKeywords`,
+      `createAdGroup`, `updateAdGroupStatus`, `deleteAdGroup`,
+      `assignKeywordToGroup`, `analyzeLandingPage`, `createUtmLink`,
+      `analyzeAdsCompetitor` (manager+)؛ `saveAutopilotSettings` (admin+ -
+      بيتحكم في إنفاق تلقائي حقيقي). **مُختبَر فعليًا**: Viewer يقدر يشوف
+      تفاصيل حملة (`hasMinRole(viewer)=true`) لكن **فعليًا مايقدرش**
+      ينشئ Ad Group أو يحلل صفحة هبوط (`hasMinRole(manager)=false`)، وغريب
+      تمامًا لسه ممنوع بالكامل (`allowed=false`) حتى بعد ما أعضاء تانيين
+      اتضافوا للحساب - صفر تسريب.
+    - **✅ تحديث - التغطية اتوسّعت لجميع الـendpoints المتبقية**:
+      كل الـendpoints الحسابية (غير المرتبطة بحملة معيّنة) اتوحّد فحصها
+      على مستوى الحساب كله عبر `resolveAdsAccess()` بدل فحص الملكية القديم:
+      - **viewer+**: `getDashboardSummary`, `getReportTrend`,
+        `getCampaignComparison`, `getReport`, `marketResearchHistory`,
+        `listMyCompetitors`, `listOptimizationLogs`, `listPendingActions`,
+        `getAlertRules`, `listAlerts`, `markAllAlertsRead`, `dismissAlert`,
+        `getConnectionsStatus`, `getMetaConnectionStatus`,
+        `getGoogleAdsConnectionStatus`, `listTeamMembers`.
+      - **manager+**: `create`, `aiGenerateCampaign`, `marketResearch`,
+        `askCopilot`, `saveAlertRules`, `runAlertsNow`, `runAutopilotNow`,
+        `approvePendingAction`, `rejectPendingAction`,
+        `rollbackOptimizationLog`, `syncMetaCampaigns`,
+        `syncGoogleAdsCampaigns`, `publishCampaign`,
+        `toggleCampaignStatus`, `cancelCampaign`, `updateCampaignBudget`.
+      - **admin+**: `addTeamMember`, `updateTeamMemberRole`,
+        `removeTeamMember`, `disconnectMeta`, `disconnectGoogleAds`.
+      - `loadPublishedCampaignForManagement()` بقي بيتحلّى عبر
+        `resolveCampaignAccess($campaign,'manager')` بدل فحص الملكية اليدوي.
+      - **تبديل الحساب**: كل صفحات الموديول بتقرأ `?owner_id=` من الـURL
+        وتضيفه تلقائيًا لكل طلبات الـAPI (دالة `fetchJSON` محلية مُغلّفة)،
+        فالمستخدم العضو في فريق (viewer/manager/admin) يقدر يتنقل لحساب
+        المالك بمجرد الرابط - من غير ما يكتب المعامل يدويًا في كل نداء.
+      - **المتبقي مقصود**: OAuth flows (`connectMeta`/`connectGoogleAds`/
+        الـcallbacks/اختيار الحساب) لسه بترتبط بجلسة المستخدم الحالي نفسه
+        (ربط حساب المنصة الخاص بيه، مش حساب المالك) - ده صحيح بطبيعته؛
+        وصفحات `show*Page` قوالب HTML بتجيب البيانات عبر الـAPI المحمي.
+    - **قيد UI صريح**: الأزرار (حذف/إيقاف/إلخ) لسه بتظهر لكل الأدوار في
+      الواجهة حتى لو Backend هيرفض الطلب لو Viewer ضغط عليها (الأمان
+      Server-side كامل، بس UX مش Role-aware 100% لسه - إخفاء الأزرار حسب
+      الدور محتاج شغل إضافي).
    - **قيد تقني إضافي**: مفيش "Workspace Switcher" UI جاهز - عضو الفريق
      بيوصل لحساب المالك عن طريق إضافة `?owner_id=X` للرابط يدويًا (موضّح
      في صفحة `/ads/team` نفسها). تجربة مستخدم أفضل (Dropdown لاختيار
