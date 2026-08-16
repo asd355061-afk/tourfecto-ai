@@ -204,8 +204,16 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/RevenueIntelligence/ExecutiveSummaryService.php',
     APP_PATH . '/Services/RevenueIntelligence/RevenueInsightPersister.php',
     APP_PATH . '/Services/RevenueIntelligence/RevenueCacheService.php',
+    // v1.4.0 (2026-08-15): Copilot + Retention - كلاسات جديدة مش في classmap
+    // بتاع composer على السيرفر (مفيهوش SSH لتشغيل composer dump-autoload)،
+    // فلازم تتحمّل يدويًا زي باقي كلاسات الموديول. الترتيب مهم: الـController
+    // بينادي new RevenueRetentionService وnew RevenueCopilotService (اللي
+    // بيستخدم GeminiClient جوه RevenueAssistantService::askWithCopilot).
+    APP_PATH . '/Services/RevenueIntelligence/RevenueRetentionService.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueCopilotService.php',
     APP_PATH . '/Controllers/RevenueIntelligenceController.php',
     APP_PATH . '/Jobs/RecomputeRevenueInsightsJob.php',
+    APP_PATH . '/Jobs/SendRevenueDigestJob.php',
     // ============================================
     // Tourfecto Account & Workspace Settings Center (Phases 1-8, 2026-08-09)
     // نفس المبدأ بالظبط زي كل الكلاسات فوق: كلاسات جديدة مش موجودة في

@@ -40,6 +40,7 @@ require_once ROOT_PATH . '/vendor/autoload.php';
 // بتاع composer على هذا المستضيف (لا يوجد SSH لتشغيل composer dump-autoload).
 $requiredClassFiles = [
     APP_PATH . '/Jobs/RecomputeRevenueInsightsJob.php',
+    APP_PATH . '/Jobs/SendRevenueDigestJob.php',
 ];
 foreach ($requiredClassFiles as $classFile) {
     if (file_exists($classFile)) {
@@ -81,6 +82,7 @@ try {
     );
 
     $count = 0;
+    $digestCount = 0;
     foreach ($userIds as $row) {
         $userId = (int) $row['user_id'];
         if ($userId <= 0) {
@@ -88,9 +90,15 @@ try {
         }
         enqueue(RecomputeRevenueInsightsJob::class, ['user_id' => $userId]);
         $count++;
+        // v1.4.0: نفس الـ Scan اليومي يجدول الـ Revenue Digest برضه
+        // (نفس قائمة المستخدمين النشطين الحقيقية) - إيميل ملخص يومي واحد
+        // للأرقام الحقيقية. الـ Job نفسه بيتحمل من الـ Mailer/لا-بيانات
+        // بيسكت بأمان من غير فشل دائم.
+        enqueue(SendRevenueDigestJob::class, ['user_id' => $userId], 'default', 60);
+        $digestCount++;
     }
 
-    $message = "revenue_intelligence_scan: enqueued {$count} user(s) for recompute.";
+    $message = "revenue_intelligence_scan: enqueued {$count} user(s) for recompute and {$digestCount} revenue digest(s).";
     echo $message . "\n";
     if (class_exists('Logger')) {
         Logger::info($message);
