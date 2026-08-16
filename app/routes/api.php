@@ -883,6 +883,38 @@ $router->delete('/api/crm/custom-fields/{id}', 'CrmApiController', 'deleteCustom
 $router->get('/api/crm/entities/{entityType}/{id}/custom-fields', 'CrmApiController', 'getEntityCustomFields', ['AuthMiddleware']);
 $router->post('/api/crm/entities/{entityType}/{id}/custom-fields', 'CrmApiController', 'setEntityCustomFields', ['AuthMiddleware']);
 
+// المرحلة 13 (G3) - Product Catalog & Deal Line Items
+$router->get('/api/crm/products', 'CrmApiController', 'listProducts', ['AuthMiddleware']);
+$router->post('/api/crm/products', 'CrmApiController', 'createProduct', ['AuthMiddleware']);
+$router->put('/api/crm/products/{id}', 'CrmApiController', 'updateProduct', ['AuthMiddleware']);
+$router->delete('/api/crm/products/{id}', 'CrmApiController', 'deleteProduct', ['AuthMiddleware']);
+$router->get('/api/crm/deals/{id}/items', 'CrmApiController', 'listDealItems', ['AuthMiddleware']);
+$router->post('/api/crm/deals/{id}/items', 'CrmApiController', 'addDealItem', ['AuthMiddleware']);
+$router->put('/api/crm/deals/{id}/items/{itemId}', 'CrmApiController', 'updateDealItem', ['AuthMiddleware']);
+$router->delete('/api/crm/deals/{id}/items/{itemId}', 'CrmApiController', 'removeDealItem', ['AuthMiddleware']);
+
+// المرحلة 13 (G5) - Lead Routing Rules
+$router->get('/api/crm/routing-rules', 'CrmApiController', 'listRoutingRules', ['AuthMiddleware']);
+$router->post('/api/crm/routing-rules', 'CrmApiController', 'createRoutingRule', ['AuthMiddleware']);
+$router->put('/api/crm/routing-rules/{id}', 'CrmApiController', 'updateRoutingRule', ['AuthMiddleware']);
+$router->delete('/api/crm/routing-rules/{id}', 'CrmApiController', 'deleteRoutingRule', ['AuthMiddleware']);
+$router->post('/api/crm/leads/{id}/route', 'CrmApiController', 'routeLead', ['AuthMiddleware']);
+
+// المرحلة 13 (G6) - Contact Lifecycle
+$router->get('/api/crm/lifecycle/stages', 'CrmApiController', 'listLifecycleStages', ['AuthMiddleware']);
+$router->post('/api/crm/lifecycle/stages', 'CrmApiController', 'createLifecycleStage', ['AuthMiddleware']);
+$router->put('/api/crm/lifecycle/stages/{id}', 'CrmApiController', 'updateLifecycleStage', ['AuthMiddleware']);
+$router->delete('/api/crm/lifecycle/stages/{id}', 'CrmApiController', 'deleteLifecycleStage', ['AuthMiddleware']);
+$router->put('/api/crm/contacts/{id}/lifecycle', 'CrmApiController', 'setContactLifecycle', ['AuthMiddleware']);
+$router->get('/api/crm/lifecycle/contacts', 'CrmApiController', 'contactsByLifecycle', ['AuthMiddleware']);
+
+// المرحلة 13 (G9) - Team Invite (via WorkspaceInvite)
+$router->post('/api/crm/team/invite', 'CrmApiController', 'inviteTeamMember', ['AuthMiddleware']);
+$router->get('/api/crm/team/invites', 'CrmApiController', 'listTeamInvites', ['AuthMiddleware']);
+$router->post('/api/crm/team/invites/{id}/revoke', 'CrmApiController', 'revokeTeamInvite', ['AuthMiddleware']);
+$router->get('/api/crm/team/invite/{token}', 'CrmApiController', 'showTeamInvite', []);
+$router->post('/api/crm/team/invite/{token}/accept', 'CrmApiController', 'acceptTeamInvite', []);
+
 // Webhook عام (بدون AuthMiddleware عمدًا - Meta هي اللي بتنادي عليه، راجع
 // تعليق CrmWhatsAppWebhookController للتفاصيل الأمنية).
 $router->get('/webhooks/crm/whatsapp', 'CrmWhatsAppWebhookController', 'verify', []);
