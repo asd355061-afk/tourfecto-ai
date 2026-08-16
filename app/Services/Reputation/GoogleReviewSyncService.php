@@ -104,7 +104,7 @@ class GoogleReviewSyncService
                 continue; // مراجعة موجودة بالفعل أو بدون معرف صالح
             }
 
-            $this->reputationManager->processWebhook([
+            $processed = $this->reputationManager->processWebhook([
                 'user_id' => $userId,
                 'website_id' => $websiteId,
                 'platform' => 'google_business',
@@ -115,6 +115,18 @@ class GoogleReviewSyncService
                 'review_date' => $review['date'] ?? date('Y-m-d H:i:s'),
                 'review_language' => 'ar',
             ]);
+
+            // GBP Automated Reply Rules (2026-08-15): بعد ما المراجعة تتسجّل،
+            // نشغّل قواعد الرد التلقائي (BirdAI/Podium-style) عليها فورًا -
+            // لو في قاعدة مطابقة مفعّلة، بتتولّد الرد وتتبعت (أو إشعار بس).
+            // فشل صامت: القواعد تحسين ثانوي مش لازم يوقف المزامنة الأساسية.
+            if (isset($processed['review_id']) && (int) $processed['review_id'] > 0 && class_exists('GbpReplyRuleService')) {
+                try {
+                    (new GbpReplyRuleService())->applyRulesToReview((int) $processed['review_id']);
+                } catch (Throwable $e) {
+                    // تجاهل - يفضل مزامنة المراجعات الأساسية شغالة
+                }
+            }
 
             // ربط جديد: نفحص لو المراجعة الجديدة دي جت من ضيف بعتنالوه
             // طلب مراجعة قبل كده (اسم متطابق + لسه مفيش رد "قيّم فعلاً") -
@@ -152,7 +164,7 @@ class GoogleReviewSyncService
     private function reviewExists(int $websiteId, string $platform, string $platformReviewId): bool
     {
         try {
-            $sql = "SELECT id FROM reviews WHERE website_id = ? AND platform = ? AND platform_review_id = ? LIMIT 1";
+            $sql = "SELECT id FROM reviews WHERE website_id = ? AND source_platform = ? AND external_review_id = ? LIMIT 1";
             $result = $this->db->query($sql, [$websiteId, $platform, $platformReviewId]);
             return !empty($result);
         } catch (Exception $e) {

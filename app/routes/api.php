@@ -34,6 +34,7 @@ $router->delete('/api/user/oauth/{provider}', 'UserController', 'disconnectOAuth
 $router->post('/api/user/2fa/setup', 'UserController', 'setupTwoFactor', ['AuthMiddleware']);
 $router->post('/api/user/2fa/enable', 'UserController', 'enableTwoFactor', ['AuthMiddleware']);
 $router->post('/api/user/2fa/disable', 'UserController', 'disableTwoFactor', ['AuthMiddleware']);
+$router->post('/api/user/2fa/recovery-codes/regenerate', 'UserController', 'regenerateRecoveryCodes', ['AuthMiddleware']);
 // Profile Center Phase 9 (2026-08-10): Data Export
 $router->post('/api/user/data-export', 'UserController', 'requestDataExport', ['AuthMiddleware']);
 $router->get('/api/user/data-export', 'UserController', 'listDataExports', ['AuthMiddleware']);
@@ -46,6 +47,7 @@ $router->get('/api/user/api-keys', 'UserController', 'listApiKeys', ['AuthMiddle
 $router->post('/api/user/api-keys', 'UserController', 'createApiKey', ['AuthMiddleware']);
 $router->post('/api/user/api-keys/{id}/revoke', 'UserController', 'revokeApiKey', ['AuthMiddleware']);
 $router->get('/api/user/audit-log', 'UserController', 'listAuditLog', ['AuthMiddleware']);
+$router->get('/api/user/audit-log/export', 'UserController', 'exportAuditLog', ['AuthMiddleware']);
 $router->post('/api/user/deactivate', 'UserController', 'deactivateAccount', ['AuthMiddleware']);
 $router->get('/api/workspace', 'WorkspaceController', 'getWorkspace', ['AuthMiddleware']);
 $router->put('/api/workspace', 'WorkspaceController', 'updateWorkspace', ['AuthMiddleware']);
@@ -653,6 +655,12 @@ $router->get('/api/gbp/competitors', 'GbpProfileController', 'competitors', ['Au
 $router->get('/api/gbp/analytics', 'GbpProfileController', 'analytics', ['AuthMiddleware']);
 $router->get('/api/gbp/risk-signals', 'GbpProfileController', 'riskSignals', ['AuthMiddleware']);
 $router->get('/api/gbp/share-of-voice', 'GbpProfileController', 'shareOfVoice', ['AuthMiddleware']);
+$router->get('/api/gbp/reply-rules', 'GbpProfileController', 'listReplyRules', ['AuthMiddleware']);
+$router->post('/api/gbp/reply-rules', 'GbpProfileController', 'createReplyRule', ['AuthMiddleware']);
+$router->put('/api/gbp/reply-rules/{id}', 'GbpProfileController', 'updateReplyRule', ['AuthMiddleware']);
+$router->delete('/api/gbp/reply-rules/{id}', 'GbpProfileController', 'deleteReplyRule', ['AuthMiddleware']);
+$router->post('/api/gbp/reply-rules/apply/{review_id}', 'GbpProfileController', 'applyReplyRules', ['AuthMiddleware']);
+$router->get('/api/gbp/local-seo-audit', 'GbpProfileController', 'localSeoAudit', ['AuthMiddleware']);
 $router->post('/api/gbp/sync/{website_id}', 'GbpProfileController', 'sync', ['AuthMiddleware']);
 $router->get('/api/gbp/profile', 'GbpProfileController', 'getProfile', ['AuthMiddleware']);
 $router->post('/api/gbp/profile', 'GbpProfileController', 'updateProfile', ['AuthMiddleware']);
@@ -875,6 +883,60 @@ $router->delete('/api/crm/custom-fields/{id}', 'CrmApiController', 'deleteCustom
 $router->get('/api/crm/entities/{entityType}/{id}/custom-fields', 'CrmApiController', 'getEntityCustomFields', ['AuthMiddleware']);
 $router->post('/api/crm/entities/{entityType}/{id}/custom-fields', 'CrmApiController', 'setEntityCustomFields', ['AuthMiddleware']);
 
+// المرحلة 13 (G3) - Product Catalog & Deal Line Items
+$router->get('/api/crm/products', 'CrmApiController', 'listProducts', ['AuthMiddleware']);
+$router->post('/api/crm/products', 'CrmApiController', 'createProduct', ['AuthMiddleware']);
+$router->put('/api/crm/products/{id}', 'CrmApiController', 'updateProduct', ['AuthMiddleware']);
+$router->delete('/api/crm/products/{id}', 'CrmApiController', 'deleteProduct', ['AuthMiddleware']);
+$router->get('/api/crm/deals/{id}/items', 'CrmApiController', 'listDealItems', ['AuthMiddleware']);
+$router->post('/api/crm/deals/{id}/items', 'CrmApiController', 'addDealItem', ['AuthMiddleware']);
+$router->put('/api/crm/deals/{id}/items/{itemId}', 'CrmApiController', 'updateDealItem', ['AuthMiddleware']);
+$router->delete('/api/crm/deals/{id}/items/{itemId}', 'CrmApiController', 'removeDealItem', ['AuthMiddleware']);
+
+// المرحلة 13 (G5) - Lead Routing Rules
+$router->get('/api/crm/routing-rules', 'CrmApiController', 'listRoutingRules', ['AuthMiddleware']);
+$router->post('/api/crm/routing-rules', 'CrmApiController', 'createRoutingRule', ['AuthMiddleware']);
+$router->put('/api/crm/routing-rules/{id}', 'CrmApiController', 'updateRoutingRule', ['AuthMiddleware']);
+$router->delete('/api/crm/routing-rules/{id}', 'CrmApiController', 'deleteRoutingRule', ['AuthMiddleware']);
+$router->post('/api/crm/leads/{id}/route', 'CrmApiController', 'routeLead', ['AuthMiddleware']);
+
+// المرحلة 13 (G6) - Contact Lifecycle
+$router->get('/api/crm/lifecycle/stages', 'CrmApiController', 'listLifecycleStages', ['AuthMiddleware']);
+$router->post('/api/crm/lifecycle/stages', 'CrmApiController', 'createLifecycleStage', ['AuthMiddleware']);
+$router->put('/api/crm/lifecycle/stages/{id}', 'CrmApiController', 'updateLifecycleStage', ['AuthMiddleware']);
+$router->delete('/api/crm/lifecycle/stages/{id}', 'CrmApiController', 'deleteLifecycleStage', ['AuthMiddleware']);
+$router->put('/api/crm/contacts/{id}/lifecycle', 'CrmApiController', 'setContactLifecycle', ['AuthMiddleware']);
+$router->get('/api/crm/lifecycle/contacts', 'CrmApiController', 'contactsByLifecycle', ['AuthMiddleware']);
+
+// المرحلة 13 (G9) - Team Invite (via WorkspaceInvite)
+$router->post('/api/crm/team/invite', 'CrmApiController', 'inviteTeamMember', ['AuthMiddleware']);
+$router->get('/api/crm/team/invites', 'CrmApiController', 'listTeamInvites', ['AuthMiddleware']);
+$router->post('/api/crm/team/invites/{id}/revoke', 'CrmApiController', 'revokeTeamInvite', ['AuthMiddleware']);
+$router->get('/api/crm/team/invite/{token}', 'CrmApiController', 'showTeamInvite', []);
+$router->post('/api/crm/team/invite/{token}/accept', 'CrmApiController', 'acceptTeamInvite', []);
+
+// المرحلة 14 (G7) - Charts & Visualizations
+$router->get('/api/crm/charts/pipeline', 'CrmApiController', 'chartPipeline', ['AuthMiddleware']);
+$router->get('/api/crm/charts/revenue-trend', 'CrmApiController', 'chartRevenueTrend', ['AuthMiddleware']);
+$router->get('/api/crm/charts/win-loss', 'CrmApiController', 'chartWinLoss', ['AuthMiddleware']);
+$router->get('/api/crm/charts/lead-sources', 'CrmApiController', 'chartLeadSources', ['AuthMiddleware']);
+$router->get('/api/crm/charts/deal-status', 'CrmApiController', 'chartDealStatus', ['AuthMiddleware']);
+$router->get('/api/crm/charts/lifecycle', 'CrmApiController', 'chartLifecycle', ['AuthMiddleware']);
+
+// المرحلة 14 (G8) - Email Open Tracking
+$router->get('/api/crm/email-track/{token}.gif', 'CrmApiController', 'emailTrackingPixel', []);
+$router->post('/api/crm/email-track', 'CrmApiController', 'sendTrackedEmail', ['AuthMiddleware']);
+$router->get('/api/crm/email-track/stats', 'CrmApiController', 'emailTrackingStats', ['AuthMiddleware']);
+
+// المرحلة 14 (G10) - Custom Activity Types
+$router->get('/api/crm/activity-types', 'CrmApiController', 'listActivityTypes', ['AuthMiddleware']);
+$router->post('/api/crm/activity-types', 'CrmApiController', 'createActivityType', ['AuthMiddleware']);
+$router->put('/api/crm/activity-types/{id}', 'CrmApiController', 'updateActivityType', ['AuthMiddleware']);
+$router->delete('/api/crm/activity-types/{id}', 'CrmApiController', 'deleteActivityType', ['AuthMiddleware']);
+$router->get('/api/crm/activities', 'CrmApiController', 'listActivities', ['AuthMiddleware']);
+$router->post('/api/crm/activities', 'CrmApiController', 'createActivity', ['AuthMiddleware']);
+$router->delete('/api/crm/activities/{id}', 'CrmApiController', 'deleteActivity', ['AuthMiddleware']);
+
 // Webhook عام (بدون AuthMiddleware عمدًا - Meta هي اللي بتنادي عليه، راجع
 // تعليق CrmWhatsAppWebhookController للتفاصيل الأمنية).
 $router->get('/webhooks/crm/whatsapp', 'CrmWhatsAppWebhookController', 'verify', []);
@@ -900,6 +962,8 @@ $router->get('/api/executive-dashboard', 'ExecutiveDashboardController', 'getDas
 // Phase 16 (Onboarding Wizard)
 $router->post('/api/onboarding/complete', 'OnboardingController', 'complete', ['AuthMiddleware']);
 $router->get('/api/onboarding/status', 'OnboardingController', 'status', ['AuthMiddleware']);
+// Phase 20 (Onboarding Competitive): كشف تلقائي لاسم النشاط من الموقع
+$router->get('/api/onboarding/preview', 'OnboardingController', 'preview', ['AuthMiddleware']);
 // Phase 11 (AI CEO Advisor)
 $router->post('/api/executive/ceo-advisor/ask', 'ExecutiveExtrasController', 'askCeoAdvisor', ['AuthMiddleware']);
 // Phase 12 (Action Center)

@@ -204,8 +204,16 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/RevenueIntelligence/ExecutiveSummaryService.php',
     APP_PATH . '/Services/RevenueIntelligence/RevenueInsightPersister.php',
     APP_PATH . '/Services/RevenueIntelligence/RevenueCacheService.php',
+    // v1.4.0 (2026-08-15): Copilot + Retention - كلاسات جديدة مش في classmap
+    // بتاع composer على السيرفر (مفيهوش SSH لتشغيل composer dump-autoload)،
+    // فلازم تتحمّل يدويًا زي باقي كلاسات الموديول. الترتيب مهم: الـController
+    // بينادي new RevenueRetentionService وnew RevenueCopilotService (اللي
+    // بيستخدم GeminiClient جوه RevenueAssistantService::askWithCopilot).
+    APP_PATH . '/Services/RevenueIntelligence/RevenueRetentionService.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueCopilotService.php',
     APP_PATH . '/Controllers/RevenueIntelligenceController.php',
     APP_PATH . '/Jobs/RecomputeRevenueInsightsJob.php',
+    APP_PATH . '/Jobs/SendRevenueDigestJob.php',
     // ============================================
     // Tourfecto Account & Workspace Settings Center (Phases 1-8, 2026-08-09)
     // نفس المبدأ بالظبط زي كل الكلاسات فوق: كلاسات جديدة مش موجودة في
@@ -280,6 +288,24 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/Crm/CrmMessageTemplateService.php',
     APP_PATH . '/Services/Crm/CrmReportService.php',
     APP_PATH . '/Services/Crm/CrmCustomFieldService.php',
+    // CRM Upgrade Phase 13 (2026-08-16) - Product Catalog / Lead Routing /
+    // Contact Lifecycle / Team Invite. نفس السبب: مش مسجّلة في classmap القديم.
+    APP_PATH . '/Models/CrmProduct.php',
+    APP_PATH . '/Models/CrmDealItem.php',
+    APP_PATH . '/Models/CrmLeadRoutingRule.php',
+    APP_PATH . '/Models/CrmLifecycleStage.php',
+    APP_PATH . '/Services/Crm/CrmProductService.php',
+    APP_PATH . '/Services/Crm/CrmLeadRoutingService.php',
+    APP_PATH . '/Services/Crm/CrmLifecycleService.php',
+    APP_PATH . '/Services/Crm/CrmTeamInviteService.php',
+    // CRM Upgrade Phase 14 (2026-08-16) - Charts / Email Open Tracking /
+    // Custom Activity Types. نفس السبب: مش مسجّلة في classmap القديم.
+    APP_PATH . '/Models/CrmEmailTracking.php',
+    APP_PATH . '/Models/CrmActivityType.php',
+    APP_PATH . '/Models/CrmActivity.php',
+    APP_PATH . '/Services/Crm/CrmChartService.php',
+    APP_PATH . '/Services/Crm/CrmEmailTrackingService.php',
+    APP_PATH . '/Services/Crm/CrmActivityService.php',
     // GBP Module Upgrade (2026-08-09/10) - Setup Wizard/Connection Center/
     // Sync/Profile/Photos/Insights/AI/Attributes. نفس السبب زي كل
     // الكلاسات فوق: مش مسجّلة في classmap القديم بتاع composer.
@@ -299,6 +325,10 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/GoogleBusiness/GbpCompetitorBenchmarkService.php',
     // GBP Reputation Intelligence (2026-08-15): KPIs + اتجاهات + مخاطر + حصة ظهور
     APP_PATH . '/Services/GoogleBusiness/GbpReputationAnalyticsService.php',
+    // GBP Automated Reply Rules (2026-08-15): قواعد الرد التلقائي BirdAI-style
+    APP_PATH . '/Services/GoogleBusiness/GbpReplyRuleService.php',
+    // GBP Local SEO Audit (2026-08-15, Tier 3): تدقيق الحضور في البحث المحلي
+    APP_PATH . '/Services/GoogleBusiness/GbpLocalSeoAuditService.php',
     // Consolidated Multi-Phase Module (2026-08-08) - إضافات جديدة فقط.
     // ملحوظة: تعمّدنا استبعاد ملفات AI Orchestrator/Providers الجديدة
     // (AIOrchestrator/ModelRouter/TaskClassifier/BaseOpenAICompatibleProvider/

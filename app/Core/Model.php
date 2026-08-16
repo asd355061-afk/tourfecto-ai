@@ -6,8 +6,8 @@
  * @version 1.0.0
  * @author Tourfecto Team
  * @copyright 2026 Tourfecto
+ * @phpstan-consistent-constructor
  */
-
 abstract class Model
 {
     /**

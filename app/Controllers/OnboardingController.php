@@ -22,7 +22,21 @@
  * القديم بدل ما يعمل نسخة تانية)، تطبيع الروابط، وتوسيع /api/onboarding/status
  * بحالة الـAudit وخطة النمو والمنافسين.
  *
- * @version 1.0.0
+ * Phase 20 (Competitive): تحسينات تنافسية مقارنة بأفضل منصات الإعداد
+ * العالمية (Ubersuggest/SEMrush/Ahrefs - Site Audit، Wix/Shopify - Smart
+ * Detection، Userflow/Appcues - أونبوردينج UX):
+ *  - /api/onboarding/preview: كشف تلقائي لاسم النشاط من الموقع نفسه عند
+ *    كتابة الـURL (SSRF-protected عبر WebsiteSnapshotFetcher) - "لحظة
+ *    الـwow" زي ما بيحصل في Shopify/Wix.
+ *  - Industry Benchmark: مقارنة درجة الـSEO بمتوسط نفس النشاط (لو فيه
+ *    بيانات كفاية، والا نقع على baseline 55) بدل رقم ثابت - زي Ubersuggest.
+ *  - Quick Wins: أهم 3 ملاحظات فاشلة بترتيب الخطورة يتعرضوا فورًا بعد
+ *    التدقيق كإجراءات أولوية قابلة للتنفيذ - زي prioritized fixes في
+ *    SEMrush/Ahrefs.
+ *  - Competitor Snapshots: لقطة حقيقية للصفحة الرئيسية لكل منافس
+ *    (العنوان + الوصف + نوع الـCMS) تُعرض فورًا بعد الإعداد.
+ *
+ * @version 2.0.0
  */
 class OnboardingController extends Controller
 {
@@ -44,12 +58,23 @@ class OnboardingController extends Controller
         }
         $userId = (int) $this->user['id'];
 
+        $this->recordEvent('onboarding.submitted', ['industry' => $this->get('industry'), 'competitors' => count((array) $this->get('competitors', []))]);
+
         if (!$this->validate(['main_url' => 'required', 'business_name' => 'required'])) {
             return $this->error($this->tr('onboarding.api.invalid_data'), 422, $this->getErrors());
         }
 
         $mainUrl = $this->canonicalizeUrl((string) $this->get('main_url'));
         if ($mainUrl === null) {
+            return $this->error($this->tr('onboarding.api.invalid_url'), 422);
+        }
+
+        // Phase 20 - SSRF: الرابط ده هيعمل عليه السيرفر HTTP requests (Audit)
+        // فعشان كده لازم يتأكد إنه بيرجع لـ Host عام مش Internal/Private
+        // (169.254.169.254، 192.168.x.x، localhost...) - نفس الحماية الموجودة
+        // في أضافة المنافسين. المستخدم العادي ميعرفش يفرّق، فالخطأ المعروض
+        // ليه هو نفس "invalid_url".
+        if (class_exists('SsrfGuard') && !SsrfGuard::isSafe($mainUrl)) {
             return $this->error($this->tr('onboarding.api.invalid_url'), 422);
         }
 
@@ -65,9 +90,13 @@ class OnboardingController extends Controller
                 continue;
             }
             $domain = $this->canonicalizeUrl((string) $c['domain']);
+            $domain = $domain ?? trim((string) $c['domain']);
+            // SSRF: نفس منطق الحماية - نستبعد المنافسين اللي بيشاوروا على
+            // عناوين داخلية بدل ما نكسّر كل الـWizard على منافس واحد.
+            if (class_exists('SsrfGuard') && !SsrfGuard::isSafe($domain)) continue;
             $competitors[] = [
                 'name' => trim((string) ($c['name'] ?? '')),
-                'domain' => $domain ?? trim((string) $c['domain']),
+                'domain' => $domain,
             ];
         }
 
@@ -77,17 +106,22 @@ class OnboardingController extends Controller
                 return $this->error($this->tr('onboarding.api.create_failed'), 500);
             }
 
+            // Phase 20 - Rate limiting: لو في job شغال/معلّق أصلًا لنفس
+            // الموقع، ما ندفعش تاني (الواجهة بتحط polling) بدل ما نكبّس
+            // تدقيقات مكررة على نفس الموقع.
+            $activeJobId = $this->activeOnboardingJobId($websiteId);
+
             // ============ Async أولًا (طابور الخلفية) ============
             $queue = new QueueManager();
             if ($queue->isReady()) {
-                $jobId = $queue->push(OnboardingAuditJob::class, [
+                $jobId = $activeJobId ?: $queue->push(OnboardingAuditJob::class, [
                     'user_id' => $userId,
                     'website_id' => $websiteId,
                     'competitors' => $competitors,
                 ]);
 
                 if ($jobId) {
-                    $this->log('Onboarding Started (background)', ['website_id' => $websiteId, 'job_id' => $jobId]);
+                    $this->log('Onboarding Started (background)', ['website_id' => $websiteId, 'job_id' => $jobId, 'reused' => (bool) $activeJobId]);
 
                     return $this->success([
                         'website_id' => $websiteId,
@@ -98,6 +132,23 @@ class OnboardingController extends Controller
             }
 
             // ============ Fallback: تنفيذ متزامن ============
+            // Rate limiting: لو فيه تدقيق اكتمل للسايت ده خلال آخر 10 دقايق
+            // نعيد النتيجة دي بدل ما نشغّل تدقيق ثقيل تاني في نفس الـrequest.
+            $recentAudit = $this->recentCompletedAudit($websiteId, 10);
+            if ($recentAudit !== null) {
+                $this->log('Onboarding Reused Recent Audit', ['website_id' => $websiteId, 'audit_id' => $recentAudit['id']]);
+                return $this->success([
+                    'website_id' => $websiteId,
+                    'processing' => false,
+                    'website' => (new Website())->find($websiteId)->toArray(),
+                    'audit_reused' => true,
+                    'audit' => $recentAudit['audit_data'],
+                    'competitors_count' => $this->websiteCompetitorsCount($websiteId),
+                    'growth_plan_tasks' => $this->websiteGrowthPlan($websiteId)['tasks'],
+                    'ready' => true,
+                ], $this->tr('onboarding.result.title'));
+            }
+
             $result = $this->runSetup([
                 'user_id' => $userId,
                 'website_id' => $websiteId,
@@ -194,13 +245,85 @@ class OnboardingController extends Controller
 
         $auditData = $auditResult['data'] ?? null;
 
+        // ============ لقطات المنافسين الفورية (Phase 20) ============
+        // جلب حقيقي SSRF-protected للصفحة الرئيسية لكل منافس، عشان الواجهة
+        // تعرض "ماذا وجدنا عن منافسيك" مباشرة بعد الإعداد. أي فشل في جلب
+        // منافس واحد مايوقفش باقي الـSetup.
+        $this->saveCompetitorSnapshots($userId, $websiteId, $addedCompetitors);
+
+        // ============ Quick Wins: أهم الملاحظات الفاشلة (Phase 20) ============
+        // من نتائج الـAudit نفسها - أولوية عالية قابلة للتنفيذ، زي
+        // prioritized fixes في Ubersuggest/SEMrush/Ahrefs.
+        $quickWins = $this->deriveQuickWins($auditResult);
+
         return [
             'competitors_added' => $addedCompetitors,
             'audit' => $auditResult['success'] ?? false ? $auditData : null,
             'audit_error' => $auditResult['success'] ?? false ? null : ($auditResult['error'] ?? null),
             'growth_plan' => $strategyResult,
+            'industry_benchmark' => $this->industryBenchmark($websiteId),
+            'quick_wins' => $quickWins,
+            'competitors' => $this->competitorsWithSnapshots($websiteId),
             'ready' => true,
         ];
+    }
+
+    /**
+     * Phase 20 - Whitelist الـ industry: أي قيمة خارج القائمة المعروفة
+     * بتتحول لـ 'other' بدل ما تحفظ أي حاجة من الـClient في الداتابيز.
+     */
+    private function sanitizeIndustry(string $industry): string {
+        $allowed = ['tourism', 'tours', 'hotel', 'travel_agency', 'other'];
+        return in_array($industry, $allowed, true) ? $industry : 'other';
+    }
+
+    /**
+     * GET /api/onboarding/preview?url=https://example.com
+     * كشف تلقائي (Phase 20): جلب حقيقي آمن للصفحة العامة للموقع واستخراج
+     * اسم النشاط من الـ<title> + وصف الـmeta + نوع الـCMS. الواجهة بتستخدم
+     * ده عشان تقترح اسم الشركة/تعبّيه تلقائيًا فور ما العميل يكتب الـURL -
+     * نفس "لحظة الـwow" في Shopify/Wix.
+     */
+    public function preview(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        $url = $this->canonicalizeUrl((string) $this->get('url'));
+        if ($url === null) {
+            return $this->error($this->tr('onboarding.api.invalid_url'), 422);
+        }
+
+        if (!class_exists('WebsiteSnapshotFetcher')) {
+            return $this->success(['detected' => false]);
+        }
+
+        try {
+            $fetcher = new WebsiteSnapshotFetcher();
+            $result = $fetcher->fetch($url);
+
+            if (!$result['success']) {
+                return $this->success([
+                    'detected' => false,
+                    'error' => $result['error'] ?? 'fetch_failed',
+                ]);
+            }
+
+            $title = $result['title'] ?? null;
+
+            return $this->success([
+                'detected' => true,
+                'name' => $this->detectBusinessName($title),
+                'title' => $title,
+                'description' => $result['meta_description'] ?? null,
+                'cms' => isset($result['tech_signals']['cms_hint']) ? $result['tech_signals']['cms_hint'] : null,
+                'http_status' => $result['http_status'] ?? null,
+            ]);
+        } catch (Exception $e) {
+            Logger::error('Onboarding Preview Error', ['message' => $e->getMessage()]);
+            return $this->success(['detected' => false]);
+        }
     }
 
     /**
@@ -229,11 +352,16 @@ class OnboardingController extends Controller
         $query = isset($parts['query']) ? '?' . $parts['query'] : '';
         $scheme = strtolower($parts['scheme']) === 'http' && $port === ':80' ? 'http' : strtolower((string) $parts['scheme']);
 
-        if (!filter_var($scheme . '://' . $host . $port . ($path ?: '/'), FILTER_VALIDATE_URL)) {
+        // ملاحظة مهمة (إصلاح 2026-08-15): من غير `?: '/'` - كان بيديلنا
+        // رابط للـroot بـ trailing slash ('https://x.com/')، فكان منع
+        // التكرار (Phase 19) بيفشل لو الموقع اتحفظ قبل كده من غير slash
+        // (بيتنسج نسخة جديدة كل مرة). دلوقتي الرابط الطبيعي دايمًا من غير
+        // trailing slash، والتطبيع في findOrCreateWebsite بيطابق الاتنين.
+        if (!filter_var($scheme . '://' . $host . $port . $path, FILTER_VALIDATE_URL)) {
             return null;
         }
 
-        return $scheme . '://' . $host . $port . ($path ?: '/');
+        return $scheme . '://' . $host . $port . $path;
     }
 
     /**
@@ -243,17 +371,21 @@ class OnboardingController extends Controller
     private function findOrCreateWebsite(int $userId, string $mainUrl, array $competitors): int
     {
         $urlCol = Website::urlColumn();
+        // تطبيع المقارنة: نشيل الـtrailing slash من القيم المخزنة عشان نطابق
+        // المواقع اللي اتسجلت قديمًا بـ'/' والجديدة من غير '/' - منع التكرار
+        // بيشتغل بقاله في الحالتين.
+        $normUrl = rtrim($mainUrl, '/');
         $rows = $this->db->query(
-            "SELECT id FROM websites WHERE user_id = ? AND {$urlCol} = ? ORDER BY id DESC LIMIT 1",
-            [$userId, $mainUrl]
+            "SELECT id FROM websites WHERE user_id = ? AND TRIM(TRAILING '/' FROM {$urlCol}) = ? ORDER BY id DESC LIMIT 1",
+            [$userId, $normUrl]
         );
 
         $attrs = [
             'user_id' => $userId,
-            'main_url' => $mainUrl,
+            'main_url' => $normUrl,
             'company_name' => $this->get('business_name'),
-            'industry' => $this->get('industry', 'tourism'),
-            'target_language' => $this->get('target_language', 'ar'),
+            'industry' => $this->sanitizeIndustry((string) $this->get('industry', 'tourism')),
+            'target_language' => $this->get('target_language', current_lang()),
             'target_country' => $this->get('target_country'),
             'target_customers' => $this->get('target_customers'),
             'main_services' => $this->get('main_services'),
@@ -279,6 +411,7 @@ class OnboardingController extends Controller
             header('Location: /login');
             exit;
         }
+        $this->recordEvent('onboarding.viewed');
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderWizardPage();
         exit;
@@ -397,6 +530,7 @@ class OnboardingController extends Controller
         @keyframes ob-spin { to { transform: rotate(360deg); } }
         .ob-result-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--ob-line); font-size:13.5px; }
         .ob-result-row:last-child { border-bottom:none; }
+        .ob-row-ico { color: var(--ob-gold); display:inline-flex; align-items:center; flex-shrink:0; }
         .ob-score-badge { font-size:28px; font-weight:700; color: var(--ob-gold); font-family:'Fraunces',serif; }
         .ob-score-badge.muted { color: var(--ob-muted); font-size:20px; }
         .ob-cat-bar-wrap { display:flex; align-items:center; gap:12px; padding:7px 0; }
@@ -414,6 +548,9 @@ class OnboardingController extends Controller
         .ob-badge.err { background: rgba(229,115,109,.15); color: var(--ob-red); }
         .ob-trust { font-size:12px; color: var(--ob-muted); margin-top:16px; line-height:1.7; text-align:center; }
         .ob-trust strong { color: var(--ob-text); font-weight:600; }
+        .ob-detect-hint { display:none; font-size:12.5px; color: var(--ob-muted); background:#0A1220; border:1px solid var(--ob-line); border-radius:10px; padding:10px 12px; margin-top:-6px; margin-bottom:14px; line-height:1.7; }
+        .ob-detect-hint strong { color: var(--ob-text); }
+        .ob-detect-hint .ob-comp-add { margin-top:6px; }
         .ob-bench { font-size:12.5px; }
         .ob-bench-ico { width:16px; text-align:center; flex-shrink:0; }
         .ob-bench-up { color: var(--ob-green); }
@@ -435,7 +572,7 @@ class OnboardingController extends Controller
     <div class="ob-wrap">
         <div class="ob-card">
             <div class="ob-progress-wrap">
-                <div class="ob-progress-bar"><div class="ob-progress-fill" id="obProgressFill"></div></div>
+                <div class="ob-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="14" aria-label="{$t('onboarding.page_title')}"><div class="ob-progress-fill" id="obProgressFill"></div></div>
             </div>
             <div class="ob-steps" id="obSteps"></div>
 
@@ -444,8 +581,8 @@ class OnboardingController extends Controller
                 <h2 class="ob-h">{$t('onboarding.step1.title')}</h2>
                 <p class="ob-sub">{$t('onboarding.step1.sub')}</p>
                 <div class="ob-field">
-                    <label>{$t('onboarding.field.business_name')}</label>
-                    <input type="text" id="obBusinessName" placeholder="{$t('onboarding.field.business_name_ph')}" autocomplete="organization">
+                    <label for="obBusinessName">{$t('onboarding.field.business_name')}</label>
+                    <input type="text" id="obBusinessName" placeholder="{$t('onboarding.field.business_name_ph')}" autocomplete="organization" aria-required="true">
                 </div>
             </div>
 
@@ -454,9 +591,10 @@ class OnboardingController extends Controller
                 <h2 class="ob-h">{$t('onboarding.step2.title')}</h2>
                 <p class="ob-sub">{$t('onboarding.step2.sub')}</p>
                 <div class="ob-field">
-                    <label>{$t('onboarding.field.website_url')}</label>
-                    <input type="text" id="obMainUrl" inputmode="url" placeholder="https://example.com">
+                    <label for="obMainUrl">{$t('onboarding.field.website_url')}</label>
+                    <input type="text" id="obMainUrl" inputmode="url" placeholder="https://example.com" aria-required="true">
                 </div>
+                <div id="obDetectHint" class="ob-detect-hint"></div>
             </div>
 
             <!-- Step 3: Business Type -->
@@ -464,7 +602,7 @@ class OnboardingController extends Controller
                 <h2 class="ob-h">{$t('onboarding.step3.title')}</h2>
                 <p class="ob-sub">{$t('onboarding.step3.sub')}</p>
                 <div class="ob-field">
-                    <label>{$t('onboarding.field.industry')}</label>
+                    <label for="obIndustry">{$t('onboarding.field.industry')}</label>
                     <select id="obIndustry">
                         <option value="tours">{$t('onboarding.industry.tours')}</option>
                         <option value="hotel">{$t('onboarding.industry.hotel')}</option>
@@ -479,7 +617,7 @@ class OnboardingController extends Controller
                 <h2 class="ob-h">{$t('onboarding.step4.title')}</h2>
                 <p class="ob-sub">{$t('onboarding.step4.sub')}</p>
                 <div class="ob-field">
-                    <label>{$t('onboarding.field.target_country')}</label>
+                    <label for="obTargetCountry">{$t('onboarding.field.target_country')}</label>
                     <input type="text" id="obTargetCountry" placeholder="{$t('onboarding.field.target_country_ph')}">
                 </div>
             </div>
@@ -489,7 +627,7 @@ class OnboardingController extends Controller
                 <h2 class="ob-h">{$t('onboarding.step5.title')}</h2>
                 <p class="ob-sub">{$t('onboarding.step5.sub')}</p>
                 <div class="ob-field">
-                    <label>{$t('onboarding.field.target_customers')}</label>
+                    <label for="obTargetCustomers">{$t('onboarding.field.target_customers')}</label>
                     <textarea id="obTargetCustomers" rows="3" placeholder="{$t('onboarding.field.target_customers_ph')}"></textarea>
                 </div>
             </div>
@@ -499,7 +637,7 @@ class OnboardingController extends Controller
                 <h2 class="ob-h">{$t('onboarding.step6.title')}</h2>
                 <p class="ob-sub">{$t('onboarding.step6.sub')}</p>
                 <div class="ob-field">
-                    <label>{$t('onboarding.field.main_services')}</label>
+                    <label for="obMainServices">{$t('onboarding.field.main_services')}</label>
                     <textarea id="obMainServices" rows="3" placeholder="{$t('onboarding.field.main_services_ph')}"></textarea>
                 </div>
             </div>
@@ -532,7 +670,7 @@ class OnboardingController extends Controller
                 <div id="obResultBody"></div>
             </div>
 
-            <div id="obError" class="ob-error"></div>
+            <div id="obError" class="ob-error" role="alert" aria-live="assertive"></div>
 
             <div class="ob-nav-btns" id="obNavBtns">
                 <button class="ob-btn ghost" id="obBackBtn" onclick="obBack()">{$t('onboarding.nav.back')}</button>
@@ -547,6 +685,11 @@ class OnboardingController extends Controller
     const OB_TOTAL_STEPS = 7;
     const OB_MAX_COMPETITORS = 3;
     const OB_DRAFT_KEY = 'tf_onboarding_draft';
+    const OB_ICON = {
+        eyes: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>',
+        rocket: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"></path><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"></path></svg>',
+        info: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>'
+    };
     const OB_PREFILL = {$prefillJson};
     let obCurrentStep = 1;
     let obProcessing = false;
@@ -562,7 +705,10 @@ class OnboardingController extends Controller
         }
         wrap.innerHTML = html;
         const pct = Math.round((obCurrentStep / OB_TOTAL_STEPS) * 100);
-        document.getElementById('obProgressFill').style.width = pct + '%';
+        const fill = document.getElementById('obProgressFill');
+        fill.style.width = pct + '%';
+        const bar = fill.closest('.ob-progress-bar');
+        if (bar) bar.setAttribute('aria-valuenow', String(pct));
     }
 
     function obShowStep(n) {
@@ -599,9 +745,52 @@ class OnboardingController extends Controller
         }
         if (n === 2) {
             const url = document.getElementById('obMainUrl').value.trim();
-            if (!url || !/^https?:\\/\\//i.test(url)) { obShowError(obL('onboarding.error.website_url')); return false; }
+            // سيرفر أقدر - بيقبل دومين من غير scheme (canonicalizeUrl بيضيف https://)
+            const urlOk = /^(https?:\/\/)?([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}(\/\S*)?$/i.test(url);
+            if (!url || !urlOk) { obShowError(obL('onboarding.error.website_url')); return false; }
         }
         return true;
+    }
+
+    async function obDetectWebsite() {
+        const urlEl = document.getElementById('obMainUrl');
+        const url = urlEl.value.trim();
+        const hint = document.getElementById('obDetectHint');
+        if (!url || !hint || !/^(https?:\/\/)?([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}(\/\S*)?$/i.test(url)) {
+            if (hint) hint.style.display = 'none';
+            return;
+        }
+        hint.style.display = 'block';
+        hint.innerHTML = '<span class="ob-spinner light"></span> ' + obL('onboarding.detect.checking');
+        try {
+            const res = await fetchJSON('/api/onboarding/preview?url=' + encodeURIComponent(url));
+            if (res.success && res.data && res.data.detected) {
+                const d = res.data;
+                const nameEl = document.getElementById('obBusinessName');
+                const cms = d.cms ? ' <span class="ob-badge ok">' + esc(d.cms) + '</span>' : '';
+                if (d.name && !nameEl.value.trim()) {
+                    nameEl.value = d.name;
+                    obSaveDraft();
+                    hint.innerHTML = obL('onboarding.detect.found') + ' <strong>' + esc(d.name) + '</strong>' + cms +
+                        ' <button type="button" class="ob-comp-add" id="obUseDetected" style="width:auto;">' + esc(obL('onboarding.detect.use')) + '</button>';
+                } else if (d.name) {
+                    hint.innerHTML = obL('onboarding.detect.found') + ' <strong>' + esc(d.name) + '</strong>' + cms +
+                        ' <button type="button" class="ob-comp-add" id="obUseDetected" style="width:auto;">' + esc(obL('onboarding.detect.use')) + '</button>';
+                } else {
+                    hint.style.display = 'none';
+                    return;
+                }
+                const btn = document.getElementById('obUseDetected');
+                if (btn) btn.onclick = function () {
+                    if (d.name && !nameEl.value.trim()) { nameEl.value = d.name; obSaveDraft(); }
+                    hint.style.display = 'none';
+                };
+            } else {
+                hint.style.display = 'none';
+            }
+        } catch (e) {
+            hint.style.display = 'none';
+        }
     }
 
     function obSaveDraft() {
@@ -645,7 +834,7 @@ class OnboardingController extends Controller
         if (rows.length >= OB_MAX_COMPETITORS) return;
         const row = document.createElement('div');
         row.className = 'ob-competitor-row';
-        row.innerHTML = `<input type="text" class="ob-comp-name" placeholder="\${obL('onboarding.field.competitor_name_ph')}"><input type="text" class="ob-comp-domain" placeholder="\${obL('onboarding.field.competitor_domain_ph')}"><button type="button" class="ob-comp-remove" onclick="obRemoveCompetitor(this)" aria-label="\${obL('onboarding.nav.remove_competitor')}">×</button>`;
+        row.innerHTML = `<input type="text" class="ob-comp-name" placeholder="\${obL('onboarding.field.competitor_name_ph')}" aria-label="\${obL('onboarding.field.competitor_name_ph')}"><input type="text" class="ob-comp-domain" placeholder="\${obL('onboarding.field.competitor_domain_ph')}" aria-label="\${obL('onboarding.field.competitor_domain_ph')}"><button type="button" class="ob-comp-remove" onclick="obRemoveCompetitor(this)" aria-label="\${obL('onboarding.nav.remove_competitor')}">×</button>`;
         document.getElementById('obCompetitorRows').appendChild(row);
         obRenderCompetitors();
     }
@@ -668,7 +857,7 @@ class OnboardingController extends Controller
         prefilled.forEach(c => {
             const row = document.createElement('div');
             row.className = 'ob-competitor-row';
-            row.innerHTML = `<input type="text" class="ob-comp-name" value="\${esc(c.name || '')}" placeholder="\${obL('onboarding.field.competitor_name_ph')}"><input type="text" class="ob-comp-domain" value="\${esc(c.domain || '')}" placeholder="\${obL('onboarding.field.competitor_domain_ph')}"><button type="button" class="ob-comp-remove" onclick="obRemoveCompetitor(this)" aria-label="\${obL('onboarding.nav.remove_competitor')}">×</button>`;
+            row.innerHTML = `<input type="text" class="ob-comp-name" value="\${esc(c.name || '')}" placeholder="\${obL('onboarding.field.competitor_name_ph')}" aria-label="\${obL('onboarding.field.competitor_name_ph')}"><input type="text" class="ob-comp-domain" value="\${esc(c.domain || '')}" placeholder="\${obL('onboarding.field.competitor_domain_ph')}" aria-label="\${obL('onboarding.field.competitor_domain_ph')}"><button type="button" class="ob-comp-remove" onclick="obRemoveCompetitor(this)" aria-label="\${obL('onboarding.nav.remove_competitor')}">×</button>`;
             wrap.appendChild(row);
         });
         if (prefilled.length === 0) obAddCompetitor();
@@ -708,6 +897,8 @@ class OnboardingController extends Controller
 
     async function obSubmit() {
         obProcessing = true;
+        const submitBtn = document.getElementById('obNextBtn');
+        if (submitBtn) submitBtn.disabled = true;
         obStartRunning();
         const stageTimer = setInterval(obAdvanceStages, 1000);
         obAdvanceStages();
@@ -737,6 +928,7 @@ class OnboardingController extends Controller
             if (!res.success) {
                 clearInterval(stageTimer);
                 obProcessing = false;
+                if (submitBtn) submitBtn.disabled = false;
                 obCurrentStep = 7;
                 obShowStep(7);
                 obShowError(res.error || obL('onboarding.error.generic'));
@@ -757,6 +949,7 @@ class OnboardingController extends Controller
         } catch (e) {
             clearInterval(stageTimer);
             obProcessing = false;
+            if (submitBtn) submitBtn.disabled = false;
             obCurrentStep = 7;
             obShowStep(7);
             obShowError(obL('onboarding.error.generic'));
@@ -813,12 +1006,15 @@ class OnboardingController extends Controller
     function obRenderResult(data) {
         const box = document.getElementById('obResultBody');
         let html = '';
+        let showRetry = false;
 
         if (data.timeout) {
-            html += `<div class="ob-result-row">⏳ \${obL('onboarding.result.running_note')}</div>`;
+            html += `<div class="ob-result-row"><span class="ob-score-badge muted">—</span><span>\${obL('onboarding.result.running_note')}</span></div>`;
+            showRetry = true;
         } else if (data.audit_status === 'failed' || (data.audit && data.audit_error)) {
             const errMsg = (data.audit && data.audit_error) || obL('onboarding.result.audit_failed');
             html += `<div class="ob-result-row"><span class="ob-score-badge muted">—</span><span>\${esc(errMsg)}</span></div>`;
+            showRetry = true;
         } else {
             const score = data.audit_score != null ? Math.round(data.audit_score) : (data.audit && data.audit.audit ? Math.round(data.audit.audit.overall_score || 0) : null);
             const findingsCount = data.findings_count != null
@@ -828,12 +1024,27 @@ class OnboardingController extends Controller
             html += `<div class="ob-result-row"><span class="ob-score-badge\${score == null ? ' muted' : ''}">\${scoreLabel}</span><span>\${obL('onboarding.result.seo_score')} \${findingsCount || 0} \${obL('onboarding.result.findings_found')}</span></div>`;
 
             if (score != null) {
-                const diff = score - 55;
+                // Industry Benchmark (Phase 20): مقارنة بمتوسط نفس النشاط من
+                // بيانات المنصة الفعلية، والا baseline ثابت 55.
+                const bench = data.industry_benchmark != null ? Math.round(data.industry_benchmark) : 55;
+                const diff = score - bench;
                 const dir = diff >= 0 ? 'ob-bench-up' : 'ob-bench-down';
                 const txt = diff >= 0
                     ? obL('onboarding.result.benchmark_above') + ' ' + Math.abs(diff) + ' ' + obL('onboarding.result.benchmark_vs')
                     : obL('onboarding.result.benchmark_below') + ' ' + Math.abs(diff) + ' ' + obL('onboarding.result.benchmark_vs');
                 html += `<div class="ob-result-row ob-bench \${dir}"><span class="ob-bench-ico">\${diff >= 0 ? '▲' : '▼'}</span><span>\${txt}</span></div>`;
+            }
+
+            // Quick Wins (Phase 20): أهم 3 ملاحظات بترتيب الخطورة، من نتائج
+            // التدقيق الفعلية - زي prioritized fixes في Ubersuggest/SEMrush.
+            const wins = data.quick_wins || [];
+            if (wins.length) {
+                html += `<p class="ob-sub" style="margin:16px 0 6px;">\${obL('onboarding.result.quick_wins_title')}</p>`;
+                wins.slice(0, 3).forEach(function (w) {
+                    const sev = w.severity || 'medium';
+                    const cls = (sev === 'critical' || sev === 'high') ? 'err' : (sev === 'medium' ? 'warn' : 'ok');
+                    html += `<div class="ob-result-row"><span class="ob-badge \${cls}">\${esc(obCatLabel(w.category))}</span><span>\${esc(w.title)}</span></div>`;
+                });
             }
 
             const cats = data.category_scores || (data.audit && data.audit.category_scores) || null;
@@ -845,28 +1056,53 @@ class OnboardingController extends Controller
                     html += `<div class="ob-cat-bar-wrap"><span class="ob-cat-label">\${esc(obCatLabel(c.category))}</span><span class="ob-cat-track"><span class="ob-cat-fill \${cls}" style="width:\${val}%"></span></span><span class="ob-cat-value">\${val}</span></div>`;
                 });
             }
+
+            // Competitor snapshots (Phase 20): ماذا وجدنا عن منافسيك فورًا.
+            const compSnaps = data.competitors || [];
+            if (compSnaps.length) {
+                html += `<p class="ob-sub" style="margin:16px 0 6px;">\${obL('onboarding.result.competitors_title')}</p>`;
+                compSnaps.slice(0, 3).forEach(function (c) {
+                    const cms = c.cms ? ' <span class="ob-badge ok">' + esc(c.cms) + '</span>' : '';
+                    const unreachable = c.error
+                        ? ' <span class="ob-badge warn">' + esc(obL('onboarding.result.competitor_unreachable')) + '</span>'
+                        : '';
+                    html += `<div class="ob-result-row ob-bench"><span class="ob-bench-ico">🕵️</span><span><strong>\${esc(c.title || c.domain)}</strong><span class="ob-note" style="display:block;margin-top:2px;">\${esc(c.domain)}\${cms}</span></span>\${unreachable}</div>`;
+                });
+            }
         }
 
         const compsCount = data.competitors_count != null ? data.competitors_count : (data.competitors_added ? data.competitors_added.length : 0);
         if (compsCount) {
-            html += `<div class="ob-result-row">🕵️ \${compsCount} \${obL('onboarding.result.competitors_added')}</div>`;
+            html += `<div class="ob-result-row"><span class="ob-row-ico">\${OB_ICON.eyes}</span><span>\${compsCount} \${obL('onboarding.result.competitors_added')}</span></div>`;
         }
 
         const tasksCount = data.growth_plan_tasks != null
             ? data.growth_plan_tasks
             : (data.growth_plan && data.growth_plan.tasks ? data.growth_plan.tasks.length : 0);
         if (tasksCount) {
-            html += `<div class="ob-result-row">🚀 \${obL('onboarding.result.growth_plan_ready')} (\${tasksCount} \${obL('onboarding.result.tasks')})</div>`;
+            html += `<div class="ob-result-row"><span class="ob-row-ico">\${OB_ICON.rocket}</span><span>\${obL('onboarding.result.growth_plan_ready')} (\${tasksCount} \${obL('onboarding.result.tasks')})</span></div>`;
         } else {
-            html += `<div class="ob-result-row">ℹ️ \${obL('onboarding.result.growth_plan_pending')}</div>`;
+            html += `<div class="ob-result-row"><span class="ob-row-ico">\${OB_ICON.info}</span><span>\${obL('onboarding.result.growth_plan_pending')}</span></div>`;
         }
 
         box.innerHTML = html;
+        const retryBtn = showRetry
+            ? `<button class="ob-btn primary block" style="text-align:center;" onclick="obRetry()">\${obL('onboarding.result.retry')}</button>`
+            : '';
         box.insertAdjacentHTML('beforeend', `
             <div class="ob-result-actions">
+                \${retryBtn}
                 <a href="/dashboard/growth" class="ob-btn primary block" style="text-decoration:none;text-align:center;">\${obL('onboarding.result.cta_growth')}</a>
                 <a href="/website-optimizer" class="ob-btn ghost block" style="text-decoration:none;text-align:center;">\${obL('onboarding.result.view_audit')}</a>
             </div>`);
+    }
+
+    function obRetry() {
+        if (obProcessing) return;
+        document.getElementById('obResultBody').innerHTML = '';
+        obCurrentStep = 7;
+        obShowStep(7);
+        obSubmit();
     }
 
     document.addEventListener('keydown', function (e) {
@@ -883,6 +1119,7 @@ class OnboardingController extends Controller
     ['obBusinessName', 'obMainUrl', 'obTargetCountry', 'obTargetCustomers', 'obMainServices'].forEach(function (id) {
         document.getElementById(id).addEventListener('input', obSaveDraft);
     });
+    document.getElementById('obMainUrl').addEventListener('blur', obDetectWebsite);
     document.getElementById('obIndustry').addEventListener('change', obSaveDraft);
     document.getElementById('obCompetitorRows').addEventListener('input', obSaveDraft);
 
@@ -927,6 +1164,9 @@ HTML;
                     'audit_completed_at' => $audit['completed_at'],
                     'findings_count' => $audit['findings_count'],
                     'category_scores' => $audit['category_scores'],
+                    'industry_benchmark' => $audit['benchmark'],
+                    'quick_wins' => $audit['quick_wins'],
+                    'competitors' => $this->competitorsWithSnapshots($id),
                     'growth_plan_ready' => $growth['ready'],
                     'growth_plan_tasks' => $growth['tasks'],
                     'growth_plan_summary' => $growth['summary'],
@@ -946,7 +1186,7 @@ HTML;
     /** حالة أحدث تدقيق SEO للموقع (wo_audits). */
     private function websiteAuditStatus(int $websiteId): array
     {
-        $empty = ['status' => 'none', 'score' => null, 'completed_at' => null, 'findings_count' => 0, 'category_scores' => []];
+        $empty = ['status' => 'none', 'score' => null, 'completed_at' => null, 'findings_count' => 0, 'category_scores' => [], 'benchmark' => null, 'quick_wins' => []];
         try {
             $rows = $this->db->query(
                 "SELECT id, status, overall_score, completed_at FROM wo_audits WHERE website_id = ? ORDER BY id DESC LIMIT 1",
@@ -985,6 +1225,8 @@ HTML;
                 'completed_at' => $rows[0]['completed_at'] ?? null,
                 'findings_count' => $findingsCount,
                 'category_scores' => $categoryScores,
+                'benchmark' => $this->industryBenchmark($websiteId),
+                'quick_wins' => $this->quickWins($websiteId),
             ];
         } catch (Exception $e) {
             return $empty;
@@ -1030,5 +1272,317 @@ HTML;
         } catch (Exception $e) {
             return 0;
         }
+    }
+
+    /**
+     * Phase 20 - Rate limiting: هل فيه OnboardingAuditJob شغال/معلّق لنفس
+     * الموقع؟ بيرجّع الـ job_id لو موجود (عشان الواجهة تحط polling عليه)
+     * أو null لو مفيش. أي خطأ DB بيرجّع null (مش نحظر الـOnboarding).
+     */
+    private function activeOnboardingJobId(int $websiteId): ?int {
+        try {
+            // REGEXP بحدود: يطابق `"website_id":5` بس مش `"website_id":50`
+            $rows = $this->db->query(
+                "SELECT id FROM jobs WHERE job_class = ? AND status IN ('pending','processing') AND payload REGEXP ? ORDER BY id DESC LIMIT 1",
+                ['OnboardingAuditJob', '"website_id":' . (int) $websiteId . '([^0-9]|$)']
+            );
+            return !empty($rows) ? (int) $rows[0]['id'] : null;
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Phase 20 - Rate limiting: أحدث تدقيق مكتمل للموقع خلال آخر N دقيقة.
+     * بيرجّع ['id','audit_data'] أو null. audit_data بنفس شكل اللي
+     * websiteAuditStatus بترجّعه عشان الواجهة تعرضه مباشرة.
+     */
+    private function recentCompletedAudit(int $websiteId, int $withinMinutes): ?array {
+        try {
+            $rows = $this->db->query(
+                "SELECT id, overall_score, completed_at FROM wo_audits WHERE website_id = ? AND status = 'completed' AND completed_at >= NOW() - INTERVAL ? MINUTE ORDER BY id DESC LIMIT 1",
+                [$websiteId, $withinMinutes]
+            );
+            if (empty($rows)) return null;
+
+            $auditId = (int) $rows[0]['id'];
+            $findingsCount = (int) ($this->db->query(
+                "SELECT COUNT(*) AS c FROM wo_audit_findings WHERE audit_id = ?",
+                [$auditId]
+            )[0]['c'] ?? 0);
+
+            $catRows = $this->db->query(
+                "SELECT category, COUNT(*) AS total, SUM(status = 'pass') AS passed FROM wo_audit_findings WHERE audit_id = ? GROUP BY category ORDER BY total DESC",
+                [$auditId]
+            );
+            $categoryScores = [];
+            foreach ($catRows as $cr) {
+                $total = (int) ($cr['total'] ?? 0);
+                if ($total <= 0) continue;
+                $passed = (int) ($cr['passed'] ?? 0);
+                $categoryScores[] = [
+                    'category' => (string) $cr['category'],
+                    'score' => (int) round(($passed / $total) * 100),
+                ];
+            }
+
+            return [
+                'id' => $auditId,
+                'audit_data' => [
+                    'audit_score' => $rows[0]['overall_score'] !== null ? (int) round((float) $rows[0]['overall_score']) : null,
+                    'findings_count' => $findingsCount,
+                    'category_scores' => $categoryScores,
+                ],
+            ];
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Industry Benchmark (Phase 20): متوسط درجة الـSEO لكل التدقيقات المكتملة
+     * على المواقع اللي في نفس النشاط. لو البيانات مش كفاية (أقل من 5
+     * عيّنات) نرجّع null والواجهة بتقع على baseline ثابت (55). كده المقارنة
+     * بتاعة العميل معقولة ومبنية على بيانات حقيقية من المنصة نفسها، مش رقم
+     * من برة - نفس منطق benchmarks في Ubersuggest/SEMrush.
+     */
+    private function industryBenchmark(int $websiteId): ?int
+    {
+        try {
+            $row = $this->db->query(
+                "SELECT industry FROM websites WHERE id = ? LIMIT 1",
+                [$websiteId]
+            );
+            if (empty($row) || empty($row[0]['industry'])) {
+                return null;
+            }
+
+            // 'tourism' و 'tours' هما نفس الفئة عمليًا (الـWizard بيكتب
+            // 'tours' والـdefault القديم كان 'tourism') - نجمّعهم سوا.
+            $industry = $row[0]['industry'];
+            $norm = in_array($industry, ['tourism', 'tours'], true) ? 'tourism_group' : (string) $industry;
+
+            $agg = $this->db->query(
+                "SELECT AVG(a.overall_score) AS avg_score, COUNT(*) AS n
+                 FROM wo_audits a
+                 INNER JOIN websites w ON w.id = a.website_id
+                 WHERE a.status = 'completed' AND a.overall_score IS NOT NULL
+                   AND (
+                     w.industry = ?
+                     OR (w.industry IN ('tourism','tours') AND ? = 'tourism_group')
+                   )",
+                [$industry, $norm]
+            );
+
+            $n = (int) ($agg[0]['n'] ?? 0);
+            $avg = $agg[0]['avg_score'] ?? null;
+            if ($n >= 5 && $avg !== null) {
+                return (int) round((float) $avg);
+            }
+        } catch (Exception $e) {
+            // مفيش بيانات/جدول - نسقط على الـbaseline
+        }
+
+        return null;
+    }
+
+    /**
+     * Quick Wins (Phase 20): أهم 3 ملاحظات فاشلة في آخر تدقيق، بترتيب
+     * الخطورة (critical → high → medium → low). بتتشتق من wo_audit_findings
+     * الفعلية فالنتيجة دقيقة ومبنية على ما وجده التدقيق فعلًا، مش تخمين.
+     */
+    private function quickWins(int $websiteId): array
+    {
+        try {
+            $rows = $this->db->query(
+                "SELECT f.category, f.title, f.severity
+                 FROM wo_audits a
+                 INNER JOIN wo_audit_findings f ON f.audit_id = a.id
+                 WHERE a.website_id = ? AND a.status = 'completed' AND f.status = 'fail'
+                 ORDER BY a.id DESC,
+                   CASE f.severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END ASC,
+                   f.id ASC
+                 LIMIT 3",
+                [$websiteId]
+            );
+
+            $out = [];
+            foreach ($rows as $r) {
+                $out[] = [
+                    'category' => (string) ($r['category'] ?? ''),
+                    'title' => (string) ($r['title'] ?? ''),
+                    'severity' => (string) ($r['severity'] ?? 'medium'),
+                ];
+            }
+            return $out;
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    /** اشتقاق الـQuick Wins من نتيجة الـAudit مباشرة (المسار المتزامن). */
+    private function deriveQuickWins(array $auditResult): array
+    {
+        if (!($auditResult['success'] ?? false)) {
+            return [];
+        }
+
+        $findings = (array) ($auditResult['data']['findings'] ?? []);
+        $fails = array_filter($findings, function ($f) {
+            return is_array($f) && (($f['status'] ?? '') === 'fail') && !empty($f['title']);
+        });
+
+        if (empty($fails)) {
+            return [];
+        }
+
+        $severityRank = ['critical' => 0, 'high' => 1, 'medium' => 2, 'low' => 3];
+        usort($fails, function ($a, $b) use ($severityRank) {
+            $ra = $severityRank[$a['severity'] ?? 'medium'] ?? 3;
+            $rb = $severityRank[$b['severity'] ?? 'medium'] ?? 3;
+            return $ra <=> $rb;
+        });
+
+        $out = [];
+        foreach (array_slice($fails, 0, 3) as $f) {
+            $out[] = [
+                'category' => (string) ($f['category'] ?? ''),
+                'title' => (string) $f['title'],
+                'severity' => (string) ($f['severity'] ?? 'medium'),
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * جلب وحفظ لقطة حقيقية (SSRF-protected) للصفحة الرئيسية لكل منافس
+     * مُضاف. اللقطات بتتخزن في onboarding_competitor_snapshots لعرض فوري،
+     * وبتتكتب من جديد مع كل Onboarding (مش سجل تاريخي). لو جدول الـ
+     * snapshots لسه مش متعمل على السيرفر بنتجاهل بهدوء - الفشل مش حاسم.
+     */
+    private function saveCompetitorSnapshots(int $userId, int $websiteId, array $competitors): void
+    {
+        if (empty($competitors) || !class_exists('WebsiteSnapshotFetcher')) {
+            return;
+        }
+
+        try {
+            $this->db->exec(
+                "DELETE FROM onboarding_competitor_snapshots WHERE website_id = ?",
+                [$websiteId]
+            );
+        } catch (Exception $e) {
+            return; // الجدول لسه مش موجود - نتجاهل
+        }
+
+        $fetcher = new WebsiteSnapshotFetcher();
+        foreach ($competitors as $c) {
+            $domain = trim((string) ($c['competitor_domain'] ?? $c['domain'] ?? ''));
+            if ($domain === '') {
+                continue;
+            }
+
+            $fetchUrl = preg_match('#^https?://#i', $domain) ? $domain : 'https://' . $domain;
+            $result = $fetcher->fetch($fetchUrl);
+
+            try {
+                $this->db->exec(
+                    "INSERT INTO onboarding_competitor_snapshots
+                     (website_id, user_id, competitor_id, domain, title, meta_description, tech_signals, http_status, error)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [
+                        $websiteId,
+                        $userId,
+                        isset($c['id']) ? (int) $c['id'] : null,
+                        $domain,
+                        $result['title'] ?? null,
+                        $result['meta_description'] ?? null,
+                        !empty($result['tech_signals']) ? json_encode($result['tech_signals']) : null,
+                        $result['http_status'] ?? null,
+                        $result['success'] ? null : substr((string) ($result['error'] ?? ''), 0, 250),
+                    ]
+                );
+            } catch (Exception $e) {
+                // منافس واحد فشل تخزين لقطته مايوقفش الباقي
+            }
+        }
+    }
+
+    /** لقطات المنافسين المسجلة للموقع (لسهلة العرض فورًا في الواجهة). */
+    private function competitorsWithSnapshots(int $websiteId): array
+    {
+        try {
+            $rows = $this->db->query(
+                "SELECT domain, title, meta_description, tech_signals, http_status, error, fetched_at
+                 FROM onboarding_competitor_snapshots
+                 WHERE website_id = ?
+                 ORDER BY id ASC",
+                [$websiteId]
+            );
+
+            $out = [];
+            foreach ($rows as $r) {
+                $signals = $r['tech_signals'] ? json_decode((string) $r['tech_signals'], true) : null;
+                $out[] = [
+                    'domain' => (string) ($r['domain'] ?? ''),
+                    'title' => (string) ($r['title'] ?? ''),
+                    'meta_description' => (string) ($r['meta_description'] ?? ''),
+                    'http_status' => $r['http_status'] !== null ? (int) $r['http_status'] : null,
+                    'cms' => is_array($signals) && !empty($signals['cms_hint']) ? (string) $signals['cms_hint'] : null,
+                    'error' => $r['error'] !== null ? (string) $r['error'] : null,
+                    'fetched_at' => (string) ($r['fetched_at'] ?? ''),
+                ];
+            }
+            return $out;
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Phase 20 - أحداث الفونيل (Analytics): الهدف منها قياس نسبة التسرب في
+     * الـOnboarding (viewed → submitted → completed). بنستخدم ActivityLog
+     * الموحّد لو متاح، وبنكتفي بـLogger لو مش متحمّل (class_exists) - وأي
+     * فشل تسجيل ميكسّرش الطلب أبدًا.
+     */
+    private function recordEvent(string $action, array $meta = []): void {
+        try {
+            if (class_exists('ActivityLog')) {
+                ActivityLog::record('onboarding', $action, [
+                    'user_id' => (int) ($this->user['id'] ?? 0),
+                    'meta' => $meta,
+                ]);
+            } else {
+                $this->log('Onboarding Event: ' . $action, $meta);
+            }
+        } catch (Throwable $e) {
+            if (class_exists('Logger')) {
+                Logger::error('Onboarding recordEvent failed: ' . $e->getMessage());
+            }
+        }
+    }
+
+    /**
+     * استخراج اسم النشاط التقريبي من عنوان الموقع: بياخد الجزء قبل أول
+     * فاصل (|, -, —, ·, •, 🙂...) ويشيل أي مسافات زايدة. بيرجع null لو
+     * الاسم الناتج صغير/كبير بشكل مش منطقي - في الحالة دي الواجهة
+     * مش بتقترح حاجة ومستخبية إن الموقع ملوش <title> واضح.
+     */
+    private function detectBusinessName(?string $title): ?string
+    {
+        if ($title === null || trim($title) === '') {
+            return null;
+        }
+
+        $parts = preg_split('/\s*(?:\||[\-–—]|·|•|🙂)\s*/u', trim($title), 2);
+        $name = trim((string) ($parts[0] ?? $title));
+        $name = preg_replace('/\s+/u', ' ', $name) ?? $name;
+
+        $length = mb_strlen($name);
+        if ($length < 2 || $length > 60) {
+            return null;
+        }
+
+        return $name;
     }
 }
