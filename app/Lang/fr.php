@@ -399,6 +399,7 @@ return [
     'onboarding.result.audit_pending' => 'L\'analyse technique est toujours en cours - consultez le tableau de bord « Croissance & IA » sous peu',
     'onboarding.result.audit_failed' => 'Impossible de terminer l\'audit technique - réessayez depuis le tableau de bord',
     'onboarding.result.running_note' => 'Nous analysons encore votre site en arrière-plan - le résultat complet apparaîtra dans votre tableau de bord dans une minute',
+    'onboarding.result.retry' => 'Réessayer',
     'onboarding.result.categories_title' => 'Performances par catégorie',
     'onboarding.result.category.speed' => 'Vitesse',
     'onboarding.result.category.seo' => 'SEO',

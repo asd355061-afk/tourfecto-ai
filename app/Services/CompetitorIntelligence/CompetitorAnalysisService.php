@@ -178,6 +178,13 @@ class CompetitorAnalysisService
      */
     protected function fetchHtml(string $url): ?string
     {
+        // Phase 20 - Defense-in-depth ضد SSRF: حتى لو الـURL عدّى فحص
+        // الـController، نتأكد هنا تاني قبل ما السيرفر يطلب أي حاجة
+        // (metadata endpoints / شبكات داخلية / منافذ غير قياسية).
+        if (class_exists('SsrfGuard') && !SsrfGuard::isSafe($url)) {
+            return null;
+        }
+
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,

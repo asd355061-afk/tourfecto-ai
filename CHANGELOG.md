@@ -368,4 +368,22 @@ Feature موجودة يمكن إعادة استخدامها، استخدمها �
 - `php -l` على كل الملفات المعدَّلة - لا أخطاء.
 - `php tests/Unit/RevenueIntelligenceTest.php` → 151/151 ✅ (100%).
 
+## 6) ملحق: ربط الملفات الجديدة بالتحميل اليدوي + الجدولة اليومية
+
+المستضيف الحقيقي **بلا SSH/composer**، فأي كلاس جديد لازم يُضاف يدويًا
+لقائمة التحميل اليدوي وإلا يفشل بـ "class not found" وقت التشغيل. هذا
+الملحق يوثّق الربط المكتمل بعد المراجعة:
+
+- `public_html/index.php`: `RevenueRetentionService.php` +
+  `RevenueCopilotService.php` + `SendRevenueDigestJob.php` أُضيفت إلى
+  `$optionalNewClassFiles` (بنفس نمط كل كلاسات الموديول).
+- `cron/bootstrap.php`: كل خدمات Revenue Intelligence + `Mailer` + `User`
+  أُضيفت إلى `$optionalJobDependencyFiles` — لأن `SendRevenueDigestJob`
+  و`RecomputeRevenueInsightsJob` يُنفّذان من `process_queue.php` (سياق
+  queue worker مختلف عن الـweb index.php).
+- `cron/revenue_intelligence_scan.php`: بجانب جدولة إعادة الحساب اليومية،
+  أصبح يجدول `SendRevenueDigestJob` أيضًا (بتأخير 60 ثانية) لكل مستخدم
+  نشط — فالإيميل اليومي يُجدول فعليًا وليس مجرد كلاس غير مستخدم.
+
+
 

@@ -765,3 +765,32 @@ CREATE TABLE IF NOT EXISTS `analytics_country_breakdown` (
     FOREIGN KEY (`website_id`) REFERENCES `websites`(`id`) ON DELETE CASCADE,
     UNIQUE KEY `uniq_website_date_country` (`website_id`, `date`, `country_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='توزيع الزيارات حسب الدولة';
+-- ============================================================
+-- Tourfecto - Migration: جداول GBP Reputation Intelligence (Tier 1/2)
+-- @date 2026-08-15
+--
+-- قواعد الرد التلقائي على مراجعات Google Business Profile (نفس فكرة
+-- Birdeye BirdAI / Podium Automation Rules). بدون هذا الجدول هتشتغل
+-- باقي الموديول بشكل كامل، بس خاصية الرد الآلي + التنبيهات هتعطل.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `gbp_reply_rules` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `website_id` INT(11) NOT NULL,
+    `user_id` INT(11) NOT NULL,
+    `name` VARCHAR(150) NOT NULL,
+    `trigger_type` ENUM('rating_range', 'sentiment') NOT NULL DEFAULT 'rating_range',
+    `rating_min` DECIMAL(2,1) DEFAULT NULL,
+    `rating_max` DECIMAL(2,1) DEFAULT NULL,
+    `sentiment_label` ENUM('positive', 'neutral', 'negative', 'mixed') DEFAULT NULL,
+    `action` ENUM('auto_reply', 'notify', 'auto_reply_and_notify') NOT NULL DEFAULT 'auto_reply',
+    `reply_mode` ENUM('ai', 'custom') NOT NULL DEFAULT 'ai',
+    `custom_reply` TEXT DEFAULT NULL,
+    `priority` INT(11) NOT NULL DEFAULT 100,
+    `enabled` TINYINT(1) NOT NULL DEFAULT 1,
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_reply_rules_website` (`website_id`),
+    KEY `idx_reply_rules_user` (`user_id`),
+    KEY `idx_reply_rules_enabled` (`enabled`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='قواعد الرد التلقائي على مراجعات GBP';

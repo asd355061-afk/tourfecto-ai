@@ -400,6 +400,7 @@ return [
     'onboarding.result.audit_pending' => 'التحليل التقني لسه بيشتغل - راجع لوحة "النمو والذكاء الاصطناعي" بعد شوية',
     'onboarding.result.audit_failed' => 'تعذر إكمال التدقيق التقني - جرب تاني من لوحة التحكم',
     'onboarding.result.running_note' => 'لسه بنحلل موقعك في الخلفية - هتلاقي النتيجة كاملة في لوحة التحكم خلال دقيقة',
+    'onboarding.result.retry' => 'إعادة المحاولة',
     'onboarding.result.categories_title' => 'الأداء حسب الفئة',
     'onboarding.result.category.speed' => 'السرعة',
     'onboarding.result.category.seo' => 'تحسين محركات البحث',
@@ -1861,7 +1862,6 @@ return [
     'crm.custom_fields.not_found' => 'الحقل غير موجود',
     'crm.custom_fields.duplicate' => 'يوجد حقل بنفس المفتاح لهذا الكيان مسبقًا',
     'crm.custom_fields.empty' => 'لا توجد حقول مخصصة بعد',
-
 
     'rep.reviews.page.title' => 'إدارة السمعة',
     'rep.reviews.page.subtitle' => 'مراجعات العملاء من كل المنصات',

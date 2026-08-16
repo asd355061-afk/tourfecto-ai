@@ -663,6 +663,7 @@ $router->post('/api/gbp/reply-rules', 'GbpProfileController', 'createReplyRule',
 $router->put('/api/gbp/reply-rules/{id}', 'GbpProfileController', 'updateReplyRule', ['AuthMiddleware']);
 $router->delete('/api/gbp/reply-rules/{id}', 'GbpProfileController', 'deleteReplyRule', ['AuthMiddleware']);
 $router->post('/api/gbp/reply-rules/apply/{review_id}', 'GbpProfileController', 'applyReplyRules', ['AuthMiddleware']);
+$router->get('/api/gbp/local-seo-audit', 'GbpProfileController', 'localSeoAudit', ['AuthMiddleware']);
 $router->post('/api/gbp/sync/{website_id}', 'GbpProfileController', 'sync', ['AuthMiddleware']);
 $router->get('/api/gbp/profile', 'GbpProfileController', 'getProfile', ['AuthMiddleware']);
 $router->post('/api/gbp/profile', 'GbpProfileController', 'updateProfile', ['AuthMiddleware']);

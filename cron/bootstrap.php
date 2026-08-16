@@ -57,6 +57,8 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Services/GoogleBusiness/GbpReputationAnalyticsService.php',
     APP_PATH . '/Services/GoogleBusiness/GbpReplyRuleService.php',
     APP_PATH . '/Services/GoogleBusiness/GbpCompetitorBenchmarkService.php',
+    // GBP Local SEO Audit (2026-08-15, Tier 3) - تستخدمه أدوات تقارير الكرون
+    APP_PATH . '/Services/GoogleBusiness/GbpLocalSeoAuditService.php',
     // AI Chat Platform (2026-08-08) - process_ai_followups.php محتاج
     // FollowUpAutomationService + ChatManager + UnifiedInboxService
     // (بالترتيب: ChatManager بينادي new UnifiedInboxService في
@@ -86,6 +88,27 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Models/AiCustomerMemory.php',
     APP_PATH . '/Models/AiKnowledgeBase.php',
     APP_PATH . '/Models/AiUsageLog.php',
+    // AI Revenue Intelligence (2026-08-15): SendRevenueDigestJob +
+    // RecomputeRevenueInsightsJob بيتنفذوا من process_queue.php (الـ queue
+    // worker) فمحتاجين كل خدمات الموديول متحمّلة في سياق الـ Cron/Worker -
+    // مختلف عن public_html/index.php اللي بيخدم الـ web. الترتيب: الـ Gateway
+    // الأول، وبعده الـ Services، وبعده الـ Mailer (الـ Jobs بتنادي new).
+    APP_PATH . '/Services/RevenueIntelligence/RevenueDataGateway.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueOverviewService.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueForecastService.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueAnomalyService.php',
+    APP_PATH . '/Services/RevenueIntelligence/CustomerRevenueService.php',
+    APP_PATH . '/Services/RevenueIntelligence/PipelineRevenueService.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueInsightService.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueActionService.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueCacheService.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueAssistantService.php',
+    APP_PATH . '/Services/RevenueIntelligence/ExecutiveSummaryService.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueInsightPersister.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueRetentionService.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueCopilotService.php',
+    APP_PATH . '/Services/Mailer.php',
+    APP_PATH . '/Models/User.php',
 ];
 foreach ($optionalJobDependencyFiles as $depFile) {
     if (file_exists($depFile)) {

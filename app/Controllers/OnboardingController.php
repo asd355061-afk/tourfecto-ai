@@ -44,12 +44,23 @@ class OnboardingController extends Controller
         }
         $userId = (int) $this->user['id'];
 
+        $this->recordEvent('onboarding.submitted', ['industry' => $this->get('industry'), 'competitors' => count((array) $this->get('competitors', []))]);
+
         if (!$this->validate(['main_url' => 'required', 'business_name' => 'required'])) {
             return $this->error($this->tr('onboarding.api.invalid_data'), 422, $this->getErrors());
         }
 
         $mainUrl = $this->canonicalizeUrl((string) $this->get('main_url'));
         if ($mainUrl === null) {
+            return $this->error($this->tr('onboarding.api.invalid_url'), 422);
+        }
+
+        // Phase 20 - SSRF: الرابط ده هيعمل عليه السيرفر HTTP requests (Audit)
+        // فعشان كده لازم يتأكد إنه بيرجع لـ Host عام مش Internal/Private
+        // (169.254.169.254، 192.168.x.x، localhost...) - نفس الحماية الموجودة
+        // في أضافة المنافسين. المستخدم العادي ميعرفش يفرّق، فالخطأ المعروض
+        // ليه هو نفس "invalid_url".
+        if (class_exists('SsrfGuard') && !SsrfGuard::isSafe($mainUrl)) {
             return $this->error($this->tr('onboarding.api.invalid_url'), 422);
         }
 
@@ -65,9 +76,13 @@ class OnboardingController extends Controller
                 continue;
             }
             $domain = $this->canonicalizeUrl((string) $c['domain']);
+            $domain = $domain ?? trim((string) $c['domain']);
+            // SSRF: نفس منطق الحماية - نستبعد المنافسين اللي بيشاوروا على
+            // عناوين داخلية بدل ما نكسّر كل الـWizard على منافس واحد.
+            if (class_exists('SsrfGuard') && !SsrfGuard::isSafe($domain)) continue;
             $competitors[] = [
                 'name' => trim((string) ($c['name'] ?? '')),
-                'domain' => $domain ?? trim((string) $c['domain']),
+                'domain' => $domain,
             ];
         }
 
@@ -77,17 +92,22 @@ class OnboardingController extends Controller
                 return $this->error($this->tr('onboarding.api.create_failed'), 500);
             }
 
+            // Phase 20 - Rate limiting: لو في job شغال/معلّق أصلًا لنفس
+            // الموقع، ما ندفعش تاني (الواجهة بتحط polling) بدل ما نكبّس
+            // تدقيقات مكررة على نفس الموقع.
+            $activeJobId = $this->activeOnboardingJobId($websiteId);
+
             // ============ Async أولًا (طابور الخلفية) ============
             $queue = new QueueManager();
             if ($queue->isReady()) {
-                $jobId = $queue->push(OnboardingAuditJob::class, [
+                $jobId = $activeJobId ?: $queue->push(OnboardingAuditJob::class, [
                     'user_id' => $userId,
                     'website_id' => $websiteId,
                     'competitors' => $competitors,
                 ]);
 
                 if ($jobId) {
-                    $this->log('Onboarding Started (background)', ['website_id' => $websiteId, 'job_id' => $jobId]);
+                    $this->log('Onboarding Started (background)', ['website_id' => $websiteId, 'job_id' => $jobId, 'reused' => (bool) $activeJobId]);
 
                     return $this->success([
                         'website_id' => $websiteId,
@@ -98,6 +118,23 @@ class OnboardingController extends Controller
             }
 
             // ============ Fallback: تنفيذ متزامن ============
+            // Rate limiting: لو فيه تدقيق اكتمل للسايت ده خلال آخر 10 دقايق
+            // نعيد النتيجة دي بدل ما نشغّل تدقيق ثقيل تاني في نفس الـrequest.
+            $recentAudit = $this->recentCompletedAudit($websiteId, 10);
+            if ($recentAudit !== null) {
+                $this->log('Onboarding Reused Recent Audit', ['website_id' => $websiteId, 'audit_id' => $recentAudit['id']]);
+                return $this->success([
+                    'website_id' => $websiteId,
+                    'processing' => false,
+                    'website' => (new Website())->find($websiteId)->toArray(),
+                    'audit_reused' => true,
+                    'audit' => $recentAudit['audit_data'],
+                    'competitors_count' => $this->websiteCompetitorsCount($websiteId),
+                    'growth_plan_tasks' => $this->websiteGrowthPlan($websiteId)['tasks'],
+                    'ready' => true,
+                ], $this->tr('onboarding.result.title'));
+            }
+
             $result = $this->runSetup([
                 'user_id' => $userId,
                 'website_id' => $websiteId,
@@ -204,6 +241,15 @@ class OnboardingController extends Controller
     }
 
     /**
+     * Phase 20 - Whitelist الـ industry: أي قيمة خارج القائمة المعروفة
+     * بتتحول لـ 'other' بدل ما تحفظ أي حاجة من الـClient في الداتابيز.
+     */
+    private function sanitizeIndustry(string $industry): string {
+        $allowed = ['tourism', 'tours', 'hotel', 'travel_agency', 'other'];
+        return in_array($industry, $allowed, true) ? $industry : 'other';
+    }
+
+    /**
      * تطبيع الرابط: بيضيف https:// لو مفيش scheme، بيخلي الـhost lowercase،
      * وبيشيل أي trailing slash. بيرجع null لو الرابط مش صالح خالص.
      */
@@ -252,8 +298,8 @@ class OnboardingController extends Controller
             'user_id' => $userId,
             'main_url' => $mainUrl,
             'company_name' => $this->get('business_name'),
-            'industry' => $this->get('industry', 'tourism'),
-            'target_language' => $this->get('target_language', 'ar'),
+            'industry' => $this->sanitizeIndustry((string) $this->get('industry', 'tourism')),
+            'target_language' => $this->get('target_language', current_lang()),
             'target_country' => $this->get('target_country'),
             'target_customers' => $this->get('target_customers'),
             'main_services' => $this->get('main_services'),
@@ -279,6 +325,7 @@ class OnboardingController extends Controller
             header('Location: /login');
             exit;
         }
+        $this->recordEvent('onboarding.viewed');
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderWizardPage();
         exit;
@@ -397,6 +444,7 @@ class OnboardingController extends Controller
         @keyframes ob-spin { to { transform: rotate(360deg); } }
         .ob-result-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--ob-line); font-size:13.5px; }
         .ob-result-row:last-child { border-bottom:none; }
+        .ob-row-ico { color: var(--ob-gold); display:inline-flex; align-items:center; flex-shrink:0; }
         .ob-score-badge { font-size:28px; font-weight:700; color: var(--ob-gold); font-family:'Fraunces',serif; }
         .ob-score-badge.muted { color: var(--ob-muted); font-size:20px; }
         .ob-cat-bar-wrap { display:flex; align-items:center; gap:12px; padding:7px 0; }
@@ -435,7 +483,7 @@ class OnboardingController extends Controller
     <div class="ob-wrap">
         <div class="ob-card">
             <div class="ob-progress-wrap">
-                <div class="ob-progress-bar"><div class="ob-progress-fill" id="obProgressFill"></div></div>
+                <div class="ob-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="14" aria-label="{$t('onboarding.page_title')}"><div class="ob-progress-fill" id="obProgressFill"></div></div>
             </div>
             <div class="ob-steps" id="obSteps"></div>
 
@@ -444,8 +492,8 @@ class OnboardingController extends Controller
                 <h2 class="ob-h">{$t('onboarding.step1.title')}</h2>
                 <p class="ob-sub">{$t('onboarding.step1.sub')}</p>
                 <div class="ob-field">
-                    <label>{$t('onboarding.field.business_name')}</label>
-                    <input type="text" id="obBusinessName" placeholder="{$t('onboarding.field.business_name_ph')}" autocomplete="organization">
+                    <label for="obBusinessName">{$t('onboarding.field.business_name')}</label>
+                    <input type="text" id="obBusinessName" placeholder="{$t('onboarding.field.business_name_ph')}" autocomplete="organization" aria-required="true">
                 </div>
             </div>
 
@@ -454,8 +502,8 @@ class OnboardingController extends Controller
                 <h2 class="ob-h">{$t('onboarding.step2.title')}</h2>
                 <p class="ob-sub">{$t('onboarding.step2.sub')}</p>
                 <div class="ob-field">
-                    <label>{$t('onboarding.field.website_url')}</label>
-                    <input type="text" id="obMainUrl" inputmode="url" placeholder="https://example.com">
+                    <label for="obMainUrl">{$t('onboarding.field.website_url')}</label>
+                    <input type="text" id="obMainUrl" inputmode="url" placeholder="https://example.com" aria-required="true">
                 </div>
             </div>
 
@@ -464,7 +512,7 @@ class OnboardingController extends Controller
                 <h2 class="ob-h">{$t('onboarding.step3.title')}</h2>
                 <p class="ob-sub">{$t('onboarding.step3.sub')}</p>
                 <div class="ob-field">
-                    <label>{$t('onboarding.field.industry')}</label>
+                    <label for="obIndustry">{$t('onboarding.field.industry')}</label>
                     <select id="obIndustry">
                         <option value="tours">{$t('onboarding.industry.tours')}</option>
                         <option value="hotel">{$t('onboarding.industry.hotel')}</option>
@@ -479,7 +527,7 @@ class OnboardingController extends Controller
                 <h2 class="ob-h">{$t('onboarding.step4.title')}</h2>
                 <p class="ob-sub">{$t('onboarding.step4.sub')}</p>
                 <div class="ob-field">
-                    <label>{$t('onboarding.field.target_country')}</label>
+                    <label for="obTargetCountry">{$t('onboarding.field.target_country')}</label>
                     <input type="text" id="obTargetCountry" placeholder="{$t('onboarding.field.target_country_ph')}">
                 </div>
             </div>
@@ -489,7 +537,7 @@ class OnboardingController extends Controller
                 <h2 class="ob-h">{$t('onboarding.step5.title')}</h2>
                 <p class="ob-sub">{$t('onboarding.step5.sub')}</p>
                 <div class="ob-field">
-                    <label>{$t('onboarding.field.target_customers')}</label>
+                    <label for="obTargetCustomers">{$t('onboarding.field.target_customers')}</label>
                     <textarea id="obTargetCustomers" rows="3" placeholder="{$t('onboarding.field.target_customers_ph')}"></textarea>
                 </div>
             </div>
@@ -499,7 +547,7 @@ class OnboardingController extends Controller
                 <h2 class="ob-h">{$t('onboarding.step6.title')}</h2>
                 <p class="ob-sub">{$t('onboarding.step6.sub')}</p>
                 <div class="ob-field">
-                    <label>{$t('onboarding.field.main_services')}</label>
+                    <label for="obMainServices">{$t('onboarding.field.main_services')}</label>
                     <textarea id="obMainServices" rows="3" placeholder="{$t('onboarding.field.main_services_ph')}"></textarea>
                 </div>
             </div>
@@ -532,7 +580,7 @@ class OnboardingController extends Controller
                 <div id="obResultBody"></div>
             </div>
 
-            <div id="obError" class="ob-error"></div>
+            <div id="obError" class="ob-error" role="alert" aria-live="assertive"></div>
 
             <div class="ob-nav-btns" id="obNavBtns">
                 <button class="ob-btn ghost" id="obBackBtn" onclick="obBack()">{$t('onboarding.nav.back')}</button>
@@ -547,6 +595,11 @@ class OnboardingController extends Controller
     const OB_TOTAL_STEPS = 7;
     const OB_MAX_COMPETITORS = 3;
     const OB_DRAFT_KEY = 'tf_onboarding_draft';
+    const OB_ICON = {
+        eyes: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>',
+        rocket: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"></path><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"></path></svg>',
+        info: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>'
+    };
     const OB_PREFILL = {$prefillJson};
     let obCurrentStep = 1;
     let obProcessing = false;
@@ -562,7 +615,10 @@ class OnboardingController extends Controller
         }
         wrap.innerHTML = html;
         const pct = Math.round((obCurrentStep / OB_TOTAL_STEPS) * 100);
-        document.getElementById('obProgressFill').style.width = pct + '%';
+        const fill = document.getElementById('obProgressFill');
+        fill.style.width = pct + '%';
+        const bar = fill.closest('.ob-progress-bar');
+        if (bar) bar.setAttribute('aria-valuenow', String(pct));
     }
 
     function obShowStep(n) {
@@ -645,7 +701,7 @@ class OnboardingController extends Controller
         if (rows.length >= OB_MAX_COMPETITORS) return;
         const row = document.createElement('div');
         row.className = 'ob-competitor-row';
-        row.innerHTML = `<input type="text" class="ob-comp-name" placeholder="\${obL('onboarding.field.competitor_name_ph')}"><input type="text" class="ob-comp-domain" placeholder="\${obL('onboarding.field.competitor_domain_ph')}"><button type="button" class="ob-comp-remove" onclick="obRemoveCompetitor(this)" aria-label="\${obL('onboarding.nav.remove_competitor')}">×</button>`;
+        row.innerHTML = `<input type="text" class="ob-comp-name" placeholder="\${obL('onboarding.field.competitor_name_ph')}" aria-label="\${obL('onboarding.field.competitor_name_ph')}"><input type="text" class="ob-comp-domain" placeholder="\${obL('onboarding.field.competitor_domain_ph')}" aria-label="\${obL('onboarding.field.competitor_domain_ph')}"><button type="button" class="ob-comp-remove" onclick="obRemoveCompetitor(this)" aria-label="\${obL('onboarding.nav.remove_competitor')}">×</button>`;
         document.getElementById('obCompetitorRows').appendChild(row);
         obRenderCompetitors();
     }
@@ -668,7 +724,7 @@ class OnboardingController extends Controller
         prefilled.forEach(c => {
             const row = document.createElement('div');
             row.className = 'ob-competitor-row';
-            row.innerHTML = `<input type="text" class="ob-comp-name" value="\${esc(c.name || '')}" placeholder="\${obL('onboarding.field.competitor_name_ph')}"><input type="text" class="ob-comp-domain" value="\${esc(c.domain || '')}" placeholder="\${obL('onboarding.field.competitor_domain_ph')}"><button type="button" class="ob-comp-remove" onclick="obRemoveCompetitor(this)" aria-label="\${obL('onboarding.nav.remove_competitor')}">×</button>`;
+            row.innerHTML = `<input type="text" class="ob-comp-name" value="\${esc(c.name || '')}" placeholder="\${obL('onboarding.field.competitor_name_ph')}" aria-label="\${obL('onboarding.field.competitor_name_ph')}"><input type="text" class="ob-comp-domain" value="\${esc(c.domain || '')}" placeholder="\${obL('onboarding.field.competitor_domain_ph')}" aria-label="\${obL('onboarding.field.competitor_domain_ph')}"><button type="button" class="ob-comp-remove" onclick="obRemoveCompetitor(this)" aria-label="\${obL('onboarding.nav.remove_competitor')}">×</button>`;
             wrap.appendChild(row);
         });
         if (prefilled.length === 0) obAddCompetitor();
@@ -708,6 +764,8 @@ class OnboardingController extends Controller
 
     async function obSubmit() {
         obProcessing = true;
+        const submitBtn = document.getElementById('obNextBtn');
+        if (submitBtn) submitBtn.disabled = true;
         obStartRunning();
         const stageTimer = setInterval(obAdvanceStages, 1000);
         obAdvanceStages();
@@ -737,6 +795,7 @@ class OnboardingController extends Controller
             if (!res.success) {
                 clearInterval(stageTimer);
                 obProcessing = false;
+                if (submitBtn) submitBtn.disabled = false;
                 obCurrentStep = 7;
                 obShowStep(7);
                 obShowError(res.error || obL('onboarding.error.generic'));
@@ -757,6 +816,7 @@ class OnboardingController extends Controller
         } catch (e) {
             clearInterval(stageTimer);
             obProcessing = false;
+            if (submitBtn) submitBtn.disabled = false;
             obCurrentStep = 7;
             obShowStep(7);
             obShowError(obL('onboarding.error.generic'));
@@ -813,12 +873,15 @@ class OnboardingController extends Controller
     function obRenderResult(data) {
         const box = document.getElementById('obResultBody');
         let html = '';
+        let showRetry = false;
 
         if (data.timeout) {
-            html += `<div class="ob-result-row">⏳ \${obL('onboarding.result.running_note')}</div>`;
+            html += `<div class="ob-result-row"><span class="ob-score-badge muted">—</span><span>\${obL('onboarding.result.running_note')}</span></div>`;
+            showRetry = true;
         } else if (data.audit_status === 'failed' || (data.audit && data.audit_error)) {
             const errMsg = (data.audit && data.audit_error) || obL('onboarding.result.audit_failed');
             html += `<div class="ob-result-row"><span class="ob-score-badge muted">—</span><span>\${esc(errMsg)}</span></div>`;
+            showRetry = true;
         } else {
             const score = data.audit_score != null ? Math.round(data.audit_score) : (data.audit && data.audit.audit ? Math.round(data.audit.audit.overall_score || 0) : null);
             const findingsCount = data.findings_count != null
@@ -849,24 +912,36 @@ class OnboardingController extends Controller
 
         const compsCount = data.competitors_count != null ? data.competitors_count : (data.competitors_added ? data.competitors_added.length : 0);
         if (compsCount) {
-            html += `<div class="ob-result-row">🕵️ \${compsCount} \${obL('onboarding.result.competitors_added')}</div>`;
+            html += `<div class="ob-result-row"><span class="ob-row-ico">\${OB_ICON.eyes}</span><span>\${compsCount} \${obL('onboarding.result.competitors_added')}</span></div>`;
         }
 
         const tasksCount = data.growth_plan_tasks != null
             ? data.growth_plan_tasks
             : (data.growth_plan && data.growth_plan.tasks ? data.growth_plan.tasks.length : 0);
         if (tasksCount) {
-            html += `<div class="ob-result-row">🚀 \${obL('onboarding.result.growth_plan_ready')} (\${tasksCount} \${obL('onboarding.result.tasks')})</div>`;
+            html += `<div class="ob-result-row"><span class="ob-row-ico">\${OB_ICON.rocket}</span><span>\${obL('onboarding.result.growth_plan_ready')} (\${tasksCount} \${obL('onboarding.result.tasks')})</span></div>`;
         } else {
-            html += `<div class="ob-result-row">ℹ️ \${obL('onboarding.result.growth_plan_pending')}</div>`;
+            html += `<div class="ob-result-row"><span class="ob-row-ico">\${OB_ICON.info}</span><span>\${obL('onboarding.result.growth_plan_pending')}</span></div>`;
         }
 
         box.innerHTML = html;
+        const retryBtn = showRetry
+            ? `<button class="ob-btn primary block" style="text-align:center;" onclick="obRetry()">\${obL('onboarding.result.retry')}</button>`
+            : '';
         box.insertAdjacentHTML('beforeend', `
             <div class="ob-result-actions">
+                \${retryBtn}
                 <a href="/dashboard/growth" class="ob-btn primary block" style="text-decoration:none;text-align:center;">\${obL('onboarding.result.cta_growth')}</a>
                 <a href="/website-optimizer" class="ob-btn ghost block" style="text-decoration:none;text-align:center;">\${obL('onboarding.result.view_audit')}</a>
             </div>`);
+    }
+
+    function obRetry() {
+        if (obProcessing) return;
+        document.getElementById('obResultBody').innerHTML = '';
+        obCurrentStep = 7;
+        obShowStep(7);
+        obSubmit();
     }
 
     document.addEventListener('keydown', function (e) {
@@ -1029,6 +1104,94 @@ HTML;
             )[0]['c'] ?? 0);
         } catch (Exception $e) {
             return 0;
+        }
+    }
+
+    /**
+     * Phase 20 - Rate limiting: هل فيه OnboardingAuditJob شغال/معلّق لنفس
+     * الموقع؟ بيرجّع الـ job_id لو موجود (عشان الواجهة تحط polling عليه)
+     * أو null لو مفيش. أي خطأ DB بيرجّع null (مش نحظر الـOnboarding).
+     */
+    private function activeOnboardingJobId(int $websiteId): ?int {
+        try {
+            // REGEXP بحدود: يطابق `"website_id":5` بس مش `"website_id":50`
+            $rows = $this->db->query(
+                "SELECT id FROM jobs WHERE job_class = ? AND status IN ('pending','processing') AND payload REGEXP ? ORDER BY id DESC LIMIT 1",
+                ['OnboardingAuditJob', '"website_id":' . (int) $websiteId . '([^0-9]|$)']
+            );
+            return !empty($rows) ? (int) $rows[0]['id'] : null;
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Phase 20 - Rate limiting: أحدث تدقيق مكتمل للموقع خلال آخر N دقيقة.
+     * بيرجّع ['id','audit_data'] أو null. audit_data بنفس شكل اللي
+     * websiteAuditStatus بترجّعه عشان الواجهة تعرضه مباشرة.
+     */
+    private function recentCompletedAudit(int $websiteId, int $withinMinutes): ?array {
+        try {
+            $rows = $this->db->query(
+                "SELECT id, overall_score, completed_at FROM wo_audits WHERE website_id = ? AND status = 'completed' AND completed_at >= NOW() - INTERVAL ? MINUTE ORDER BY id DESC LIMIT 1",
+                [$websiteId, $withinMinutes]
+            );
+            if (empty($rows)) return null;
+
+            $auditId = (int) $rows[0]['id'];
+            $findingsCount = (int) ($this->db->query(
+                "SELECT COUNT(*) AS c FROM wo_audit_findings WHERE audit_id = ?",
+                [$auditId]
+            )[0]['c'] ?? 0);
+
+            $catRows = $this->db->query(
+                "SELECT category, COUNT(*) AS total, SUM(status = 'pass') AS passed FROM wo_audit_findings WHERE audit_id = ? GROUP BY category ORDER BY total DESC",
+                [$auditId]
+            );
+            $categoryScores = [];
+            foreach ($catRows as $cr) {
+                $total = (int) ($cr['total'] ?? 0);
+                if ($total <= 0) continue;
+                $passed = (int) ($cr['passed'] ?? 0);
+                $categoryScores[] = [
+                    'category' => (string) $cr['category'],
+                    'score' => (int) round(($passed / $total) * 100),
+                ];
+            }
+
+            return [
+                'id' => $auditId,
+                'audit_data' => [
+                    'audit_score' => $rows[0]['overall_score'] !== null ? (int) round((float) $rows[0]['overall_score']) : null,
+                    'findings_count' => $findingsCount,
+                    'category_scores' => $categoryScores,
+                ],
+            ];
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Phase 20 - أحداث الفونيل (Analytics): الهدف منها قياس نسبة التسرب في
+     * الـOnboarding (viewed → submitted → completed). بنستخدم ActivityLog
+     * الموحّد لو متاح، وبنكتفي بـLogger لو مش متحمّل (class_exists) - وأي
+     * فشل تسجيل ميكسّرش الطلب أبدًا.
+     */
+    private function recordEvent(string $action, array $meta = []): void {
+        try {
+            if (class_exists('ActivityLog')) {
+                ActivityLog::record('onboarding', $action, [
+                    'user_id' => (int) ($this->user['id'] ?? 0),
+                    'meta' => $meta,
+                ]);
+            } else {
+                $this->log('Onboarding Event: ' . $action, $meta);
+            }
+        } catch (Throwable $e) {
+            if (class_exists('Logger')) {
+                Logger::error('Onboarding recordEvent failed: ' . $e->getMessage());
+            }
         }
     }
 }

@@ -399,6 +399,7 @@ return [
     'onboarding.result.audit_pending' => 'Die technische Analyse läuft noch - prüfen Sie das Dashboard „Wachstum & KI" in Kürze',
     'onboarding.result.audit_failed' => 'Das technische Audit konnte nicht abgeschlossen werden - versuchen Sie es erneut über das Dashboard',
     'onboarding.result.running_note' => 'Wir analysieren Ihre Website noch im Hintergrund - das vollständige Ergebnis erscheint innerhalb einer Minute in Ihrem Dashboard',
+    'onboarding.result.retry' => 'Erneut versuchen',
     'onboarding.result.categories_title' => 'Leistung nach Kategorie',
     'onboarding.result.category.speed' => 'Geschwindigkeit',
     'onboarding.result.category.seo' => 'SEO',
