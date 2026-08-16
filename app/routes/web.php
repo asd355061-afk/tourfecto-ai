@@ -166,6 +166,7 @@ $router->group('/chat', function ($router) {
     $router->get('/pending', 'ChatController', 'showPending', ['AuthMiddleware']);
     $router->get('/settings', 'ChatController', 'showSettings', ['AuthMiddleware']);
     $router->get('/knowledge-base', 'ChatController', 'showKnowledgeBase', ['AuthMiddleware']);
+    $router->get('/learning', 'ChatController', 'showLearning', ['AuthMiddleware']);
     $router->get('/followup-settings', 'ChatController', 'showFollowupSettings', ['AuthMiddleware']);
     $router->get('/analytics', 'ChatController', 'showAnalytics', ['AuthMiddleware']);
     $router->get('/leads', 'ChatController', 'showLeads', ['AuthMiddleware']);
