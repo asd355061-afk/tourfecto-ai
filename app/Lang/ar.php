@@ -1862,9 +1862,6 @@ return [
     'crm.custom_fields.not_found' => 'الحقل غير موجود',
     'crm.custom_fields.duplicate' => 'يوجد حقل بنفس المفتاح لهذا الكيان مسبقًا',
     'crm.custom_fields.empty' => 'لا توجد حقول مخصصة بعد',
----count---
-72
-
 
     'rep.reviews.page.title' => 'إدارة السمعة',
     'rep.reviews.page.subtitle' => 'مراجعات العملاء من كل المنصات',
