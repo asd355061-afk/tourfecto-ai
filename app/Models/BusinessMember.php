@@ -26,6 +26,12 @@ class BusinessMember extends Model {
         'invite_expires_at',
     ];
 
+    // F3 (Phase 26 security audit): حماية دفاعية - حتى لو حد استدعى
+    // toArray() على أي صف BusinessMember، التوكن ووقت الانتهاء مش
+    // هيتسرّبوا. كل المسارات الحالية بتستخدم memberToArray() الصريح
+    // في BusinessTeamService أصلاً - دي طبقة تانية.
+    protected $hidden = ['invite_token', 'invite_expires_at'];
+
     /**
      * هل العضو ده نشط فعليًا (مش دعوة معلقة)؟
      */

@@ -1,8 +1,8 @@
-# Business Control Center — Phases 20–25 Changelog
+# Business Control Center — Phases 20–26 Changelog
 
 **Branch:** `feat/business-control-center`
 **Date:** 2026-08-17
-**Scope:** DB quality pass, validation hardening, API design review, Frontend UX, Notifications expansion, Tests
+**Scope:** DB quality pass, validation hardening, API design review, Frontend UX, Notifications expansion, Tests, Security audit fixes
 
 ---
 
@@ -79,9 +79,30 @@ Two real defects surfaced and fixed in `BusinessServiceManager`:
 
 Total business test suite: **48 assertions across 6 test files, all green** — Wiring 6, Phase8912 9, Access 9, Readiness 7, Notification 8, ServiceManager 9.
 
+## Phase 26 — Security audit fixes
+
+Full read-only review of every business file + the shared framework pieces surfaced seven findings. Four are **in-scope and fixed**, three are **app-wide architectural decisions documented for the platform owners** (not module bugs):
+
+**Fixed in this module:**
+
+- **F2 (HIGH) — privilege escalation via invites**: an admin could invite another admin (and, before the RBAC refactor, worse). Now `invite()` accepts the actor's role and rejects `role=admin` unless the actor is the **owner** — enforced in **two layers**: the controller gates on the actor's role (403) *and* `BusinessTeamService::invite()` re-checks it (defense in depth), mirroring the existing `changeRole()` rule. `validate(['email' => 'required|email|max_length:255'])` re-added in the controller.
+- **F3 (MED) — invite token exposure**: `BusinessMember` now lists `invite_token` / `invite_expires_at` in `$hidden`, so any accidental `toArray()` cannot leak the accept token. The explicit `memberToArray()` path in `BusinessTeamService` already filtered them — this is the second layer.
+- **F5 (MED) — unbounded pending invites**: new `MAX_PENDING_INVITES = 25` cap per business in `BusinessTeamService::invite()`, preventing junk flooding of `business_members` and the owner's notification feed.
+- **F6 (LOW) — XSS edge in shared `esc()`**: the shared client-side `esc()` in `panel.js` now also encodes `'` (`&#39;`), closing a single-quote-context injection gap used across the panel.
+
+**Documented, not module-fixed (framework-wide decisions, out of scope):**
+
+- **F1 (MED) — no CSRF tokens on `/api/business/*`**: this is the app-wide, deliberate design — all `/api/*` paths are exempted in `AuthController::csrfGuard`, and protection relies on `SameSite=Lax/Strict` cookies + CORS origin allow-list. Enforcing CSRF here alone would diverge from every other module; recommended as a platform-wide follow-up.
+- **F7 (LOW) — auth token accepted via GET query param**: lives in the shared `AuthMiddleware`, used by all modules; tightening it to POST/Authorization header only is a platform change.
+- **F4 (LOW) — pending invites are never emailed to the invitee**: `BusinessNotificationService` notifies the *owner*; there is no mailer channel for unregistered invitees in this app (API-first flow returns `invite_link` to the caller). Product decision, not a security defect.
+
+New `tests/Unit/Business/BusinessSecurityTest.php` — **5/5** covering the admin-invite rule (F2, both admin and member actor roles), the pending-cap constant (F5), and token hiding (F3).
+
 ## Tests
 
 - `tests/Unit/Business/BusinessCenterWiringTest.php` — **new**, 6/6: route registered, sidebar entry, classmap registration, controller exports `index()`, all five API endpoints wired in JS, translation keys complete across 4 languages.
 - `tests/Unit/Business/BusinessAccessServiceTest.php` — extended with a `testSensitiveCapabilities()` case for `manage_keys` / `read_audit`; now **8/8**.
 - Regressions: `BusinessCenterPhase8912Test.php` 9/9, `BusinessReadinessServiceTest.php` 7/7.
+- `tests/Unit/Business/BusinessSecurityTest.php` — **new**, 5/5 (F2/F3/F5).
 - `php -l` clean on every touched file; route-duplication check clean (the `/sitemap.xml` double registration at HomeController:14 / AssetController:246 is pre-existing and unrelated).
+- Total business suite: **53 assertions across 7 test files, all green**.

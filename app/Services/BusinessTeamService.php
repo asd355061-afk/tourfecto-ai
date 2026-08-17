@@ -20,6 +20,8 @@
 class BusinessTeamService {
 
     public const INVITE_TTL_DAYS = 7;
+    /** F5 (Phase 26): الحد الأقصى للدعوات المعلقة لكل Business */
+    public const MAX_PENDING_INVITES = 25;
 
     /**
      * دعوة مستخدم للانضمام لفريق الـBusiness.
@@ -29,10 +31,20 @@ class BusinessTeamService {
      *
      * @return array{ok:bool,error?:string,type?:string,member?:array,invite_link?:string}
      */
-    public function invite(int $businessId, int $actorUserId, string $email, string $role): array {
+    public function invite(int $businessId, int $actorUserId, string $email, string $role, ?string $actorRole = null): array {
         $email = strtolower(trim($email));
         if (!in_array($role, BusinessAccessService::allowedMemberRoles(), true)) {
             return ['ok' => false, 'error' => 'دور غير صالح'];
+        }
+
+        // F2 (Phase 26 security audit) - طبقة دفاع ثانية جوه الـService:
+        // تولية دور admin حق المالك بس، حتى لو الـController اتخطى الفحص.
+        // (نفس القاعدة اللي changeRole() بيفرضها على التعديلات.)
+        if ($role === BusinessAccessService::ROLE_ADMIN) {
+            $actorRole = $actorRole ?? (new BusinessAccessService())->roleOf($businessId, $actorUserId);
+            if ($actorRole !== BusinessAccessService::ROLE_OWNER) {
+                return ['ok' => false, 'error' => 'تولية دور admin يتطلب المالك'];
+            }
         }
 
         $existing = (new Business())->find($businessId);
@@ -78,6 +90,18 @@ class BusinessTeamService {
                 )
             );
             return ['ok' => true, 'type' => 'added', 'member' => $this->memberToArray($member)];
+        }
+
+        // F5 (Phase 26 security audit): حد أقصى للدعوات المعلقة لكل Business -
+        // يمنع إغراق جدول business_members وصندوق إشعارات المالك بدعوات
+        // لا نهائية (الـRateLimiter العام مش بيغطي الحالة دي).
+        $pendingCount = count((new BusinessMember())->where(
+            ['business_id' => $businessId, 'status' => 'invited'],
+            [],
+            0
+        ));
+        if ($pendingCount >= self::MAX_PENDING_INVITES) {
+            return ['ok' => false, 'error' => 'وصلت للحد الأقصى من الدعوات المعلقة (' . self::MAX_PENDING_INVITES . ') - انتظر قبولها أو احذفها أولًا'];
         }
 
         // مستخدم غير مسجل -> دعوة معلقة

@@ -75,18 +75,30 @@ class BusinessTeamController extends Controller {
             return $this->error('ليست لديك صلاحية إدارة الفريق', 403);
         }
 
-        if (!$this->validate(['email' => 'required|email|max_length:255', 'role' => 'required'])) {
+        if (!$this->validate(['email' => 'required|email|max_length:255'])) {
             return $this->error('بيانات غير صحيحة', 422, $this->getErrors());
         }
         if (!in_array($this->get('role'), BusinessAccessService::allowedMemberRoles(), true)) {
             return $this->error('دور غير صالح', 422, ['role' => ['القيم المسموحة: ' . implode(', ', BusinessAccessService::allowedMemberRoles())]]);
         }
 
+        // F2 (Phase 26 security audit): منع تصعيد الصلاحيات - الـadmin ميقدرش
+        // يدعو/يفعّل admin جديد. تولية دور admin حق المالك بس (نفس القاعدة
+        // اللي changeRole() بيفرضها بالفعل). من غير الفحص ده، أي admin يقدر
+        // يصنّع admins إضافية - كل واحد بيكسب canManageKeys/canReadAudit.
+        $requestedRole = (string) $this->get('role');
+        $actorRole = $this->access()->roleOf($businessId, $userId);
+        if ($requestedRole === BusinessAccessService::ROLE_ADMIN
+            && $actorRole !== BusinessAccessService::ROLE_OWNER) {
+            return $this->error('تولية دور admin يتطلب المالك', 403);
+        }
+
         $result = (new BusinessTeamService())->invite(
             $businessId,
             $userId,
             (string) $this->get('email'),
-            (string) $this->get('role')
+            $requestedRole,
+            $actorRole
         );
         if (!$result['ok']) {
             return $this->error($result['error'], 409);
