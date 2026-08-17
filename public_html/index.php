@@ -49,6 +49,12 @@ $optionalNewClassFiles = [
     APP_PATH . '/Models/SubscriptionPlan.php',
     APP_PATH . '/Models/WalletTransaction.php',
     APP_PATH . '/Models/WalletRechargeCard.php',
+    // Billing Phase 19/21: WalletService بينادي SubscriptionPeriod
+    // (renewSubscriptionFromBalance) وBillingRules (planChangeCharge) مباشرة
+    // من غير class_exists - لازم يتحمّلوا قبله هنا وإلا "Class not found"
+    // على أي تجديد/تغيير باقة (السيرفر مفيهوش composer dump-autoload).
+    APP_PATH . '/Services/Subscription/SubscriptionPeriod.php',
+    APP_PATH . '/Services/Subscription/BillingRules.php',
     APP_PATH . '/Services/Subscription/WalletService.php',
     APP_PATH . '/Controllers/WalletController.php',
     APP_PATH . '/Models/FaqItem.php',
