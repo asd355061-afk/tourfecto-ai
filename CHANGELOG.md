@@ -129,6 +129,32 @@ Feature موجودة يمكن إعادة استخدامها، استخدمها �
 
 ---
 
+## إعادة تصميم واجهة `/chat` الأمامية (feature/ai-chat-improvements — 2026-08-17)
+
+طبقة مكوّنات احترافية جديدة فوق Compass Design System (نفس الرموز
+اللونية `--panel-*` تمامًا، بدون لوحة ألوان جديدة):
+
+- **`public_html/assets/css/chat.css`**: طبقة مكوّنات `/chat` (~840
+  سطر) — شريط أدوات وبحث، فلترة سريعة (ch-chip)، بطاقات إحصاءات
+  (ch-stats)، أفاتار+شارة قناة، كروت المحادثات (شريط أولوية/غير مقروءة/
+  Scorebar)، فقاعات الشات (وارد/صادر/AI)، بطاقات اقتراح AI، مربع
+  الرد (composer)، لوحة الـLead (hero + kv-grid)، خطوات المتابعة
+  (ch-step)، أشرطة المزوّدين والترتيب، التبديلات (toggle)، كروت ربط
+  القنوات (WhatsApp/Messenger/Instagram/Email)، تبويبات، وتحسينات
+  Responsive.
+- **`public_html/assets/js/chat-panel.js`**: مكتبة `window.ChatUI` —
+  ~70 أيقونة SVG مدمجة + `initials()` / `avatar()` / `channelBadge()` /
+  `scoreBar()` / `rankBar()` / `pill()`. مسماة `chat-panel.js` (وليس
+  `chat.js`) عمدًا كي لا تطغى على ودجت العميل الموجود.
+- **`app/Core/Controller.php`**: حقن `chat.css` + `chat-panel.js` في
+  `renderPanelPage()` فقط عندما يكون `$activeTab === 'chat'`.
+- **`app/Controllers/ChatController.php`**: إعادة تصميم صفحات `/chat`
+  التسع بالكامل (الإنبوكس الموحّد، المحادثة، المعلّقة، الإعدادات،
+  قاعدة المعرفة، المتابعة التلقائية، التحليلات، الـLeads) مع الحفاظ
+  على كل الخطافات/الاستدعاءات الموجودة (فلترة سريعة، Pagination،
+  Handoff، Custom Tags، اقتراحات الرد، إلخ) — بدون أي تغيير في
+  الـBackend أو الـAPIs.
+
 ## ما تم إضافته في هذا الدمج (feature/ai-chat-improvements — 2026-08-15)
 
 هذا الدمج يضيف فوق المراحل 1-5 التكميلات النهائية المطابقة لحالة

@@ -437,31 +437,34 @@ class ChatController extends Controller {
      */
     public function index(array $params = []): array {
         $body = <<<'HTML'
-        <div class="p-toolbar" style="flex-wrap:wrap;gap:8px;align-items:center;">
-            <input type="text" id="ucSearch" class="form-control" placeholder="ابحث بالاسم أو الهاتف أو الإيميل..." style="max-width:240px;flex:1;min-width:180px;">
-            <select id="ucStatus" class="p-select">
+        <div class="ch-toolbar">
+            <div class="ch-search">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                <input type="text" id="ucSearch" class="form-control" placeholder="ابحث بالاسم أو الهاتف أو الإيميل...">
+            </div>
+            <select id="ucStatus" class="p-select" title="الحالة">
                 <option value="">كل الحالات</option>
                 <option value="open">مفتوحة</option>
                 <option value="pending">قيد الانتظار</option>
                 <option value="resolved">تم الحل</option>
                 <option value="closed">مغلقة</option>
             </select>
-            <select id="ucAiStatus" class="p-select">
+            <select id="ucAiStatus" class="p-select" title="AI أو موظف">
                 <option value="">AI أو موظف</option>
-                <option value="ai">🤖 الذكاء الاصطناعي</option>
-                <option value="human">👤 موظف</option>
-                <option value="paused">⏸ متوقف</option>
+                <option value="ai">الذكاء الاصطناعي</option>
+                <option value="human">موظف</option>
+                <option value="paused">متوقف</option>
             </select>
-            <select id="ucLeadStatus" class="p-select">
+            <select id="ucLeadStatus" class="p-select" title="حالة الـLead">
                 <option value="">كل حالات Lead</option>
                 <option value="new_inquiry">استفسار جديد</option>
                 <option value="qualifying">قيد التأهيل</option>
                 <option value="qualified">مؤهّل</option>
-                <option value="hot_lead">🔥 Lead ساخن</option>
+                <option value="hot_lead">Lead ساخن</option>
                 <option value="converted">تم التحويل</option>
                 <option value="lost">فاقد</option>
             </select>
-            <select id="ucChannel" class="p-select">
+            <select id="ucChannel" class="p-select" title="القناة">
                 <option value="">كل القنوات</option>
                 <option value="whatsapp">واتساب</option>
                 <option value="website_chat">شات الموقع</option>
@@ -469,7 +472,7 @@ class ChatController extends Controller {
                 <option value="instagram">Instagram</option>
                 <option value="email">إيميل</option>
             </select>
-            <select id="ucTag" class="p-select">
+            <select id="ucTag" class="p-select" title="الوسم">
                 <option value="">كل الوسوم</option>
                 <option value="HOT_LEAD">HOT_LEAD</option>
                 <option value="NEW_INQUIRY">NEW_INQUIRY</option>
@@ -480,38 +483,35 @@ class ChatController extends Controller {
                 <option value="VIP">VIP</option>
                 <option value="HUMAN_REQUIRED">HUMAN_REQUIRED</option>
             </select>
-            <button class="p-btn outline xs" onclick="ucApplyFilters()">🔍 بحث</button>
-            <div style="flex:1 1 0;min-width:8px;"></div>
-            <a href="/chat/pending" class="p-btn outline xs">⏳ الرسائل المعلّقة</a>
-            <a href="/chat/leads" class="p-btn outline xs">🎯 Leads</a>
-            <a href="/chat/knowledge-base" class="p-btn outline xs">📚 قاعدة المعرفة</a>
-            <a href="/chat/followup-settings" class="p-btn outline xs">⏰ المتابعة التلقائية</a>
-            <a href="/chat/analytics" class="p-btn outline xs">📊 التحليلات</a>
-            <a href="/chat/settings" class="p-btn primary xs">⚙️ ربط واتساب والإعدادات</a>
+            <button class="p-btn outline xs" onclick="ucApplyFilters()">بحث</button>
+            <div class="ch-toolbar-spacer"></div>
+            <a href="/chat/pending" class="p-btn outline xs">الرسائل المعلّقة</a>
+            <a href="/chat/leads" class="p-btn outline xs">Leads</a>
+            <a href="/chat/knowledge-base" class="p-btn outline xs">قاعدة المعرفة</a>
+            <a href="/chat/followup-settings" class="p-btn outline xs">المتابعة التلقائية</a>
+            <a href="/chat/analytics" class="p-btn outline xs">التحليلات</a>
+            <a href="/chat/settings" class="p-btn primary xs">ربط واتساب والإعدادات</a>
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;" id="ucQuickFilters">
-            <span class="pill blue" style="cursor:pointer;" data-qf="all" onclick="ucQuickFilter('all')">الكل</span>
-            <span class="pill gray" style="cursor:pointer;" data-qf="unread" onclick="ucQuickFilter('unread')">غير مقروءة</span>
-            <span class="pill gray" style="cursor:pointer;" data-qf="ai" onclick="ucQuickFilter('ai')">🤖 AI</span>
-            <span class="pill gray" style="cursor:pointer;" data-qf="human" onclick="ucQuickFilter('human')">👤 موظف</span>
-            <span class="pill gray" style="cursor:pointer;" data-qf="hot_leads" onclick="ucQuickFilter('hot_leads')">🔥 Leads ساخنة</span>
-            <span class="pill gray" style="cursor:pointer;" data-qf="follow_up" onclick="ucQuickFilter('follow_up')">⏰ متابعة</span>
-            <span class="pill gray" style="cursor:pointer;" data-qf="closed" onclick="ucQuickFilter('closed')">مغلقة</span>
-            <span class="pill gray" style="cursor:pointer;" data-qf="vip" onclick="ucQuickFilter('vip')">⭐ VIP</span>
-            <span class="pill gray" style="cursor:pointer;" data-qf="complaints" onclick="ucQuickFilter('complaints')">⚠️ شكاوى</span>
+
+        <div class="ch-filterbar" id="ucQuickFilters">
+            <span class="ch-chip active" data-qf="all" onclick="ucQuickFilter('all')">الكل</span>
+            <span class="ch-chip" data-qf="unread" onclick="ucQuickFilter('unread')"><span class="ch-dot"></span>غير مقروءة</span>
+            <span class="ch-chip" data-qf="ai" onclick="ucQuickFilter('ai')">AI</span>
+            <span class="ch-chip" data-qf="human" onclick="ucQuickFilter('human')">موظف</span>
+            <span class="ch-chip" data-qf="hot_leads" onclick="ucQuickFilter('hot_leads')"><span class="ch-dot"></span>Leads ساخنة</span>
+            <span class="ch-chip" data-qf="follow_up" onclick="ucQuickFilter('follow_up')">متابعة</span>
+            <span class="ch-chip" data-qf="closed" onclick="ucQuickFilter('closed')">مغلقة</span>
+            <span class="ch-chip" data-qf="vip" onclick="ucQuickFilter('vip')">VIP</span>
+            <span class="ch-chip" data-qf="complaints" onclick="ucQuickFilter('complaints')"><span class="ch-dot"></span>شكاوى</span>
         </div>
-        <div id="ucNoWebsite" class="p-card" style="display:none;">
-            <div class="p-empty"><div class="p-empty-icon">🌐</div>اختر موقعًا من القائمة أعلى الصفحة أولًا لعرض محادثاته.</div>
+
+        <div id="ucNoWebsite" class="ch-card" style="display:none;">
+            <div class="ch-empty"><div class="ch-empty-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></div><div class="ch-empty-title">اختر موقعًا</div><div class="ch-empty-sub">اختر موقعًا من القائمة أعلى الصفحة أولًا لعرض محادثاته.</div></div>
         </div>
-        <div class="p-card no-pad" id="ucTableWrap">
-            <div class="p-table-scroll"><table class="p-table" id="conversationsTable">
-                <thead><tr>
-                    <th>القناة</th><th>العميل</th><th>الحالة</th><th>AI/موظف</th>
-                    <th>Lead</th><th>الأولوية</th><th>الوسوم</th><th>آخر رسالة</th><th></th>
-                </tr></thead>
-                <tbody><tr class="p-loading-row"><td colspan="9">جاري التحميل...</td></tr></tbody>
-            </table></div>
-            <div style="display:flex;justify-content:center;align-items:center;gap:12px;padding:14px;">
+
+        <div id="ucListWrap" class="ch-card" style="display:none;">
+            <div class="ch-inbox" id="ucInboxList"></div>
+            <div style="display:flex;justify-content:center;align-items:center;gap:12px;padding:16px;">
                 <button class="p-btn outline xs" id="ucPrevBtn" onclick="ucGoPage(-1)" disabled>← السابق</button>
                 <span class="p-cell-muted" id="ucPageLabel">صفحة 1</span>
                 <button class="p-btn outline xs" id="ucNextBtn" onclick="ucGoPage(1)">التالي →</button>
@@ -523,39 +523,25 @@ HTML;
 (function () {
     const P = window.Panel;
     const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast;
+    const UI = window.ChatUI;
 
-    const CHANNEL_LABEL = {
-        whatsapp: '📱 واتساب', website_chat: '🌐 شات الموقع', webchat: '🌐 شات الموقع',
-        messenger: '📘 Messenger', instagram: '📷 Instagram', email: '✉️ إيميل',
+    const STATUS_CHIP = {
+        open: ['مفتوحة', 'green'], pending: ['قيد الانتظار', ''],
+        resolved: ['تم الحل', 'blue'], closed: ['مغلقة', 'red'],
     };
-    const STATUS_PILL = {
-        open: '<span class="pill green">مفتوحة</span>',
-        pending: '<span class="pill">قيد الانتظار</span>',
-        resolved: '<span class="pill">تم الحل</span>',
-        closed: '<span class="pill red">مغلقة</span>',
+    const AI_STATUS_CHIP = {
+        ai: ['AI', 'green'], human: ['موظف', ''], paused: ['متوقف', 'red'],
     };
-    const AI_STATUS_PILL = {
-        ai: '<span class="pill green">🤖 AI</span>',
-        human: '<span class="pill">👤 موظف</span>',
-        paused: '<span class="pill red">⏸ متوقف</span>',
-    };
-    const LEAD_STATUS_PILL = {
-        none: '', new_inquiry: '<span class="pill">استفسار جديد</span>',
-        qualifying: '<span class="pill">قيد التأهيل</span>',
-        qualified: '<span class="pill green">مؤهّل</span>',
-        hot_lead: '<span class="pill red">🔥 ساخن</span>',
-        converted: '<span class="pill green">تم التحويل</span>',
-        lost: '<span class="pill red">فاقد</span>',
-    };
-    const PRIORITY_PILL = {
-        low: '<span class="pill">منخفضة</span>', normal: '', high: '<span class="pill">🔺 عالية</span>',
-        urgent: '<span class="pill red">🚨 عاجلة</span>',
+    const LEAD_STATUS_CHIP = {
+        none: '', new_inquiry: ['استفسار جديد', ''], qualifying: ['قيد التأهيل', ''],
+        qualified: ['مؤهّل', 'green'], hot_lead: ['Lead ساخن', 'red'],
+        converted: ['تم التحويل', 'green'], lost: ['فاقد', 'red'],
     };
 
     function ensureWebsiteSelected() {
         const id = P.getCurrentWebsiteId();
         document.getElementById('ucNoWebsite').style.display = id ? 'none' : 'block';
-        document.getElementById('ucTableWrap').style.display = id ? 'block' : 'none';
+        document.getElementById('ucListWrap').style.display = id ? 'block' : 'none';
         return id;
     }
 
@@ -569,14 +555,13 @@ HTML;
         currentPage = 1;
         activeQuickFilter = key;
 
-        // نصفّر كل الفلاتر التفصيلية أولًا، بعدين نطبّق مركّب الفلتر السريع
         document.getElementById('ucStatus').value = '';
         document.getElementById('ucAiStatus').value = '';
         document.getElementById('ucLeadStatus').value = '';
         document.getElementById('ucTag').value = '';
 
         switch (key) {
-            case 'unread': break; // يُعالَج بمعامل unread_only منفصل تحت
+            case 'unread': break;
             case 'ai': document.getElementById('ucAiStatus').value = 'ai'; break;
             case 'human': document.getElementById('ucAiStatus').value = 'human'; break;
             case 'hot_leads': document.getElementById('ucLeadStatus').value = 'hot_lead'; break;
@@ -594,8 +579,8 @@ HTML;
     function ucHighlightQuickFilter() {
         document.querySelectorAll('#ucQuickFilters [data-qf]').forEach(el => {
             const active = el.dataset.qf === activeQuickFilter;
-            el.classList.toggle('blue', active);
-            el.classList.toggle('gray', !active);
+            el.classList.toggle('active', active);
+            el.classList.remove('teal', 'red', 'purple');
         });
     }
 
@@ -624,8 +609,8 @@ HTML;
         if (activeQuickFilter === 'unread') qs.set('unread_only', '1');
         qs.set('page', currentPage);
 
-        const tbody = document.querySelector('#conversationsTable tbody');
-        tbody.innerHTML = '<tr class="p-loading-row"><td colspan="9">جاري التحميل...</td></tr>';
+        const list = document.getElementById('ucInboxList');
+        list.innerHTML = '<div class="ch-skeleton-row"><div class="ch-skeleton avatar"></div><div class="ch-skeleton line"></div></div><div class="ch-skeleton-row"><div class="ch-skeleton avatar"></div><div class="ch-skeleton line"></div></div><div class="ch-skeleton-row"><div class="ch-skeleton avatar"></div><div class="ch-skeleton line"></div></div>';
 
         const res = await fetchJSON('/api/ai-chat/websites/' + encodeURIComponent(websiteId) + '/conversations?' + qs.toString());
 
@@ -633,38 +618,48 @@ HTML;
         document.getElementById('ucPrevBtn').disabled = currentPage <= 1;
 
         if (!res.success) {
-            tbody.innerHTML = '<tr><td colspan="9" class="p-cell-muted text-center">⚠️ ' + esc(res.error || 'تعذر تحميل المحادثات') + '</td></tr>';
+            list.innerHTML = '<div class="ch-empty"><div class="ch-empty-icon">' + UI.icon('alert') + '</div><div class="ch-empty-title">تعذر التحميل</div><div class="ch-empty-sub">' + esc(res.error || 'تعذر تحميل المحادثات') + '</div></div>';
             document.getElementById('ucNextBtn').disabled = true;
             return;
         }
 
-        const list = (res.data && Array.isArray(res.data.conversations)) ? res.data.conversations : [];
-        // الـBackend مبيرجّعش إجمالي العدد - نستخدم امتلاء الصفحة كمؤشر تقريبي
-        // لوجود صفحة تالية (لو رجع 30 نتيجة بالظبط، محتمل يكون فيه المزيد).
-        document.getElementById('ucNextBtn').disabled = list.length < PAGE_SIZE;
+        const conversations = (res.data && Array.isArray(res.data.conversations)) ? res.data.conversations : [];
+        document.getElementById('ucNextBtn').disabled = conversations.length < PAGE_SIZE;
 
-        if (!list.length) {
-            tbody.innerHTML = '<tr><td colspan="9" class="p-cell-muted text-center">' + (currentPage > 1 ? 'لا توجد نتائج في هذه الصفحة' : 'لا توجد محادثات بعد') + '</td></tr>';
+        if (!conversations.length) {
+            list.innerHTML = '<div class="ch-empty"><div class="ch-empty-icon">' + UI.icon('chat') + '</div><div class="ch-empty-title">' + (currentPage > 1 ? 'لا توجد نتائج في هذه الصفحة' : 'لا توجد محادثات بعد') + '</div><div class="ch-empty-sub">المحادثات هتظهر هنا أول ما يرسل العملاء أي رسالة.</div></div>';
             return;
         }
 
-        tbody.innerHTML = list.map(c => {
+        list.innerHTML = conversations.map(c => {
             const customer = c.customer_name || c.customer_phone || c.customer_email || 'عميل غير معروف';
-            const tags = (c.tags || []).map(t => '<span class="pill gray">' + esc(t) + '</span>').join(' ');
-            const unread = c.unread_count > 0 ? ' <span class="pill red">' + c.unread_count + '</span>' : '';
-            const rowStyle = c.unread_count > 0 ? 'font-weight:600;' : '';
+            const channelMeta = UI.channelMeta[c.channel] || { icon: 'chat', avatar: '' };
+            const aiChip = AI_STATUS_CHIP[c.ai_status];
+            const statusChip = STATUS_CHIP[c.status];
+            const leadChip = LEAD_STATUS_CHIP[c.lead_status];
+            const unread = c.unread_count > 0 ? '<span class="ch-unread-badge">' + c.unread_count + '</span>' : '';
+            const priorityBar = c.priority === 'urgent' ? '<span class="ch-priority-bar urgent"><i></i></span>' : c.priority === 'high' ? '<span class="ch-priority-bar high"><i></i></span>' : '';
+            const preview = c.customer_phone || c.customer_email || '';
             return `
-                <tr style="${rowStyle}cursor:pointer;" onclick="window.location.href='/chat/conversation/${c.id}'">
-                    <td>${CHANNEL_LABEL[c.channel] || esc(c.channel || '-')}</td>
-                    <td>${esc(customer)}${unread}</td>
-                    <td>${STATUS_PILL[c.status] || esc(c.status || '-')}</td>
-                    <td>${AI_STATUS_PILL[c.ai_status] || esc(c.ai_status || '-')}</td>
-                    <td>${LEAD_STATUS_PILL[c.lead_status] || ''}</td>
-                    <td>${PRIORITY_PILL[c.priority] || ''}</td>
-                    <td>${tags}</td>
-                    <td class="p-cell-muted">${P.timeAgo(c.last_message_at)}</td>
-                    <td><a href="/chat/conversation/${c.id}" class="p-btn outline xs" onclick="event.stopPropagation();">فتح</a></td>
-                </tr>`;
+                <div class="ch-conv ${c.unread_count > 0 ? 'unread' : ''}" onclick="window.location.href='/chat/conversation/${c.id}'">
+                    <div class="ch-avatar ${channelMeta.avatar || ''}">${UI.initials(customer)}
+                        <span class="ch-chan-badge">${UI.icon(channelMeta.icon || 'chat', 10)}</span>
+                    </div>
+                    <div class="ch-conv-body">
+                        <div class="ch-conv-top">
+                            <span class="ch-conv-name">${esc(customer)}</span>
+                            ${priorityBar}
+                            <span class="ch-conv-time">${P.timeAgo(c.last_message_at)}</span>
+                        </div>
+                        <div class="ch-conv-preview">${esc(preview)}</div>
+                    </div>
+                    <div class="ch-conv-meta">
+                        ${aiChip ? UI.pill(aiChip[0], aiChip[1]) : ''}
+                        ${statusChip ? UI.pill(statusChip[0], statusChip[1]) : ''}
+                        ${leadChip ? UI.pill(leadChip[0], leadChip[1]) : ''}
+                        ${unread}
+                    </div>
+                </div>`;
         }).join('');
     }
 
@@ -704,36 +699,37 @@ JS;
         $currentUserId = (int) ($this->user['id'] ?? 0);
 
         $body = <<<HTML
-        <div id="loadingConv" class="p-empty"><div class="p-empty-icon">⏳</div>جاري تحميل المحادثة...</div>
-        <div id="convNotFound" class="p-empty" style="display:none;"><div class="p-empty-icon">⚠️</div>المحادثة غير موجودة أو مش تابعة للموقع الحالي.</div>
+        <div id="loadingConv" class="ch-empty"><div class="ch-empty-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>جاري تحميل المحادثة...</div>
+        <div id="convNotFound" class="ch-empty" style="display:none;"><div class="ch-empty-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2L12 3z"/><path d="M12 10v5"/><path d="M12 18h.01"/></svg></div>المحادثة غير موجودة أو مش تابعة للموقع الحالي.</div>
 
         <div id="convBody" style="display:none;">
-            <div class="p-card" id="convHeader" style="margin-bottom:14px;"></div>
+            <div class="ch-card" id="convHeader" style="margin-bottom:14px;"></div>
 
             <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start;">
                 <div style="flex:2 1 420px;min-width:280px;">
-                    <div class="p-card" id="convThread" style="max-height:480px;overflow-y:auto;"></div>
+                    <div class="ch-thread" id="convThread"></div>
 
-                    <div class="p-card" style="margin-top:14px;">
-                        <div class="p-card-head"><h3>الرد</h3></div>
+                    <div class="ch-card ch-composer" style="margin-top:14px;">
                         <div id="aiSuggestions" style="display:none;margin-bottom:10px;"></div>
                         <div class="form-group">
                             <textarea id="manualMessage" class="form-control" rows="3" placeholder="اكتب ردك هنا..."></textarea>
                         </div>
                         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                            <button class="p-btn primary" id="sendManualBtn" onclick="sendManual()">➤ إرسال</button>
-                            <button class="p-btn outline" id="suggestBtn" onclick="loadSuggestions()">💡 اقتراح رد AI</button>
+                            <button class="p-btn primary" id="sendManualBtn" onclick="sendManual()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg> إرسال</button>
+                            <button class="p-btn outline" id="suggestBtn" onclick="loadSuggestions()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M19 15l.9 2.4L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.6L19 15z"/></svg> اقتراح رد AI</button>
                         </div>
                     </div>
                 </div>
 
                 <div style="flex:1 1 260px;min-width:240px;">
-                    <div class="p-card" id="leadPanel" style="margin-bottom:14px;"></div>
-                    <div class="p-card">
-                        <div class="p-card-head"><h3>ملاحظات وصفقات</h3></div>
-                        <div class="p-empty" style="padding:16px 0;">
-                            <div class="p-empty-icon">🧩</div>
-                            ميزة الملاحظات والصفقات المرتبطة غير متاحة حاليًا في AI Chat Backend.
+                    <div class="ch-card" id="leadPanel" style="margin-bottom:14px;"></div>
+                    <div class="ch-card">
+                        <div class="ch-card-head"><h3 class="ch-card-title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-5z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg> ملاحظات وصفقات</h3></div>
+                        <div class="ch-card-body">
+                            <div class="ch-empty" style="padding:16px 0;">
+                                <div class="ch-empty-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg></div>
+                                ميزة الملاحظات والصفقات المرتبطة غير متاحة حاليًا في AI Chat Backend.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -745,6 +741,7 @@ HTML;
 (function () {
     const P = window.Panel;
     const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast, formatDate = P.formatDate;
+    const UI = window.ChatUI;
     const conversationId = __CONVERSATION_ID__;
     const currentUserId = __CURRENT_USER_ID__;
     let websiteId = null;
@@ -757,10 +754,6 @@ HTML;
         ['low', 'منخفضة'], ['normal', 'عادية'], ['high', 'عالية'], ['urgent', 'عاجلة'],
     ];
     const STANDARD_TAGS = ['HOT_LEAD', 'NEW_INQUIRY', 'PRICE_REQUEST', 'COMPLAINT', 'FOLLOW_UP', 'BOOKING_INTENT', 'VIP', 'HUMAN_REQUIRED'];
-    const CHANNEL_LABEL = {
-        whatsapp: '📱 واتساب', website_chat: '🌐 شات الموقع', webchat: '🌐 شات الموقع',
-        messenger: '📘 Messenger', instagram: '📷 Instagram', email: '✉️ إيميل',
-    };
 
     if (!conversationId) {
         document.getElementById('loadingConv').style.display = 'none';
@@ -869,21 +862,24 @@ HTML;
         const btn = document.getElementById('suggestBtn');
         btn.disabled = true;
         box.style.display = 'block';
-        box.innerHTML = '<div class="p-cell-muted">🤖 جاري توليد اقتراحات...</div>';
+        box.innerHTML = '<div class="ch-suggest"><div class="ch-suggest-card"><div class="ch-suggest-icon">' + UI.icon('sparkles') + '</div><div class="ch-suggest-text">جاري توليد اقتراحات...</div></div></div>';
 
         const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/conversations/' + conversationId + '/reply-suggestions');
         btn.disabled = false;
 
         if (!res.success || !res.data || !Array.isArray(res.data.suggestions) || !res.data.suggestions.length) {
-            box.innerHTML = '<div class="p-cell-muted">⚠️ ' + esc((res.data && res.data.error) || res.error || 'لا توجد اقتراحات متاحة الآن') + '</div>';
+            box.innerHTML = '<div class="ch-empty" style="padding:18px;"><div class="ch-empty-sub">' + esc((res.data && res.data.error) || res.error || 'لا توجد اقتراحات متاحة الآن') + '</div></div>';
             return;
         }
 
-        box.innerHTML = res.data.suggestions.map((s, i) => `
-            <div class="p-card" style="padding:10px;margin-bottom:6px;cursor:pointer;" onclick="document.getElementById('manualMessage').value = this.dataset.text;">
-                <span class="pill blue">اقتراح ${i + 1}</span>
-                <span data-text="${esc(s).replace(/"/g, '&quot;')}" style="display:block;margin-top:6px;">${esc(s)}</span>
-            </div>`).join('');
+        box.innerHTML = '<div class="ch-suggest">' + res.data.suggestions.map((s, i) => `
+            <div class="ch-suggest-card" data-text="${esc(s).replace(/"/g, '&quot;')}" onclick="document.getElementById('manualMessage').value = this.dataset.text;this.querySelector('.ch-suggest-use').textContent='تم التحديد ✓';">
+                <div class="ch-suggest-icon">${UI.icon('sparkles')}</div>
+                <div class="ch-suggest-text">
+                    <div>${esc(s)}</div>
+                    <div class="ch-suggest-use">اضغط لاستخدام هذا الاقتراح</div>
+                </div>
+            </div>`).join('') + '</div>';
     };
 
     let customTags = [];
@@ -892,19 +888,20 @@ HTML;
         const customer = c.customer_name || c.customer_phone || c.customer_email || 'عميل غير معروف';
         const isAi = c.ai_status === 'ai';
         const isMine = c.assigned_agent_id == currentUserId;
+        const channelMeta = UI.channelMeta[c.channel] || { icon: 'chat', avatar: '' };
 
         const standardTagsHtml = STANDARD_TAGS.map(t => {
             const active = (c.tags || []).includes(t);
-            return `<span class="pill ${active ? 'blue' : 'gray'}" style="cursor:pointer;" onclick="toggleTag('${t}')">${active ? '✓ ' : ''}${t}</span>`;
+            return `<span class="ch-pill ${active ? 'blue' : ''}" style="cursor:pointer;" onclick="toggleTag('${t}')">${active ? UI.icon('check', 11) : ''}${t}</span>`;
         }).join(' ');
 
         const customTagsHtml = customTags.map(t => {
             const active = (c.tags || []).includes(t.name);
-            return `<span class="pill ${active ? 'blue' : 'gray'}" style="cursor:pointer;" onclick="toggleTag('${esc(t.name)}')">${active ? '✓ ' : ''}${esc(t.name)}
-                <a href="javascript:void(0)" onclick="event.stopPropagation();deleteCustomTag(${t.id})" style="margin-right:4px;opacity:.7;">✕</a></span>`;
+            return `<span class="ch-pill ${active ? 'blue' : ''}" style="cursor:pointer;" onclick="toggleTag('${esc(t.name)}')">${active ? UI.icon('check', 11) : ''}${esc(t.name)}
+                <a href="javascript:void(0)" onclick="event.stopPropagation();deleteCustomTag(${t.id})" style="margin-inline-start:4px;opacity:.7;">${UI.icon('x', 10)}</a></span>`;
         }).join(' ');
 
-        const addTagHtml = `<span class="pill gray" style="cursor:pointer;" onclick="promptAddCustomTag()">+ وسم مخصص</span>`;
+        const addTagHtml = `<span class="ch-pill" style="cursor:pointer;border:1px dashed rgba(255,255,255,.2);" onclick="promptAddCustomTag()">${UI.icon('plus', 11)} وسم مخصص</span>`;
 
         const tagsHtml = standardTagsHtml + ' ' + customTagsHtml + ' ' + addTagHtml;
 
@@ -914,36 +911,53 @@ HTML;
             PRIORITY_OPTIONS.map(([v, l]) => `<option value="${v}" ${c.priority === v ? 'selected' : ''}>${l}</option>`).join('') + '</select>';
 
         document.getElementById('convHeader').innerHTML = `
-            <div class="p-card-head">
-                <h3>${esc(customer)} ${CHANNEL_LABEL[c.channel] || esc(c.channel || '')}</h3>
-                <span class="p-cell-muted">${esc(c.customer_phone || c.customer_email || '')}</span>
+            <div class="ch-card-head" style="padding:16px 18px;">
+                <div class="ch-avatar lg ${channelMeta.avatar || ''}">${UI.initials(customer)}
+                    <span class="ch-chan-badge">${UI.icon(channelMeta.icon || 'chat', 10)}</span>
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                        <span style="font-size:17px;font-weight:800;color:var(--panel-text);">${esc(customer)}</span>
+                        ${isAi ? UI.pill('يرد الآن: AI', 'green', 'robot') : UI.pill('يرد الآن: موظف', '', 'user')}
+                    </div>
+                    <div class="p-cell-muted" style="font-size:12.5px;margin-top:2px;">${esc(c.customer_phone || c.customer_email || '')}</div>
+                </div>
+                <div class="ch-conv-meta">
+                    <button class="p-btn ${isAi ? 'outline' : 'primary'} xs" onclick="toggleHandoff()">${isAi ? 'تحويل لموظف' : 'استرجاع الرد الآلي'}</button>
+                    <button class="p-btn outline xs" onclick="assignToggle()">${isMine ? 'إلغاء تعييني' : 'تعيين لي'}</button>
+                    ${statusSelect}
+                    ${prioritySelect}
+                    ${c.ai_confidence_score !== null && c.ai_confidence_score !== undefined ? UI.pill('ثقة AI: ' + Math.round(c.ai_confidence_score * 100) + '%', 'purple', 'zap') : ''}
+                </div>
             </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
-                ${isAi ? '<span class="pill green">🤖 يرد الآن: الذكاء الاصطناعي</span>' : '<span class="pill">👤 يرد الآن: موظف</span>'}
-                <button class="p-btn ${isAi ? 'outline' : 'primary'} xs" onclick="toggleHandoff()">${isAi ? '⇄ تحويل لموظف' : '⇄ استرجاع الرد الآلي'}</button>
-                <button class="p-btn outline xs" onclick="assignToggle()">${isMine ? '✖ إلغاء التعيين مني' : '👤 تعيين لي'}</button>
-                ${statusSelect}
-                ${prioritySelect}
-                ${c.ai_confidence_score !== null && c.ai_confidence_score !== undefined ? '<span class="pill">ثقة AI: ' + Math.round(c.ai_confidence_score * 100) + '%</span>' : ''}
+            <div class="ch-card-body" style="padding-top:12px;">
+                <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:${c.ai_summary || c.next_recommended_action ? '10px' : '0'};">${tagsHtml}</div>
+                ${c.ai_summary ? '<div class="ch-hint" style="margin-bottom:8px;"><span class="ch-hint-title">' + UI.icon('sparkles') + ' ملخص AI</span>' + esc(c.ai_summary) + '</div>' : ''}
+                ${c.next_recommended_action ? '<div class="ch-hint" style="background:var(--panel-success-light);border-color:rgba(78,205,196,.3);"><span class="ch-hint-title" style="color:var(--panel-teal);">' + UI.icon('trend-up') + ' الخطوة التالية المقترحة</span>' + esc(c.next_recommended_action) + '</div>' : ''}
             </div>
-            <div style="margin-bottom:8px;">${tagsHtml}</div>
-            ${c.ai_summary ? '<div class="p-card" style="background:var(--panel-bg,#f7f8fa);padding:10px 14px;"><strong>ملخص AI:</strong> ' + esc(c.ai_summary) + '</div>' : ''}
-            ${c.next_recommended_action ? '<div class="p-card" style="background:var(--panel-bg,#f7f8fa);padding:10px 14px;margin-top:6px;"><strong>الخطوة التالية المقترحة:</strong> ' + esc(c.next_recommended_action) + '</div>' : ''}
         `;
     }
 
     function renderThread(messages) {
         const thread = document.getElementById('convThread');
         if (!messages.length) {
-            thread.innerHTML = '<div class="p-empty"><div class="p-empty-icon">💬</div>لا توجد رسائل في هذه المحادثة بعد</div>';
+            thread.innerHTML = '<div class="ch-empty"><div class="ch-empty-icon">' + UI.icon('chat') + '</div><div class="ch-empty-title">لا توجد رسائل بعد</div><div class="ch-empty-sub">ابدأ المحادثة أو انتظر أول رسالة من العميل.</div></div>';
             return;
         }
         thread.innerHTML = messages.map(m => {
-            const mine = m.message_direction === 'outgoing';
+            const incoming = m.message_direction === 'incoming';
+            const auto = Number(m.is_auto_pilot) === 1;
+            const who = incoming ? 'in' : (auto ? 'ai' : 'out');
+            const label = incoming ? 'العميل' : (auto ? 'AI' : 'أنت');
+            const labelIcon = incoming ? 'user' : (auto ? 'robot' : 'user');
             return `
-                <div style="max-width:70%;margin:${mine ? '8px 0 8px auto' : '8px auto 8px 0'};padding:10px 14px;border-radius:12px;background:${mine ? 'var(--panel-accent)' : 'var(--panel-card-bg,#f1f2f4)'};color:${mine ? '#fff' : 'inherit'};">
-                    <div>${esc(m.message_text || m.ai_reply_generated || '')}</div>
-                    <div style="font-size:11px;opacity:.7;margin-top:4px;">${formatDate(m.sent_at || m.created_at)}</div>
+                <div class="ch-msg ${who}">
+                    <div class="ch-msg-avatar">${UI.avatar(label, 'sm', incoming ? 'purple' : auto ? '' : 'gold')}</div>
+                    <div>
+                        <div class="ch-msg-tag">${UI.icon(labelIcon, 11)}${label}</div>
+                        <div class="ch-msg-bubble">${esc(m.message_text || m.ai_reply_generated || '')}</div>
+                        <div class="ch-msg-time">${formatDate(m.sent_at || m.created_at)}</div>
+                    </div>
                 </div>`;
         }).join('');
         thread.scrollTop = thread.scrollHeight;
@@ -953,18 +967,28 @@ HTML;
         const panel = document.getElementById('leadPanel');
         const lead = (leads && leads.length) ? leads[0] : null;
         if (!lead) {
-            panel.innerHTML = '<div class="p-card-head"><h3>معلومات Lead</h3></div><div class="p-empty" style="padding:16px 0;"><div class="p-empty-icon">📋</div>لا يوجد Lead مرتبط بهذه المحادثة بعد.</div>';
+            panel.innerHTML = '<div class="ch-card-head"><span class="ch-card-title">معلومات Lead</span></div><div class="ch-empty" style="padding:22px 16px;"><div class="ch-empty-icon">' + UI.icon('target') + '</div><div class="ch-empty-sub">لا يوجد Lead مرتبط بهذه المحادثة بعد.</div></div>';
             return;
         }
+        const score = lead.lead_score ?? '-';
+        const intent = lead.intent_score ?? '-';
         panel.innerHTML = `
-            <div class="p-card-head"><h3>معلومات Lead</h3></div>
-            <div class="p-kv"><span class="k">الدرجة</span><span class="v">${lead.lead_score ?? '-'} / 100</span></div>
-            <div class="p-kv"><span class="k">نية الشراء</span><span class="v">${lead.intent_score ?? '-'} / 100</span></div>
-            <div class="p-kv"><span class="k">الوجهة</span><span class="v">${esc(lead.destination || '-')}</span></div>
-            <div class="p-kv"><span class="k">الاهتمام</span><span class="v">${esc(lead.interest || '-')}</span></div>
-            <div class="p-kv"><span class="k">الحالة</span><span class="v">${esc(lead.status || '-')}</span></div>
-            ${lead.next_recommended_action ? '<div style="margin-top:10px;padding:10px;background:var(--panel-bg,#f7f8fa);border-radius:8px;"><strong>الخطوة التالية المقترحة:</strong><br>' + esc(lead.next_recommended_action) + '</div>' : ''}
-            <a href="/chat/leads" class="p-btn outline xs" style="margin-top:10px;display:inline-block;">عرض كل الـLeads</a>
+            <div class="ch-card-head"><span class="ch-card-title">معلومات Lead</span></div>
+            <div class="ch-card-body">
+                <div class="ch-lead-hero">
+                    <div class="ch-avatar ${score >= 70 ? 'red' : score >= 40 ? 'gold' : ''}">${UI.icon(score >= 70 ? 'flame' : 'target', 20)}</div>
+                    <div class="ch-lead-score">${score}<small>/ 100 درجة</small></div>
+                </div>
+                <div class="ch-kv-grid">
+                    <div class="p-kv"><span class="k">نية الشراء</span><span class="v">${intent} / 100</span></div>
+                    <div class="p-kv"><span class="k">الوجهة</span><span class="v">${esc(lead.destination || '-')}</span></div>
+                    <div class="p-kv"><span class="k">الاهتمام</span><span class="v">${esc(lead.interest || '-')}</span></div>
+                    <div class="p-kv"><span class="k">الحالة</span><span class="v">${esc(lead.status || '-')}</span></div>
+                </div>
+                <div style="margin-top:12px;">${UI.scoreBar(score)}</div>
+                ${lead.next_recommended_action ? '<div class="ch-hint" style="margin-top:12px;"><span class="ch-hint-title">' + UI.icon('trend-up') + ' الخطوة التالية المقترحة</span>' + esc(lead.next_recommended_action) + '</div>' : ''}
+                <a href="/chat/leads" class="p-btn outline xs" style="margin-top:14px;display:inline-block;">عرض كل الـLeads</a>
+            </div>
         `;
     }
 
@@ -973,7 +997,7 @@ HTML;
         if (!websiteId) {
             document.getElementById('loadingConv').style.display = 'none';
             document.getElementById('convNotFound').style.display = 'block';
-            document.getElementById('convNotFound').innerHTML = '<div class="p-empty-icon">🌐</div>اختر موقعًا من القائمة أعلى الصفحة أولًا.';
+            document.getElementById('convNotFound').innerHTML = '<div class="ch-empty-icon">' + UI.icon('globe') + '</div>اختر موقعًا من القائمة أعلى الصفحة أولًا.';
             return;
         }
 
@@ -1038,23 +1062,27 @@ JS;
 
     /** GET /chat/pending */
     public function showPending(array $params = []): array {
-        $tLoading = $this->tr('common.loading');
-
         $body = <<<HTML
-        <div id="pendingList" class="p-empty">{$tLoading}</div>
+        <div class="ch-toolbar">
+            <a href="/chat" class="p-btn outline xs"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-inline-end:4px;"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>صندوق الوارد</a>
+            <div class="ch-toolbar-spacer"></div>
+            <span class="ch-pill orange"><span class="ch-pulse"></span> في انتظار موافقتك</span>
+        </div>
+        <div id="pendingList" class="ch-pending"></div>
 HTML;
 
         $script = <<<'JS'
 (function () {
     const P = window.Panel;
     const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast, formatDate = P.formatDate;
+    const UI = window.ChatUI;
 
     window.regenerateReply = async function (id) {
         const box = document.getElementById('reply-' + id);
         const btn = document.getElementById('regenBtn-' + id);
         btn.disabled = true;
         const original = btn.textContent;
-        btn.textContent = '🤖 __GENERATING__';
+        btn.innerHTML = 'جاري التوليد...';
 
         const res = await fetchJSON('/api/chat/generate-reply', {
             method: 'POST',
@@ -1100,23 +1128,32 @@ HTML;
         const container = document.getElementById('pendingList');
         if (res.success && Array.isArray(res.data.pending) && res.data.pending.length) {
             container.innerHTML = res.data.pending.map(m => `
-                <div class="p-card" style="margin-bottom:14px;">
-                    <div class="p-card-head">
-                        <h3>${esc(m.customer_name || m.customer_phone || __CUSTOMER__)} <span class="pill">${esc(m.platform || '-')}</span></h3>
-                        <span class="p-cell-muted">${formatDate(m.created_at)}</span>
+                <div class="ch-pending-card">
+                    <div class="ch-pending-head">
+                        <div class="ch-avatar">${UI.initials(m.customer_name || m.customer_phone || __CUSTOMER__)}</div>
+                        <div style="flex:1;min-width:0;">
+                            <div class="ch-pending-name">${esc(m.customer_name || m.customer_phone || __CUSTOMER__)}</div>
+                            <div class="p-cell-muted" style="font-size:12px;">${esc(m.platform || '-')} · ${formatDate(m.created_at)}</div>
+                        </div>
+                        <div class="ch-conv-meta">
+                            <button class="p-btn success xs" onclick="approveMsg(${m.id}, 'approve')">موافقة وإرسال</button>
+                            <button class="p-btn outline xs" id="regenBtn-${m.id}" onclick="regenerateReply(${m.id})">توليد رد جديد</button>
+                            <button class="p-btn danger xs" onclick="approveMsg(${m.id}, 'reject')">رفض</button>
+                        </div>
                     </div>
-                    <div class="p-kv"><span class="k">__CUSTOMER_MESSAGE__</span></div>
-                    <p style="background:var(--panel-bg,#f7f8fa);padding:12px 14px;border-radius:8px;margin:6px 0 14px;">${esc(m.message_text || '-')}</p>
-                    <label class="form-label">__SUGGESTED_REPLY__</label>
-                    <textarea id="reply-${m.id}" class="form-control" style="min-height:90px;margin-bottom:10px;">${esc(m.ai_reply_generated || '')}</textarea>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        <button class="p-btn success xs" onclick="approveMsg(${m.id}, 'approve')">✔ __APPROVE_SEND__</button>
-                        <button class="p-btn outline xs" id="regenBtn-${m.id}" onclick="regenerateReply(${m.id})">🔄 __GENERATE_NEW__</button>
-                        <button class="p-btn danger xs" onclick="approveMsg(${m.id}, 'reject')">✖ __REJECT__</button>
+                    <div class="ch-pending-quote">
+                        <div class="ch-quote-box in">
+                            <div class="ch-quote-label">${UI.icon('user', 12)}__CUSTOMER_MESSAGE__</div>
+                            <div>${esc(m.message_text || '-')}</div>
+                        </div>
+                        <div class="ch-quote-box out">
+                            <div class="ch-quote-label">${UI.icon('robot', 12)}__SUGGESTED_REPLY__</div>
+                            <textarea id="reply-${m.id}" class="form-control">${esc(m.ai_reply_generated || '')}</textarea>
+                        </div>
                     </div>
                 </div>`).join('');
         } else {
-            container.innerHTML = '<div class="p-empty"><div class="p-empty-icon">🎉</div>__NO_PENDING__</div>';
+            container.innerHTML = '<div class="ch-empty"><div class="ch-empty-icon">' + UI.icon('check-circle') + '</div><div class="ch-empty-title">__NO_PENDING__</div><div class="ch-empty-sub">كل الرسائل تمت معالجتها.</div></div>';
         }
     }
     load();
@@ -1124,12 +1161,11 @@ HTML;
 JS;
         $script = str_replace(
             [
-                '__GENERATING__', '__NEW_REPLY_GENERATED__', '__GENERATE_FAILED__', '__WRITE_OR_GENERATE_FIRST__',
+                '__NEW_REPLY_GENERATED__', '__GENERATE_FAILED__', '__WRITE_OR_GENERATE_FIRST__',
                 '__APPROVED_SEND_FAILED__', '__APPROVED_SENT__', '__REJECTED__', '__ACTION_FAILED__', '__CUSTOMER__',
-                '__CUSTOMER_MESSAGE__', '__SUGGESTED_REPLY__', '__APPROVE_SEND__', '__GENERATE_NEW__', '__REJECT__', '__NO_PENDING__',
+                '__CUSTOMER_MESSAGE__', '__SUGGESTED_REPLY__', '__NO_PENDING__',
             ],
             [
-                $this->trJs('chat.pending.generating'),
                 $this->trJs('chat.pending.new_reply_generated'),
                 $this->trJs('chat.pending.generate_failed'),
                 $this->trJs('chat.pending.write_or_generate_first'),
@@ -1140,9 +1176,6 @@ JS;
                 $this->tr('chat.pending.customer'),
                 $this->tr('chat.pending.customer_message'),
                 $this->tr('chat.pending.suggested_reply'),
-                $this->tr('chat.pending.approve_send'),
-                $this->tr('chat.pending.generate_new'),
-                $this->tr('chat.pending.reject'),
                 $this->tr('chat.pending.none'),
             ],
             $script
@@ -1176,116 +1209,149 @@ JS;
         $tNoWebsitesMsg = $this->tr('chat.settings.no_websites_msg');
 
         $body = <<<HTML
-        <div class="p-toolbar">
-            <a href="/chat" class="p-btn outline xs">← صندوق الوارد</a>
-            <a href="/chat/knowledge-base" class="p-btn outline xs">📚 قاعدة المعرفة</a>
+        <div class="ch-toolbar">
+            <a href="/chat" class="p-btn outline xs">صندوق الوارد</a>
+            <a href="/chat/knowledge-base" class="p-btn outline xs">قاعدة المعرفة</a>
         </div>
-        <div class="p-card">
-            <div class="form-group">
-                <label class="form-label" for="websiteSelect">{$tSelectWebsite}</label>
-                <select id="websiteSelect" class="form-control" onchange="loadSettings()">
-                    <option value="">{$tLoadingWebsites}</option>
-                </select>
+        <div class="ch-card">
+            <div class="ch-card-head"><span class="ch-card-title">اختر الموقع</span><span class="ch-card-sub">اربط قنوات التواصل وإعدادات البوت لكل موقع على حدة</span></div>
+            <div class="ch-card-body ch-form">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label" for="websiteSelect">{$tSelectWebsite}</label>
+                    <select id="websiteSelect" class="form-control" onchange="loadSettings()">
+                        <option value="">{$tLoadingWebsites}</option>
+                    </select>
+                </div>
             </div>
         </div>
-        <div id="ultramsgCard" class="p-card" style="display:none;margin-top:14px;">
-            <div class="p-card-head"><h3>📱 {$tWhatsappTitle}</h3><span class="p-card-sub">{$tWhatsappSub}</span></div>
-            <div id="ultramsgConnected" style="display:none;">
-                <div class="alert alert-success">✔ {$tConnectedInstance} <span id="umInstanceId"></span></div>
-                <p class="p-cell-muted">{$tWebhookUrlHint}</p>
-                <code id="umWebhookUrl" style="display:block;background:#1e1e2e;color:#a6e3a1;padding:10px;border-radius:8px;overflow-x:auto;direction:ltr;text-align:left;font-size:12px;"></code>
-                <button class="p-btn outline xs" style="margin-top:10px;" onclick="disconnectUltraMsg()">{$tDisconnectLink}</button>
+        <div id="ultramsgCard" class="ch-conn whatsapp" style="display:none;">
+            <div class="ch-conn-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 0 0-7.8 13.5L3 21l4.6-1.2A9 9 0 1 0 12 3z"/><path d="M8.8 8.5c-.3 2.5 4 7.5 6.7 6.7l.9-1.7-2-1.1-1.1.9c-1-.5-2-1.5-2.5-2.5l.9-1.1-1.1-2-1.8.8z"/></svg></div>
+            <div class="ch-conn-body">
+                <div class="ch-conn-title">{$tWhatsappTitle}</div>
+                <div class="ch-conn-desc">{$tWhatsappSub}</div>
+                <div id="ultramsgConnected" style="display:none;margin-top:10px;">
+                    <div class="ch-hint" style="margin-bottom:10px;">✔ {$tConnectedInstance} <strong id="umInstanceId"></strong></div>
+                    <p class="p-cell-muted">{$tWebhookUrlHint}</p>
+                    <code id="umWebhookUrl" style="display:block;background:#0B1220;color:#7ee2a8;padding:10px;border-radius:8px;overflow-x:auto;direction:ltr;text-align:left;font-size:12px;"></code>
+                    <button class="p-btn outline xs" style="margin-top:10px;" onclick="disconnectUltraMsg()">{$tDisconnectLink}</button>
+                </div>
+                <div id="ultramsgDisconnected" style="display:none;margin-top:10px;">
+                    <p class="p-cell-muted">{$tFreeAccountHint} <a href="https://ultramsg.com" target="_blank" rel="noopener">ultramsg.com</a></p>
+                    <div class="form-group" style="margin-top:8px;">
+                        <input type="text" id="umInstanceInput" class="form-control" placeholder="{$tInstanceIdPlaceholder}" style="margin-bottom:8px;">
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="umTokenInput" class="form-control" placeholder="API Token">
+                    </div>
+                    <div id="ultramsgAlert" class="alert alert-danger" style="display:none;margin-top:10px;"></div>
+                    <button class="p-btn primary" style="margin-top:10px;" onclick="connectUltraMsg()">{$tConnectAccount}</button>
+                </div>
             </div>
-            <div id="ultramsgDisconnected" style="display:none;">
-                <p class="p-cell-muted">{$tFreeAccountHint} <a href="https://ultramsg.com" target="_blank" rel="noopener">ultramsg.com</a></p>
+        </div>
+        <div id="settingsFormCard" class="ch-card" style="display:none;">
+            <div class="ch-card-head"><span class="ch-card-title">{$tBotSettings}</span></div>
+            <div class="ch-card-body ch-form">
                 <div class="form-group">
-                    <input type="text" id="umInstanceInput" class="form-control" placeholder="{$tInstanceIdPlaceholder}" style="margin-bottom:8px;">
+                    <label class="ch-toggle">
+                        <input type="checkbox" id="isEnabled">
+                        <span class="ch-toggle-track"></span>
+                        <span class="form-label" style="margin:0;">{$tEnableBot}</span>
+                    </label>
                 </div>
                 <div class="form-group">
-                    <input type="text" id="umTokenInput" class="form-control" placeholder="API Token">
-                </div>
-                <div id="ultramsgAlert" class="alert alert-danger" style="display:none;margin-top:10px;"></div>
-                <button class="p-btn primary" style="margin-top:10px;" onclick="connectUltraMsg()">{$tConnectAccount}</button>
-            </div>
-        </div>
-        <div id="settingsFormCard" class="p-card" style="display:none;margin-top:14px;">
-            <div class="p-card-head"><h3>{$tBotSettings}</h3></div>
-            <div class="form-group">
-                <label class="form-label"><input type="checkbox" id="isEnabled"> {$tEnableBot}</label>
-            </div>
-            <div class="form-group">
-                <label class="form-label"><input type="checkbox" id="autoPilot"> {$tAutoPilot}</label>
-            </div>
-            <div class="form-group">
-                <label class="form-label"><input type="checkbox" id="requiresApproval"> {$tRequiresApproval}</label>
-            </div>
-            <div class="form-group">
-                <label class="form-label" for="greetingMsg">{$tGreetingMsg}</label>
-                <textarea id="greetingMsg" class="form-control" rows="2"></textarea>
-            </div>
-            <div class="form-group">
-                <label class="form-label" for="fallbackMsg">{$tFallbackMsg}</label>
-                <textarea id="fallbackMsg" class="form-control" rows="2"></textarea>
-            </div>
-            <div class="form-group">
-                <label class="form-label" for="aiLanguage">{$tReplyLanguage}</label>
-                <select id="aiLanguage" class="form-control">
-                    <option value="ar">العربية</option>
-                    <option value="en">English</option>
-                </select>
-            </div>
-            <div id="settingsAlert" class="alert alert-danger" style="display:none;"></div>
-            <button class="p-btn primary" onclick="saveSettings()">{$tSaveSettings}</button>
-        </div>
-        <div id="messengerCard" class="p-card" style="display:none;margin-top:14px;">
-            <div class="p-card-head"><h3>📘 Messenger</h3><span class="p-card-sub">اربط صفحة فيسبوك الخاصة بالشركة</span></div>
-            <div id="messengerConnected" style="display:none;">
-                <div class="alert alert-success">✔ Messenger مربوط بالفعل</div>
-                <p class="p-cell-muted">Webhook URL:</p>
-                <code id="msgWebhookUrl" style="display:block;background:#1e1e2e;color:#a6e3a1;padding:10px;border-radius:8px;overflow-x:auto;direction:ltr;text-align:left;font-size:12px;"></code>
-                <p class="p-cell-muted" style="margin-top:8px;">Verify Token:</p>
-                <code id="msgVerifyToken" style="display:block;background:#1e1e2e;color:#a6e3a1;padding:10px;border-radius:8px;overflow-x:auto;direction:ltr;text-align:left;font-size:12px;"></code>
-            </div>
-            <div id="messengerForm">
-                <p class="p-cell-muted">أدخل Page Access Token من <a href="https://developers.facebook.com" target="_blank" rel="noopener">Meta for Developers</a>، ثم استخدم الرابط والـVerify Token اللي هيظهرلك لتسجيل الـWebhook هناك.</p>
-                <div class="form-group">
-                    <input type="text" id="msgPageId" class="form-control" placeholder="Page ID" style="margin-bottom:8px;">
+                    <label class="ch-toggle">
+                        <input type="checkbox" id="autoPilot">
+                        <span class="ch-toggle-track"></span>
+                        <span class="form-label" style="margin:0;">{$tAutoPilot}</span>
+                    </label>
                 </div>
                 <div class="form-group">
-                    <input type="text" id="msgAccessToken" class="form-control" placeholder="Page Access Token">
-                </div>
-                <button class="p-btn primary" style="margin-top:10px;" onclick="connectMessenger()">ربط Messenger</button>
-            </div>
-        </div>
-        <div id="instagramCard" class="p-card" style="display:none;margin-top:14px;">
-            <div class="p-card-head"><h3>📷 Instagram</h3><span class="p-card-sub">اربط حساب انستجرام التجاري الخاص بالشركة</span></div>
-            <div id="instagramConnected" style="display:none;">
-                <div class="alert alert-success">✔ Instagram مربوط بالفعل</div>
-                <p class="p-cell-muted">Webhook URL:</p>
-                <code id="igWebhookUrl" style="display:block;background:#1e1e2e;color:#a6e3a1;padding:10px;border-radius:8px;overflow-x:auto;direction:ltr;text-align:left;font-size:12px;"></code>
-                <p class="p-cell-muted" style="margin-top:8px;">Verify Token:</p>
-                <code id="igVerifyToken" style="display:block;background:#1e1e2e;color:#a6e3a1;padding:10px;border-radius:8px;overflow-x:auto;direction:ltr;text-align:left;font-size:12px;"></code>
-            </div>
-            <div id="instagramForm">
-                <p class="p-cell-muted">أدخل IG Business Account Access Token من <a href="https://developers.facebook.com" target="_blank" rel="noopener">Meta for Developers</a>.</p>
-                <div class="form-group">
-                    <input type="text" id="igAccountId" class="form-control" placeholder="Instagram Business Account ID" style="margin-bottom:8px;">
+                    <label class="ch-toggle">
+                        <input type="checkbox" id="requiresApproval">
+                        <span class="ch-toggle-track"></span>
+                        <span class="form-label" style="margin:0;">{$tRequiresApproval}</span>
+                    </label>
                 </div>
                 <div class="form-group">
-                    <input type="text" id="igAccessToken" class="form-control" placeholder="Access Token">
+                    <label class="form-label" for="greetingMsg">{$tGreetingMsg}</label>
+                    <textarea id="greetingMsg" class="form-control" rows="2"></textarea>
                 </div>
-                <button class="p-btn primary" style="margin-top:10px;" onclick="connectInstagram()">ربط Instagram</button>
+                <div class="form-group">
+                    <label class="form-label" for="fallbackMsg">{$tFallbackMsg}</label>
+                    <textarea id="fallbackMsg" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="aiLanguage">{$tReplyLanguage}</label>
+                    <select id="aiLanguage" class="form-control">
+                        <option value="ar">العربية</option>
+                        <option value="en">English</option>
+                    </select>
+                </div>
+                <div id="settingsAlert" class="alert alert-danger" style="display:none;"></div>
+                <button class="p-btn primary" onclick="saveSettings()">{$tSaveSettings}</button>
             </div>
         </div>
-        <div id="emailCard" class="p-card" style="display:none;margin-top:14px;">
-            <div class="p-card-head"><h3>✉️ الإيميل</h3><span class="p-card-sub">استقبال استفسارات العملاء عبر البريد الإلكتروني</span></div>
-            <p class="p-cell-muted">قناة الإيميل بترسل الردود عبر إعدادات البريد العامة للمنصة (مفيش Access Token منفصل لكل موقع). لاستقبال الرسائل، وجّه مزود البريد الوارد (SendGrid Inbound Parse، Mailgun Routes، أو ما يعادلهم) للرابط تحت:</p>
-            <p class="p-cell-muted" style="margin-top:8px;">Webhook URL:</p>
-            <code id="emailWebhookUrl" style="display:block;background:#1e1e2e;color:#a6e3a1;padding:10px;border-radius:8px;overflow-x:auto;direction:ltr;text-align:left;font-size:12px;">جاري التحميل...</code>
-            <div id="emailMailerWarning" class="alert alert-danger" style="display:none;margin-top:10px;">⚠️ إعدادات إرسال البريد (Mailer) للمنصة غير مُفعّلة حاليًا - الاستقبال هيشتغل لكن الردود لن تُرسَل للعميل حتى تُضبَط.</div>
+        <div id="messengerCard" class="ch-conn messenger" style="display:none;">
+            <div class="ch-conn-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9h3l-.5 3H14v9h-3.5v-9H8V9h2.5V7.3c0-2.1 1.3-3.3 3.6-3.3H17V7h-2c-.9 0-1 .4-1 1v1z"/></svg></div>
+            <div class="ch-conn-body">
+                <div class="ch-conn-title">Messenger</div>
+                <div class="ch-conn-desc">اربط صفحة فيسبوك الخاصة بالشركة</div>
+                <div id="messengerConnected" style="display:none;margin-top:10px;">
+                    <div class="ch-hint" style="margin-bottom:10px;">✔ Messenger مربوط بالفعل</div>
+                    <p class="p-cell-muted">Webhook URL:</p>
+                    <code id="msgWebhookUrl" style="display:block;background:#0B1220;color:#7ee2a8;padding:10px;border-radius:8px;overflow-x:auto;direction:ltr;text-align:left;font-size:12px;"></code>
+                    <p class="p-cell-muted" style="margin-top:8px;">Verify Token:</p>
+                    <code id="msgVerifyToken" style="display:block;background:#0B1220;color:#7ee2a8;padding:10px;border-radius:8px;overflow-x:auto;direction:ltr;text-align:left;font-size:12px;"></code>
+                </div>
+                <div id="messengerForm" style="margin-top:10px;">
+                    <p class="p-cell-muted">أدخل Page Access Token من <a href="https://developers.facebook.com" target="_blank" rel="noopener">Meta for Developers</a>، ثم استخدم الرابط والـVerify Token اللي هيظهرلك لتسجيل الـWebhook هناك.</p>
+                    <div class="form-group">
+                        <input type="text" id="msgPageId" class="form-control" placeholder="Page ID" style="margin-bottom:8px;">
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="msgAccessToken" class="form-control" placeholder="Page Access Token">
+                    </div>
+                    <button class="p-btn primary" style="margin-top:10px;" onclick="connectMessenger()">ربط Messenger</button>
+                </div>
+            </div>
         </div>
-        <div class="p-card" id="noWebsitesCard" style="display:none;">
-            <div class="p-empty"><div class="p-empty-icon">🌐</div>{$tNoWebsitesMsg}</div>
+        <div id="instagramCard" class="ch-conn instagram" style="display:none;">
+            <div class="ch-conn-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17" cy="7" r="1.2"/></svg></div>
+            <div class="ch-conn-body">
+                <div class="ch-conn-title">Instagram</div>
+                <div class="ch-conn-desc">اربط حساب انستجرام التجاري الخاص بالشركة</div>
+                <div id="instagramConnected" style="display:none;margin-top:10px;">
+                    <div class="ch-hint" style="margin-bottom:10px;">✔ Instagram مربوط بالفعل</div>
+                    <p class="p-cell-muted">Webhook URL:</p>
+                    <code id="igWebhookUrl" style="display:block;background:#0B1220;color:#7ee2a8;padding:10px;border-radius:8px;overflow-x:auto;direction:ltr;text-align:left;font-size:12px;"></code>
+                    <p class="p-cell-muted" style="margin-top:8px;">Verify Token:</p>
+                    <code id="igVerifyToken" style="display:block;background:#0B1220;color:#7ee2a8;padding:10px;border-radius:8px;overflow-x:auto;direction:ltr;text-align:left;font-size:12px;"></code>
+                </div>
+                <div id="instagramForm" style="margin-top:10px;">
+                    <p class="p-cell-muted">أدخل IG Business Account Access Token من <a href="https://developers.facebook.com" target="_blank" rel="noopener">Meta for Developers</a>.</p>
+                    <div class="form-group">
+                        <input type="text" id="igAccountId" class="form-control" placeholder="Instagram Business Account ID" style="margin-bottom:8px;">
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="igAccessToken" class="form-control" placeholder="Access Token">
+                    </div>
+                    <button class="p-btn primary" style="margin-top:10px;" onclick="connectInstagram()">ربط Instagram</button>
+                </div>
+            </div>
+        </div>
+        <div id="emailCard" class="ch-conn webchat" style="display:none;">
+            <div class="ch-conn-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 7l9 6 9-6"/></svg></div>
+            <div class="ch-conn-body">
+                <div class="ch-conn-title">الإيميل</div>
+                <div class="ch-conn-desc">استقبال استفسارات العملاء عبر البريد الإلكتروني</div>
+                <p class="p-cell-muted" style="margin-top:10px;">قناة الإيميل بترسل الردود عبر إعدادات البريد العامة للمنصة (مفيش Access Token منفصل لكل موقع). لاستقبال الرسائل، وجّه مزود البريد الوارد (SendGrid Inbound Parse، Mailgun Routes، أو ما يعادلهم) للرابط تحت:</p>
+                <p class="p-cell-muted" style="margin-top:8px;">Webhook URL:</p>
+                <code id="emailWebhookUrl" style="display:block;background:#0B1220;color:#7ee2a8;padding:10px;border-radius:8px;overflow-x:auto;direction:ltr;text-align:left;font-size:12px;">جاري التحميل...</code>
+                <div id="emailMailerWarning" class="alert alert-danger" style="display:none;margin-top:10px;">⚠️ إعدادات إرسال البريد (Mailer) للمنصة غير مُفعّلة حاليًا - الاستقبال هيشتغل لكن الردود لن تُرسَل للعميل حتى تُضبَط.</div>
+            </div>
+        </div>
+        <div class="ch-card" id="noWebsitesCard" style="display:none;">
+            <div class="ch-empty"><div class="ch-empty-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></div>{$tNoWebsitesMsg}</div>
         </div>
 HTML;
 
@@ -1429,7 +1495,7 @@ HTML;
     async function loadEmailChannelInfo(websiteId) {
         const res = await fetchJSON('/api/chat/email-channel-info?website_id=' + websiteId);
         if (!res.success) {
-            document.getElementById('emailWebhookUrl').textContent = '⚠️ ' + (res.error || 'تعذر التحميل');
+            document.getElementById('emailWebhookUrl').textContent = (res.error || 'تعذر التحميل');
             return;
         }
         document.getElementById('emailWebhookUrl').textContent = res.data.webhook_url || '';
@@ -1535,74 +1601,78 @@ JS;
      */
     public function showKnowledgeBase(array $params = []): array {
         $body = <<<'HTML'
-        <div class="p-toolbar">
-            <a href="/chat" class="p-btn outline xs">← الرجوع لصندوق الوارد</a>
-            <div style="flex:1;"></div>
-            <button class="p-btn outline xs" onclick="kbPreview()">👁 معاينة السياق المُرسَل للـAI</button>
+        <div class="ch-toolbar">
+            <a href="/chat" class="p-btn outline xs">صندوق الوارد</a>
+            <div class="ch-toolbar-spacer"></div>
+            <button class="p-btn outline xs" onclick="kbPreview()">معاينة السياق المُرسَل للـAI</button>
         </div>
 
-        <div id="kbNoWebsite" class="p-card" style="display:none;">
-            <div class="p-empty"><div class="p-empty-icon">🌐</div>اختر موقعًا من القائمة أعلى الصفحة أولًا.</div>
+        <div id="kbNoWebsite" class="ch-card" style="display:none;">
+            <div class="ch-empty"><div class="ch-empty-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></div><div class="ch-empty-title">اختر موقعًا</div><div class="ch-empty-sub">اختر موقعًا من القائمة أعلى الصفحة أولًا.</div></div>
         </div>
 
         <div id="kbBody" style="display:none;">
-            <div class="p-card" style="margin-bottom:14px;">
-                <div class="p-card-head"><h3>🎙 نبرة الشركة (Brand Voice)</h3><span class="p-card-sub">تُستخدم في كل ردود الذكاء الاصطناعي</span></div>
-                <div class="form-group">
-                    <label class="form-label">النبرة</label>
-                    <select id="bvTone" class="form-control">
-                        <option value="professional">احترافية</option>
-                        <option value="friendly">ودّية</option>
-                        <option value="luxury">فاخرة</option>
-                        <option value="casual">غير رسمية</option>
-                        <option value="formal">رسمية جدًا</option>
-                        <option value="sales_focused">مُركّزة على البيع</option>
-                    </select>
+            <div class="ch-card">
+                <div class="ch-card-head"><span class="ch-card-title">نبرة الشركة</span><span class="ch-card-sub">تُستخدم في كل ردود الذكاء الاصطناعي</span></div>
+                <div class="ch-card-body ch-form">
+                    <div class="form-group">
+                        <label class="form-label">النبرة</label>
+                        <select id="bvTone" class="form-control">
+                            <option value="professional">احترافية</option>
+                            <option value="friendly">ودّية</option>
+                            <option value="luxury">فاخرة</option>
+                            <option value="casual">غير رسمية</option>
+                            <option value="formal">رسمية جدًا</option>
+                            <option value="sales_focused">مُركّزة على البيع</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">تعليمات إضافية (اختياري)</label>
+                        <textarea id="bvInstructions" class="form-control" rows="2" placeholder="مثال: دائمًا اذكر سياسة الإلغاء المجاني قبل 48 ساعة"></textarea>
+                    </div>
+                    <button class="p-btn primary xs" onclick="kbSaveBrandVoice()">حفظ نبرة الشركة</button>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">تعليمات إضافية (اختياري)</label>
-                    <textarea id="bvInstructions" class="form-control" rows="2" placeholder="مثال: دائمًا اذكر سياسة الإلغاء المجاني قبل 48 ساعة"></textarea>
-                </div>
-                <button class="p-btn primary xs" onclick="kbSaveBrandVoice()">حفظ نبرة الشركة</button>
             </div>
 
-            <div class="p-card" style="margin-bottom:14px;">
-                <div class="p-card-head"><h3 id="kbFormTitle">➕ إضافة معلومة جديدة</h3></div>
-                <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                    <div class="form-group" style="flex:1;min-width:180px;">
-                        <label class="form-label">القسم</label>
-                        <select id="kbSection" class="form-control">
-                            <option value="company_info">معلومات الشركة</option>
-                            <option value="service">خدمة</option>
-                            <option value="tour">رحلة/جولة</option>
-                            <option value="destination">وجهة</option>
-                            <option value="pricing">سعر</option>
-                            <option value="faq">سؤال شائع</option>
-                            <option value="policy">سياسة</option>
-                            <option value="cancellation_policy">سياسة الإلغاء</option>
-                            <option value="contact_info">بيانات التواصل</option>
-                            <option value="business_hours">ساعات العمل</option>
-                            <option value="custom_instructions">تعليمات مخصصة</option>
-                        </select>
+            <div class="ch-card">
+                <div class="ch-card-head"><span class="ch-card-title" id="kbFormTitle">إضافة معلومة جديدة</span><span class="ch-card-spacer"></span><span class="ch-card-sub">تضيفها هنا مرة واحدة، والـAI هيرجع لها في كل محادثة</span></div>
+                <div class="ch-card-body ch-form">
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                        <div class="form-group" style="flex:1;min-width:180px;">
+                            <label class="form-label">القسم</label>
+                            <select id="kbSection" class="form-control">
+                                <option value="company_info">معلومات الشركة</option>
+                                <option value="service">خدمة</option>
+                                <option value="tour">رحلة/جولة</option>
+                                <option value="destination">وجهة</option>
+                                <option value="pricing">سعر</option>
+                                <option value="faq">سؤال شائع</option>
+                                <option value="policy">سياسة</option>
+                                <option value="cancellation_policy">سياسة الإلغاء</option>
+                                <option value="contact_info">بيانات التواصل</option>
+                                <option value="business_hours">ساعات العمل</option>
+                                <option value="custom_instructions">تعليمات مخصصة</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex:1;min-width:180px;">
+                            <label class="form-label">اللغة</label>
+                            <select id="kbLanguage" class="form-control">
+                                <option value="ar">العربية</option>
+                                <option value="en">English</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="form-group" style="flex:1;min-width:180px;">
-                        <label class="form-label">اللغة</label>
-                        <select id="kbLanguage" class="form-control">
-                            <option value="ar">العربية</option>
-                            <option value="en">English</option>
-                        </select>
+                    <div class="form-group">
+                        <label class="form-label">العنوان (اختياري، مثال: اسم الرحلة أو نص السؤال)</label>
+                        <input type="text" id="kbTitle" class="form-control">
                     </div>
+                    <div class="form-group">
+                        <label class="form-label">المحتوى</label>
+                        <textarea id="kbContent" class="form-control" rows="3" placeholder="اكتب المعلومة كاملة وواضحة - الذكاء الاصطناعي هيعتمد على النص ده حرفيًا"></textarea>
+                    </div>
+                    <button class="p-btn primary" id="kbAddBtn" onclick="kbAddEntry()">إضافة</button>
+                    <button class="p-btn outline" id="kbCancelBtn" style="display:none;" onclick="kbCancelEdit()">إلغاء التعديل</button>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">العنوان (اختياري، مثال: اسم الرحلة أو نص السؤال)</label>
-                    <input type="text" id="kbTitle" class="form-control">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">المحتوى</label>
-                    <textarea id="kbContent" class="form-control" rows="3" placeholder="اكتب المعلومة كاملة وواضحة - الذكاء الاصطناعي هيعتمد على النص ده حرفيًا"></textarea>
-                </div>
-                <button class="p-btn primary" id="kbAddBtn" onclick="kbAddEntry()">➕ إضافة</button>
-                <button class="p-btn outline" id="kbCancelBtn" style="display:none;" onclick="kbCancelEdit()">إلغاء التعديل</button>
             </div>
 
             <div id="kbSectionsContainer"></div>
@@ -1613,6 +1683,7 @@ HTML;
 (function () {
     const P = window.Panel;
     const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast, formatDate = P.formatDate;
+    const UI = window.ChatUI;
 
     const SECTION_LABELS = {
         company_info: 'معلومات الشركة', service: 'الخدمات', tour: 'الرحلات/الجولات',
@@ -1674,8 +1745,8 @@ HTML;
         document.getElementById('kbLanguage').value = language;
         document.getElementById('kbTitle').value = title || '';
         document.getElementById('kbContent').value = content || '';
-        document.getElementById('kbFormTitle').textContent = '✏️ تعديل معلومة';
-        document.getElementById('kbAddBtn').textContent = '💾 حفظ التعديل';
+        document.getElementById('kbFormTitle').textContent = 'تعديل معلومة';
+        document.getElementById('kbAddBtn').textContent = 'حفظ التعديل';
         document.getElementById('kbCancelBtn').style.display = 'inline-block';
         document.getElementById('kbContent').scrollIntoView({ behavior: 'smooth', block: 'center' });
     };
@@ -1685,8 +1756,8 @@ HTML;
         document.getElementById('kbSection').disabled = false;
         document.getElementById('kbTitle').value = '';
         document.getElementById('kbContent').value = '';
-        document.getElementById('kbFormTitle').textContent = '➕ إضافة معلومة جديدة';
-        document.getElementById('kbAddBtn').textContent = '➕ إضافة';
+        document.getElementById('kbFormTitle').textContent = 'إضافة معلومة جديدة';
+        document.getElementById('kbAddBtn').textContent = 'إضافة';
         document.getElementById('kbCancelBtn').style.display = 'none';
     };
 
@@ -1730,7 +1801,7 @@ HTML;
         const container = document.getElementById('kbSectionsContainer');
 
         if (!res.success) {
-            container.innerHTML = '<div class="p-card"><div class="p-empty">⚠️ ' + esc(res.error || 'تعذر التحميل') + '</div></div>';
+            container.innerHTML = '<div class="ch-card"><div class="ch-empty">' + UI.icon('alert') + ' ' + esc(res.error || 'تعذر التحميل') + '</div></div>';
             return;
         }
 
@@ -1742,7 +1813,7 @@ HTML;
         const sections = res.data.sections || {};
         const sectionKeys = Object.keys(sections);
         if (!sectionKeys.length) {
-            container.innerHTML = '<div class="p-card"><div class="p-empty"><div class="p-empty-icon">📚</div>مفيش أي معلومات مضافة لقاعدة المعرفة بعد. أضف أول معلومة من الفورم أعلاه - من غيرها الذكاء الاصطناعي مش هيقدر يجاوب على أي سؤال محدد عن شركتك.</div></div>';
+            container.innerHTML = '<div class="ch-card"><div class="ch-empty"><div class="ch-empty-icon">' + UI.icon('book') + '</div><div class="ch-empty-title">قاعدة المعرفة فاضية</div><div class="ch-empty-sub">أضف أول معلومة من الفورم أعلاه - من غيرها الذكاء الاصطناعي مش هيقدر يجاوب على أي سؤال محدد عن شركتك.</div></div></div>';
             return;
         }
 
@@ -1752,7 +1823,7 @@ HTML;
             const rows = entries.map(e => {
                 window.kbEntriesById[e.id] = { section: section, language: e.language, title: e.title, content: e.content };
                 return `
-                <div class="p-kv" style="align-items:flex-start;">
+                <div class="p-kv" style="align-items:flex-start;padding:12px 0;">
                     <span class="k" style="max-width:70%;">
                         ${e.title ? '<strong>' + esc(e.title) + '</strong><br>' : ''}
                         ${esc(e.content || '')}
@@ -1765,9 +1836,9 @@ HTML;
                 </div>`;
             }).join('');
             return `
-                <div class="p-card" style="margin-bottom:14px;">
-                    <div class="p-card-head"><h3>${SECTION_LABELS[section] || esc(section)}</h3><span class="p-card-sub">${entries.length} عنصر</span></div>
-                    ${rows}
+                <div class="ch-card">
+                    <div class="ch-card-head"><span class="ch-card-title">${SECTION_LABELS[section] || esc(section)}</span><span class="ch-card-sub">${entries.length} عنصر</span></div>
+                    <div class="ch-card-body no-pad" style="padding:0 18px;">${rows}</div>
                 </div>`;
         }).join('');
     }
@@ -1789,29 +1860,36 @@ JS;
      */
     public function showFollowupSettings(array $params = []): array {
         $body = <<<'HTML'
-        <div class="p-toolbar">
-            <a href="/chat" class="p-btn outline xs">← صندوق الوارد</a>
+        <div class="ch-toolbar">
+            <a href="/chat" class="p-btn outline xs">صندوق الوارد</a>
         </div>
-        <div id="fuNoWebsite" class="p-card" style="display:none;">
-            <div class="p-empty"><div class="p-empty-icon">🌐</div>اختر موقعًا من القائمة أعلى الصفحة أولًا.</div>
+        <div id="fuNoWebsite" class="ch-card" style="display:none;">
+            <div class="ch-empty"><div class="ch-empty-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></div><div class="ch-empty-title">اختر موقعًا</div><div class="ch-empty-sub">اختر موقعًا من القائمة أعلى الصفحة أولًا.</div></div>
         </div>
         <div id="fuBody" style="display:none;">
-            <div class="p-card" style="margin-bottom:14px;">
-                <div class="p-card-head"><h3>⏰ المتابعة التلقائية</h3><span class="p-card-sub">لو العميل سأل ثم اختفى، النظام يقدر يبعتله متابعة تلقائية حسب الخطوات تحت</span></div>
-                <div class="form-group">
-                    <label class="form-label"><input type="checkbox" id="fuEnabled"> تفعيل المتابعة التلقائية لهذا الموقع</label>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">الحد الأقصى لعدد المتابعات لكل عميل</label>
-                    <input type="number" id="fuMax" class="form-control" min="1" max="10" style="max-width:120px;">
+            <div class="ch-card">
+                <div class="ch-card-head"><span class="ch-card-title">المتابعة التلقائية</span><span class="ch-card-sub">لو العميل سأل ثم اختفى، النظام يقدر يبعتله متابعة تلقائية حسب الخطوات تحت</span></div>
+                <div class="ch-card-body ch-form">
+                    <div class="form-group">
+                        <label class="ch-toggle">
+                            <input type="checkbox" id="fuEnabled">
+                            <span class="ch-toggle-track"></span>
+                            <span class="form-label" style="margin:0;">تفعيل المتابعة التلقائية لهذا الموقع</span>
+                        </label>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label class="form-label">الحد الأقصى لعدد المتابعات لكل عميل</label>
+                        <input type="number" id="fuMax" class="form-control" min="1" max="10" style="max-width:120px;">
+                    </div>
                 </div>
             </div>
-            <div class="p-card" style="margin-bottom:14px;">
-                <div class="p-card-head"><h3>خطوات المتابعة</h3></div>
-                <div id="fuSteps"></div>
-                <button class="p-btn outline xs" style="margin-top:10px;" onclick="fuAddStep()">➕ إضافة خطوة</button>
+            <div class="ch-card">
+                <div class="ch-card-head"><span class="ch-card-title">خطوات المتابعة</span><span class="ch-card-spacer"></span><button class="p-btn outline xs" onclick="fuAddStep()">إضافة خطوة</button></div>
+                <div class="ch-card-body">
+                    <div id="fuSteps"></div>
+                </div>
             </div>
-            <button class="p-btn primary" onclick="fuSave()">💾 حفظ الإعدادات</button>
+            <button class="p-btn primary" onclick="fuSave()">حفظ الإعدادات</button>
         </div>
 HTML;
 
@@ -1819,6 +1897,7 @@ HTML;
 (function () {
     const P = window.Panel;
     const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast;
+    const UI = window.ChatUI;
     let steps = [];
 
     function websiteId() { return P.getCurrentWebsiteId(); }
@@ -1833,24 +1912,26 @@ HTML;
     function renderSteps() {
         const container = document.getElementById('fuSteps');
         if (!steps.length) {
-            container.innerHTML = '<div class="p-cell-muted">مفيش خطوات لسه - أضف خطوة عشان المتابعة التلقائية تشتغل.</div>';
+            container.innerHTML = '<div class="ch-empty" style="padding:28px 16px;"><div class="ch-empty-icon">' + UI.icon('clock') + '</div><div class="ch-empty-sub">مفيش خطوات لسه - أضف خطوة عشان المتابعة التلقائية تشتغل.</div></div>';
             return;
         }
-        container.innerHTML = steps.map((s, i) => `
-            <div class="p-card" style="background:var(--panel-bg,#f7f8fa);padding:12px;margin-bottom:10px;">
-                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-                    <strong>الخطوة ${i + 1}</strong>
-                    <label class="form-label" style="margin:0;">بعد</label>
-                    <input type="number" class="form-control" style="max-width:90px;" value="${s.after_hours}" onchange="fuUpdateStep(${i}, 'after_hours', this.value)">
-                    <span class="p-cell-muted">ساعة من آخر رسالة للعميل</span>
-                    <div style="flex:1;"></div>
-                    <button class="p-btn danger xs" onclick="fuRemoveStep(${i})">حذف</button>
+        container.innerHTML = '<div class="ch-steps">' + steps.map((s, i) => `
+            <div class="ch-step">
+                <div class="ch-step-num">${i + 1}</div>
+                <div class="ch-step-body">
+                    <div class="ch-step-row">
+                        <strong>بعد</strong>
+                        <input type="number" class="form-control" style="max-width:90px;" value="${s.after_hours}" onchange="fuUpdateStep(${i}, 'after_hours', this.value)">
+                        <span class="p-cell-muted">ساعة من آخر رسالة للعميل</span>
+                        <div style="flex:1;"></div>
+                        <button class="p-btn danger xs" onclick="fuRemoveStep(${i})">حذف</button>
+                    </div>
+                    <div class="form-group" style="margin-top:10px;margin-bottom:0;">
+                        <label class="form-label">نص الرسالة (استخدم {name} لاسم العميل)</label>
+                        <textarea class="form-control" rows="2" onchange="fuUpdateStep(${i}, 'template', this.value)">${esc(s.template || '')}</textarea>
+                    </div>
                 </div>
-                <div class="form-group" style="margin-top:8px;margin-bottom:0;">
-                    <label class="form-label">نص الرسالة (استخدم {name} لاسم العميل)</label>
-                    <textarea class="form-control" rows="2" onchange="fuUpdateStep(${i}, 'template', this.value)">${esc(s.template || '')}</textarea>
-                </div>
-            </div>`).join('');
+            </div>`).join('') + '</div>';
     }
 
     window.fuAddStep = function () {
@@ -1907,36 +1988,38 @@ JS;
      */
     public function showAnalytics(array $params = []): array {
         $body = <<<'HTML'
-        <div class="p-toolbar">
-            <a href="/chat" class="p-btn outline xs">← صندوق الوارد</a>
-            <div style="flex:1;"></div>
+        <div class="ch-toolbar">
+            <a href="/chat" class="p-btn outline xs">صندوق الوارد</a>
+            <div class="ch-toolbar-spacer"></div>
             <select id="anSince" class="p-select" onchange="load()">
                 <option value="7">آخر 7 أيام</option>
                 <option value="30" selected>آخر 30 يوم</option>
                 <option value="90">آخر 90 يوم</option>
             </select>
         </div>
-        <div id="anNoWebsite" class="p-card" style="display:none;">
-            <div class="p-empty"><div class="p-empty-icon">🌐</div>اختر موقعًا من القائمة أعلى الصفحة أولًا.</div>
+        <div id="anNoWebsite" class="ch-card" style="display:none;">
+            <div class="ch-empty"><div class="ch-empty-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></div><div class="ch-empty-title">اختر موقعًا</div><div class="ch-empty-sub">اختر موقعًا من القائمة أعلى الصفحة أولًا.</div></div>
         </div>
         <div id="anBody" style="display:none;">
-            <div id="anStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:14px;"></div>
-            <div style="display:flex;gap:14px;flex-wrap:wrap;">
-                <div class="p-card" style="flex:1;min-width:260px;">
-                    <div class="p-card-head"><h3>🏷 أكثر الوسوم تكرارًا</h3></div>
-                    <div id="anTags"></div>
+            <div id="anStats" class="ch-stats"></div>
+            <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;">
+                <div class="ch-card" style="flex:1;min-width:260px;margin-bottom:0;">
+                    <div class="ch-card-head"><span class="ch-card-title">أكثر الوسوم تكرارًا</span></div>
+                    <div class="ch-card-body" id="anTags"></div>
                 </div>
-                <div class="p-card" style="flex:1;min-width:260px;">
-                    <div class="p-card-head"><h3>🎯 أكثر الخدمات طلبًا</h3></div>
-                    <div id="anServices"></div>
+                <div class="ch-card" style="flex:1;min-width:260px;margin-bottom:0;">
+                    <div class="ch-card-head"><span class="ch-card-title">أكثر الخدمات طلبًا</span></div>
+                    <div class="ch-card-body" id="anServices"></div>
                 </div>
             </div>
-            <div class="p-card" style="margin-top:14px;">
-                <div class="p-card-head"><h3>🤖 استخدام مزودي الذكاء الاصطناعي</h3></div>
-                <div class="p-table-scroll"><table class="p-table" id="anProviders">
-                    <thead><tr><th>المزود</th><th>عدد الطلبات</th><th>عدد الرموز (Tokens)</th><th>التكلفة التقديرية</th><th>طلبات فاشلة</th></tr></thead>
-                    <tbody></tbody>
-                </table></div>
+            <div class="ch-card">
+                <div class="ch-card-head"><span class="ch-card-title">استخدام مزودي الذكاء الاصطناعي</span></div>
+                <div class="ch-card-body no-pad" id="anProvidersWrap">
+                    <div class="p-table-scroll"><table class="p-table" id="anProviders">
+                        <thead><tr><th>المزود</th><th>عدد الطلبات</th><th>عدد الرموز (Tokens)</th><th>التكلفة التقديرية</th><th>طلبات فاشلة</th></tr></thead>
+                        <tbody></tbody>
+                    </table></div>
+                </div>
             </div>
         </div>
 HTML;
@@ -1945,6 +2028,7 @@ HTML;
 (function () {
     const P = window.Panel;
     const esc = P.esc, fetchJSON = P.fetchJSON;
+    const UI = window.ChatUI;
 
     function websiteId() { return P.getCurrentWebsiteId(); }
 
@@ -1955,10 +2039,11 @@ HTML;
         return id;
     }
 
-    function statTile(label, value) {
-        return `<div class="p-card" style="text-align:center;padding:16px;">
-            <div style="font-size:24px;font-weight:800;">${value}</div>
-            <div class="p-cell-muted">${label}</div>
+    function statTile(label, value, icon, variant) {
+        return `<div class="ch-stat ${variant || ''}">
+            <span class="ch-stat-icon">${UI.icon(icon || 'bar-chart', 16)}</span>
+            <div class="ch-stat-value">${value}</div>
+            <div class="ch-stat-label">${label}</div>
         </div>`;
     }
 
@@ -1970,34 +2055,42 @@ HTML;
 
         const res = await fetchJSON('/api/ai-chat/websites/' + id + '/analytics?since=' + since);
         if (!res.success) {
-            document.getElementById('anStats').innerHTML = '<div class="p-cell-muted">⚠️ ' + esc(res.error || 'تعذر التحميل') + '</div>';
+            document.getElementById('anStats').innerHTML = '<div class="ch-card" style="grid-column:1/-1;"><div class="ch-empty">' + UI.icon('alert') + ' ' + esc(res.error || 'تعذر التحميل') + '</div></div>';
             return;
         }
 
         const d = res.data.dashboard;
         document.getElementById('anStats').innerHTML = [
-            statTile('إجمالي المحادثات', d.total_conversations),
-            statTile('ردّ الذكاء الاصطناعي', d.ai_conversations),
-            statTile('تحويل لموظف', d.human_conversations),
-            statTile('Leads جديدة', d.leads_generated),
-            statTile('Leads ساخنة 🔥', d.hot_leads),
-            statTile('نسبة التحويل', d.conversion_rate_percent + '%'),
-            statTile('معدّل حل الذكاء الاصطناعي', d.ai_resolution_rate_percent + '%'),
-            statTile('نسبة التحويل لموظف', d.human_handoff_rate_percent + '%'),
-            statTile('نجاح المتابعات', d.followup_success_rate_percent + '%'),
+            statTile('إجمالي المحادثات', d.total_conversations, 'chat', ''),
+            statTile('ردّ الذكاء الاصطناعي', d.ai_conversations, 'robot', 'teal'),
+            statTile('تحويل لموظف', d.human_conversations, 'user', 'purple'),
+            statTile('Leads جديدة', d.leads_generated, 'target', ''),
+            statTile('Leads ساخنة', d.hot_leads, 'flame', 'red'),
+            statTile('نسبة التحويل', d.conversion_rate_percent + '%', 'trend-up', 'teal'),
+            statTile('معدّل حل الذكاء الاصطناعي', d.ai_resolution_rate_percent + '%', 'shield', ''),
+            statTile('تحويل لموظف', d.human_handoff_rate_percent + '%', 'users', 'purple'),
+            statTile('نجاح المتابعات', d.followup_success_rate_percent + '%', 'check-circle', 'teal'),
         ].join('');
 
         const tags = d.top_tags || {};
         const tagKeys = Object.keys(tags);
+        const tagMax = tagKeys.length ? Math.max.apply(null, tagKeys.map(k => tags[k])) : 1;
         document.getElementById('anTags').innerHTML = tagKeys.length
-            ? tagKeys.map(t => `<div class="p-kv"><span class="k">${esc(t)}</span><span class="v">${tags[t]}</span></div>`).join('')
-            : '<div class="p-cell-muted">لا توجد بيانات كافية بعد</div>';
+            ? '<div class="ch-rank">' + tagKeys.map(t => `<div class="ch-rank-item">
+                <div class="ch-rank-label"><span>${esc(t)}</span><span>${tags[t]}</span></div>
+                ${UI.rankBar(tags[t], tagMax)}
+            </div>`).join('') + '</div>'
+            : '<div class="ch-empty" style="padding:20px;"><div class="ch-empty-sub">لا توجد بيانات كافية بعد</div></div>';
 
         const services = d.most_popular_services || {};
         const serviceKeys = Object.keys(services);
+        const svcMax = serviceKeys.length ? Math.max.apply(null, serviceKeys.map(s => services[s])) : 1;
         document.getElementById('anServices').innerHTML = serviceKeys.length
-            ? serviceKeys.map(s => `<div class="p-kv"><span class="k">${esc(s)}</span><span class="v">${services[s]}</span></div>`).join('')
-            : '<div class="p-cell-muted">لا توجد بيانات كافية بعد</div>';
+            ? '<div class="ch-rank">' + serviceKeys.map(s => `<div class="ch-rank-item">
+                <div class="ch-rank-label"><span>${esc(s)}</span><span>${services[s]}</span></div>
+                ${UI.rankBar(services[s], svcMax)}
+            </div>`).join('') + '</div>'
+            : '<div class="ch-empty" style="padding:20px;"><div class="ch-empty-sub">لا توجد بيانات كافية بعد</div></div>';
 
         const providers = d.ai_usage_by_provider || [];
         const tbody = document.querySelector('#anProviders tbody');
@@ -2027,9 +2120,9 @@ JS;
      */
     public function showLeads(array $params = []): array {
         $body = <<<'HTML'
-        <div class="p-toolbar">
-            <a href="/chat" class="p-btn outline xs">← صندوق الوارد</a>
-            <div style="flex:1;"></div>
+        <div class="ch-toolbar">
+            <a href="/chat" class="p-btn outline xs">صندوق الوارد</a>
+            <div class="ch-toolbar-spacer"></div>
             <select id="ldStatus" class="p-select" onchange="load()">
                 <option value="">كل الحالات</option>
                 <option value="new">جديد</option>
@@ -2040,17 +2133,11 @@ JS;
                 <option value="lost">فاقد</option>
             </select>
         </div>
-        <div id="ldNoWebsite" class="p-card" style="display:none;">
-            <div class="p-empty"><div class="p-empty-icon">🌐</div>اختر موقعًا من القائمة أعلى الصفحة أولًا.</div>
+        <div id="ldNoWebsite" class="ch-card" style="display:none;">
+            <div class="ch-empty"><div class="ch-empty-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></div><div class="ch-empty-title">اختر موقعًا</div><div class="ch-empty-sub">اختر موقعًا من القائمة أعلى الصفحة أولًا.</div></div>
         </div>
-        <div class="p-card no-pad" id="ldTableWrap">
-            <div class="p-table-scroll"><table class="p-table" id="leadsTable">
-                <thead><tr>
-                    <th>العميل</th><th>القناة</th><th>الاهتمام</th><th>الوجهة</th>
-                    <th>Lead Score</th><th>النية</th><th>الحالة</th><th>آخر تفاعل</th><th></th>
-                </tr></thead>
-                <tbody><tr class="p-loading-row"><td colspan="9">جاري التحميل...</td></tr></tbody>
-            </table></div>
+        <div class="ch-card" id="ldListWrap" style="display:none;">
+            <div class="ch-inbox" id="leadsList"></div>
         </div>
 HTML;
 
@@ -2058,18 +2145,24 @@ HTML;
 (function () {
     const P = window.Panel;
     const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast;
+    const UI = window.ChatUI;
 
     const STATUS_OPTIONS = [
         ['new', 'جديد'], ['contacted', 'تم التواصل'], ['qualified', 'مؤهّل'],
         ['proposal_sent', 'تم إرسال عرض سعر'], ['won', 'تم الفوز به'], ['lost', 'فاقد'],
     ];
+    const STATUS_CHIP = {
+        new: ['جديد', 'blue'], contacted: ['تم التواصل', ''],
+        qualified: ['مؤهّل', 'green'], proposal_sent: ['عرض سعر', 'orange'],
+        won: ['فوز', 'green'], lost: ['فاقد', 'red'],
+    };
 
     function websiteId() { return P.getCurrentWebsiteId(); }
 
     function ensureWebsite() {
         const id = websiteId();
         document.getElementById('ldNoWebsite').style.display = id ? 'none' : 'block';
-        document.getElementById('ldTableWrap').style.display = id ? 'block' : 'none';
+        document.getElementById('ldListWrap').style.display = id ? 'block' : 'none';
         return id;
     }
 
@@ -2091,36 +2184,43 @@ HTML;
         const status = document.getElementById('ldStatus').value;
         const qs = status ? ('?status=' + encodeURIComponent(status)) : '';
 
-        const tbody = document.querySelector('#leadsTable tbody');
-        tbody.innerHTML = '<tr class="p-loading-row"><td colspan="9">جاري التحميل...</td></tr>';
+        const list = document.getElementById('leadsList');
+        list.innerHTML = '<div class="ch-skeleton-row"><div class="ch-skeleton avatar"></div><div class="ch-skeleton line"></div></div><div class="ch-skeleton-row"><div class="ch-skeleton avatar"></div><div class="ch-skeleton line"></div></div><div class="ch-skeleton-row"><div class="ch-skeleton avatar"></div><div class="ch-skeleton line"></div></div>';
 
         const res = await fetchJSON('/api/ai-chat/websites/' + id + '/leads' + qs);
         if (!res.success) {
-            tbody.innerHTML = '<tr><td colspan="9" class="p-cell-muted text-center">⚠️ ' + esc(res.error || 'تعذر التحميل') + '</td></tr>';
+            list.innerHTML = '<div class="ch-empty"><div class="ch-empty-icon">' + UI.icon('alert') + '</div><div class="ch-empty-title">تعذر التحميل</div><div class="ch-empty-sub">' + esc(res.error || 'تعذر التحميل') + '</div></div>';
             return;
         }
 
         const leads = res.data.leads || [];
         if (!leads.length) {
-            tbody.innerHTML = '<tr><td colspan="9" class="p-cell-muted text-center">لا توجد Leads بعد</td></tr>';
+            list.innerHTML = '<div class="ch-empty"><div class="ch-empty-icon">' + UI.icon('target') + '</div><div class="ch-empty-title">لا توجد Leads بعد</div><div class="ch-empty-sub">الـLeads هتظهر هنا أول ما يطلب العملاء استفسارات.</div></div>';
             return;
         }
 
-        tbody.innerHTML = leads.map(l => {
-            const statusSelect = '<select class="p-select" style="min-width:130px;" onchange="ldUpdateStatus(' + l.id + ', this.value)">' +
+        list.innerHTML = leads.map(l => {
+            const statusSelect = '<select class="p-select" style="min-width:120px;font-size:12.5px;" onchange="ldUpdateStatus(' + l.id + ', this.value)">' +
                 STATUS_OPTIONS.map(([v, label]) => `<option value="${v}" ${l.status === v ? 'selected' : ''}>${label}</option>`).join('') + '</select>';
+            const channelMeta = UI.channelMeta[l.channel] || { icon: 'chat', avatar: '' };
+            const statusChip = STATUS_CHIP[l.status];
+            const score = Number(l.lead_score || 0);
+            const scoreLabel = score >= 70 ? 'red' : score >= 40 ? 'gold' : '';
             return `
-                <tr>
-                    <td>${esc(l.name || l.phone || 'غير معروف')}</td>
-                    <td>${esc(l.channel || '-')}</td>
-                    <td>${esc(l.interest || '-')}</td>
-                    <td>${esc(l.destination || '-')}</td>
-                    <td><span class="pill ${l.lead_score >= 70 ? 'red' : l.lead_score >= 40 ? 'blue' : 'gray'}">${l.lead_score ?? '-'}</span></td>
-                    <td>${l.intent_score ?? '-'}</td>
-                    <td>${statusSelect}</td>
-                    <td class="p-cell-muted">${P.timeAgo(l.last_interaction_at)}</td>
-                    <td><a href="/chat/conversation/${l.conversation_id}" class="p-btn outline xs">فتح المحادثة</a></td>
-                </tr>`;
+                <div class="ch-conv" onclick="window.location.href='/chat/conversation/${l.conversation_id}'">
+                    <div class="ch-avatar ${scoreLabel}">${UI.icon(score >= 70 ? 'flame' : 'target', 18)}</div>
+                    <div class="ch-conv-body">
+                        <div class="ch-conv-top">
+                            <span class="ch-conv-name">${esc(l.name || l.phone || 'غير معروف')}</span>
+                            ${statusChip ? UI.pill(statusChip[0], statusChip[1]) : ''}
+                        </div>
+                        <div class="ch-conv-preview">${esc(l.interest || '-')}${l.destination ? ' · ' + esc(l.destination) : ''} · ${P.timeAgo(l.last_interaction_at)}</div>
+                    </div>
+                    <div class="ch-conv-meta" style="flex-direction:column;align-items:flex-end;gap:8px;">
+                        <div style="width:120px;">${UI.scoreBar(score)}</div>
+                        ${statusSelect}
+                    </div>
+                </div>`;
         }).join('');
     };
 
