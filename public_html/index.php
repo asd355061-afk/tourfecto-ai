@@ -220,6 +220,10 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/RevenueIntelligence/RevenueBenchmarkService.php',
     APP_PATH . '/Services/RevenueIntelligence/RevenueChurnService.php',
     APP_PATH . '/Services/RevenueIntelligence/StripeRevenueMapper.php',
+    // v1.6.0 (2026-08-17): Dashboard personalization + Stripe webhook live -
+    // كلاسات جديدة مش في classmap composer (لا SSH)، تتحمّل يدويًا بنفس النمط.
+    APP_PATH . '/Services/RevenueIntelligence/RevenueDashboardService.php',
+    APP_PATH . '/Services/RevenueIntelligence/StripeWebhookService.php',
     APP_PATH . '/Controllers/RevenueIntelligenceController.php',
     APP_PATH . '/Jobs/RecomputeRevenueInsightsJob.php',
     APP_PATH . '/Jobs/SendRevenueDigestJob.php',

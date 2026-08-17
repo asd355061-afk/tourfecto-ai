@@ -45,6 +45,9 @@ require_once __DIR__ . '/../../app/Services/RevenueIntelligence/DealLevelForecas
 require_once __DIR__ . '/../../app/Services/RevenueIntelligence/RevenueBenchmarkService.php';
 require_once __DIR__ . '/../../app/Services/RevenueIntelligence/RevenueChurnService.php';
 require_once __DIR__ . '/../../app/Services/RevenueIntelligence/StripeRevenueMapper.php';
+// v1.6.0: Dashboard personalization + Stripe webhook (pure static functions)
+require_once __DIR__ . '/../../app/Services/RevenueIntelligence/RevenueDashboardService.php';
+require_once __DIR__ . '/../../app/Services/RevenueIntelligence/StripeWebhookService.php';
 $revaiQueueContract = __DIR__ . '/../../app/Core/Contracts/QueueJobInterface.php';
 if (file_exists($revaiQueueContract)) {
     require_once $revaiQueueContract;
@@ -121,6 +124,12 @@ class RevenueIntelligenceTest
         $this->testBenchmarkServiceNotInstalled();
         $this->testChurnAnalyticsNotEnoughData();
         $this->testChurnAnalyticsReasons();
+        $this->testDashboardPrefsDefaultLayout();
+        $this->testDashboardPrefsNormalizeUnknownKeys();
+        $this->testDashboardPrefsNormalizeMissingKeys();
+        $this->testDashboardPrefsApplyLayout();
+        $this->testStripeWebhookVerifySignature();
+        $this->testStripeWebhookVerifySignatureTampered();
 
         $this->printSummary();
     }
@@ -995,6 +1004,114 @@ class RevenueIntelligenceTest
         $this->assertTrue($result['total_churned'] === 3, 'Total churned = 3');
         $this->assertTrue($result['top_reason'] === 'Price', 'Top reason = Price');
         $this->assertTrue(strpos($result['note'], 'inferred from real data') !== false, 'Honest provenance note');
+    }
+
+    // ============================================================
+    // v1.6.0: Dashboard Personalization (pure static functions)
+    // ============================================================
+
+    private function testDashboardPrefsDefaultLayout(): void
+    {
+        $this->startTest('Dashboard prefs: default layout shows all known widgets');
+        $layout = RevenueDashboardService::defaultLayout();
+        $this->assertTrue(count($layout['widgets']) === 8, 'Default layout has all 8 known widgets');
+        $this->assertTrue($layout['widgets'][0]['key'] === 'current_revenue', 'First widget is current_revenue');
+        $this->assertTrue($layout['widgets'][0]['visible'] === true, 'All widgets visible by default');
+        $this->assertTrue($layout['widgets'][7]['key'] === 'recommended_actions', 'Last widget is recommended_actions');
+    }
+
+    private function testDashboardPrefsNormalizeUnknownKeys(): void
+    {
+        $this->startTest('Dashboard prefs: normalizeLayout drops unknown/invented widget keys');
+        $layout = RevenueDashboardService::normalizeLayout([
+            'widgets' => [
+                ['key' => 'current_revenue', 'visible' => true, 'order' => 0],
+                ['key' => 'made_up_metric', 'visible' => true, 'order' => 1],
+                ['key' => 'invented_ai_metric', 'visible' => true, 'order' => 2],
+            ],
+        ]);
+        $keys = array_column($layout['widgets'], 'key');
+        $this->assertTrue(in_array('current_revenue', $keys, true), 'Keeps the known widget');
+        $this->assertTrue(!in_array('made_up_metric', $keys, true), 'Drops invented widget key');
+        $this->assertTrue(!in_array('invented_ai_metric', $keys, true), 'Drops second invented widget key');
+        $this->assertTrue(count($keys) === 8, 'Missing known keys are re-added to keep a complete layout');
+    }
+
+    private function testDashboardPrefsNormalizeMissingKeys(): void
+    {
+        $this->startTest('Dashboard prefs: normalizeLayout fills missing known widgets as visible');
+        $layout = RevenueDashboardService::normalizeLayout(['widgets' => [
+            ['key' => 'growth_percent', 'visible' => false, 'order' => 0],
+        ]]);
+        $byKey = [];
+        foreach ($layout['widgets'] as $w) {
+            $byKey[$w['key']] = $w;
+        }
+        $this->assertTrue($byKey['growth_percent']['visible'] === false, 'Respects explicit hidden flag');
+        $this->assertTrue($byKey['forecast']['visible'] === true, 'Unmentioned known widget defaults to visible');
+        $this->assertTrue(count($byKey) === 8, 'Exactly the 8 known keys survive normalization');
+    }
+
+    private function testDashboardPrefsApplyLayout(): void
+    {
+        $this->startTest('Dashboard prefs: applyLayoutToSummary filters and orders by saved layout');
+        $summary = [
+            'has_data' => true,
+            'current_revenue' => 10000,
+            'growth_percent' => 12,
+            'forecast' => ['expected_revenue' => 12000],
+            'top_opportunity' => ['title' => 'X'],
+            'top_risk' => ['title' => 'Y'],
+            'top_customer_segment' => ['segment' => 'VIP'],
+            'top_revenue_source' => ['source' => 'Subscriptions'],
+            'recommended_actions' => [['action' => 'A']],
+        ];
+        $layout = [
+            'widgets' => [
+                ['key' => 'forecast', 'visible' => true, 'order' => 0],
+                ['key' => 'current_revenue', 'visible' => false, 'order' => 1],
+                ['key' => 'growth_percent', 'visible' => true, 'order' => 2],
+            ],
+        ];
+        $out = RevenueDashboardService::applyLayoutToSummary($summary, $layout);
+        $this->assertTrue(!array_key_exists('current_revenue', $out), 'Hidden-in-layout widget is filtered out of the applied summary');
+        $this->assertTrue($out['forecast'] === ['expected_revenue' => 12000], 'Visible widget data is carried through');
+        $this->assertTrue($out['applied_layout'][0] === 'forecast', 'Applies widget order from layout');
+        $this->assertTrue(!in_array('current_revenue', $out['applied_layout'], true), 'Hidden widget excluded from applied_layout');
+        $this->assertTrue($out['has_data'] === true, 'Preserves has_data');
+    }
+
+    // ============================================================
+    // v1.6.0: Stripe Webhook Signature (pure function)
+    // ============================================================
+
+    private function testStripeWebhookVerifySignature(): void
+    {
+        $this->startTest('Stripe webhook: verifySignature accepts a valid HMAC signature');
+        $secret = 'whsec_test_secret_123456';
+        $timestamp = (string) time();
+        $payload = '{"id":"evt_1","type":"customer.subscription.created"}';
+        $signed = $timestamp . '.' . $payload;
+        $sig = hash_hmac('sha256', $signed, $secret);
+        $header = "t={$timestamp},v1={$sig}";
+        $this->assertTrue(StripeWebhookService::verifySignature($payload, $header, $secret) === true, 'Valid signature accepted');
+    }
+
+    private function testStripeWebhookVerifySignatureTampered(): void
+    {
+        $this->startTest('Stripe webhook: verifySignature rejects tampered payload/signature');
+        $secret = 'whsec_test_secret_123456';
+        $timestamp = (string) time();
+        $payload = '{"id":"evt_1","type":"customer.subscription.created"}';
+        $signed = $timestamp . '.' . $payload;
+        $sig = hash_hmac('sha256', $signed, $secret);
+        $header = "t={$timestamp},v1={$sig}";
+
+        $tampered = '{"id":"evt_1","type":"customer.subscription.deleted"}';
+        $this->assertTrue(StripeWebhookService::verifySignature($tampered, $header, $secret) === false, 'Tampered body rejected');
+        $this->assertTrue(StripeWebhookService::verifySignature($payload, "t={$timestamp},v1=deadbeef", $secret) === false, 'Wrong signature rejected');
+        $this->assertTrue(StripeWebhookService::verifySignature($payload, '', $secret) === false, 'Missing signature header rejected');
+        $this->assertTrue(StripeWebhookService::verifySignature($payload, $header, 'whsec_wrong') === false, 'Wrong secret rejected');
     }
 
     // ============================================================

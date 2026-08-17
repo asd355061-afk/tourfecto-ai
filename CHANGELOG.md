@@ -1,4 +1,71 @@
 # Tourfecto AI Chat & Customer Communication Platform
+# AI Revenue Intelligence — الترقية v1.6.0 (Dashboard Personalization + Stripe Live Webhook) — 2026-08-17
+
+الجولة الثانية من خطة رفع الموديول لمستوى المنافسين (Clari/Gong/Baremetrics).
+ميزتان بشفافية تامة (نفس قاعدة الموديول: أرقام من بيانات حقيقية فقط، وإلا
+"Not enough data"):
+
+## 1) تخصيص الداشبورد — `RevenueDashboardService` v1.0.0 (pure)
+
+- **Dashboard Personalization**: المستخدم يختار أي مقاييس الملخص التنفيذي
+  تظهر وبأي ترتيب، ويُحفظ تخصيصه (`revai_dashboard_prefs`) بعزل تام
+  (Tenant Isolation) حسب `user_id`.
+- Migration جديد `2026_08_17_000001_...sql`: جدول `revai_dashboard_prefs`
+  (layout JSON لكل مستخدم، unique على user_id).
+- **منع المقاييس المخترعة**: أي مفتاح خارج القائمة المعروفة
+  (`WIDGET_KEYS`) يُتجاهل ولا يُحفظ أبدًا — `normalizeLayout` نقي يضمن
+  سلامة أي مدخل من الواجهة أو DB، ويملأ المفاتيح الناقصة بالظهور الافتراضي.
+- `applyLayoutToSummary` يطبّق التخصيص على ملخص Executive Summary (فلترة
+  وإعادة ترتيب فقط — لا يحسب أي شيء).
+- API جديدة: `GET/POST /api/revenue-intelligence/dashboard-prefs` +
+  `POST .../dashboard-prefs/reset` (AuthMiddleware).
+- لوحة "تخصيص" في تبويب Executive (إظهار/إخفاء + ترتيب + حفظ/استعادة).
+
+## 2) تكامل Stripe الحي (webhook) — `StripeWebhookService` v1.0.0
+
+- **Webhook حقيقي بتوقيع**: `POST /api/revenue-intelligence/stripe/webhook/{user_id}`
+  (public — بلا AuthMiddleware؛ التحقق عبر `Stripe-Signature` HMAC-SHA256
+  ضد سر المستخدم المشفر). أي حدث بتوقيع غير صالح = 401.
+- **السر مشفّر**: `webhook_secret` يُخزَّن فقط عبر
+  `(new Encryption())->encrypt($secret, 'revai_stripe_' . $userId)` في جدول
+  `revai_stripe_settings` — لا نص صريح أبدًا، ولا يُعاد في أي GET.
+- **Idempotent ingestion**: جدول `revai_stripe_events` (unique
+  `user_id`+`stripe_event_id`) يمنع تكرار الصفوف من إعادة محاولات Stripe.
+- الأحداث المدعومة: `customer.subscription.created` → upsert اشتراك + حدث
+  `new`؛ `invoice.payment_succeeded` → حدث `expansion`؛
+  `customer.subscription.deleted` → churn (delta سالب). أحداث أخرى تُستقبل
+  بصمت (Stripe يرسل كثيرًا) بلا صفوف جديدة.
+- أعمدة ربط جديدة على `biz_subscriptions` (additive فقط):
+  `stripe_subscription_id` (فريد — أساس الـ upsert الآمن) + `customer_email`.
+- API إعدادات: `GET/POST /api/revenue-intelligence/stripe/settings`
+  (AuthMiddleware) — يعرض حالة الربط + رابط الـ Webhook + آخر حدث مستلم،
+  بدون كشف السر. `buildStripeWebhookUrl` يولّد الرابط تلقائيًا.
+- لوحة "Connect Stripe" في تبويب Subscriptions (secret + account id + mode
+  + حفظ)، مع حالة live/test وآخر حدث مستلم.
+
+## 3) ملفات جديدة / معدّلة (كلها Additive-only)
+
+- جديد: `app/Services/RevenueIntelligence/RevenueDashboardService.php`،
+  `app/Services/RevenueIntelligence/StripeWebhookService.php`،
+  `database/migrations/2026_08_17_000001_create_revai_dashboard_prefs_and_stripe_settings.sql`.
+- معدّل: `RevenueIntelligenceController` (6 endpoints + UI)،
+  `RevenueDataGateway` (Dashboard prefs + Stripe settings + webhook
+  ingestion idempotent)، `StripeRevenueMapper` (returns subscription row
+  للـ deleted event + stripe_subscription_id في أحداث الفواتير)،
+  `app/routes/api.php`، `public_html/index.php` +
+  `cron/bootstrap.php` (تحميل الكلاسين الجديدين يدويًا — لا SSH/composer)،
+  `app/Lang/en.php` + `app/Lang/ar.php` (مفاتيح `revai.prefs.*` +
+  `revai.stripe.*`).
+
+## 4) التحقق
+
+- `php -l` نظيف على كل الملفات المعدّلة + `tools/lint.php`: 632 ملف لا أخطاء.
+- سكربت الواجهة المستخرج من heredoc سليم عبر `node --check`.
+- اختبارات `tests/Unit/RevenueIntelligenceTest.php`: **255/0 (100%)** —
+  تشمل 6 اختبارات جديدة لـ v1.6.0 (تخصيص الداشبورد + توقيع الـ webhook).
+- مسارات الـ API الجديدة الستة مطابقة عبر الـ Router.
+
+---
 ## v1.6.0 — واجهة احترافية لموديول ذكاء المنافسة (Professional UI) — 2026-08-16
 
 تمرير احترافي كامل على واجهة موديول **Competitor Intelligence** في
