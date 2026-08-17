@@ -7,10 +7,10 @@
  * قراءة السجل الموحّد لأحداث الـBusiness.
  *
  * Authorization: السجل فيه تفاصيل أمنية (مين عمل إيه) - owner/admin بس
- * (canManageTeam). الـmember والـviewer مش بيشوفوا السجل (الـviewer أصلاً
+ * (canReadAudit). الـmember والـviewer مش بيشوفوا السجل (الـviewer أصلاً
  * للعرض التجاري مش للتفاصيل الأمنية، والـmember بيلاقي حدوده).
  *
- * أمان: getAccessibleBusiness (404 للـbusinesses غير مصرّح بيها) + canManageTeam.
+ * أمان: getAccessibleBusiness (404 للـbusinesses غير مصرّح بيها) + canReadAudit.
  */
 class BusinessAuditLogController extends Controller {
 
@@ -26,7 +26,7 @@ class BusinessAuditLogController extends Controller {
         if (!$business) {
             return $this->error('Business غير موجود', 404);
         }
-        if (!$access->canManageTeam($businessId, (int) $this->user['id'])) {
+        if (!$access->canReadAudit($businessId, (int) $this->user['id'])) {
             return $this->error('ليست لديك صلاحية عرض سجل الـBusiness', 403);
         }
 

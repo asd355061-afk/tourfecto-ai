@@ -110,8 +110,15 @@ class BusinessAiContextController extends Controller {
         // بسيطة زي باقي الحقول - نتحقق من الشكل قبل التخزين.
         if ($this->has('competitors')) {
             foreach ($this->get('competitors') as $competitor) {
-                if (!is_array($competitor) || !isset($competitor['name'])) {
-                    return $this->error('بيانات المنافسين غير صحيحة', 422, ['competitors' => ['كل عنصر لازم يحتوي على الأقل name']]);
+                if (!is_array($competitor) || !isset($competitor['name']) || !is_string($competitor['name']) || trim($competitor['name']) === '') {
+                    return $this->error('بيانات المنافسين غير صحيحة', 422, ['competitors' => ['كل عنصر لازم يحتوي على name غير فارغ']]);
+                }
+                if (isset($competitor['url']) && $competitor['url'] !== '') {
+                    $raw = (string) $competitor['url'];
+                    $candidate = preg_match('#^https?://#i', $raw) ? $raw : 'https://' . $raw;
+                    if (filter_var($candidate, FILTER_VALIDATE_URL) === false) {
+                        return $this->error('رابط منافس غير صحيح', 422, ['competitors' => ['الـurl لازم يكون رابطًا صحيحًا']]);
+                    }
                 }
             }
         }

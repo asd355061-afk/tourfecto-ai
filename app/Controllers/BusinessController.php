@@ -229,6 +229,46 @@ class BusinessController extends Controller {
             }
         }
 
+        // روابط URL: الموقع والشعار - بنسمح بالصيغة من غير scheme (بنسيب
+        // الـhttps:// للـFrontend وقت العرض)، فبنضيفها مؤقتًا للفحص بس.
+        foreach (['website_url', 'logo_url'] as $urlField) {
+            if ($this->has($urlField) && $this->get($urlField) !== '') {
+                $raw = (string) $this->get($urlField);
+                $candidate = preg_match('#^https?://#i', $raw) ? $raw : 'https://' . $raw;
+                if (filter_var($candidate, FILTER_VALIDATE_URL) === false) {
+                    return $this->error('رابط غير صحيح', 422, [$urlField => ['يجب أن يكون رابطًا صحيحًا']]);
+                }
+            }
+        }
+
+        // اللغة الأساسية: ISO 639-1 (حرفين) أو ISO 639-2 (ثلاثة) - أحرف فقط
+        if ($this->has('primary_language') && $this->get('primary_language') !== '') {
+            if (!preg_match('/^[A-Za-z]{2,3}$/', (string) $this->get('primary_language'))) {
+                return $this->error('اللغة الأساسية غير صحيحة', 422, ['primary_language' => ['يجب أن يكون كود ISO 639 من حرفين أو ثلاثة']]);
+            }
+        }
+
+        // supported_languages: نفس معيار primary_language لكل عنصر
+        if ($this->has('supported_languages') && $this->get('supported_languages') !== null) {
+            $langs = $this->get('supported_languages');
+            if (!is_array($langs)) {
+                return $this->error('اللغات المدعومة غير صحيحة', 422, ['supported_languages' => ['يجب أن تكون قائمة (Array)']]);
+            }
+            foreach ($langs as $lang) {
+                if (!is_string($lang) || !preg_match('/^[A-Za-z]{2,3}$/', $lang)) {
+                    return $this->error('لغة غير صحيحة في supported_languages', 422, ['supported_languages' => ['كل قيمة لازم تكون كود ISO 639 من حرفين أو ثلاثة']]);
+                }
+            }
+        }
+
+        // المنطقة الزمنية: لازم تكون IANA صحيحة (نفس قائمة UserController
+        // اللي بتتولد من DateTimeZone نفسها)
+        if ($this->has('timezone') && $this->get('timezone') !== '') {
+            if (!in_array($this->get('timezone'), timezone_identifiers_list(), true)) {
+                return $this->error('المنطقة الزمنية غير صحيحة', 422, ['timezone' => ['يجب أن تكون معرف IANA صحيحًا (مثل Africa/Cairo)']]);
+            }
+        }
+
         return null;
     }
 

@@ -27,6 +27,7 @@ class BusinessAccessServiceTest {
         $this->testEditCapability();
         $this->testManageTeamCapability();
         $this->testAdministerTeamCapability();
+        $this->testSensitiveCapabilities();
         $this->testUnknownRoleAndCapability();
 
         $this->printSummary();
@@ -101,6 +102,18 @@ class BusinessAccessServiceTest {
             && !BusinessAccessService::roleAllows('member', 'administer_team')
             && !BusinessAccessService::roleAllows('viewer', 'administer_team');
         $ok ? $this->pass('only owner can administer admin-level team ops') : $this->fail('administer_team capability mismatch');
+    }
+
+    private function testSensitiveCapabilities(): void {
+        $this->startTest('manage_keys / read_audit limited to owner/admin (Phase 22 refinement)');
+        $ok = true;
+        foreach (['manage_keys', 'read_audit'] as $cap) {
+            if (!BusinessAccessService::roleAllows('owner', $cap)) { $ok = false; }
+            if (!BusinessAccessService::roleAllows('admin', $cap)) { $ok = false; }
+            if (BusinessAccessService::roleAllows('member', $cap)) { $ok = false; }
+            if (BusinessAccessService::roleAllows('viewer', $cap)) { $ok = false; }
+        }
+        $ok ? $this->pass('owner/admin manage keys + read audit; member/viewer cannot') : $this->fail('sensitive capability mismatch');
     }
 
     private function testUnknownRoleAndCapability(): void {

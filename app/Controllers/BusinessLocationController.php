@@ -79,7 +79,7 @@ class BusinessLocationController extends Controller {
             return $this->error('ليست لديك صلاحية تعديل البيانات', 403);
         }
 
-        $validationError = $this->validateLocationInput();
+        $validationError = $this->validateLocationInput(false);
         if ($validationError !== null) {
             return $validationError;
         }
@@ -113,7 +113,7 @@ class BusinessLocationController extends Controller {
             return $this->error('الموقع غير موجود', 404);
         }
 
-        $validationError = $this->validateLocationInput();
+        $validationError = $this->validateLocationInput(true);
         if ($validationError !== null) {
             return $validationError;
         }
@@ -163,7 +163,7 @@ class BusinessLocationController extends Controller {
         return $this->success([], 'تم حذف الموقع');
     }
 
-    private function validateLocationInput(): ?array {
+    private function validateLocationInput(bool $isUpdate = false): ?array {
         $rules = [
             'name' => 'max_length:255',
             'city' => 'max_length:150',
@@ -188,7 +188,19 @@ class BusinessLocationController extends Controller {
                 if (!is_numeric($this->get($coord))) {
                     return $this->error('إحداثيات غير صحيحة', 422, [$coord => ['يجب أن يكون رقم']]);
                 }
+                $value = (float) $this->get($coord);
+                if ($coord === 'latitude' && ($value < -90 || $value > 90)) {
+                    return $this->error('خط العرض خارج النطاق', 422, ['latitude' => ['يجب أن يكون بين -90 و 90']]);
+                }
+                if ($coord === 'longitude' && ($value < -180 || $value > 180)) {
+                    return $this->error('خط الطول خارج النطاق', 422, ['longitude' => ['يجب أن يكون بين -180 و 180']]);
+                }
             }
+        }
+
+        // اسم الموقع: مطلوب عند الإنشاء - فرع بلا اسم مبهم للفريق/الـAI Context
+        if (!$isUpdate && (!$this->has('name') || trim((string) $this->get('name')) === '')) {
+            return $this->error('اسم الموقع مطلوب', 422, ['name' => ['الحقل مطلوب']]);
         }
 
         return null;

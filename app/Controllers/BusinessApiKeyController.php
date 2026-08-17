@@ -6,9 +6,9 @@
  *
  * قائمة/إنشاء/إلغاء مفاتيح الـBusiness البرمجية.
  *
- * Authorization: إدارة المفاتيح فعل حساس - owner/admin بس (canManageTeam).
+ * Authorization: إدارة المفاتيح فعل حساس - owner/admin بس (canManageKeys).
  * الـmember والـviewer مش بيتحكموا في المفاتيح. نفس نمط RBAC المركزي:
- * getAccessibleBusiness (404 للـbusinesses غير مصرّح بيها) + canManageTeam
+ * getAccessibleBusiness (404 للـbusinesses غير مصرّح بيها) + canManageKeys
  * (403 للـviewer/member المصرّح له بالعرض).
  */
 class BusinessApiKeyController extends Controller {
@@ -24,6 +24,9 @@ class BusinessApiKeyController extends Controller {
         $business = $access->getAccessibleBusiness($businessId, (int) $this->user['id']);
         if (!$business) {
             return $this->error('Business غير موجود', 404);
+        }
+        if (!$access->canManageKeys($businessId, (int) $this->user['id'])) {
+            return $this->error('ليست لديك صلاحية عرض مفاتيح الـBusiness', 403);
         }
 
         return $this->success([
@@ -43,7 +46,7 @@ class BusinessApiKeyController extends Controller {
         if (!$business) {
             return $this->error('Business غير موجود', 404);
         }
-        if (!$access->canManageTeam($businessId, (int) $this->user['id'])) {
+        if (!$access->canManageKeys($businessId, (int) $this->user['id'])) {
             return $this->error('ليست لديك صلاحية إدارة مفاتيح الـBusiness', 403);
         }
 
@@ -76,7 +79,7 @@ class BusinessApiKeyController extends Controller {
         if (!$business) {
             return $this->error('Business غير موجود', 404);
         }
-        if (!$access->canManageTeam($businessId, (int) $this->user['id'])) {
+        if (!$access->canManageKeys($businessId, (int) $this->user['id'])) {
             return $this->error('ليست لديك صلاحية إدارة مفاتيح الـBusiness', 403);
         }
 

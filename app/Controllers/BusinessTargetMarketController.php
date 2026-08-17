@@ -85,6 +85,16 @@ class BusinessTargetMarketController extends Controller {
             }
         }
 
+        // فحص ISO للغات - نفس منطق target_countries لكن بنمط ISO 639
+        // (حرفين أو ثلاثة) لأن ده جدول لغات مش دول.
+        if ($this->has('target_languages')) {
+            foreach ($this->get('target_languages') as $lang) {
+                if (!is_string($lang) || !preg_match('/^[A-Za-z]{2,3}$/', $lang)) {
+                    return $this->error('كود لغة غير صحيح في target_languages', 422, ['target_languages' => ['كل قيمة لازم تكون كود ISO 639 من حرفين أو ثلاثة']]);
+                }
+            }
+        }
+
         $businessId = (int) $business->getAttribute('id');
         $existing = (new BusinessTargetMarket())->where(['business_id' => $businessId], [], 1);
         $record = !empty($existing) ? $existing[0] : new BusinessTargetMarket();

@@ -86,6 +86,28 @@ class BusinessBrandSettingsController extends Controller {
             if ($this->has($field) && !is_array($this->get($field))) {
                 return $this->error('بيانات غير صحيحة', 422, [$field => ['يجب أن تكون قائمة (Array)']]);
             }
+            // كل عنصر لازم يكون نص (مصطلح) أو Object {term, use_instead} -
+            // مش قيمة scalar غير مفهومة بيتم تخزينها بصمت.
+            if ($this->has($field) && is_array($this->get($field))) {
+                foreach ($this->get($field) as $entry) {
+                    if (is_array($entry)) {
+                        if (!isset($entry['term']) || !is_string($entry['term']) || trim($entry['term']) === '') {
+                            return $this->error('شكل مصطلح غير صحيح', 422, [$field => ['كل Object لازم يحتوي على term نصي غير فارغ']]);
+                        }
+                    } elseif (!is_string($entry) || trim($entry) === '') {
+                        return $this->error('شكل مصطلح غير صحيح', 422, [$field => ['كل عنصر لازم يكون نصًا أو Object {term, use_instead}']]);
+                    }
+                }
+            }
+        }
+
+        // favicon_url: رابط - نفس معالجة website_url/logo_url في BusinessController
+        if ($this->has('favicon_url') && $this->get('favicon_url') !== '') {
+            $raw = (string) $this->get('favicon_url');
+            $candidate = preg_match('#^https?://#i', $raw) ? $raw : 'https://' . $raw;
+            if (filter_var($candidate, FILTER_VALIDATE_URL) === false) {
+                return $this->error('رابط الأيقونة غير صحيح', 422, ['favicon_url' => ['يجب أن يكون رابطًا صحيحًا']]);
+            }
         }
 
         $existing = (new BusinessBrandSettings())->where(['business_id' => $businessId], [], 1);

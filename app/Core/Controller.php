@@ -295,6 +295,7 @@ abstract class Controller {
                 'activity' => [t('sidebar.activity'), '🕓', '/dashboard/activity'],
             ],
             t('sidebar.group.business_intelligence') => [
+                'business_center' => [t('sidebar.business_center'), '🏢', '/business-center'],
                 'revenue' => [t('sidebar.revenue'), '💰', '/revenue'],
                 'revenue_intelligence' => [t('sidebar.revenue_intelligence'), '🧠', '/revenue/intelligence'],
                 'website_optimizer' => [t('sidebar.website_optimizer'), '🛠️', '/website-optimizer'],

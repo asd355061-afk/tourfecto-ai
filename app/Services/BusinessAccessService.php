@@ -35,6 +35,8 @@ class BusinessAccessService {
     public const CAP_EDIT = 'edit';
     public const CAP_MANAGE_TEAM = 'manage_team';
     public const CAP_ADMINISTER_TEAM = 'administer_team';
+    public const CAP_MANAGE_KEYS = 'manage_keys';
+    public const CAP_READ_AUDIT = 'read_audit';
 
     /**
      * الأدوار المسموح تخزينها في `business_members` (owner مش بيتخزن هنا).
@@ -77,6 +79,10 @@ class BusinessAccessService {
                 return in_array($role, [self::ROLE_OWNER, self::ROLE_ADMIN], true);
             case self::CAP_ADMINISTER_TEAM:
                 return $role === self::ROLE_OWNER;
+            case self::CAP_MANAGE_KEYS:
+                return in_array($role, [self::ROLE_OWNER, self::ROLE_ADMIN], true);
+            case self::CAP_READ_AUDIT:
+                return in_array($role, [self::ROLE_OWNER, self::ROLE_ADMIN], true);
             default:
                 return false;
         }
@@ -125,6 +131,18 @@ class BusinessAccessService {
     public function canAdministerTeam(int $businessId, int $userId): bool {
         $role = $this->roleOf($businessId, $userId);
         return $role !== null && self::roleAllows($role, self::CAP_ADMINISTER_TEAM);
+    }
+
+    /** إدارة مفاتيح API الخاصة بالـBusiness - owner/admin بس (تفاصيل أمنية حساسة) */
+    public function canManageKeys(int $businessId, int $userId): bool {
+        $role = $this->roleOf($businessId, $userId);
+        return $role !== null && self::roleAllows($role, self::CAP_MANAGE_KEYS);
+    }
+
+    /** قراءة سجل الـBusiness - owner/admin بس (التفاصيل الأمنية مش للعرض العام) */
+    public function canReadAudit(int $businessId, int $userId): bool {
+        $role = $this->roleOf($businessId, $userId);
+        return $role !== null && self::roleAllows($role, self::CAP_READ_AUDIT);
     }
 
     /**

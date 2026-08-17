@@ -70,6 +70,11 @@ class BusinessServiceController extends Controller {
             return $this->error('بيانات غير صحيحة', 422, $this->getErrors());
         }
 
+        $targetCheck = $this->validateTargetArrays();
+        if (!$targetCheck['ok']) {
+            return $this->error('بيانات غير صحيحة', 422, $targetCheck['error']);
+        }
+
         $businessId = (int) $business->getAttribute('id');
         $slugManager = new BusinessServiceManager();
         $slug = $slugManager->generateUniqueSlug($businessId, (string) $this->get('name'));
@@ -106,6 +111,11 @@ class BusinessServiceController extends Controller {
 
         if (!$this->validate(['name' => 'max_length:255', 'description' => 'max_length:2000', 'category' => 'max_length:100'])) {
             return $this->error('بيانات غير صحيحة', 422, $this->getErrors());
+        }
+
+        $targetCheck = $this->validateTargetArrays();
+        if (!$targetCheck['ok']) {
+            return $this->error('بيانات غير صحيحة', 422, $targetCheck['error']);
         }
 
         if ($this->has('name') && trim((string) $this->get('name')) !== '') {
@@ -185,10 +195,41 @@ class BusinessServiceController extends Controller {
             $service->setAttribute('active', !empty($this->get('active')) ? 1 : 0);
         }
         if ($this->has('target_markets') && is_array($this->get('target_markets'))) {
-            $service->setAttribute('target_markets', json_encode(array_values(array_unique(array_map('strtoupper', $this->get('target_markets'))))));
+            $markets = array_filter($this->get('target_markets'), 'is_string');
+            $service->setAttribute('target_markets', json_encode(array_values(array_unique(array_map('strtoupper', $markets)))));
         }
         if ($this->has('target_languages') && is_array($this->get('target_languages'))) {
-            $service->setAttribute('target_languages', json_encode(array_values(array_unique($this->get('target_languages')))));
+            $languages = array_filter($this->get('target_languages'), 'is_string');
+            $service->setAttribute('target_languages', json_encode(array_values(array_unique($languages))));
         }
+    }
+
+    /**
+     * فحص تنسيق مصفوفات target_markets/target_languages قبل الحفظ -
+     * نفس قيد ISO اللي في BusinessTargetMarketController.
+     * @return array{ok:bool,error?:array}
+     */
+    private function validateTargetArrays(): array {
+        if ($this->has('target_markets') && $this->get('target_markets') !== null) {
+            if (!is_array($this->get('target_markets'))) {
+                return ['ok' => false, 'error' => ['target_markets' => ['يجب أن تكون قائمة (Array)']]];
+            }
+            foreach ($this->get('target_markets') as $code) {
+                if (!is_string($code) || !preg_match('/^[A-Za-z]{2}$/', $code)) {
+                    return ['ok' => false, 'error' => ['target_markets' => ['كل قيمة لازم تكون كود ISO 3166-1 من حرفين']]];
+                }
+            }
+        }
+        if ($this->has('target_languages') && $this->get('target_languages') !== null) {
+            if (!is_array($this->get('target_languages'))) {
+                return ['ok' => false, 'error' => ['target_languages' => ['يجب أن تكون قائمة (Array)']]];
+            }
+            foreach ($this->get('target_languages') as $lang) {
+                if (!is_string($lang) || !preg_match('/^[A-Za-z]{2,3}$/', $lang)) {
+                    return ['ok' => false, 'error' => ['target_languages' => ['كل قيمة لازم تكون كود ISO 639 من حرفين أو ثلاثة']]];
+                }
+            }
+        }
+        return ['ok' => true];
     }
 }

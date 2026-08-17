@@ -316,6 +316,7 @@ $optionalNewClassFiles = [
     APP_PATH . '/Controllers/BusinessAiContextController.php',
     APP_PATH . '/Controllers/BusinessBrandSettingsController.php',
     APP_PATH . '/Controllers/BusinessTeamController.php',
+    APP_PATH . '/Controllers/BusinessCenterController.php',
 ];
 foreach ($optionalNewClassFiles as $classFile) {
     if (file_exists($classFile)) {

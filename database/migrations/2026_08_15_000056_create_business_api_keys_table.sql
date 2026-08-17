@@ -19,7 +19,7 @@
 CREATE TABLE IF NOT EXISTS `business_api_keys` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
     `business_id` INT(11) NOT NULL,
-    `created_by_user_id` INT(11) NOT NULL,
+    `created_by_user_id` INT(11) DEFAULT NULL COMMENT 'من أنشأ المفتاح - NULL لو اتُحذف الحساب (المفتاح بيتبع الـBusiness مش المنشئ)',
 
     `name` VARCHAR(120) NOT NULL,
     `key_prefix` VARCHAR(24) NOT NULL COMMENT 'بادئة معروضة للتعرف على المفتاح دون كشف hash',
