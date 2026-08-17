@@ -949,6 +949,42 @@ $router->get('/api/crm/activities', 'CrmApiController', 'listActivities', ['Auth
 $router->post('/api/crm/activities', 'CrmApiController', 'createActivity', ['AuthMiddleware']);
 $router->delete('/api/crm/activities/{id}', 'CrmApiController', 'deleteActivity', ['AuthMiddleware']);
 
+// المرحلة 15: Web Forms لالتقاط Leads (G11) - إدارة النماذج والإرسالات
+$router->get('/api/crm/web-forms', 'CrmApiController', 'listWebForms', ['AuthMiddleware']);
+$router->post('/api/crm/web-forms', 'CrmApiController', 'createWebForm', ['AuthMiddleware']);
+$router->put('/api/crm/web-forms/{id}', 'CrmApiController', 'updateWebForm', ['AuthMiddleware']);
+$router->delete('/api/crm/web-forms/{id}', 'CrmApiController', 'deleteWebForm', ['AuthMiddleware']);
+$router->get('/api/crm/web-forms/submissions', 'CrmApiController', 'webFormSubmissions', ['AuthMiddleware']);
+// إرسال عام للنموذج - بدون AuthMiddleware عمدًا (الزائر الخارجي لا يملك جلسة)
+$router->post('/api/crm/public/web-forms/{slug}/submit', 'CrmApiController', 'submitWebForm', []);
+
+// المرحلة 15: Sales Sequences (G12) - تسلسلات مبيعات متعددة الخطوات
+$router->get('/api/crm/sequences/schema', 'CrmApiController', 'sequenceSchema', ['AuthMiddleware']);
+$router->get('/api/crm/sequences', 'CrmApiController', 'listSequences', ['AuthMiddleware']);
+$router->post('/api/crm/sequences', 'CrmApiController', 'createSequence', ['AuthMiddleware']);
+$router->put('/api/crm/sequences/{id}', 'CrmApiController', 'updateSequence', ['AuthMiddleware']);
+$router->delete('/api/crm/sequences/{id}', 'CrmApiController', 'deleteSequence', ['AuthMiddleware']);
+$router->post('/api/crm/sequences/{id}/enroll', 'CrmApiController', 'enrollInSequence', ['AuthMiddleware']);
+$router->get('/api/crm/sequences/enrollments', 'CrmApiController', 'listSequenceEnrollments', ['AuthMiddleware']);
+$router->post('/api/crm/sequences/enrollments/process-due', 'CrmApiController', 'processDueSequences', ['AuthMiddleware']);
+$router->post('/api/crm/sequences/enrollments/{id}/pause', 'CrmApiController', 'pauseSequenceEnrollment', ['AuthMiddleware']);
+$router->post('/api/crm/sequences/enrollments/{id}/resume', 'CrmApiController', 'resumeSequenceEnrollment', ['AuthMiddleware']);
+$router->post('/api/crm/sequences/enrollments/{id}/cancel', 'CrmApiController', 'cancelSequenceEnrollment', ['AuthMiddleware']);
+
+// المرحلة 15: Report Builder (G13) - تقارير مخصصة قابلة للحفظ
+$router->get('/api/crm/reports/builder/schema', 'CrmApiController', 'reportBuilderSchema', ['AuthMiddleware']);
+$router->get('/api/crm/reports/builder', 'CrmApiController', 'listSavedReports', ['AuthMiddleware']);
+$router->post('/api/crm/reports/builder', 'CrmApiController', 'saveReport', ['AuthMiddleware']);
+$router->put('/api/crm/reports/builder/{id}', 'CrmApiController', 'updateSavedReport', ['AuthMiddleware']);
+$router->delete('/api/crm/reports/builder/{id}', 'CrmApiController', 'deleteSavedReport', ['AuthMiddleware']);
+$router->post('/api/crm/reports/builder/run', 'CrmApiController', 'runReport', ['AuthMiddleware']);
+$router->get('/api/crm/reports/builder/{id}/run', 'CrmApiController', 'runSavedReport', ['AuthMiddleware']);
+
+// المرحلة 15: استيراد من CRMs خارجية (G14) - HubSpot / Zoho / Pipedrive / Freshsales
+$router->get('/api/crm/import/presets', 'CrmApiController', 'importPresets', ['AuthMiddleware']);
+$router->post('/api/crm/import/preview-external', 'CrmApiController', 'previewExternalImport', ['AuthMiddleware']);
+$router->post('/api/crm/import/commit-external', 'CrmApiController', 'commitExternalImport', ['AuthMiddleware']);
+
 // Webhook عام (بدون AuthMiddleware عمدًا - Meta هي اللي بتنادي عليه، راجع
 // تعليق CrmWhatsAppWebhookController للتفاصيل الأمنية).
 $router->get('/webhooks/crm/whatsapp', 'CrmWhatsAppWebhookController', 'verify', []);

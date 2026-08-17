@@ -320,6 +320,18 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/Crm/CrmChartService.php',
     APP_PATH . '/Services/Crm/CrmEmailTrackingService.php',
     APP_PATH . '/Services/Crm/CrmActivityService.php',
+    // CRM Upgrade Phase 15 (2026-08-16) - Web Forms (G11) / Sales Sequences
+    // (G12) / Report Builder (G13) / External CRM Import (G14). نفس السبب:
+    // مش مسجّلة في classmap القديم.
+    APP_PATH . '/Models/CrmWebForm.php',
+    APP_PATH . '/Models/CrmWebFormSubmission.php',
+    APP_PATH . '/Models/CrmSequence.php',
+    APP_PATH . '/Models/CrmSequenceEnrollment.php',
+    APP_PATH . '/Models/CrmSavedReport.php',
+    APP_PATH . '/Services/Crm/CrmWebFormService.php',
+    APP_PATH . '/Services/Crm/CrmSequenceService.php',
+    APP_PATH . '/Services/Crm/CrmReportBuilderService.php',
+    APP_PATH . '/Services/Crm/CrmExternalImportService.php',
     // GBP Module Upgrade (2026-08-09/10) - Setup Wizard/Connection Center/
     // Sync/Profile/Photos/Insights/AI/Attributes. نفس السبب زي كل
     // الكلاسات فوق: مش مسجّلة في classmap القديم بتاع composer.
