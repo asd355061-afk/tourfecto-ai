@@ -99,3 +99,23 @@ Redis-backed بنفس الـ public API (`push()`/`processDue()`) من غير م
 
 كل خطوة من دول لازم تتراجع (rollback) بسهولة لو حصلت مشكلة — عشان كده
 الأفضل نعملهم واحدة واحدة، مش دفعة واحدة.
+
+## 7. الهجرات الجديدة غير المُنفَّذة بعد (مطلوب تشغيلها عند أول نشر)
+
+جداول AI Chat Platform المضافة مؤخرًا (Learning Loop + In-Chat Quotes)
+**لم تُنفَّذ بعد على أي قاعدة بيانات حقيقية** — لا يوجد SSH/MySQL في بيئة
+التطوير. عند النشر على الاستضافة:
+
+1. اعمل نسخة احتياطية من قاعدة البيانات.
+2. شغّل الملف المجمّع التالي مرة واحدة (يتضمّن `ai_resolution_events` +
+   `ai_knowledge_gaps` + `ai_quotes`):
+   ```
+   mysql -u USER -p DBNAME < database/migrations/_PENDING_TO_RUN_ON_SERVER.sql
+   ```
+   أو من cPanel → phpMyAdmin → Import → نفس الملف.
+3. تحقق من الجداول: `SHOW TABLES LIKE 'ai_%';`
+
+ملفات الهجرة الفردية (للتوثيق/المراجعة):
+- `database/migrations/2026_08_16_000001_create_ai_learning_loop_tables.sql`
+- `database/migrations/2026_08_16_000002_create_ai_quotes_table.sql`
+
