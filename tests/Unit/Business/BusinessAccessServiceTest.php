@@ -28,6 +28,7 @@ class BusinessAccessServiceTest {
         $this->testManageTeamCapability();
         $this->testAdministerTeamCapability();
         $this->testSensitiveCapabilities();
+        $this->testFullCapabilityMatrix();
         $this->testUnknownRoleAndCapability();
 
         $this->printSummary();
@@ -114,6 +115,30 @@ class BusinessAccessServiceTest {
             if (BusinessAccessService::roleAllows('viewer', $cap)) { $ok = false; }
         }
         $ok ? $this->pass('owner/admin manage keys + read audit; member/viewer cannot') : $this->fail('sensitive capability mismatch');
+    }
+
+    private function testFullCapabilityMatrix(): void {
+        $this->startTest('Full capability matrix (5 caps x 4 roles)');
+        // Expected truth table: row = capability, col = owner/admin/member/viewer
+        $matrix = [
+            'view'             => [true,  true,  true,  true],
+            'edit'             => [true,  true,  true,  false],
+            'manage_team'      => [true,  true,  false, false],
+            'administer_team'  => [true,  false, false, false],
+            'manage_keys'      => [true,  true,  false, false],
+            'read_audit'       => [true,  true,  false, false],
+        ];
+        $roles = ['owner', 'admin', 'member', 'viewer'];
+        $ok = true;
+        foreach ($matrix as $cap => $expected) {
+            foreach ($roles as $i => $role) {
+                if (BusinessAccessService::roleAllows($role, $cap) !== $expected[$i]) {
+                    $ok = false;
+                    $this->fail("{$cap} + {$role} expected " . var_export($expected[$i], true));
+                }
+            }
+        }
+        $ok ? $this->pass('all 24 role/capability pairs correct') : null;
     }
 
     private function testUnknownRoleAndCapability(): void {

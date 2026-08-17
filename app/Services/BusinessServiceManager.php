@@ -34,7 +34,7 @@ class BusinessServiceManager {
         return $slug;
     }
 
-    private function slugExists(int $businessId, string $slug, ?int $excludeServiceId): bool {
+    protected function slugExists(int $businessId, string $slug, ?int $excludeServiceId): bool {
         $conditions = ['business_id' => $businessId, 'slug' => $slug];
         $matches = (new BusinessService())->where($conditions, [], 2);
 
@@ -50,10 +50,12 @@ class BusinessServiceManager {
 
     private function slugify(string $text): string {
         // نقل عمومي بسيط: يدعم عربي وإنجليزي - بيشيل أي حرف مش
-        // حروف/أرقام/مسافة/شرطة، ويحوّل المسافات لشرطات.
+        // حروف/أرقام/مسافة/شرطة، ويحوّل المسافات لشرطات، ويوحّد
+        // الشرطات المتتالية (لو جت من " - " أو مسافات مضاعفة).
         $text = trim($text);
         $text = preg_replace('/[^\p{L}\p{N}\s-]/u', '', $text);
         $text = preg_replace('/[\s_]+/u', '-', $text);
+        $text = preg_replace('/-+/u', '-', $text);
         $text = trim($text, '-');
         return mb_strtolower($text);
     }

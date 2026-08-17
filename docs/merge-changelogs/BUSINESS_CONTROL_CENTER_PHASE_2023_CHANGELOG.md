@@ -1,8 +1,8 @@
-# Business Control Center — Phases 20–24 Changelog
+# Business Control Center — Phases 20–25 Changelog
 
 **Branch:** `feat/business-control-center`
 **Date:** 2026-08-17
-**Scope:** DB quality pass, validation hardening, API design review, Frontend UX, Notifications expansion
+**Scope:** DB quality pass, validation hardening, API design review, Frontend UX, Notifications expansion, Tests
 
 ---
 
@@ -66,6 +66,18 @@ New `app/Services/BusinessNotificationService.php` — in-app notifications for 
 - Registered in `$optionalNewClassFiles`.
 
 New `tests/Unit/Business/BusinessNotificationServiceTest.php` — **8/8** covering every builder payload + `push()` no-op safety.
+
+## Phase 25 — Tests
+
+New `tests/Unit/Business/BusinessServiceManagerTest.php` — **9/9** covering `slugify` (English/Arabic/special chars/empty fallback) and `generateUniqueSlug` (no conflict, numeric suffix, self-exclusion on update, per-business scoping, multi-conflict increment) via a test subclass that stubs `slugExists` with in-memory data.
+
+Two real defects surfaced and fixed in `BusinessServiceManager`:
+- `slugify` produced `cairo---giza-2026` from `"Cairo - Giza"` — now collapses consecutive hyphens.
+- `slugExists` was `private`, making the slug logic untestable by extension — changed to `protected`.
+
+`BusinessAccessServiceTest` gained `testFullCapabilityMatrix()` asserting the complete truth table (6 capabilities × 4 roles = 24 pairs); now **9/9**.
+
+Total business test suite: **48 assertions across 6 test files, all green** — Wiring 6, Phase8912 9, Access 9, Readiness 7, Notification 8, ServiceManager 9.
 
 ## Tests
 
