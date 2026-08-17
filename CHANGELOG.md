@@ -77,6 +77,23 @@
 - اختبارات الـ offline السبع لموديول ذكاء المنافسة: **126/0**.
 
 ---
+## المرحلة 15: الجولة 4 من خطة الترقية التنافسية — 2026-08-16
+
+استكمال كل الفجوات المتبقية في التحليل التنافسي (راجع
+`docs/COMPETITIVE_ANALYSIS.md`): G11 Web Forms لالتقاط Leads،
+G12 Sales Sequences متعددة الخطوات، G13 Report Builder، G14 استيراد
+من CRMs خارجية (HubSpot/Zoho/Pipedrive/Freshsales). دمج Additive فقط —
+`CrmController` الأصلي لم يُلمس، ولا `CrmImportExportService`/
+`CrmReportService`/`CrmAutomationService` القائمة.
+**ملفات جديدة:** 3 migrations (`000014` نماذج ويب + إرسالات، `000015`
+تسلسلات + تسجيلات، `000016` تقارير محفوظة)، 5 Models، 4 Services
+(`CrmWebFormService`/`CrmSequenceService`/`CrmReportBuilderService`/
+`CrmExternalImportService`)، 28 دالة Controller، 28 مسار API (منها مسار
+عام بلا AuthMiddleware لإرسال النماذج)، 80 مفتاح Lang
+(`crm.web_forms.*`/`crm.sequences.*`/`crm.report_builder.*`/`crm.import.*`).
+بهذا اكتملت خطة الترقية التنافسية بالكامل: G1..G14 عبر المراحل 12/13/14/15.
+المتبقي خارج النطاق (AI تنبؤي ML، وكلاء AI مستقلون، Mobile App) موثّق
+بالقسم 3.3 من `docs/COMPETITIVE_ANALYSIS.md`.
 
 ## المرحلة 14: الجولة 3 من خطة الترقية التنافسية — 2026-08-16
 
