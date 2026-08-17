@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Custom API Publisher
  * نشر المقال على أي موقع، حتى لو مبني ببرمجة خاصة (مش ووردبريس ولا أي
@@ -11,7 +12,8 @@
  * شكل الـ endpoint، إحنا بس بنلتزم بعقد بسيط وثابت (شوف
  * docs/CUSTOM_PUBLISHING_INTEGRATION.md اللي بيتبعت لمبرمج العميل).
  */
-class CustomApiPublisher {
+class CustomApiPublisher
+{
     private int $timeout = 30;
 
     /**
@@ -21,7 +23,8 @@ class CustomApiPublisher {
      * @param array $article بيانات المقال (title, content_html, content_markdown, meta_description, slug, keywords, article_id)
      * @param bool $isTest لو true، بنبعت is_test=true عشان مبرمج العميل يقدر يتأكد من الربط من غير ما ينشر حاجة فعليًا
      */
-    public function publish(string $endpointUrl, string $authToken, array $article, bool $isTest = false): array {
+    public function publish(string $endpointUrl, string $authToken, array $article, bool $isTest = false): array
+    {
         $payload = array_merge($article, ['is_test' => $isTest, 'source' => 'tourfecto']);
 
         $ch = curl_init($endpointUrl);

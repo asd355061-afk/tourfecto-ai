@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Website Niches Config (v2.0.0)
  * قائمة مركزية لكل المجالات السياحية المدعومة في منشئ المواقع، مستخدمة في:
@@ -7,7 +8,8 @@
  * - لوحة تحكم كل موقع (SiteDashboardController)
  * إضافة مجال جديد = سطر واحد هنا + تصميمات في جدول website_templates.
  */
-class WebsiteNiches {
+class WebsiteNiches
+{
     /**
      * items_key: اسم مفتاح العناصر جوه content_json (rooms للفنادق، tours للباقي)
      * item_label: اسم العنصر المفرد باللغة العربية (يتغيّر في كل الواجهات والمعاينة)
@@ -27,21 +29,27 @@ class WebsiteNiches {
         'car_rental' => ['items_key' => 'tours', 'item_label' => 'سيارة', 'icon' => '🚗', 'name_ar' => 'تأجير سيارات سياحية'],
     ];
 
-    public static function get(string $nicheKey): array {
+    public static function get(string $nicheKey): array
+    {
         return self::NICHES[$nicheKey] ?? self::NICHES['tours'];
     }
 
-    public static function itemsKey(string $nicheKey): string {
+    public static function itemsKey(string $nicheKey): string
+    {
         return self::get($nicheKey)['items_key'];
     }
 
-    public static function isHotelLike(string $nicheKey): bool {
+    public static function isHotelLike(string $nicheKey): bool
+    {
         return self::itemsKey($nicheKey) === 'rooms';
     }
 
-    public static function options(): array {
+    public static function options(): array
+    {
         $out = [];
-        foreach (self::NICHES as $key => $cfg) $out[$key] = $cfg['name_ar'] . ' ' . $cfg['icon'];
+        foreach (self::NICHES as $key => $cfg) {
+            $out[$key] = $cfg['name_ar'] . ' ' . $cfg['icon'];
+        }
         return $out;
     }
 }

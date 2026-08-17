@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Review Model
  * نموذج المراجعات مع تحليل المشاعر
@@ -19,7 +20,8 @@
  *                           pending/approved/rejected/sent/auto_...)
  */
 
-class Review extends Model {
+class Review extends Model
+{
     /**
      * @var string $table - اسم الجدول
      */
@@ -59,12 +61,14 @@ class Review extends Model {
      */
     private $encryption;
 
-    public function __construct(array $attributes = []) {
+    public function __construct(array $attributes = [])
+    {
         parent::__construct($attributes);
         $this->encryption = new Encryption();
     }
 
-    public function save() {
+    public function save()
+    {
         if (!empty($this->attributes['reviewer_email'])) {
             $this->attributes['reviewer_email'] = $this->encryption->encryptCustomerData(
                 $this->attributes['reviewer_email'],
@@ -82,7 +86,8 @@ class Review extends Model {
         return parent::save();
     }
 
-    public function find($id): ?self {
+    public function find($id): ?self
+    {
         $review = parent::find($id);
 
         if ($review) {
@@ -92,7 +97,8 @@ class Review extends Model {
         return $review;
     }
 
-    private function decryptSensitiveData(): void {
+    private function decryptSensitiveData(): void
+    {
         if (!empty($this->attributes['reviewer_email'])) {
             $this->attributes['reviewer_email'] = $this->encryption->decryptCustomerData(
                 $this->attributes['reviewer_email'],
@@ -108,7 +114,8 @@ class Review extends Model {
         }
     }
 
-    public function getWebsite(): ?Website {
+    public function getWebsite(): ?Website
+    {
         $sql = "SELECT * FROM websites WHERE id = ? LIMIT 1";
         $result = $this->db->query($sql, [$this->attributes['website_id']]);
 
@@ -119,7 +126,8 @@ class Review extends Model {
         return new Website($result[0]);
     }
 
-    public function getUser(): ?User {
+    public function getUser(): ?User
+    {
         $sql = "SELECT * FROM users WHERE id = ? LIMIT 1";
         $result = $this->db->query($sql, [$this->attributes['user_id']]);
 
@@ -130,7 +138,8 @@ class Review extends Model {
         return new User($result[0]);
     }
 
-    public function updateSentiment(string $sentiment, float $score, float $confidence): bool {
+    public function updateSentiment(string $sentiment, float $score, float $confidence): bool
+    {
         $this->attributes['sentiment'] = $sentiment;
         $this->attributes['sentiment_score'] = $score;
         $this->attributes['sentiment_confidence'] = $confidence;
@@ -138,21 +147,24 @@ class Review extends Model {
         return $this->save() !== false;
     }
 
-    public function updateAutoReply(string $reply): bool {
+    public function updateAutoReply(string $reply): bool
+    {
         $this->attributes['ai_generated_reply'] = $reply;
         $this->attributes['reply_status'] = 'pending';
 
         return $this->save() !== false;
     }
 
-    public function markReplySent(): bool {
+    public function markReplySent(): bool
+    {
         $this->attributes['reply_sent_at'] = date('Y-m-d H:i:s');
         $this->attributes['reply_status'] = 'sent';
 
         return $this->save() !== false;
     }
 
-    public static function getSentimentStats(int $websiteId): array {
+    public static function getSentimentStats(int $websiteId): array
+    {
         $db = Database::getInstance();
 
         $sql = "SELECT
@@ -186,7 +198,8 @@ class Review extends Model {
         ];
     }
 
-    public static function getPlatformStats(int $websiteId): array {
+    public static function getPlatformStats(int $websiteId): array
+    {
         $db = Database::getInstance();
 
         $sql = "SELECT

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * عقد موحّد (Interface) لأي مزود ذكاء اصطناعي يمكن استخدامه في AI Chat.
@@ -13,7 +14,8 @@
  * @copyright 2026 Tourfecto
  */
 
-interface AIProviderInterface {
+interface AIProviderInterface
+{
     /**
      * توليد رد نصي.
      *

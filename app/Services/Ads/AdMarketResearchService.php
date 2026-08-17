@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Ad Market Research Service
  * ترشيح وترتيب الدول/الأسواق المناسبة لحملة إعلانية، مبنية على معرفة
@@ -7,7 +8,8 @@
  * ليه في صفحة "بحث الأسواق".
  * @version 1.0.0
  */
-class AdMarketResearchService {
+class AdMarketResearchService
+{
     private const MAX_COUNTRIES = 8;
 
     /** @var GeminiClient */
@@ -15,7 +17,8 @@ class AdMarketResearchService {
 
     private Database $db;
 
-    public function __construct(?GeminiClient $ai = null) {
+    public function __construct(?GeminiClient $ai = null)
+    {
         $this->ai = $ai ?? new GeminiClient();
         $this->db = Database::getInstance();
     }
@@ -25,7 +28,8 @@ class AdMarketResearchService {
      *
      * @return array{countries: array, disclaimer: string}
      */
-    public function research(int $userId, string $goalDescription, ?int $campaignId = null): array {
+    public function research(int $userId, string $goalDescription, ?int $campaignId = null): array
+    {
         $prompt = <<<PROMPT
 انت خبير تسويق دولي للسفر والسياحة. بناءً على العرض ده، رتّب الدول الأنسب لإطلاق حملة إعلانية، بحيث تكون التوصية استشارية واقعية (مش بيانات طلب بحث مقاسة).
 
@@ -56,7 +60,9 @@ PROMPT;
         $countries = [];
         foreach (array_slice($parsed['countries'], 0, $this->maxCountries()) as $c) {
             $name = trim((string) ($c['country'] ?? ''));
-            if ($name === '') continue;
+            if ($name === '') {
+                continue;
+            }
             $countries[] = [
                 'country' => mb_substr($name, 0, 120),
                 'opportunity' => in_array($c['opportunity'] ?? '', ['high', 'medium', 'low'], true) ? $c['opportunity'] : 'medium',
@@ -87,7 +93,8 @@ PROMPT;
     }
 
     /** أرشيف أبحاث السوق لمستخدم - الأحدث أولًا (result_json خام جاهز للفك في الواجهة) */
-    public function history(int $userId): array {
+    public function history(int $userId): array
+    {
         return $this->db->query(
             "SELECT id, campaign_id, goal_description, result_json, created_at
              FROM ad_market_research WHERE user_id = ? ORDER BY created_at DESC LIMIT 50",
@@ -95,11 +102,15 @@ PROMPT;
         );
     }
 
-    private function parseJsonResponse(string $raw): ?array {
+    private function parseJsonResponse(string $raw): ?array
+    {
         $clean = preg_replace('/^```(json)?|```$/m', '', trim($raw));
         $parsed = json_decode(trim((string) $clean), true);
         return is_array($parsed) ? $parsed : null;
     }
 
-    private function maxCountries(): int { return self::MAX_COUNTRIES; }
+    private function maxCountries(): int
+    {
+        return self::MAX_COUNTRIES;
+    }
 }

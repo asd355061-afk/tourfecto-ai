@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Subscription Plan Display Model
  * باقات وأسعار العرض العام - قابلة للتعديل من لوحة الأدمن.
@@ -11,7 +12,8 @@
  * ده منفصل تمامًا وبيتحكم بس في العرض العام (صفحة الأسعار وحدود
  * المميزات المعروضة) - مش في محرك الفوترة الفعلي.
  */
-class SubscriptionPlan extends Model {
+class SubscriptionPlan extends Model
+{
     protected $table = 'plan_pricing_display';
 
     protected $fillable = [
@@ -25,7 +27,8 @@ class SubscriptionPlan extends Model {
      * plan_key) عشان أي كود قديم يستخدمها من غير تعديل. بيرجع الباقات
      * النشطة بس، مرتّبة حسب sort_order.
      */
-    public static function allAsLegacyArray(): array {
+    public static function allAsLegacyArray(): array
+    {
         try {
             $db = Database::getInstance();
             $rows = $db->query("SELECT * FROM plan_pricing_display WHERE is_active = 1 ORDER BY sort_order ASC");

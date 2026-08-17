@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Monitor Competitor Job
  * @version 1.0.0
@@ -8,8 +9,10 @@
  * monitoring_frequency/last_monitored_at - أبدًا لا يُنفَّذ داخل نفس
  * الـ HTTP request لعشرات المنافسين.
  */
-class MonitorCompetitorJob implements QueueJobInterface {
-    public function handle(array $payload): void {
+class MonitorCompetitorJob implements QueueJobInterface
+{
+    public function handle(array $payload): void
+    {
         $competitorId = (int) ($payload['competitor_id'] ?? 0);
         if ($competitorId <= 0) {
             throw new InvalidArgumentException('MonitorCompetitorJob: missing competitor_id');

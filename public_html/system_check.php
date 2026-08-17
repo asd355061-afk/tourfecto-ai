@@ -45,7 +45,8 @@ define('TOURFECTO_STORAGE', $root . '/storage');
 
 $report = []; // كل قسم بيضيف نتايجه هنا: ['section' => ..., 'status' => ok|warn|fail, 'lines' => [...]]
 
-function add_section(array &$report, string $title, string $status, array $lines): void {
+function add_section(array &$report, string $title, string $status, array $lines): void
+{
     $report[] = ['title' => $title, 'status' => $status, 'lines' => $lines];
 }
 
@@ -76,21 +77,37 @@ add_section($report, '1) الإعداد الأساسي (Autoload / .env)', $auto
 // تحميل باقي الكونفيج بنفس ترتيب public_html/index.php
 foreach (['/Config/app.php', '/Config/constants.php', '/Config/database.php', '/Config/encryption.php'] as $cfg) {
     if (file_exists(APP_PATH . $cfg)) {
-        try { require_once APP_PATH . $cfg; } catch (Throwable $e) { /* هيتلقط في قسم الأخطاء تحت */ }
+        try {
+            require_once APP_PATH . $cfg;
+        } catch (Throwable $e) { /* هيتلقط في قسم الأخطاء تحت */
+        }
     }
 }
 foreach (['/Config/gemini.php', '/Config/whatsapp.php', '/Config/integrations.PHP', '/Config/openai.php', '/Config/deepseek.php', '/Config/kimi.php'] as $cfg) {
     if (file_exists(APP_PATH . $cfg)) {
-        try { require_once APP_PATH . $cfg; } catch (Throwable $e) { }
+        try {
+            require_once APP_PATH . $cfg;
+        } catch (Throwable $e) {
+        }
     }
 }
 
 // تحميل باقي كلاسات الأساس يدويًا لو مفيش classmap محدّث (نفس فكرة index.php)
-foreach (glob(APP_PATH . '/Core/*.php') as $f) { require_once $f; }
-foreach (glob(APP_PATH . '/Core/Contracts/*.php') as $f) { require_once $f; }
-foreach (glob(APP_PATH . '/Core/Repository/*.php') as $f) { require_once $f; }
-foreach (glob(APP_PATH . '/Models/*.php') as $f) { require_once $f; }
-foreach (glob(APP_PATH . '/Repositories/*.php') as $f) { require_once $f; }
+foreach (glob(APP_PATH . '/Core/*.php') as $f) {
+    require_once $f;
+}
+foreach (glob(APP_PATH . '/Core/Contracts/*.php') as $f) {
+    require_once $f;
+}
+foreach (glob(APP_PATH . '/Core/Repository/*.php') as $f) {
+    require_once $f;
+}
+foreach (glob(APP_PATH . '/Models/*.php') as $f) {
+    require_once $f;
+}
+foreach (glob(APP_PATH . '/Repositories/*.php') as $f) {
+    require_once $f;
+}
 if (file_exists(APP_PATH . '/Services/System/SystemSettingsService.php')) {
     require_once APP_PATH . '/Services/System/SystemSettingsService.php';
 }
@@ -229,8 +246,11 @@ add_section($report, '3) تطابق Models مع أعمدة قاعدة البيا
 $lines = [];
 $apiStatus = 'ok';
 
-function looks_like_placeholder(?string $v): bool {
-    if ($v === null || $v === '') return true;
+function looks_like_placeholder(?string $v): bool
+{
+    if ($v === null || $v === '') {
+        return true;
+    }
     $v = strtolower($v);
     return (strpos($v, 'your-') !== false) || strpos($v, 'xxxxx') !== false || $v === 'null';
 }
@@ -316,10 +336,14 @@ if (!$canExec) {
     $checked = 0;
     $errors = [];
     foreach ($dirs as $dir) {
-        if (!is_dir($dir)) continue;
+        if (!is_dir($dir)) {
+            continue;
+        }
         $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS));
         foreach ($it as $f) {
-            if ($f->getExtension() !== 'php') continue;
+            if ($f->getExtension() !== 'php') {
+                continue;
+            }
             $checked++;
             $out = shell_exec('php -l ' . escapeshellarg($f->getPathname()) . ' 2>&1');
             if ($out && stripos($out, 'No syntax errors detected') === false) {

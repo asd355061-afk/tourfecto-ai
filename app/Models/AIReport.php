@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Report Model
  * نموذج تقرير الذكاء الاصطناعي مع نظام الكاش
@@ -7,12 +8,13 @@
  * @copyright 2026 Tourfecto
  */
 
-class AIReport extends Model {
+class AIReport extends Model
+{
     /**
      * @var string $table - اسم الجدول
      */
     protected $table = 'ai_reports';
-    
+
     /**
      * @var array $fillable - الحقول القابلة للتعبئة
      */
@@ -45,7 +47,7 @@ class AIReport extends Model {
         'tokens_used',
         'cost_in_usd'
     ];
-    
+
     /**
      * @var array $casts - تحويل البيانات
      */
@@ -62,13 +64,14 @@ class AIReport extends Model {
         'geo_map_integration' => 'array',
         'full_report_json' => 'array'
     ];
-    
+
     /**
      * Constructor - معالجة تحويل JSON
      */
-    public function __construct(array $attributes = []) {
+    public function __construct(array $attributes = [])
+    {
         parent::__construct($attributes);
-        
+
         // تحويل JSON إلى مصفوفات
         foreach ($this->casts as $field => $type) {
             if (isset($this->attributes[$field]) && is_string($this->attributes[$field])) {
@@ -76,104 +79,111 @@ class AIReport extends Model {
             }
         }
     }
-    
+
     /**
      * إنشاء تقرير جديد
      * @param array $data
      * @return AIReport|false
      */
-    public static function createReport(array $data) {
+    public static function createReport(array $data)
+    {
         // تحويل المصفوفات إلى JSON
         foreach (['competitor_urls', 'full_report_json'] as $field) {
             if (isset($data[$field]) && is_array($data[$field])) {
                 $data[$field] = json_encode($data[$field]);
             }
         }
-        
+
         // تحويل الحقول الأخرى
         $jsonFields = [
             'seo_keywords', 'seo_title_suggestions', 'seo_meta_suggestions', 'seo_content_gaps',
             'aeo_direct_answers', 'aeo_trust_signals', 'geo_faq_schema',
             'geo_questions_generated', 'geo_map_integration'
         ];
-        
+
         foreach ($jsonFields as $field) {
             if (isset($data[$field]) && is_array($data[$field])) {
                 $data[$field] = json_encode($data[$field]);
             }
         }
-        
+
         $report = new static($data);
         $id = $report->save();
-        
+
         if ($id) {
             return $report->find($id);
         }
-        
+
         return false;
     }
-    
+
     /**
      * الحصول على التقرير الكامل كمصفوفة
      * @return array
      */
-    public function getFullReport(): array {
+    public function getFullReport(): array
+    {
         if (is_string($this->attributes['full_report_json'])) {
             return json_decode($this->attributes['full_report_json'], true);
         }
         return $this->attributes['full_report_json'] ?? [];
     }
-    
+
     /**
      * الحصول على كلمات SEO الرئيسية
      * @return array
      */
-    public function getSEOKeywords(): array {
+    public function getSEOKeywords(): array
+    {
         if (is_string($this->attributes['seo_keywords'])) {
             return json_decode($this->attributes['seo_keywords'], true);
         }
         return $this->attributes['seo_keywords'] ?? [];
     }
-    
+
     /**
      * الحصول على استراتيجية AEO
      * @return array
      */
-    public function getAEOStrategy(): array {
+    public function getAEOStrategy(): array
+    {
         return [
             'direct_answers' => $this->getAEOAnswers(),
             'trust_signals' => $this->getAEOTrustSignals(),
             'positioning' => $this->attributes['aeo_positioning_strategy'] ?? ''
         ];
     }
-    
+
     /**
      * الحصول على إجابات AEO المباشرة
      * @return array
      */
-    public function getAEOAnswers(): array {
+    public function getAEOAnswers(): array
+    {
         if (is_string($this->attributes['aeo_direct_answers'])) {
             return json_decode($this->attributes['aeo_direct_answers'], true);
         }
         return $this->attributes['aeo_direct_answers'] ?? [];
     }
-    
+
     /**
      * الحصول على إشارات الثقة لـ AEO
      * @return array
      */
-    public function getAEOTrustSignals(): array {
+    public function getAEOTrustSignals(): array
+    {
         if (is_string($this->attributes['aeo_trust_signals'])) {
             return json_decode($this->attributes['aeo_trust_signals'], true);
         }
         return $this->attributes['aeo_trust_signals'] ?? [];
     }
-    
+
     /**
      * الحصول على استراتيجية GEO
      * @return array
      */
-    public function getGEOStrategy(): array {
+    public function getGEOStrategy(): array
+    {
         return [
             'faq_schema' => $this->getGEOSchema(),
             'questions' => $this->getGEOQuestions(),
@@ -181,93 +191,100 @@ class AIReport extends Model {
             'improvements' => $this->attributes['geo_improvement_suggestions'] ?? ''
         ];
     }
-    
+
     /**
      * الحصول على مخطط FAQ
      * @return array
      */
-    public function getGEOSchema(): array {
+    public function getGEOSchema(): array
+    {
         if (is_string($this->attributes['geo_faq_schema'])) {
             return json_decode($this->attributes['geo_faq_schema'], true);
         }
         return $this->attributes['geo_faq_schema'] ?? [];
     }
-    
+
     /**
      * الحصول على الأسئلة المولدة
      * @return array
      */
-    public function getGEOQuestions(): array {
+    public function getGEOQuestions(): array
+    {
         if (is_string($this->attributes['geo_questions_generated'])) {
             return json_decode($this->attributes['geo_questions_generated'], true);
         }
         return $this->attributes['geo_questions_generated'] ?? [];
     }
-    
+
     /**
      * الحصول على تكامل الخرائط
      * @return array
      */
-    public function getGEOMapIntegration(): array {
+    public function getGEOMapIntegration(): array
+    {
         if (is_string($this->attributes['geo_map_integration'])) {
             return json_decode($this->attributes['geo_map_integration'], true);
         }
         return $this->attributes['geo_map_integration'] ?? [];
     }
-    
+
     /**
      * الحصول على الموقع
      * @return Website|null
      */
-    public function getWebsite(): ?Website {
+    public function getWebsite(): ?Website
+    {
         $sql = "SELECT * FROM websites WHERE id = ? LIMIT 1";
         $result = $this->db->query($sql, [$this->attributes['website_id']]);
-        
+
         if (empty($result)) {
             return null;
         }
-        
+
         return new Website($result[0]);
     }
-    
+
     /**
      * الحصول على المستخدم
      * @return User|null
      */
-    public function getUser(): ?User {
+    public function getUser(): ?User
+    {
         $sql = "SELECT * FROM users WHERE id = ? LIMIT 1";
         $result = $this->db->query($sql, [$this->attributes['user_id']]);
-        
+
         if (empty($result)) {
             return null;
         }
-        
+
         return new User($result[0]);
     }
-    
+
     /**
      * التحقق من صحة التقرير (مخبأ)
      * @return bool
      */
-    public function isValidCache(): bool {
+    public function isValidCache(): bool
+    {
         if (!$this->attributes['is_cached']) {
             return false;
         }
-        
+
         $cachedUntil = $this->attributes['cached_until'];
         if ($cachedUntil && strtotime($cachedUntil) < time()) {
             return false;
         }
-        
+
         return true;
     }
-    
+
     /**
      * تصدير التقرير بصيغة محددة
      * @param string $format
      * @return string
      */
-    public function export(string $format = 'json'): string {
+    public function export(string $format = 'json'): string
+    {
         // بنستخدم الأعمدة المنظّمة الحقيقية (نفس اللي صفحة التقرير بتعرضها
         // على الشاشة) بدل full_report_json الخام، لأنه ممكن يكون فاضي أو
         // مش بنفس شكل البيانات المعروضة فعليًا للمستخدم.
@@ -292,14 +309,15 @@ class AIReport extends Model {
      * بناء قائمة أقسام منظّمة من التقرير (عنوان + قايمة نصوص لكل قسم)
      * جاهزة للعرض في أي صيغة تصدير.
      */
-    private function buildExportSections(): array {
+    private function buildExportSections(): array
+    {
         $asList = function ($value): array {
             if (is_string($value)) {
                 $decoded = json_decode($value, true);
                 $value = is_array($decoded) ? $decoded : $value;
             }
             if (is_array($value)) {
-                return array_map(fn($v) => is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : (string) $v, $value);
+                return array_map(fn ($v) => is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : (string) $v, $value);
             }
             return $value !== null && $value !== '' ? [(string) $value] : [];
         };
@@ -351,7 +369,8 @@ class AIReport extends Model {
      * @param array $sections
      * @return string
      */
-    private function exportCSV(array $sections): string {
+    private function exportCSV(array $sections): string
+    {
         $output = fopen('php://temp', 'r+');
         fputcsv($output, ['القسم', 'البند']);
 
@@ -373,7 +392,8 @@ class AIReport extends Model {
      * @param array $sections
      * @return string
      */
-    private function exportHTML(array $sections): string {
+    private function exportHTML(array $sections): string
+    {
         $targetUrl = htmlspecialchars((string) ($this->attributes['target_url'] ?? ''), ENT_QUOTES, 'UTF-8');
         $score = htmlspecialchars((string) ($this->attributes['analysis_score'] ?? '-'), ENT_QUOTES, 'UTF-8');
         $date = htmlspecialchars((string) ($this->attributes['created_at'] ?? ''), ENT_QUOTES, 'UTF-8');

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Customer 360 Service (بند 2)
  * @version 1.0.0
@@ -9,14 +10,17 @@
  * أي قسم بيانات غير متوفر (مثال: Purchases/Reviews) يظهر فارغًا صراحة
  * بدل اختلاقه (بند 39).
  */
-class CrmCustomer360Service {
+class CrmCustomer360Service
+{
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
-    public function build(int $userId, int $contactId): array {
+    public function build(int $userId, int $contactId): array
+    {
         $contact = (new CrmContact())->find($contactId);
         if (!$contact || (int) $contact->getAttribute('user_id') !== $userId) {
             throw new Exception('جهة الاتصال غير موجودة', 404);
@@ -55,11 +59,11 @@ class CrmCustomer360Service {
             // مررناها كما هي، json_encode() في الـController كان سيحوّلها
             // لكائنات فارغة {} في استجابة الـAPI بدل بيانات حقيقية. لازم
             // toArray() صراحة على كل عنصر قبل الإرجاع.
-            'leads' => array_map(fn($l) => $l->toArray(), $leads),
+            'leads' => array_map(fn ($l) => $l->toArray(), $leads),
             'deals' => $deals,
-            'tasks' => array_map(fn($t) => $t->toArray(), $tasks),
-            'notes' => array_map(fn($n) => $n->toArray(), $notes),
-            'appointments' => array_map(fn($m) => $m->toArray(), $meetings),
+            'tasks' => array_map(fn ($t) => $t->toArray(), $tasks),
+            'notes' => array_map(fn ($n) => $n->toArray(), $notes),
+            'appointments' => array_map(fn ($m) => $m->toArray(), $meetings),
             'timeline' => $activity,
             // أقسام تتطلب تكاملات غير مبنية في هذا الموديول (بند 45: لا نعيد
             // بناء موديولات أخرى) - تظهر فارغة صراحة بدل بيانات وهمية.

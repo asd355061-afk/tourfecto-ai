@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Revenue Insight Persister
  * @version 1.0.0
@@ -9,9 +10,11 @@
  * RecomputeRevenueInsightsJob وقت إعادة الحساب في الخلفية) - بدل تكرار
  * نفس الكود في مكانين (Section 17: Audit Log).
  */
-class RevenueInsightPersister {
+class RevenueInsightPersister
+{
     /** @param array<int, array<string, mixed>> $insights */
-    public static function persist(int $userId, array $insights): void {
+    public static function persist(int $userId, array $insights): void
+    {
         foreach ($insights as $insight) {
             try {
                 (new RevaiInsight([
@@ -38,7 +41,8 @@ class RevenueInsightPersister {
     }
 
     /** يحوّل Anomaly (شكل مختلف شوية) لنفس شكل Insight القياسي قبل التخزين. */
-    public static function anomalyToInsight(array $anomaly): array {
+    public static function anomalyToInsight(array $anomaly): array
+    {
         return [
             'type' => 'anomaly',
             'category' => $anomaly['type'],

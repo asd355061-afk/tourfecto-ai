@@ -1,4 +1,5 @@
 <?php
+
 // مفاتيح ترجمة جديدة لصفحات CRM الموسّعة (Contacts/Companies/Tasks/Automation/...)
 // أضف السطور دي جوه الـ array الحالي في app/Lang/ar.php
 return [

@@ -1,11 +1,13 @@
 <?php
+
 /**
  * Tourfecto - Ad Optimization Log Model
  * سجل قرارات تحسين الحملات (مُوسَّع) - يشمل قرارات الـAutopilot القابلة
  * للتراجع (قبل/بعد + rollback) وسجل الإيقاف/الاستئناف اليدوي.
  * @version 1.1.0
  */
-class AdOptimizationLog extends Model {
+class AdOptimizationLog extends Model
+{
     protected $table = 'ad_optimization_logs';
     protected $fillable = [
         'campaign_id', 'user_id', 'action_type', 'mode', 'description',
@@ -14,7 +16,8 @@ class AdOptimizationLog extends Model {
     ];
 
     /** أحدث سجلات التحسين لمستخدم (أو لكل حملة بعينها لو campaign_id متحدد) */
-    public static function forUser(int $userId, int $limit = 50, ?int $campaignId = null): array {
+    public static function forUser(int $userId, int $limit = 50, ?int $campaignId = null): array
+    {
         $conditions = ['user_id' => $userId];
         if ($campaignId !== null) {
             $conditions['campaign_id'] = $campaignId;

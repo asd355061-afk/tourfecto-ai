@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Web Routes
  * تعريف مسارات الويب الخاصة بواجهة المستخدم
@@ -37,9 +38,14 @@ $router->get('/auth/{provider}/callback', 'AuthController', 'socialCallback');
 $router->post('/auth/apple/callback', 'AuthController', 'appleCallback');
 
 // ============================================
+// Onboarding Wizard (Phase 18) - معالج إعداد الحساب خطوة بخطوة
+// ============================================
+$router->get('/onboarding', 'OnboardingController', 'showWizard', ['AuthMiddleware']);
+
+// ============================================
 // لوحة التحكم (Dashboard)
 // ============================================
-$router->group('/dashboard', function($router) {
+$router->group('/dashboard', function ($router) {
     $router->get('', 'DashboardController', 'index', ['AuthMiddleware']);
     $router->get('/overview', 'DashboardController', 'overview', ['AuthMiddleware']);
     $router->get('/analytics', 'DashboardController', 'analytics', ['AuthMiddleware']);
@@ -62,7 +68,7 @@ $router->get('/competitor-intelligence/reports/{id}/export', 'CompetitorIntellig
 // ============================================
 // صفحات الذكاء الاصطناعي
 // ============================================
-$router->group('/ai', function($router) {
+$router->group('/ai', function ($router) {
     $router->get('/analyze', 'AIController', 'showAnalyze', ['AuthMiddleware']);
     $router->get('/reports', 'AIController', 'showReports', ['AuthMiddleware']);
     $router->get('/report/{id}', 'AIController', 'showReport', ['AuthMiddleware']);
@@ -104,6 +110,14 @@ $router->get('/r/{code}', 'AdsController', 'redirectUtmClick');
 $router->get('/crm', 'CrmController', 'index', ['AuthMiddleware']);
 $router->get('/crm/leads', 'CrmController', 'showLeads', ['AuthMiddleware']);
 $router->get('/crm/deals', 'CrmController', 'showDeals', ['AuthMiddleware']);
+$router->get('/crm/contacts', 'CrmController', 'showContacts', ['AuthMiddleware']);
+$router->get('/crm/contacts/{id}', 'CrmController', 'showContactProfile', ['AuthMiddleware']);
+$router->get('/crm/companies', 'CrmController', 'showCompanies', ['AuthMiddleware']);
+$router->get('/crm/tasks', 'CrmController', 'showTasks', ['AuthMiddleware']);
+$router->get('/crm/appointments', 'CrmController', 'showAppointments', ['AuthMiddleware']);
+$router->get('/crm/automation', 'CrmController', 'showAutomation', ['AuthMiddleware']);
+$router->get('/crm/team', 'CrmController', 'showTeam', ['AuthMiddleware']);
+$router->get('/crm/reports', 'CrmController', 'showReports', ['AuthMiddleware']);
 $router->get('/gbp-content', 'GoogleBusinessContentController', 'index', ['AuthMiddleware']);
 $router->get('/review-requests', 'ReviewRequestController', 'index', ['AuthMiddleware']);
 $router->get('/ai-assistant', 'AiAssistantController', 'index', ['AuthMiddleware']);
@@ -118,12 +132,13 @@ $router->post('/sites/{slug}/review', 'WebsiteBuilderController', 'submitReview'
 // ============================================
 // صفحات إدارة السمعة
 // ============================================
-$router->group('/reputation', function($router) {
+$router->group('/reputation', function ($router) {
     $router->get('/overview', 'ReputationController', 'showOverview', ['AuthMiddleware']);
     $router->get('/reviews', 'ReputationController', 'showReviews', ['AuthMiddleware']);
     $router->get('/review/{id}', 'ReputationController', 'showReview', ['AuthMiddleware']);
     $router->get('/stats', 'ReputationController', 'showStats', ['AuthMiddleware']);
     $router->get('/platforms', 'ReputationController', 'showPlatforms', ['AuthMiddleware']);
+    $router->get('/intelligence', 'GbpProfileController', 'showReputationIntelligence', ['AuthMiddleware']);
     $router->get('/connect/google/callback', 'ReputationController', 'googleOAuthCallback', ['AuthMiddleware']);
     $router->get('/connect/google/choose', 'ReputationController', 'showGoogleLocationPicker', ['AuthMiddleware']);
     $router->get('/connect/google/{website_id}', 'ReputationController', 'connectGoogleBusiness', ['AuthMiddleware']);
@@ -133,7 +148,7 @@ $router->group('/reputation', function($router) {
 // ============================================
 // صفحات ربط Google Search Console
 // ============================================
-$router->group('/search-console', function($router) {
+$router->group('/search-console', function ($router) {
     $router->get('/callback', 'SearchConsoleController', 'callback', ['AuthMiddleware']);
     $router->get('/choose', 'SearchConsoleController', 'showSitePicker', ['AuthMiddleware']);
     $router->get('/connect/{website_id}', 'SearchConsoleController', 'connect', ['AuthMiddleware']);
@@ -147,12 +162,13 @@ $router->get('/integrations', 'IntegrationsController', 'index', ['AuthMiddlewar
 // ============================================
 // صفحات الشات
 // ============================================
-$router->group('/chat', function($router) {
+$router->group('/chat', function ($router) {
     $router->get('', 'ChatController', 'index', ['AuthMiddleware']);
     $router->get('/conversation/{id}', 'ChatController', 'showConversation', ['AuthMiddleware']);
     $router->get('/pending', 'ChatController', 'showPending', ['AuthMiddleware']);
     $router->get('/settings', 'ChatController', 'showSettings', ['AuthMiddleware']);
     $router->get('/knowledge-base', 'ChatController', 'showKnowledgeBase', ['AuthMiddleware']);
+    $router->get('/learning', 'ChatController', 'showLearning', ['AuthMiddleware']);
     $router->get('/followup-settings', 'ChatController', 'showFollowupSettings', ['AuthMiddleware']);
     $router->get('/analytics', 'ChatController', 'showAnalytics', ['AuthMiddleware']);
     $router->get('/leads', 'ChatController', 'showLeads', ['AuthMiddleware']);
@@ -169,7 +185,7 @@ $router->get('/invoice/{id}', 'SubscriptionController', 'showInvoice', ['AuthMid
 // ============================================
 // صفحات الملف الشخصي
 // ============================================
-$router->group('/profile', function($router) {
+$router->group('/profile', function ($router) {
     $router->get('', 'UserController', 'showProfile', ['AuthMiddleware']);
     $router->get('/edit', 'UserController', 'showEditProfile', ['AuthMiddleware']);
     $router->post('/update', 'UserController', 'updateProfile', ['AuthMiddleware']);
@@ -184,7 +200,7 @@ $router->group('/profile', function($router) {
 // ============================================
 // صفحات المواقع
 // ============================================
-$router->group('/websites', function($router) {
+$router->group('/websites', function ($router) {
     $router->get('', 'WebsiteController', 'index', ['AuthMiddleware']);
     $router->get('/create', 'WebsiteController', 'create', ['AuthMiddleware']);
     $router->post('/store', 'WebsiteController', 'store', ['AuthMiddleware']);
@@ -197,7 +213,7 @@ $router->group('/websites', function($router) {
 // ============================================
 // صفحات التقارير
 // ============================================
-$router->group('/reports', function($router) {
+$router->group('/reports', function ($router) {
     $router->get('', 'ReportController', 'index', ['AuthMiddleware']);
     $router->get('/export', 'ReportController', 'export', ['AuthMiddleware']);
     $router->get('/scheduled', 'ReportController', 'scheduled', ['AuthMiddleware']);
@@ -226,7 +242,7 @@ $router->get('/data-deletion', 'LegalController', 'dataDeletion');
 // ============================================
 // مسارات إدارية (Admin Web)
 // ============================================
-$router->group('/admin', function($router) {
+$router->group('/admin', function ($router) {
     $router->get('', 'AdminController', 'index', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/platform', 'AdminController', 'platform', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/users', 'AdminController', 'users', ['AuthMiddleware', 'AdminMiddleware']);
@@ -240,6 +256,7 @@ $router->group('/admin', function($router) {
     $router->get('/logs', 'AdminController', 'logs', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/settings', 'AdminController', 'settings', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/login-history', 'AdminController', 'loginHistory', ['AuthMiddleware', 'AdminMiddleware']);
+    $router->get('/onboarding-funnel', 'AdminController', 'onboardingFunnelPage', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/visitors', 'AdminController', 'visitorStatsPage', ['AuthMiddleware', 'AdminMiddleware']);
 }, ['AuthMiddleware', 'AdminMiddleware']);
 

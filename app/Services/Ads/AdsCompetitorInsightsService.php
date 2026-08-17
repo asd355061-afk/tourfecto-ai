@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Ads Competitor Insights Service
  * تحليل استشاري بالذكاء الاصطناعي لتموضع/رسائل منافس من منظور إعلاني
@@ -10,13 +11,15 @@
  * الآلي). يُوضّح ده صراحة للعميل.
  * @version 1.0.0
  */
-class AdsCompetitorInsightsService {
+class AdsCompetitorInsightsService
+{
     /** @var GeminiClient */
     private $ai;
 
     private Database $db;
 
-    public function __construct(?GeminiClient $ai = null) {
+    public function __construct(?GeminiClient $ai = null)
+    {
         $this->ai = $ai ?? new GeminiClient();
         $this->db = Database::getInstance();
     }
@@ -26,7 +29,8 @@ class AdsCompetitorInsightsService {
      *
      * @return array{recommendations: array, disclaimer: string}
      */
-    public function analyzeForAds(Competitor $competitor, string $offerDescription): array {
+    public function analyzeForAds(Competitor $competitor, string $offerDescription): array
+    {
         $domain = (string) $competitor->getAttribute('competitor_domain');
         $name = (string) $competitor->getAttribute('competitor_name');
         $label = $name !== '' ? $name : $domain;
@@ -67,7 +71,9 @@ PROMPT;
         $recommendations = [];
         foreach (array_slice($parsed['recommendations'], 0, 8) as $r) {
             $text = trim((string) ($r['text'] ?? ''));
-            if ($text === '') continue;
+            if ($text === '') {
+                continue;
+            }
             $recommendations[] = [
                 'priority' => in_array($r['priority'] ?? '', ['high', 'medium', 'low'], true) ? $r['priority'] : 'medium',
                 'text' => mb_substr($text, 0, 600),
@@ -97,7 +103,8 @@ PROMPT;
     }
 
     /** أحدث تحليل إعلاني مسجّل لموقع معين - لسه بيستخدم في GET /api/ads/competitors/{id}/insights */
-    public function listForWebsite(int $websiteId): array {
+    public function listForWebsite(int $websiteId): array
+    {
         $rows = $this->db->query(
             "SELECT competitor_id, offer_description, insights_json, created_at
              FROM ad_competitor_insights WHERE website_id = ? ORDER BY created_at DESC LIMIT 10",
@@ -110,8 +117,11 @@ PROMPT;
         }, $rows);
     }
 
-    private function tryFetchSiteText(string $domain): ?string {
-        if ($domain === '' || !function_exists('curl_init')) return null;
+    private function tryFetchSiteText(string $domain): ?string
+    {
+        if ($domain === '' || !function_exists('curl_init')) {
+            return null;
+        }
 
         $url = $domain;
         if (!preg_match('#^https?://#i', $url)) {
@@ -145,7 +155,8 @@ PROMPT;
         return $text !== '' ? mb_substr($text, 0, 6000) : null;
     }
 
-    private function parseJsonResponse(string $raw): ?array {
+    private function parseJsonResponse(string $raw): ?array
+    {
         $clean = preg_replace('/^```(json)?|```$/m', '', trim($raw));
         $parsed = json_decode(trim((string) $clean), true);
         return is_array($parsed) ? $parsed : null;

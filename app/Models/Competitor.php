@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Model
  * @version 1.1.0
@@ -10,7 +11,8 @@
  * competitor_tripadvisor_url, notes, is_active, created_at.
  * لا يوجد عمود last_analyzed_at ولا url ولا name مباشرة.
  */
-class Competitor extends Model {
+class Competitor extends Model
+{
     protected $table = 'competitors';
     protected $fillable = [
         'user_id', 'website_id', 'competitor_domain', 'competitor_name',

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * Lead Scoring Service (بند 5، 6): يبني ويحدّث ملف Lead غني تلقائيًا من
@@ -12,13 +13,13 @@
  * @version 1.0.0
  */
 
-class LeadScoringService {
-
+class LeadScoringService
+{
     /** حالات lead_status التي تستحق إنشاء/تحديث ملف Lead */
-    const LEAD_WORTHY_STATUSES = ['new_inquiry', 'qualifying', 'qualified', 'hot_lead', 'converted'];
+    public const LEAD_WORTHY_STATUSES = ['new_inquiry', 'qualifying', 'qualified', 'hot_lead', 'converted'];
 
     /** الحقول المستخدمة في حساب اكتمال البيانات (كل حقل = نقاط ثابتة) */
-    const PROFILE_FIELDS_WEIGHT = [
+    public const PROFILE_FIELDS_WEIGHT = [
         'destination' => 15,
         'travel_date' => 15,
         'budget' => 20,
@@ -31,7 +32,8 @@ class LeadScoringService {
     /** @var AiLead */
     private $leadModel;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->leadModel = new AiLead();
     }
 
@@ -44,7 +46,8 @@ class LeadScoringService {
      * @param string|null $nextRecommendedAction
      * @return AiLead|null
      */
-    public function upsertFromConversation(AiChatConversation $conversation, array $memory, ?string $aiSummary = null, ?string $nextRecommendedAction = null): ?AiLead {
+    public function upsertFromConversation(AiChatConversation $conversation, array $memory, ?string $aiSummary = null, ?string $nextRecommendedAction = null): ?AiLead
+    {
         $leadStatus = $conversation->getAttribute('lead_status');
         if (!in_array($leadStatus, self::LEAD_WORTHY_STATUSES, true)) {
             return null;
@@ -108,7 +111,8 @@ class LeadScoringService {
      * @param array $memory
      * @return int
      */
-    private function calculateIntentScore(string $leadStatus, AiChatConversation $conversation, array $memory): int {
+    private function calculateIntentScore(string $leadStatus, AiChatConversation $conversation, array $memory): int
+    {
         $base = [
             'new_inquiry' => 20,
             'qualifying' => 40,
@@ -137,7 +141,8 @@ class LeadScoringService {
      * @param array $memory
      * @return int
      */
-    private function calculateProfileCompleteness(AiChatConversation $conversation, array $memory): int {
+    private function calculateProfileCompleteness(AiChatConversation $conversation, array $memory): int
+    {
         $score = 0;
         $score += !empty($memory['country']) ? self::PROFILE_FIELDS_WEIGHT['destination'] : 0;
         $score += !empty($memory['travel_date']) ? self::PROFILE_FIELDS_WEIGHT['travel_date'] : 0;
@@ -158,7 +163,8 @@ class LeadScoringService {
      * @param string|null $currentPipelineStatus
      * @return string
      */
-    private function mapLeadStatusToPipelineStatus(string $leadStatus, ?string $currentPipelineStatus): string {
+    private function mapLeadStatusToPipelineStatus(string $leadStatus, ?string $currentPipelineStatus): string
+    {
         if (in_array($currentPipelineStatus, ['won', 'lost', 'proposal_sent'], true)) {
             return $currentPipelineStatus; // لا تتراجع تلقائيًا عن قرار الفريق اليدوي
         }
@@ -177,7 +183,8 @@ class LeadScoringService {
      * @param array $memory
      * @return string
      */
-    private function suggestNextAction(string $leadStatus, array $memory): string {
+    private function suggestNextAction(string $leadStatus, array $memory): string
+    {
         if ($leadStatus === 'hot_lead') {
             return 'Contact customer directly - high intent detected, close before they cool off.';
         }

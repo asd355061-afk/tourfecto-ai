@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Monitoring Scheduler
  * @version 1.0.0
@@ -18,7 +19,7 @@
  * لـ Job منفصل له.
  *
  * Common Settings: كل 30 دقيقة (كافية لتغطية daily/weekly/custom بدقة
- * معقولة بدون Overhead) - * /30 * * * *
+ * معقولة بدون Overhead) - cron: كل 30 دقيقة كل ساعة
  * Command (غيّر المسار حسب اسم الدومين الحقيقي عندك):
  *   php /home/USERNAME/domains/YOURSITE.com/cron/monitor_competitors.php >> /home/USERNAME/domains/YOURSITE.com/storage/logs/ci_scheduler.log 2>&1
  */
@@ -84,7 +85,11 @@ try {
     $durationMs = round((microtime(true) - $startedAt) * 1000);
     fwrite(STDOUT, sprintf(
         "[%s] Competitor Intelligence Scheduler: %d/%d منافس اتجدولوا للمراقبة، %d Scorecard اتحسبوا (%dms)\n",
-        date('Y-m-d H:i:s'), $enqueued, count($due), $scorecardsComputed, $durationMs
+        date('Y-m-d H:i:s'),
+        $enqueued,
+        count($due),
+        $scorecardsComputed,
+        $durationMs
     ));
 } catch (Throwable $e) {
     fwrite(STDERR, '[' . date('Y-m-d H:i:s') . '] CI scheduler error: ' . $e->getMessage() . "\n");

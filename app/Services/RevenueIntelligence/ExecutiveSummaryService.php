@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Executive Revenue Summary Service
  * @version 1.0.0
@@ -7,7 +8,8 @@
  * ملخص عالي المستوى مناسب لـ CEO/Manager - يجمّع أهم رقم من كل خدمة
  * بدل تفصيل كامل. لا يحسب أي شيء بنفسه؛ يستدعي الخدمات الأخرى فقط.
  */
-class ExecutiveSummaryService {
+class ExecutiveSummaryService
+{
     private RevenueOverviewService $overview;
     private RevenueForecastService $forecastService;
     private RevenueInsightService $insightService;
@@ -28,7 +30,8 @@ class ExecutiveSummaryService {
         $this->actionService = $actionService ?? new RevenueActionService();
     }
 
-    public function getSummary(int $userId): array {
+    public function getSummary(int $userId): array
+    {
         $overview = $this->overview->getOverview($userId, 'monthly');
         $forecast = $this->forecastService->forecast($userId, 'monthly', false);
         $opportunities = $this->insightService->getOpportunities($userId);
@@ -61,8 +64,11 @@ class ExecutiveSummaryService {
         ];
     }
 
-    private static function pickTopRisk(array $risks): ?array {
-        if (empty($risks)) { return null; }
+    private static function pickTopRisk(array $risks): ?array
+    {
+        if (empty($risks)) {
+            return null;
+        }
         $sevRank = ['high' => 3, 'medium' => 2, 'low' => 1];
         usort($risks, static function ($a, $b) use ($sevRank) {
             return ($sevRank[$b['severity'] ?? 'low'] ?? 0) <=> ($sevRank[$a['severity'] ?? 'low'] ?? 0);

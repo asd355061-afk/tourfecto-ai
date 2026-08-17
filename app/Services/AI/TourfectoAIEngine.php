@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Engine Main Class
  * محرك الذكاء الاصطناعي الرئيسي لتحليل SEO/AEO/GEO
@@ -7,41 +8,43 @@
  * @copyright 2026 Tourfecto
  */
 
-class TourfectoAIEngine {
+class TourfectoAIEngine
+{
     /**
      * @var GeminiClient $geminiClient - عميل Gemini API
      */
     private $geminiClient;
-    
+
     /**
      * @var PromptBuilder $promptBuilder - بناء الـ Prompts
      */
     private $promptBuilder;
-    
+
     /**
      * @var ResponseParser $responseParser - معالجة الاستجابات
      */
     private $responseParser;
-    
+
     /**
      * @var SemanticCache $semanticCache - نظام الكاش الذكي
      */
     private $semanticCache;
-    
+
     /**
      * @var Database $db - اتصال قاعدة البيانات
      */
     private $db;
-    
+
     /**
      * @var SubscriptionValidator $subscription - نظام الاشتراكات
      */
     private $subscription;
-    
+
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
         $this->subscription = new SubscriptionValidator();
         $this->geminiClient = new GeminiClient();
@@ -49,7 +52,7 @@ class TourfectoAIEngine {
         $this->responseParser = new ResponseParser();
         $this->semanticCache = new SemanticCache();
     }
-    
+
     /**
      * تحليل موقع باستخدام Gemini API مع نظام الكاش الذكي
      * @param int $userId - معرف المستخدم
@@ -76,11 +79,11 @@ class TourfectoAIEngine {
                     'code' => 403
                 ];
             }
-            
+
             // 2. التحقق من الكاش الذكي
             $cacheKey = $this->semanticCache->generateKey($targetUrl, $competitorUrls, $language);
             $cachedResult = $this->semanticCache->get($cacheKey);
-            
+
             if ($cachedResult !== null) {
                 // تحديث تاريخ الاستخدام
                 $this->updateReportUsage($userId);
@@ -97,7 +100,7 @@ class TourfectoAIEngine {
                     'message' => 'Report retrieved from semantic cache.'
                 ];
             }
-            
+
             // 3. التحقق من عدد المنافسين
             if (count($competitorUrls) !== 3) {
                 return [
@@ -106,7 +109,7 @@ class TourfectoAIEngine {
                     'code' => 400
                 ];
             }
-            
+
             // 4. التحقق من صحة الروابط
             foreach (array_merge([$targetUrl], $competitorUrls) as $url) {
                 if (!filter_var($url, FILTER_VALIDATE_URL)) {
@@ -117,17 +120,17 @@ class TourfectoAIEngine {
                     ];
                 }
             }
-            
+
             // 5. بناء الـ Prompt
             $prompt = $this->promptBuilder->buildAnalysisPrompt(
                 $targetUrl,
                 $competitorUrls,
                 $language
             );
-            
+
             // 6. إرسال الطلب إلى Gemini API
             $apiResponse = $this->geminiClient->generateContent($prompt);
-            
+
             if (!$apiResponse['success']) {
                 return [
                     'success' => false,
@@ -135,7 +138,7 @@ class TourfectoAIEngine {
                     'code' => 500
                 ];
             }
-            
+
             // 7. معالجة وتحليل النتيجة
             $reportData = $this->responseParser->parseAnalysisResponse(
                 $apiResponse['data'],
@@ -143,7 +146,7 @@ class TourfectoAIEngine {
                 $competitorUrls,
                 $language
             );
-            
+
             // 8. حفظ التقرير في قاعدة البيانات
             $reportId = $this->saveReport(
                 $userId,
@@ -155,13 +158,13 @@ class TourfectoAIEngine {
                 $apiResponse['tokens_used'] ?? 0,
                 $apiResponse['cost'] ?? 0
             );
-            
+
             // 9. تخزين النتيجة في الكاش الذكي
             $this->semanticCache->set($cacheKey, $reportData);
-            
+
             // 10. استهلاك رصيد التحليل
             $this->subscription->consumeCompetitorAnalysisCredit($userId, ($creditsCheck['source'] ?? '') === 'wallet');
-            
+
             return [
                 'success' => true,
                 'from_cache' => false,
@@ -170,13 +173,13 @@ class TourfectoAIEngine {
                 'data' => $reportData,
                 'message' => 'Analysis completed successfully.'
             ];
-            
+
         } catch (Exception $e) {
             Logger::error('AI Analysis Error', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -184,7 +187,7 @@ class TourfectoAIEngine {
             ];
         }
     }
-    
+
     /**
      * توليد رد ذكي للمراجعات
      * @param string $reviewText - نص المراجعة
@@ -205,26 +208,26 @@ class TourfectoAIEngine {
             if (!$creditsCheck['available']) {
                 return $this->getFallbackReply($sentiment);
             }
-            
+
             // بناء الـ Prompt
             $prompt = $this->promptBuilder->buildReviewReplyPrompt(
                 $reviewText,
                 $sentiment,
                 $platform
             );
-            
+
             // إرسال الطلب إلى Gemini API
             $apiResponse = $this->geminiClient->generateContent($prompt);
-            
+
             if (!$apiResponse['success']) {
                 return $this->getFallbackReply($sentiment);
             }
-            
+
             // استهلاك رصيد الـ AI
             $this->subscription->consumeAICredits($userId, 1, ($creditsCheck['source'] ?? '') === 'wallet');
-            
+
             return $apiResponse['data'];
-            
+
         } catch (Exception $e) {
             Logger::error('Generate Review Reply Error', [
                 'message' => $e->getMessage()
@@ -232,7 +235,7 @@ class TourfectoAIEngine {
             return $this->getFallbackReply($sentiment);
         }
     }
-    
+
     /**
      * توليد رد ذكي للشات
      * @param string $message - رسالة العميل
@@ -251,22 +254,22 @@ class TourfectoAIEngine {
             if (!$creditsCheck['available']) {
                 return $this->getFallbackChatReply($message);
             }
-            
+
             // بناء الـ Prompt
             $prompt = $this->promptBuilder->buildChatReplyPrompt($message, $context);
-            
+
             // إرسال الطلب إلى Gemini API
             $apiResponse = $this->geminiClient->generateContent($prompt);
-            
+
             if (!$apiResponse['success']) {
                 return $this->getFallbackChatReply($message);
             }
-            
+
             // استهلاك رصيد الـ AI
             $this->subscription->consumeAICredits($userId, 1, ($creditsCheck['source'] ?? '') === 'wallet');
-            
+
             return $apiResponse['data'];
-            
+
         } catch (Exception $e) {
             Logger::error('Generate Chat Reply Error', [
                 'message' => $e->getMessage()
@@ -274,37 +277,38 @@ class TourfectoAIEngine {
             return $this->getFallbackChatReply($message);
         }
     }
-    
+
     /**
      * تحليل المشاعر في النص
      * @param string $text - النص المراد تحليله
      * @param int $userId - معرف المستخدم
      * @return array
      */
-    public function analyzeSentiment(string $text, int $userId): array {
+    public function analyzeSentiment(string $text, int $userId): array
+    {
         try {
             // التحقق من رصيد الـ AI
             $creditsCheck = $this->subscription->checkAICredits($userId);
             if (!$creditsCheck['available']) {
                 return $this->simpleSentimentAnalysis($text);
             }
-            
+
             // بناء الـ Prompt
             $prompt = $this->promptBuilder->buildSentimentAnalysisPrompt($text);
-            
+
             // إرسال الطلب إلى Gemini API
             $apiResponse = $this->geminiClient->generateContent($prompt);
-            
+
             if (!$apiResponse['success']) {
                 return $this->simpleSentimentAnalysis($text);
             }
-            
+
             // استهلاك رصيد الـ AI
             $this->subscription->consumeAICredits($userId, 1, ($creditsCheck['source'] ?? '') === 'wallet');
-            
+
             // معالجة النتيجة
             return $this->responseParser->parseSentimentResponse($apiResponse['data']);
-            
+
         } catch (Exception $e) {
             Logger::error('Sentiment Analysis Error', [
                 'message' => $e->getMessage()
@@ -312,7 +316,7 @@ class TourfectoAIEngine {
             return $this->simpleSentimentAnalysis($text);
         }
     }
-    
+
     /**
      * ترجمة نص
      * @param string $text - النص المراد ترجمته
@@ -320,29 +324,30 @@ class TourfectoAIEngine {
      * @param int $userId - معرف المستخدم
      * @return string|null
      */
-    public function translateText(string $text, string $targetLanguage, int $userId): ?string {
+    public function translateText(string $text, string $targetLanguage, int $userId): ?string
+    {
         try {
             // التحقق من رصيد الـ AI
             $creditsCheck = $this->subscription->checkAICredits($userId);
             if (!$creditsCheck['available']) {
                 return $text;
             }
-            
+
             // بناء الـ Prompt
             $prompt = $this->promptBuilder->buildTranslationPrompt($text, $targetLanguage);
-            
+
             // إرسال الطلب إلى Gemini API
             $apiResponse = $this->geminiClient->generateContent($prompt);
-            
+
             if (!$apiResponse['success']) {
                 return $text;
             }
-            
+
             // استهلاك رصيد الـ AI
             $this->subscription->consumeAICredits($userId, 1, ($creditsCheck['source'] ?? '') === 'wallet');
-            
+
             return $apiResponse['data'];
-            
+
         } catch (Exception $e) {
             Logger::error('Translation Error', [
                 'message' => $e->getMessage()
@@ -350,7 +355,7 @@ class TourfectoAIEngine {
             return $text;
         }
     }
-    
+
     /**
      * حفظ التقرير في قاعدة البيانات
      * @param int $userId
@@ -378,7 +383,7 @@ class TourfectoAIEngine {
             $seoData = $reportData['seo'] ?? [];
             $aeoData = $reportData['aeo'] ?? [];
             $geoData = $reportData['geo'] ?? [];
-            
+
             $sql = "INSERT INTO ai_reports (
                         website_id, user_id, report_type, target_url, 
                         competitor_urls, target_language,
@@ -398,7 +403,7 @@ class TourfectoAIEngine {
                         :competitors_analyzed, 1, DATE_ADD(NOW(), INTERVAL 7 DAY), 'completed',
                         :tokens_used, :cost_in_usd
                     )";
-            
+
             $params = [
                 ':website_id' => $websiteId,
                 ':user_id' => $userId,
@@ -423,9 +428,9 @@ class TourfectoAIEngine {
                 ':tokens_used' => $tokensUsed,
                 ':cost_in_usd' => $cost
             ];
-            
+
             return (int) $this->db->query($sql, $params);
-            
+
         } catch (Exception $e) {
             Logger::error('Save Report Error', [
                 'message' => $e->getMessage()
@@ -433,75 +438,79 @@ class TourfectoAIEngine {
             throw $e;
         }
     }
-    
+
     /**
      * تحديث استخدام التقرير
      * @param int $userId
      */
-    private function updateReportUsage(int $userId): void {
+    private function updateReportUsage(int $userId): void
+    {
         try {
             $sql = "INSERT INTO api_usage_logs (user_id, api_type, endpoint, status_code) 
                     VALUES (:user_id, 'gemini', 'cached_report', 200)";
-            
+
             $this->db->query($sql, [':user_id' => $userId]);
-            
+
         } catch (Exception $e) {
             // تجاهل الخطأ
         }
     }
-    
+
     /**
      * رد بديل في حالة فشل الـ AI (للمراجعات)
      * @param array $sentiment
      * @return string
      */
-    private function getFallbackReply(array $sentiment): string {
+    private function getFallbackReply(array $sentiment): string
+    {
         if ($sentiment['label'] === 'positive') {
             return "شكراً جزيلاً لك على تقييمك الإيجابي. يسعدنا جداً أنك استمتعت بتجربتك معنا. نتطلع دائماً لتقديم الأفضل لعملائنا الكرام. نتمنى رؤيتك مرة أخرى قريباً!";
         } elseif ($sentiment['label'] === 'negative') {
             return "نشكرك على مشاركة تجربتك معنا. نأسف جداً لأي إزعاج حدث لك. نعتز بآراء عملائنا ونعمل باستمرار على تحسين خدماتنا. يرجى التواصل معنا على رقم الدعم لإعطائنا فرصة لتعويضك عن هذه التجربة.";
         }
-        
+
         return "شكراً لتقييمك لخدماتنا. نضع آراء عملائنا في أولوياتنا ونسعى دائماً لتحسين تجربتكم. نتمنى لكم يوماً سعيداً ونترقب زيارتكم مرة أخرى.";
     }
-    
+
     /**
      * رد بديل في حالة فشل الـ AI (للشات)
      * @param string $message
      * @return string
      */
-    private function getFallbackChatReply(string $message): string {
+    private function getFallbackChatReply(string $message): string
+    {
         return "شكراً لتواصلك معنا. أحد ممثلي خدمة العملاء سيتواصل معك قريباً لتقديم المساعدة المناسبة. نعتذر عن أي تأخير.";
     }
-    
+
     /**
      * تحليل مشاعر بسيط (Fallback)
      * @param string $text
      * @return array
      */
-    private function simpleSentimentAnalysis(string $text): array {
+    private function simpleSentimentAnalysis(string $text): array
+    {
         $positiveWords = ['رائع', 'ممتاز', 'جيد', 'جميل', 'مذهل', 'أفضل', 'مثالي', 'سعيد', 'شكراً', 'good', 'great', 'excellent', 'amazing', 'best', 'happy', 'thanks'];
         $negativeWords = ['سيئ', 'مخيب', 'فاشل', 'رديء', 'محبط', 'غاضب', 'أسوأ', 'سيء', 'bad', 'terrible', 'awful', 'disappointed', 'worst', 'angry', 'poor'];
-        
+
         $textLower = strtolower($text);
         $positiveCount = 0;
         $negativeCount = 0;
-        
+
         foreach ($positiveWords as $word) {
             if (strpos($textLower, strtolower($word)) !== false) {
                 $positiveCount++;
             }
         }
-        
+
         foreach ($negativeWords as $word) {
             if (strpos($textLower, strtolower($word)) !== false) {
                 $negativeCount++;
             }
         }
-        
+
         $score = 0.5;
         $label = 'neutral';
-        
+
         if ($positiveCount > $negativeCount) {
             $score = 0.7 + (($positiveCount - $negativeCount) / 20);
             $label = 'positive';
@@ -509,22 +518,23 @@ class TourfectoAIEngine {
             $score = 0.3 - (($negativeCount - $positiveCount) / 20);
             $label = 'negative';
         }
-        
+
         $score = min(1, max(0, $score));
-        
+
         return [
             'label' => $label,
             'score' => $score,
             'confidence' => 0.6
         ];
     }
-    
+
     /**
      * الحصول على إحصائيات استخدام الـ AI
      * @param int $userId
      * @return array
      */
-    public function getUsageStats(int $userId): array {
+    public function getUsageStats(int $userId): array
+    {
         try {
             $sql = "SELECT 
                         COUNT(*) as total_requests,
@@ -533,15 +543,15 @@ class TourfectoAIEngine {
                     FROM ai_reports 
                     WHERE user_id = ? 
                     AND created_at > DATE_SUB(NOW(), INTERVAL 30 DAY)";
-            
+
             $result = $this->db->query($sql, [$userId]);
-            
+
             return [
                 'total_requests' => (int) ($result[0]['total_requests'] ?? 0),
                 'total_tokens' => (int) ($result[0]['total_tokens'] ?? 0),
                 'total_cost' => round((float) ($result[0]['total_cost'] ?? 0), 6)
             ];
-            
+
         } catch (Exception $e) {
             return [
                 'total_requests' => 0,

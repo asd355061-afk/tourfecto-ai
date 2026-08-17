@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Ad Autopilot Settings Model
  * إعدادات حماية الـAutopilot لكل مستخدم - كل الحدود هنا بتتحول لـGuardrails
@@ -6,7 +7,8 @@
  * 2026_08_15_000050 لتفاصيل الأعمدة).
  * @version 1.0.0
  */
-class AdAutopilotSetting extends Model {
+class AdAutopilotSetting extends Model
+{
     protected $table = 'ad_autopilot_settings';
     protected $fillable = [
         'user_id', 'optimization_mode', 'is_active',
@@ -20,7 +22,8 @@ class AdAutopilotSetting extends Model {
      * محفوظة بقيم افتراضية آمنة لو لسه مفيش إعدادات. مش بيحفظ تلقائيًا -
      * الحفظ بيحصل من AdAutopilotEngine::saveSettings() لما العميل يضبط.
      */
-    public static function forUser(int $userId): self {
+    public static function forUser(int $userId): self
+    {
         $existing = (new self())->where(['user_id' => $userId], [], 1);
         if (!empty($existing)) {
             return $existing[0];
@@ -36,25 +39,34 @@ class AdAutopilotSetting extends Model {
     }
 
     /** @return int[]|null قائمة الحملات المسموحة، أو null لو مفيش قيد (كل الحملات مسموحة) */
-    public function allowedCampaignIds(): ?array {
+    public function allowedCampaignIds(): ?array
+    {
         $raw = $this->getAttribute('allowed_campaign_ids_json');
-        if (!$raw) return null;
+        if (!$raw) {
+            return null;
+        }
         $ids = json_decode((string) $raw, true);
         return is_array($ids) ? array_map('intval', $ids) : null;
     }
 
     /** @return string[]|null قائمة المنصات المسموحة، أو null لو مفيش قيد */
-    public function allowedPlatforms(): ?array {
+    public function allowedPlatforms(): ?array
+    {
         $raw = $this->getAttribute('allowed_platforms_json');
-        if (!$raw) return null;
+        if (!$raw) {
+            return null;
+        }
         $platforms = json_decode((string) $raw, true);
         return is_array($platforms) ? array_values(array_map('strval', $platforms)) : null;
     }
 
     /** @return string[]|null قائمة الدول المسموحة، أو null لو مفيش قيد */
-    public function allowedCountries(): ?array {
+    public function allowedCountries(): ?array
+    {
         $raw = $this->getAttribute('allowed_countries_json');
-        if (!$raw) return null;
+        if (!$raw) {
+            return null;
+        }
         $countries = json_decode((string) $raw, true);
         return is_array($countries) ? array_values(array_map('strval', $countries)) : null;
     }

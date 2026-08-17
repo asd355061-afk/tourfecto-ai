@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Website Model
  * نموذج الموقع الإلكتروني مع إدارة المنافسين
@@ -7,17 +8,21 @@
  * @copyright 2026 Tourfecto
  */
 
-class Website extends Model {
+class Website extends Model
+{
     /**
      * @var string $table - اسم الجدول
      */
     protected $table = 'websites';
-    
+
     /**
      * @var array $fillable - الحقول القابلة للتعبئة
      */
     protected $fillable = [
         'user_id',
+        // Business Control Center Phase 2: ربط website بالـBusiness اللي بيمثلها
+        // (1:1 حاليًا - migration 2026_08_14_000049). نفس عمود جدول websites.
+        'business_id',
         'main_url',
         'company_name',
         'industry',
@@ -47,7 +52,8 @@ class Website extends Model {
      * الاسم، بنحاول نلاقيه بأسماء بديلة معروفة ونربطه تلقائيًا عن طريق
      * columnAliases (الآلية العامة في Model.php).
      */
-    public function __construct(array $attributes = []) {
+    public function __construct(array $attributes = [])
+    {
         $this->autoDetectColumnAliases();
         parent::__construct($attributes);
     }
@@ -55,7 +61,8 @@ class Website extends Model {
     /** @var array|null $realColumnsCache - كاش ثابت لكل أعمدة جدول websites الحقيقية */
     private static $realColumnsCache = null;
 
-    private static function realColumns(): array {
+    private static function realColumns(): array
+    {
         if (self::$realColumnsCache !== null) {
             return self::$realColumnsCache;
         }
@@ -76,7 +83,8 @@ class Website extends Model {
         return self::$realColumnsCache;
     }
 
-    private function autoDetectColumnAliases(): void {
+    private function autoDetectColumnAliases(): void
+    {
         $realCols = self::realColumns();
         if (empty($realCols)) {
             return; // فشل الاكتشاف (مثلاً قاعدة البيانات مش متاحة) - خليه زي ما هو
@@ -136,7 +144,8 @@ class Website extends Model {
      * Override: نشيل أي حقل معروف إنه مش موجود في الجدول الحقيقي قبل ما
      * نبني SQL، بدل ما نسيبه يسبب "Unknown column" في كل مرة.
      */
-    protected function toDbAttributes(array $attrs): array {
+    protected function toDbAttributes(array $attrs): array
+    {
         foreach ($this->unmappableFields as $field) {
             unset($attrs[$field]);
         }
@@ -151,7 +160,8 @@ class Website extends Model {
      * ومحفوظ (cache) لباقي الطلب.
      * @return string
      */
-    public static function urlColumn(): string {
+    public static function urlColumn(): string
+    {
         if (self::$urlColumnCache !== null) {
             return self::$urlColumnCache;
         }
@@ -169,33 +179,35 @@ class Website extends Model {
         self::$urlColumnCache = 'main_url';
         return 'main_url';
     }
-    
+
     /**
      * الحصول على جميع المنافسين كمصفوفة
      * @return array
      */
-    public function getCompetitors(): array {
+    public function getCompetitors(): array
+    {
         $competitors = [];
-        
+
         for ($i = 1; $i <= 3; $i++) {
             $urlKey = "competitor_{$i}_url";
             if (!empty($this->attributes[$urlKey])) {
                 $competitors[] = $this->attributes[$urlKey];
             }
         }
-        
+
         return $competitors;
     }
-    
+
     /**
      * تعيين المنافسين
      * @param array $urls
      * @return bool
      */
-    public function setCompetitors(array $urls): bool {
+    public function setCompetitors(array $urls): bool
+    {
         $maxCompetitors = 3;
         $count = 0;
-        
+
         for ($i = 1; $i <= $maxCompetitors; $i++) {
             $urlKey = "competitor_{$i}_url";
             if (isset($urls[$i - 1]) && !empty($urls[$i - 1])) {
@@ -205,92 +217,97 @@ class Website extends Model {
                 $this->attributes[$urlKey] = null;
             }
         }
-        
+
         return $this->save() !== false;
     }
-    
+
     /**
      * الحصول على المستخدم
      * @return User|null
      */
-    public function getUser(): ?User {
+    public function getUser(): ?User
+    {
         $sql = "SELECT * FROM users WHERE id = ? LIMIT 1";
         $result = $this->db->query($sql, [$this->attributes['user_id']]);
-        
+
         if (empty($result)) {
             return null;
         }
-        
+
         return new User($result[0]);
     }
-    
+
     /**
      * الحصول على التقارير
      * @param int $limit
      * @return array
      */
-    public function getReports(int $limit = 10): array {
+    public function getReports(int $limit = 10): array
+    {
         $sql = "SELECT * FROM ai_reports 
                 WHERE website_id = ? 
                 ORDER BY created_at DESC 
                 LIMIT ?";
-        
+
         $result = $this->db->query($sql, [
             $this->attributes['id'],
             $limit
         ]);
-        
-        return array_map(function($data) {
+
+        return array_map(function ($data) {
             return new AIReport($data);
         }, $result);
     }
-    
+
     /**
      * الحصول على آخر تقرير
      * @return AIReport|null
      */
-    public function getLatestReport(): ?AIReport {
+    public function getLatestReport(): ?AIReport
+    {
         $sql = "SELECT * FROM ai_reports 
                 WHERE website_id = ? 
                 AND status = 'completed'
                 ORDER BY created_at DESC 
                 LIMIT 1";
-        
+
         $result = $this->db->query($sql, [$this->attributes['id']]);
-        
+
         if (empty($result)) {
             return null;
         }
-        
+
         return new AIReport($result[0]);
     }
-    
+
     /**
      * الحصول على المراجعات
      * @param int $limit
      * @return array
      */
-    public function getReviews(int $limit = 10): array {
+    public function getReviews(int $limit = 10): array
+    {
         $sql = "SELECT * FROM reviews 
                 WHERE website_id = ? 
                 ORDER BY created_at DESC 
                 LIMIT ?";
-        
+
         $result = $this->db->query($sql, [
             $this->attributes['id'],
             $limit
         ]);
-        
-        return array_map(function($data) {
+
+        return array_map(function ($data) {
             return new Review($data);
         }, $result);
     }
-    
+
     /**
      * الحصول على إحصائيات المراجعات
      * @return array
      */
-    public function getReviewStats(): array {
+    public function getReviewStats(): array
+    {
         $stats = [
             'total' => 0,
             'positive' => 0,
@@ -298,7 +315,7 @@ class Website extends Model {
             'negative' => 0,
             'average_rating' => 0
         ];
-        
+
         $sql = "SELECT 
                     COUNT(*) as total,
                     SUM(CASE WHEN sentiment = 'positive' THEN 1 ELSE 0 END) as positive,
@@ -307,9 +324,9 @@ class Website extends Model {
                     AVG(rating) as avg_rating
                 FROM reviews 
                 WHERE website_id = ?";
-        
+
         $result = $this->db->query($sql, [$this->attributes['id']]);
-        
+
         if (!empty($result)) {
             $stats = [
                 'total' => (int) ($result[0]['total'] ?? 0),
@@ -319,69 +336,74 @@ class Website extends Model {
                 'average_rating' => round((float) ($result[0]['avg_rating'] ?? 0), 2)
             ];
         }
-        
+
         return $stats;
     }
-    
+
     /**
      * التحقق من صحة URL
      * @param string $url
      * @return bool
      */
-    public static function validateUrl(string $url): bool {
+    public static function validateUrl(string $url): bool
+    {
         return filter_var($url, FILTER_VALIDATE_URL) !== false;
     }
-    
+
     /**
      * تطهير URL
      * @param string $url
      * @return string
      */
-    public static function sanitizeUrl(string $url): string {
+    public static function sanitizeUrl(string $url): string
+    {
         $url = trim($url);
         $url = rtrim($url, '/');
-        
+
         // إضافة https:// إذا لم تكن موجودة
         if (!preg_match('/^https?:\/\//', $url)) {
             $url = 'https://' . $url;
         }
-        
+
         return $url;
     }
-    
+
     /**
      * استخراج اسم النطاق
      * @return string
      */
-    public function getDomain(): string {
+    public function getDomain(): string
+    {
         $url = $this->attributes['main_url'];
         $parsed = parse_url($url);
         return $parsed['host'] ?? $url;
     }
-    
+
     /**
      * تحديث وقت آخر تحليل
      * @return bool
      */
-    public function updateLastAnalysis(): bool {
+    public function updateLastAnalysis(): bool
+    {
         $this->attributes['last_analysis_at'] = date('Y-m-d H:i:s');
         return $this->save() !== false;
     }
-    
+
     /**
      * التحقق من وجود تحليل حديث
      * @param int $days
      * @return bool
      */
-    public function hasRecentAnalysis(int $days = 7): bool {
+    public function hasRecentAnalysis(int $days = 7): bool
+    {
         if (empty($this->attributes['last_analysis_at'])) {
             return false;
         }
-        
+
         $lastAnalysis = strtotime($this->attributes['last_analysis_at']);
         $now = time();
         $diff = ($now - $lastAnalysis) / (60 * 60 * 24);
-        
+
         return $diff <= $days;
     }
 }

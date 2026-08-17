@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Discovery Service
  * @version 1.0.0
@@ -14,15 +15,18 @@
  *
  * لا يخترع شركات أبدًا.
  */
-class CompetitorDiscoveryService {
+class CompetitorDiscoveryService
+{
     /** @var CompetitorDiscoverySourceInterface[] */
     private $sources;
 
-    public function __construct(array $sources = []) {
+    public function __construct(array $sources = [])
+    {
         $this->sources = !empty($sources) ? $sources : [new NullDiscoverySource()];
     }
 
-    public function suggestManualCandidate(int $userId, int $websiteId, string $name, string $website = '', string $industry = '', string $country = ''): CiDiscoveryCandidate {
+    public function suggestManualCandidate(int $userId, int $websiteId, string $name, string $website = '', string $industry = '', string $country = ''): CiDiscoveryCandidate
+    {
         $candidate = new CiDiscoveryCandidate([
             'user_id' => $userId,
             'website_id' => $websiteId,
@@ -48,7 +52,8 @@ class CompetitorDiscoveryService {
     /**
      * @return array{available:bool, reason:?string, candidates_saved:int}
      */
-    public function runExternalDiscovery(int $userId, int $websiteId, array $context = []): array {
+    public function runExternalDiscovery(int $userId, int $websiteId, array $context = []): array
+    {
         $anyAvailable = false;
         $reasons = [];
         $saved = 0;
@@ -80,8 +85,8 @@ class CompetitorDiscoveryService {
                     'country' => $c['country'] ?? null,
                     'market_segment' => $c['market_segment'] ?? null,
                     'source' => 'integration:' . $source->sourceName(),
-                    'category' => in_array($c['category'] ?? '', ['direct', 'indirect', 'emerging', 'potential'], true) ? $c['category'] : 'potential',
-                    'confidence' => in_array($c['confidence'] ?? '', ['high', 'medium', 'low'], true) ? $c['confidence'] : 'low',
+                    'category' => CiConstants::within(CiConstants::CATEGORIES, $c['category'] ?? '', 'potential'),
+                    'confidence' => CiConstants::within(CiConstants::CONFIDENCE_LEVELS, $c['confidence'] ?? '', 'low'),
                     'status' => 'pending',
                     'discovered_at' => date('Y-m-d H:i:s'),
                 ]);
@@ -98,7 +103,8 @@ class CompetitorDiscoveryService {
     }
 
     /** الموافقة على مرشّح -> إضافته فعليًا لجدول competitors */
-    public function approveCandidate(CiDiscoveryCandidate $candidate): Competitor {
+    public function approveCandidate(CiDiscoveryCandidate $candidate): Competitor
+    {
         $competitor = new Competitor([
             'user_id' => (int) $candidate->getAttribute('user_id'),
             'website_id' => (int) $candidate->getAttribute('website_id'),
@@ -125,7 +131,8 @@ class CompetitorDiscoveryService {
         return $competitor;
     }
 
-    public function dismissCandidate(CiDiscoveryCandidate $candidate): void {
+    public function dismissCandidate(CiDiscoveryCandidate $candidate): void
+    {
         $candidate->setAttribute('status', 'dismissed');
         $candidate->save();
     }

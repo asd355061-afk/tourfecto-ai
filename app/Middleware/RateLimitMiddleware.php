@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Rate Limit Middleware
  * تحديد معدل الطلبات للحماية من الهجمات
@@ -7,48 +8,51 @@
  * @copyright 2026 Tourfecto
  */
 
-class RateLimitMiddleware {
+class RateLimitMiddleware
+{
     /**
      * @var RateLimiter $rateLimiter - نظام تحديد المعدل
      */
     private $rateLimiter;
-    
+
     /**
      * @var array $limits - حدود المعدلات حسب المسارات
      */
     private $limits = [];
-    
+
     /**
      * @var string $identifier - المعرف المستخدم للتحديد
      */
     private $identifier = '';
-    
+
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         $this->rateLimiter = new RateLimiter();
         $this->loadLimits();
         $this->resolveIdentifier();
     }
-    
+
     /**
      * معالجة الطلب
      * @return array|null
      */
-    public function handle(): ?array {
+    public function handle(): ?array
+    {
         // استثناء بعض المسارات
         if ($this->isExcludedRoute()) {
             return null;
         }
-        
+
         // الحصول على حدود المسار الحالي
         $limit = $this->getRouteLimit();
-        
+
         if (!$limit) {
             return null;
         }
-        
+
         // التحقق من المعدل
         $result = $this->rateLimiter->checkWithDetails(
             $this->identifier,
@@ -56,7 +60,7 @@ class RateLimitMiddleware {
             $limit['max'] ?? 100,
             $limit['window'] ?? 60
         );
-        
+
         if (!$result['allowed']) {
             http_response_code(429);
             return [
@@ -68,13 +72,13 @@ class RateLimitMiddleware {
                 'remaining' => 0
             ];
         }
-        
+
         // إضافة رؤوس المعدل
         $this->addRateLimitHeaders($result);
-        
+
         return null;
     }
-    
+
     /**
      * تعيين حدود مخصصة لمسار معين
      * @param string $route
@@ -83,7 +87,8 @@ class RateLimitMiddleware {
      * @param string $type
      * @return RateLimitMiddleware
      */
-    public function setLimit(string $route, int $max, int $window = 60, string $type = 'default'): self {
+    public function setLimit(string $route, int $max, int $window = 60, string $type = 'default'): self
+    {
         $this->limits[$route] = [
             'max' => $max,
             'window' => $window,
@@ -91,103 +96,108 @@ class RateLimitMiddleware {
         ];
         return $this;
     }
-    
+
     /**
      * تعيين معرف مخصص
      * @param string $identifier
      * @return RateLimitMiddleware
      */
-    public function setIdentifier(string $identifier): self {
+    public function setIdentifier(string $identifier): self
+    {
         $this->identifier = $identifier;
         return $this;
     }
-    
+
     /**
      * تحديد المعرف المستخدم
      */
-    private function resolveIdentifier(): void {
+    private function resolveIdentifier(): void
+    {
         if ($this->identifier) {
             return;
         }
-        
+
         // استخدام API Key إذا كان موجوداً
         $apiKey = $this->getApiKey();
         if ($apiKey) {
             $this->identifier = 'api_' . $apiKey;
             return;
         }
-        
+
         // استخدام معرف المستخدم إذا كان موجوداً
         $userId = $_SERVER['auth_user_id'] ?? null;
         if ($userId) {
             $this->identifier = 'user_' . $userId;
             return;
         }
-        
+
         // استخدام IP
         $this->identifier = 'ip_' . $this->getClientIP();
     }
-    
+
     /**
      * الحصول على API Key من الطلب
      * @return string|null
      */
-    private function getApiKey(): ?string {
+    private function getApiKey(): ?string
+    {
         $headers = getallheaders();
-        
+
         if (isset($headers['X-API-Key'])) {
             return $headers['X-API-Key'];
         }
-        
+
         if (isset($_GET['api_key'])) {
             return $_GET['api_key'];
         }
-        
+
         return null;
     }
-    
+
     /**
      * الحصول على IP العميل
      * @return string
      */
-    private function getClientIP(): string {
+    private function getClientIP(): string
+    {
         $ips = [
             $_SERVER['HTTP_CF_CONNECTING_IP'] ?? null,
             $_SERVER['HTTP_X_FORWARDED_FOR'] ?? null,
             $_SERVER['HTTP_X_REAL_IP'] ?? null,
             $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'
         ];
-        
+
         foreach ($ips as $ip) {
             if ($ip) {
                 // في حالة وجود عدة IPs في X-Forwarded-For
                 $ip = explode(',', $ip)[0];
                 $ip = trim($ip);
-                
+
                 if (filter_var($ip, FILTER_VALIDATE_IP)) {
                     return $ip;
                 }
             }
         }
-        
+
         return '0.0.0.0';
     }
-    
+
     /**
      * الحصول على حدود المسار الحالي
      * @return array|null
      */
-    private function getRouteLimit(): ?array {
+    private function getRouteLimit(): ?array
+    {
         $currentRoute = $this->normalizeApiVersion($_SERVER['REQUEST_URI'] ?? '');
         $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-        
+
         // البحث عن تطابق في الحدود المخصصة
         foreach ($this->limits as $route => $limit) {
             if (strpos($currentRoute, $route) !== false) {
                 return $limit;
             }
         }
-        
+
         // حدود افتراضية حسب الطريقة
         $defaultLimits = [
             'GET' => ['max' => 200, 'window' => 60, 'type' => 'read'],
@@ -195,25 +205,27 @@ class RateLimitMiddleware {
             'PUT' => ['max' => 30, 'window' => 60, 'type' => 'write'],
             'DELETE' => ['max' => 20, 'window' => 60, 'type' => 'write']
         ];
-        
+
         return $defaultLimits[$method] ?? ['max' => 100, 'window' => 60, 'type' => 'default'];
     }
-    
+
     /**
      * إضافة رؤوس المعدل
      * @param array $result
      */
-    private function addRateLimitHeaders(array $result): void {
+    private function addRateLimitHeaders(array $result): void
+    {
         header('X-RateLimit-Limit: ' . ($result['max'] ?? 0));
         header('X-RateLimit-Remaining: ' . ($result['remaining'] ?? 0));
         header('X-RateLimit-Reset: ' . ($result['reset_in'] ?? 0));
     }
-    
+
     /**
      * التحقق من استثناء المسار
      * @return bool
      */
-    private function isExcludedRoute(): bool {
+    private function isExcludedRoute(): bool
+    {
         $excludedRoutes = [
             '/health',
             '/ping',
@@ -221,15 +233,15 @@ class RateLimitMiddleware {
             '/api/chat/webhook',
             '/api/review/webhook'
         ];
-        
+
         $currentRoute = $this->normalizeApiVersion($_SERVER['REQUEST_URI'] ?? '');
-        
+
         foreach ($excludedRoutes as $route) {
             if (strpos($currentRoute, $route) !== false) {
                 return true;
             }
         }
-        
+
         return false;
     }
 
@@ -239,14 +251,16 @@ class RateLimitMiddleware {
      * PartnerAuthMiddleware / index.php للتفاصيل)، عشان حدود المعدل
      * المخصصة (زي /api/auth/login) تفضل شغالة برضه على /api/v1/auth/login.
      */
-    private function normalizeApiVersion(string $uri): string {
+    private function normalizeApiVersion(string $uri): string
+    {
         return preg_replace('#^/api/v(\d+)/#', '/api/', $uri) ?? $uri;
     }
-    
+
     /**
      * تحميل الحدود الافتراضية
      */
-    private function loadLimits(): void {
+    private function loadLimits(): void
+    {
         $this->limits = [
             '/api/auth/login' => ['max' => 5, 'window' => 300, 'type' => 'auth'],
             '/api/auth/register' => ['max' => 3, 'window' => 3600, 'type' => 'auth'],

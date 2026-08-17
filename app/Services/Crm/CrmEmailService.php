@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Email Integration (بند 17)
  * @version 1.0.0
@@ -13,19 +14,23 @@
  * (`crm_conversations`/`crm_messages` بنفس بنية WhatsApp) لإضافتها لاحقًا
  * دون تعديل هيكلي (بند 17: "Architecture لدعم Inbound/Outbound Emails").
  */
-class CrmEmailService {
+class CrmEmailService
+{
     private $mailer;
 
-    public function __construct(?Mailer $mailer = null) {
+    public function __construct(?Mailer $mailer = null)
+    {
         $this->mailer = $mailer ?? new Mailer();
     }
 
-    public function isConfigured(): bool {
+    public function isConfigured(): bool
+    {
         return $this->mailer->isConfigured();
     }
 
     /** يرسل إيميل فعلي لجهة اتصال، ويسجّله في محادثة CRM (Email History) */
-    public function sendToContact(int $userId, int $contactId, string $subject, string $htmlBody): array {
+    public function sendToContact(int $userId, int $contactId, string $subject, string $htmlBody): array
+    {
         $contact = (new CrmContact())->find($contactId);
         if (!$contact || (int) $contact->getAttribute('user_id') !== $userId) {
             return ['success' => false, 'error' => 'جهة الاتصال غير موجودة'];

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Marketing Assistant Service
  * أدوات تسويقية سريعة (شعارات، عناوين إعلانات، أفكار حملات...) مبنية على
@@ -7,7 +8,8 @@
  * MockAIClient المنفصلين الأصليين.
  * @version 1.0.0
  */
-class MarketingAssistantService {
+class MarketingAssistantService
+{
     /** @var GeminiClient */
     private $ai;
 
@@ -21,15 +23,18 @@ class MarketingAssistantService {
         'campaign_ideas' => 'اقترح 5 أفكار حملة تسويقية إبداعية لـ: "%s".',
     ];
 
-    public function __construct(?GeminiClient $ai = null) {
+    public function __construct(?GeminiClient $ai = null)
+    {
         $this->ai = $ai ?? new GeminiClient();
     }
 
-    public function availableTools(): array {
+    public function availableTools(): array
+    {
         return array_keys(self::PROMPTS);
     }
 
-    public function run(int $userId, string $type, string $input): AIAssistantInteraction {
+    public function run(int $userId, string $type, string $input): AIAssistantInteraction
+    {
         if (!isset(self::PROMPTS[$type])) {
             throw new InvalidArgumentException("أداة غير معروفة: {$type}");
         }

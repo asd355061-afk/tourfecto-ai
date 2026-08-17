@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Article & Page Content Generator
  * توليد محتوى تسويقي جاهز للنشر لشركات السياحة (مقالات + صفحات رحلات).
@@ -23,11 +24,13 @@
  *   اللي WebsiteBuilderController بيتوقعها فعليًا (name/short_description/
  *   price/duration/highlights/itinerary/includes/excludes).
  */
-class ArticleGenerator {
+class ArticleGenerator
+{
     /** @var mixed أي كائن عنده generateContent($prompt,$options):array بنفس شكل GeminiClient - عادة AIOrchestrator */
     private $geminiClient;
 
-    public function __construct($geminiClient = null) {
+    public function __construct($geminiClient = null)
+    {
         $this->geminiClient = $geminiClient ?? (class_exists('AIOrchestrator') ? new AIOrchestrator() : new GeminiClient());
     }
 
@@ -107,7 +110,8 @@ class ArticleGenerator {
      * @param array $existingSlugs Slugs موجودة بالفعل (لتجنب تكرار الـslug)
      * @return array
      */
-    public function generateTourPage(string $topic, string $language = 'ar', ?string $companyName = null, array $existingSlugs = []): array {
+    public function generateTourPage(string $topic, string $language = 'ar', ?string $companyName = null, array $existingSlugs = []): array
+    {
         $prompt = $this->buildTourPagePrompt($topic, $language, $companyName);
 
         $apiResponse = $this->geminiClient->generateContent($prompt, [
@@ -128,7 +132,10 @@ class ArticleGenerator {
         $slug = $this->slugify($parsed['name']);
         $baseSlug = $slug;
         $i = 2;
-        while (in_array($slug, $existingSlugs, true)) { $slug = $baseSlug . '-' . $i; $i++; }
+        while (in_array($slug, $existingSlugs, true)) {
+            $slug = $baseSlug . '-' . $i;
+            $i++;
+        }
 
         $tour = [
             'name' => (string) $parsed['name'],
@@ -152,21 +159,31 @@ class ArticleGenerator {
         ];
     }
 
-    private function sanitizeFaqs($faqs): array {
-        if (!is_array($faqs)) return [];
+    private function sanitizeFaqs($faqs): array
+    {
+        if (!is_array($faqs)) {
+            return [];
+        }
         $out = [];
         foreach (array_slice($faqs, 0, 8) as $f) {
-            if (!is_array($f) || empty($f['question']) || empty($f['answer'])) continue;
+            if (!is_array($f) || empty($f['question']) || empty($f['answer'])) {
+                continue;
+            }
             $out[] = ['question' => (string) $f['question'], 'answer' => (string) $f['answer']];
         }
         return $out;
     }
 
-    private function sanitizeInternalLinks($links): array {
-        if (!is_array($links)) return [];
+    private function sanitizeInternalLinks($links): array
+    {
+        if (!is_array($links)) {
+            return [];
+        }
         $out = [];
         foreach (array_slice($links, 0, 5) as $l) {
-            if (!is_array($l) || empty($l['anchor_text'])) continue;
+            if (!is_array($l) || empty($l['anchor_text'])) {
+                continue;
+            }
             $out[] = [
                 'anchor_text' => (string) $l['anchor_text'],
                 'suggested_target' => (string) ($l['suggested_target'] ?? ''),
@@ -176,20 +193,30 @@ class ArticleGenerator {
         return $out;
     }
 
-    private function sanitizeStringList($list, int $max): array {
-        if (!is_array($list)) return [];
+    private function sanitizeStringList($list, int $max): array
+    {
+        if (!is_array($list)) {
+            return [];
+        }
         $out = [];
         foreach (array_slice($list, 0, $max) as $item) {
-            if (is_string($item) && trim($item) !== '') $out[] = trim($item);
+            if (is_string($item) && trim($item) !== '') {
+                $out[] = trim($item);
+            }
         }
         return $out;
     }
 
-    private function sanitizeItinerary($itinerary): array {
-        if (!is_array($itinerary)) return [];
+    private function sanitizeItinerary($itinerary): array
+    {
+        if (!is_array($itinerary)) {
+            return [];
+        }
         $out = [];
         foreach (array_slice($itinerary, 0, 14) as $day) {
-            if (!is_array($day)) continue;
+            if (!is_array($day)) {
+                continue;
+            }
             $out[] = [
                 'day' => (string) ($day['day'] ?? ''),
                 'title' => (string) ($day['title'] ?? ''),
@@ -203,12 +230,15 @@ class ArticleGenerator {
      * بناء FAQPage JSON-LD جاهز للصق مباشرة في <head> - يرجع null لو مفيش
      * أسئلة شائعة أصلًا (عشان محدش يلصق Schema فاضي غلط).
      */
-    private function buildFaqSchema(array $faqs): ?string {
-        if (empty($faqs)) return null;
+    private function buildFaqSchema(array $faqs): ?string
+    {
+        if (empty($faqs)) {
+            return null;
+        }
         $schema = [
             '@context' => 'https://schema.org',
             '@type' => 'FAQPage',
-            'mainEntity' => array_map(fn($f) => [
+            'mainEntity' => array_map(fn ($f) => [
                 '@type' => 'Question',
                 'name' => $f['question'],
                 'acceptedAnswer' => ['@type' => 'Answer', 'text' => $f['answer']],
@@ -217,7 +247,8 @@ class ArticleGenerator {
         return json_encode($schema, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
     }
 
-    private function buildPrompt(string $topic, string $language, string $tone, ?string $companyName, ?string $websiteUrl, array $existingPages = []): string {
+    private function buildPrompt(string $topic, string $language, string $tone, ?string $companyName, ?string $websiteUrl, array $existingPages = []): string
+    {
         $languageName = $language === 'ar' ? 'العربية الفصحى السهلة' : 'English';
         $toneMap = [
             'professional' => $language === 'ar' ? 'احترافي وموثوق' : 'professional and trustworthy',
@@ -231,7 +262,7 @@ class ArticleGenerator {
 
         $pagesLine = '';
         if (!empty($existingPages)) {
-            $list = implode("\n", array_map(fn($p) => "- {$p['title']} ({$p['path']})", array_slice($existingPages, 0, 15)));
+            $list = implode("\n", array_map(fn ($p) => "- {$p['title']} ({$p['path']})", array_slice($existingPages, 0, 15)));
             $pagesLine = "\n\nصفحات موجودة فعليًا على الموقع (لو مناسب، اقترح روابط داخلية لها فقط، ماتخترعش صفحات مش موجودة):\n{$list}";
         }
 
@@ -265,7 +296,8 @@ class ArticleGenerator {
 PROMPT;
     }
 
-    private function buildTourPagePrompt(string $topic, string $language, ?string $companyName): string {
+    private function buildTourPagePrompt(string $topic, string $language, ?string $companyName): string
+    {
         $languageName = $language === 'ar' ? 'العربية الفصحى السهلة' : 'English';
         $companyLine = $companyName ? "اسم الشركة: {$companyName}." : '';
 
@@ -295,7 +327,8 @@ PROMPT;
     /**
      * استخراج JSON من رد الذكاء الاصطناعي النصي (اللي أحيانًا بيغلّفه بكتلة كود markdown).
      */
-    private function extractJson(string $text): ?array {
+    private function extractJson(string $text): ?array
+    {
         $jsonPattern = '/\{[\s\S]*\}/';
         if (preg_match($jsonPattern, $text, $matches)) {
             $jsonString = $matches[0];
@@ -312,7 +345,8 @@ PROMPT;
         return json_last_error() === JSON_ERROR_NONE ? $data : null;
     }
 
-    private function slugify(string $title): string {
+    private function slugify(string $title): string
+    {
         $slug = trim($title);
         $slug = preg_replace('/[\s]+/u', '-', $slug);
         $slug = preg_replace('/[^\p{L}\p{N}\-]/u', '', $slug);

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Ad Automated Reports
  * تقارير يومي/أسبوعي/شهري (بند 21 من طلب Ads Autopilot) - تجميع حقيقي
@@ -7,21 +8,24 @@
  * رقم مُختلق - لو مفيش بيانات لفترة معيّنة، الحقل بيرجع null/0 بوضوح.
  * @version 1.0.0
  */
-class AdReportService {
+class AdReportService
+{
     private Database $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
     /**
      * @param string $period 'daily'|'weekly'|'monthly'
      */
-    public function generate(int $userId, string $period = 'weekly'): array {
+    public function generate(int $userId, string $period = 'weekly'): array
+    {
         $days = ['daily' => 1, 'weekly' => 7, 'monthly' => 30][$period] ?? 7;
         $since = date('Y-m-d', strtotime("-{$days} days"));
 
-        $campaigns = array_map(fn($c) => $c->toArray(), (new AdCampaign())->where(['user_id' => $userId]));
+        $campaigns = array_map(fn ($c) => $c->toArray(), (new AdCampaign())->where(['user_id' => $userId]));
         $campaignIds = array_column($campaigns, 'id');
 
         if (empty($campaignIds)) {
@@ -66,7 +70,7 @@ class AdReportService {
             ];
         }
 
-        usort($byCampaign, fn($a, $b) => ($b['roas'] ?? -1) <=> ($a['roas'] ?? -1));
+        usort($byCampaign, fn ($a, $b) => ($b['roas'] ?? -1) <=> ($a['roas'] ?? -1));
         $best = !empty($byCampaign) ? $byCampaign[0] : null;
         $worst = !empty($byCampaign) ? end($byCampaign) : null;
 
@@ -98,7 +102,8 @@ class AdReportService {
      * بتاع generate() بالظبط، لكن بيضيف CTR/CPC/CPM وعدد الحملات النشطة/
      * المتوقفة واستخدام الميزانية، مع فلترة اختيارية بالمنصة والحالة.
      */
-    public function dashboardSummary(int $userId, string $period = 'weekly', ?string $platform = null, ?string $status = null): array {
+    public function dashboardSummary(int $userId, string $period = 'weekly', ?string $platform = null, ?string $status = null): array
+    {
         $days = ['daily' => 1, 'weekly' => 7, 'monthly' => 30][$period] ?? 7;
         $since = date('Y-m-d', strtotime("-{$days} days"));
 
@@ -106,15 +111,15 @@ class AdReportService {
         if ($status) {
             $conditions['status'] = $status;
         }
-        $allCampaigns = array_map(fn($c) => $c->toArray(), (new AdCampaign())->where($conditions));
+        $allCampaigns = array_map(fn ($c) => $c->toArray(), (new AdCampaign())->where($conditions));
 
         if ($platform) {
             $connIds = array_column($this->db->query("SELECT id FROM platform_connections WHERE user_id = ? AND platform = ?", [$userId, $platform]), 'id');
-            $allCampaigns = array_values(array_filter($allCampaigns, fn($c) => in_array($c['platform_connection_id'], $connIds, true)));
+            $allCampaigns = array_values(array_filter($allCampaigns, fn ($c) => in_array($c['platform_connection_id'], $connIds, true)));
         }
 
-        $activeCount = count(array_filter($allCampaigns, fn($c) => $c['status'] === 'active'));
-        $pausedCount = count(array_filter($allCampaigns, fn($c) => $c['status'] === 'paused'));
+        $activeCount = count(array_filter($allCampaigns, fn ($c) => $c['status'] === 'active'));
+        $pausedCount = count(array_filter($allCampaigns, fn ($c) => $c['status'] === 'paused'));
         $campaignIds = array_column($allCampaigns, 'id');
 
         $empty = [
@@ -145,7 +150,7 @@ class AdReportService {
             return $empty; // مفيش بيانات أداء مُزامنة فعليًا للفترة دي
         }
 
-        $totalDailyBudget = array_sum(array_column(array_filter($allCampaigns, fn($c) => $c['status'] === 'active'), 'daily_budget'));
+        $totalDailyBudget = array_sum(array_column(array_filter($allCampaigns, fn ($c) => $c['status'] === 'active'), 'daily_budget'));
         $expectedSpendForPeriod = $totalDailyBudget * $days;
 
         return [
@@ -166,7 +171,8 @@ class AdReportService {
      * "Charts حقيقية" في طلب الـFrontend. كل صف من ad_performance_reports
      * له date_start فعلي من المزامنة، فمفيش أي تقريب أو اختلاق نقاط.
      */
-    public function dailyTrend(int $userId, int $days = 30, ?int $onlyCampaignId = null): array {
+    public function dailyTrend(int $userId, int $days = 30, ?int $onlyCampaignId = null): array
+    {
         $since = date('Y-m-d', strtotime("-{$days} days"));
 
         if ($onlyCampaignId !== null) {
@@ -190,7 +196,7 @@ class AdReportService {
             array_merge($campaignIds, [$since])
         );
 
-        return array_map(fn($r) => [
+        return array_map(fn ($r) => [
             'date' => $r['date_start'],
             'spend' => round((float) $r['spend'], 2),
             'clicks' => (int) $r['clicks'],
@@ -200,11 +206,12 @@ class AdReportService {
     }
 
     /** مقارنة إنفاق/تحويلات حقيقية بين الحملات (للـBudget & Spend page) */
-    public function campaignComparison(int $userId, string $period = 'weekly'): array {
+    public function campaignComparison(int $userId, string $period = 'weekly'): array
+    {
         $days = ['daily' => 1, 'weekly' => 7, 'monthly' => 30][$period] ?? 7;
         $since = date('Y-m-d', strtotime("-{$days} days"));
 
-        $campaigns = array_map(fn($c) => $c->toArray(), (new AdCampaign())->where(['user_id' => $userId]));
+        $campaigns = array_map(fn ($c) => $c->toArray(), (new AdCampaign())->where(['user_id' => $userId]));
         if (empty($campaigns)) {
             return [];
         }
@@ -220,7 +227,7 @@ class AdReportService {
             array_merge($campaignIds, [$since])
         );
 
-        return array_map(fn($r) => [
+        return array_map(fn ($r) => [
             'campaign_id' => (int) $r['campaign_id'],
             'name' => $names[$r['campaign_id']] ?? ('#' . $r['campaign_id']),
             'spend' => round((float) $r['spend'], 2),
@@ -229,7 +236,8 @@ class AdReportService {
         ], $rows);
     }
 
-    private function bestCreative(array $campaignIds): ?array {
+    private function bestCreative(array $campaignIds): ?array
+    {
         if (empty($campaignIds)) {
             return null;
         }
@@ -243,7 +251,8 @@ class AdReportService {
         return $rows[0] ?? null;
     }
 
-    private function recentActions(int $userId, string $since): array {
+    private function recentActions(int $userId, string $since): array
+    {
         return $this->db->query(
             "SELECT action_type, mode, description, applied_automatically, created_at FROM ad_optimization_logs
              WHERE user_id = ? AND created_at >= ? ORDER BY created_at DESC LIMIT 20",
@@ -251,7 +260,8 @@ class AdReportService {
         );
     }
 
-    private function emptyReport(string $period, string $since): array {
+    private function emptyReport(string $period, string $since): array
+    {
         return [
             'period' => $period, 'since' => $since,
             'totals' => ['spend' => 0, 'clicks' => 0, 'impressions' => 0, 'conversions' => 0, 'revenue' => 0, 'cpa' => null, 'roas' => null],

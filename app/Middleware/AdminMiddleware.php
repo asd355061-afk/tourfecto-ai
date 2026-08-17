@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Admin Middleware
  * التحقق من أن المستخدم الحالي أدمن قبل السماح بالوصول لمسارات الإدارة
@@ -9,13 +10,15 @@
  * أن مسارات الأدمن لا تُحمى بأي تحقق فعلي (Router يتجاهل الميدل وير غير الموجود بصمت).
  */
 
-class AdminMiddleware {
+class AdminMiddleware
+{
     /**
      * @var Database $db
      */
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
@@ -24,7 +27,8 @@ class AdminMiddleware {
      * وأن يكون دوره admin أو super_admin
      * @return array|null
      */
-    public function handle(): ?array {
+    public function handle(): ?array
+    {
         $user = $_SESSION['user'] ?? null;
 
         // دعم حالة التوكن المباشر بدون AuthMiddleware قبله
@@ -69,7 +73,8 @@ class AdminMiddleware {
      * هل الطلب الحالي صفحة ويب عادية (مش نداء API/AJAX)؟
      * @return bool
      */
-    private function isWebPageRequest(): bool {
+    private function isWebPageRequest(): bool
+    {
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
             return false;
         }
@@ -89,7 +94,8 @@ class AdminMiddleware {
      * صفحة HTML بسيطة لرفض الوصول (403)
      * @return string
      */
-    private function renderForbiddenPage(): string {
+    private function renderForbiddenPage(): string
+    {
         $appName = defined('APP_NAME') ? APP_NAME : 'Tourfecto';
         return <<<HTML
 <!DOCTYPE html>

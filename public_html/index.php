@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - نقطة الدخول الرئيسية
  * @version 1.0.1
@@ -107,6 +108,44 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/Chat/MessengerAPI.php',
     APP_PATH . '/Services/Chat/InstagramAPI.php',
     APP_PATH . '/Services/Chat/EmailChannelAPI.php',
+    // AI Chat Platform: Providers + Services + Models + Controllers
+    // (2026-08-08) - نفس المبدأ: كلاسات جديدة مش في classmap قديم بتاع
+    // composer، فلازم تتحمّل يدويًا. الترتيب مهم: الـ Interface أولًا،
+    // وبعده OpenAICompatibleProvider (abstract)، وبعده المزودين اللي
+    // بيمدّوه، وبعدين AIProviderManager اللي بيعمل `new` عليهم.
+    APP_PATH . '/Services/AI/Providers/AIProviderInterface.php',
+    APP_PATH . '/Services/AI/Providers/OpenAICompatibleProvider.php',
+    APP_PATH . '/Services/AI/Providers/OpenAIProvider.php',
+    APP_PATH . '/Services/AI/Providers/DeepSeekProvider.php',
+    APP_PATH . '/Services/AI/Providers/KimiProvider.php',
+    APP_PATH . '/Services/AI/Providers/GeminiProvider.php',
+    APP_PATH . '/Services/AI/Providers/AIProviderManager.php',
+    APP_PATH . '/Services/AI/KnowledgeBaseService.php',
+    APP_PATH . '/Services/AI/AIConversationEngine.php',
+    APP_PATH . '/Services/AI/LeadScoringService.php',
+    APP_PATH . '/Services/AI/FollowUpAutomationService.php',
+    APP_PATH . '/Services/AI/AiAnalyticsService.php',
+    APP_PATH . '/Services/AI/AiReplySuggestionsService.php',
+    // Learning Loop (2026-08-16): Resolution Learning + Knowledge Gaps.
+    // لازم يتحمّل قبل AiLearningController وأي Controller بيستخدمه.
+    APP_PATH . '/Services/AI/LearningLoopService.php',
+    APP_PATH . '/Models/AiUsageLog.php',
+    APP_PATH . '/Models/AiKnowledgeBase.php',
+    APP_PATH . '/Models/AiCustomerMemory.php',
+    APP_PATH . '/Models/AiLead.php',
+    APP_PATH . '/Models/AiFollowup.php',
+    APP_PATH . '/Models/AiFollowupRule.php',
+    APP_PATH . '/Models/AiCustomTag.php',
+    APP_PATH . '/Controllers/ChatInboxController.php',
+    APP_PATH . '/Controllers/AiKnowledgeBaseController.php',
+    APP_PATH . '/Controllers/AiLeadController.php',
+    APP_PATH . '/Controllers/AiFollowupSettingsController.php',
+    APP_PATH . '/Controllers/AiAnalyticsController.php',
+    APP_PATH . '/Controllers/AiLearningController.php',
+    // In-Chat Quotes (2026-08-16): بيع داخل الشات - عروض أسعار تُبنى وتُرسل
+    // وتُتتبّع جوه المحادثة. بيحتاج AiQuoteModel اللي محمّل فوق كمان.
+    APP_PATH . '/Models/AiQuote.php',
+    APP_PATH . '/Controllers/AiQuoteController.php',
     // OTA Integration: نفس المشكلة بالظبط - الكنترولر ده مش مسجّل في
     // classmap القديم، فأي طلب لـ /api/ota/status كان بيرمي
     // "Controller OTAController not found" (2026-08-09).
@@ -138,6 +177,7 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/CompetitorIntelligence/AICompetitiveAnalyst.php',
     APP_PATH . '/Services/CompetitorIntelligence/ReportService.php',
     APP_PATH . '/Services/CompetitorIntelligence/CiPermissions.php',
+    APP_PATH . '/Services/CompetitorIntelligence/CompetitorAnalysisService.php',
     APP_PATH . '/Models/CiDiscoveryCandidate.php',
     APP_PATH . '/Models/CiSnapshot.php',
     APP_PATH . '/Models/CiChange.php',
@@ -149,6 +189,7 @@ $optionalNewClassFiles = [
     APP_PATH . '/Models/CiUserPreference.php',
     APP_PATH . '/Jobs/MonitorCompetitorJob.php',
     APP_PATH . '/Jobs/SendCompetitorAlertEmailJob.php',
+    APP_PATH . '/Jobs/SendOnboardingCompletionEmailJob.php',
     // Profile Center Phase 9 (2026-08-10): Data Export
     APP_PATH . '/Jobs/ExportUserDataJob.php',
     APP_PATH . '/Controllers/CompetitorIntelligenceController.php',
@@ -168,8 +209,29 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/RevenueIntelligence/ExecutiveSummaryService.php',
     APP_PATH . '/Services/RevenueIntelligence/RevenueInsightPersister.php',
     APP_PATH . '/Services/RevenueIntelligence/RevenueCacheService.php',
+    // v1.4.0 (2026-08-15): Copilot + Retention - كلاسات جديدة مش في classmap
+    // بتاع composer على السيرفر (مفيهوش SSH لتشغيل composer dump-autoload)،
+    // فلازم تتحمّل يدويًا زي باقي كلاسات الموديول. الترتيب مهم: الـController
+    // بينادي new RevenueRetentionService وnew RevenueCopilotService (اللي
+    // بيستخدم GeminiClient جوه RevenueAssistantService::askWithCopilot).
+    APP_PATH . '/Services/RevenueIntelligence/RevenueRetentionService.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueCopilotService.php',
+    // v1.5.0 (2026-08-16): Subscriptions (MRR/ARR/NRR/GRR) + Deal-level
+    // forecast & attribution + Benchmarks & Churn + Stripe mapper - كلاسات
+    // جديدة مش في classmap composer (لا SSH)، تتحمّل يدويًا بنفس النمط.
+    // الترتيب مهم: Controller الجديد بيناديهم في الـ actions.
+    APP_PATH . '/Services/RevenueIntelligence/BizSubscriptionService.php',
+    APP_PATH . '/Services/RevenueIntelligence/DealLevelForecastService.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueBenchmarkService.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueChurnService.php',
+    APP_PATH . '/Services/RevenueIntelligence/StripeRevenueMapper.php',
+    // v1.6.0 (2026-08-17): Dashboard personalization + Stripe webhook live -
+    // كلاسات جديدة مش في classmap composer (لا SSH)، تتحمّل يدويًا بنفس النمط.
+    APP_PATH . '/Services/RevenueIntelligence/RevenueDashboardService.php',
+    APP_PATH . '/Services/RevenueIntelligence/StripeWebhookService.php',
     APP_PATH . '/Controllers/RevenueIntelligenceController.php',
     APP_PATH . '/Jobs/RecomputeRevenueInsightsJob.php',
+    APP_PATH . '/Jobs/SendRevenueDigestJob.php',
     // ============================================
     // Tourfecto Account & Workspace Settings Center (Phases 1-8, 2026-08-09)
     // نفس المبدأ بالظبط زي كل الكلاسات فوق: كلاسات جديدة مش موجودة في
@@ -181,6 +243,8 @@ $optionalNewClassFiles = [
     APP_PATH . '/Models/WorkspaceInvite.php',
     APP_PATH . '/Services/WorkspacePermissions.php',
     APP_PATH . '/Controllers/WorkspaceController.php',
+    // 2FA حقيقي (TOTP) في Settings Center (Phase 9 - 2026-08-11)
+    APP_PATH . '/Services/TotpService.php',
     // ============================================
     // CRM Module (Contacts/Companies/Tasks/Pipelines/Automation/Segments)
     // نفس المبدأ بالظبط زي كل الكلاسات فوق: كلاسات جديدة مش موجودة في
@@ -230,6 +294,48 @@ $optionalNewClassFiles = [
     APP_PATH . '/Controllers/CrmWhatsAppWebhookController.php',
     APP_PATH . '/Controllers/CrmSmsWebhookController.php',
     APP_PATH . '/Controllers/CrmEmailWebhookController.php',
+    APP_PATH . '/Models/CrmImportBatch.php',
+    APP_PATH . '/Services/Crm/CrmPaginationHelper.php',
+    APP_PATH . '/Jobs/CrmImportContactsJob.php',
+    // CRM Upgrade Phase 12 (2026-08-15) - Message Templates / Sales Goals /
+    // Custom Fields. نفس السبب: مش مسجّلة في classmap القديم.
+    APP_PATH . '/Models/CrmMessageTemplate.php',
+    APP_PATH . '/Models/CrmSalesGoal.php',
+    APP_PATH . '/Models/CrmCustomField.php',
+    APP_PATH . '/Models/CrmCustomFieldValue.php',
+    APP_PATH . '/Services/Crm/CrmMessageTemplateService.php',
+    APP_PATH . '/Services/Crm/CrmReportService.php',
+    APP_PATH . '/Services/Crm/CrmCustomFieldService.php',
+    // CRM Upgrade Phase 13 (2026-08-16) - Product Catalog / Lead Routing /
+    // Contact Lifecycle / Team Invite. نفس السبب: مش مسجّلة في classmap القديم.
+    APP_PATH . '/Models/CrmProduct.php',
+    APP_PATH . '/Models/CrmDealItem.php',
+    APP_PATH . '/Models/CrmLeadRoutingRule.php',
+    APP_PATH . '/Models/CrmLifecycleStage.php',
+    APP_PATH . '/Services/Crm/CrmProductService.php',
+    APP_PATH . '/Services/Crm/CrmLeadRoutingService.php',
+    APP_PATH . '/Services/Crm/CrmLifecycleService.php',
+    APP_PATH . '/Services/Crm/CrmTeamInviteService.php',
+    // CRM Upgrade Phase 14 (2026-08-16) - Charts / Email Open Tracking /
+    // Custom Activity Types. نفس السبب: مش مسجّلة في classmap القديم.
+    APP_PATH . '/Models/CrmEmailTracking.php',
+    APP_PATH . '/Models/CrmActivityType.php',
+    APP_PATH . '/Models/CrmActivity.php',
+    APP_PATH . '/Services/Crm/CrmChartService.php',
+    APP_PATH . '/Services/Crm/CrmEmailTrackingService.php',
+    APP_PATH . '/Services/Crm/CrmActivityService.php',
+    // CRM Upgrade Phase 15 (2026-08-16) - Web Forms (G11) / Sales Sequences
+    // (G12) / Report Builder (G13) / External CRM Import (G14). نفس السبب:
+    // مش مسجّلة في classmap القديم.
+    APP_PATH . '/Models/CrmWebForm.php',
+    APP_PATH . '/Models/CrmWebFormSubmission.php',
+    APP_PATH . '/Models/CrmSequence.php',
+    APP_PATH . '/Models/CrmSequenceEnrollment.php',
+    APP_PATH . '/Models/CrmSavedReport.php',
+    APP_PATH . '/Services/Crm/CrmWebFormService.php',
+    APP_PATH . '/Services/Crm/CrmSequenceService.php',
+    APP_PATH . '/Services/Crm/CrmReportBuilderService.php',
+    APP_PATH . '/Services/Crm/CrmExternalImportService.php',
     // GBP Module Upgrade (2026-08-09/10) - Setup Wizard/Connection Center/
     // Sync/Profile/Photos/Insights/AI/Attributes. نفس السبب زي كل
     // الكلاسات فوق: مش مسجّلة في classmap القديم بتاع composer.
@@ -243,6 +349,16 @@ $optionalNewClassFiles = [
     APP_PATH . '/Controllers/GbpProfileController.php',
     // GBP Module Upgrade (2026-08-14, Round 7): Audit Log
     APP_PATH . '/Services/GoogleBusiness/GbpAuditLogger.php',
+    // GBP Module Upgrade (2026-08-14, Round 8): Health Check Service
+    APP_PATH . '/Services/GoogleBusiness/GbpHealthCheckService.php',
+    // GBP Competitive Benchmark (2026-08-15): مقارنة تنافسية مع المنافسين القريبين
+    APP_PATH . '/Services/GoogleBusiness/GbpCompetitorBenchmarkService.php',
+    // GBP Reputation Intelligence (2026-08-15): KPIs + اتجاهات + مخاطر + حصة ظهور
+    APP_PATH . '/Services/GoogleBusiness/GbpReputationAnalyticsService.php',
+    // GBP Automated Reply Rules (2026-08-15): قواعد الرد التلقائي BirdAI-style
+    APP_PATH . '/Services/GoogleBusiness/GbpReplyRuleService.php',
+    // GBP Local SEO Audit (2026-08-15, Tier 3): تدقيق الحضور في البحث المحلي
+    APP_PATH . '/Services/GoogleBusiness/GbpLocalSeoAuditService.php',
     // Consolidated Multi-Phase Module (2026-08-08) - إضافات جديدة فقط.
     // ملحوظة: تعمّدنا استبعاد ملفات AI Orchestrator/Providers الجديدة
     // (AIOrchestrator/ModelRouter/TaskClassifier/BaseOpenAICompatibleProvider/
@@ -276,11 +392,51 @@ $optionalNewClassFiles = [
     // يعني الميزتين دول كانوا معطّلين بصمت. إضافة الكلاسين دول بس تفعّلهم.
     APP_PATH . '/Models/BillingProfile.php',
     APP_PATH . '/Services/Subscription/UsageAlertService.php',
+    // ============================================
+    // Business Control Center (Phases 1-7, 2026-08-14)
+    // نفس المبدأ زي كل الكلاسات فوق: كلاسات جديدة مش موجودة في classmap
+    // القديم بتاع composer، فلازم تتحمّل يدويًا هنا وإلا هتقع "Class not
+    // found" على أي API من /api/business/* (نفس سبب بيقية الموديولات).
+    // الترتيب مهم: الـModels قبل الـServices قبل الـControllers (كل
+    // Controller بينادي Services، وكل Service بينادي Models).
+    // ============================================
+    APP_PATH . '/Models/Business.php',
+    APP_PATH . '/Models/BusinessLocation.php',
+    APP_PATH . '/Models/BusinessService.php',
+    APP_PATH . '/Models/BusinessTargetMarket.php',
+    APP_PATH . '/Models/BusinessAiContext.php',
+    APP_PATH . '/Models/BusinessBrandSettings.php',
+    APP_PATH . '/Services/BusinessServiceManager.php',
+    APP_PATH . '/Services/BusinessLocationService.php',
+    APP_PATH . '/Services/BusinessContextService.php',
+    APP_PATH . '/Services/BusinessReadinessService.php',
+    APP_PATH . '/Controllers/BusinessController.php',
+    APP_PATH . '/Controllers/BusinessLocationController.php',
+    APP_PATH . '/Controllers/BusinessServiceController.php',
+    APP_PATH . '/Controllers/BusinessTargetMarketController.php',
+    APP_PATH . '/Controllers/BusinessAiContextController.php',
+    APP_PATH . '/Controllers/BusinessBrandSettingsController.php',
 ];
 foreach ($optionalNewClassFiles as $classFile) {
     if (file_exists($classFile)) {
         require_once $classFile;
     }
+}
+
+// ============================================
+// 2.2. Helper Functions العامة (event(), container(), listen(), enqueue())
+// إصلاح اكتُشف أثناء Settings Center (Phase 11): طبقة
+// Container/EventDispatcher كلها (app/Core/Container.php،
+// app/Core/Events/*) كانت موجودة ومسجّلة في composer classmap فعليًا
+// (يعني الكلاسات نفسها شغالة)، لكن app/Helpers/enterprise_helpers.php
+// اللي بيعرّف الدوال العامة المختصرة (event()، container()...) عمره
+// ما كان بيتحمّل من أي مكان - يعني أي نداء event('...') في أي مكان
+// في الكود كله كان هيرمي Fatal Error "Call to undefined function"
+// فورًا. بعد إصلاح التحميل ده، أي موديول (GBP، Revenue Intelligence،
+// Reputation...) بقى يقدر يستخدم الأحداث بشكل حقيقي.
+// ============================================
+if (file_exists(APP_PATH . '/Helpers/enterprise_helpers.php')) {
+    require_once APP_PATH . '/Helpers/enterprise_helpers.php';
 }
 
 // ============================================
@@ -371,7 +527,8 @@ if (!empty($_SERVER['HTTPS'])) {
  * خام - كان أي رابط غلط أو صفحة اتمسحت بيوري الزائر نص JSON مباشر،
  * أسوأ انطباع ممكن يحصل لزائر جديد.
  */
-function send_response(array $data, ?int $httpCode = null): void {
+function send_response(array $data, ?int $httpCode = null): void
+{
     // بند خاص بـ AI Chat Platform: بعض الـWebhooks الخارجية (مثال: Meta
     // hub.challenge verification handshake الخاص بـMessenger/Instagram)
     // تتطلب استجابة نصية خام حرفية، وليست JSON مغلَّفة. مفتاح محجوز جديد
@@ -411,7 +568,8 @@ function send_response(array $data, ?int $httpCode = null): void {
 }
 
 /** صفحة خطأ HTML بسيطة ومتّسقة مع هوية الموقع - بدل JSON خام */
-function render_error_page(int $code, string $message): string {
+function render_error_page(int $code, string $message): string
+{
     $appName = defined('APP_NAME') ? APP_NAME : 'Tourfecto';
     $title = $code === 404 ? 'الصفحة مش موجودة' : 'حصل خطأ غير متوقع';
     $emoji = $code === 404 ? '🧭' : '⚠️';
@@ -449,7 +607,8 @@ HTML;
 /**
  * رسالة خطأ عامة آمنة حسب كود الحالة (لا تكشف تفاصيل داخلية في الإنتاج)
  */
-function default_error_message(int $code): string {
+function default_error_message(int $code): string
+{
     $messages = [
         400 => 'طلب غير صالح',
         401 => 'غير مصرح بالوصول',

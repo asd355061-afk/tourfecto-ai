@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Website Snapshot Fetcher
  * @version 1.0.0
@@ -10,7 +11,8 @@
  * لا يحاول أبدًا الوصول لصفحات محمية بتسجيل دخول - فقط GET بسيط بدون
  * أي credentials، وبيحترم robots.txt الأساسي (لا يتخطى أي حماية).
  */
-class WebsiteSnapshotFetcher {
+class WebsiteSnapshotFetcher
+{
     private const MAX_BYTES = 1_500_000; // ~1.5MB سقف لأي صفحة، كافي لصفحة HTML عادية
     private const TIMEOUT_SECONDS = 12;
     private const MAX_REDIRECTS = 3;
@@ -18,9 +20,11 @@ class WebsiteSnapshotFetcher {
 
     /**
      * @return array{success:bool, http_status:?int, title:?string, meta_description:?string,
-     *   normalized_excerpt:?string, content_hash:?string, structured_data_hash:?string, error:?string}
+     *   normalized_excerpt:?string, content_hash:?string, structured_data_hash:?string,
+     *   tech_signals:?array, error:?string}
      */
-    public function fetch(string $url): array {
+    public function fetch(string $url): array
+    {
         $check = SsrfGuard::validateUrl($url);
         if (!$check['safe']) {
             return $this->failure('blocked_by_ssrf_guard: ' . $check['reason']);
@@ -51,7 +55,8 @@ class WebsiteSnapshotFetcher {
         return $this->failure('too_many_redirects');
     }
 
-    private function httpGet(string $url): array {
+    private function httpGet(string $url): array
+    {
         if (!function_exists('curl_init')) {
             return ['error' => 'curl_extension_missing', 'body' => null, 'http_status' => null, 'redirect_to' => null, 'headers' => []];
         }
@@ -69,6 +74,7 @@ class WebsiteSnapshotFetcher {
             CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
             CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+            CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4, // نثبّت الاتصال على IPv4 عشان فحص SSRF (اللي بيفحص كل سجلات IPv4+IPv6) يطابق فعليًا العنوان اللي هيتصل بيه - يمنع سيناريو IPv6 primacy / DNS rebinding
             CURLOPT_RANGE => '0-' . self::MAX_BYTES, // يقلل الحمل، بعض السيرفرات بتتجاهله فنحد الحجم برضه بعد الاستلام
             CURLOPT_HTTPHEADER => ['Accept: text/html,application/xhtml+xml'],
         ]);
@@ -108,7 +114,8 @@ class WebsiteSnapshotFetcher {
     }
 
     /** يحوّل نص الـ headers الخام لمصفوفة name=>value (lowercase keys) */
-    private function parseHeaders(string $rawHeaders): array {
+    private function parseHeaders(string $rawHeaders): array
+    {
         $headers = [];
         foreach (explode("\r\n", $rawHeaders) as $line) {
             if (strpos($line, ':') === false) {
@@ -120,7 +127,8 @@ class WebsiteSnapshotFetcher {
         return $headers;
     }
 
-    private function getRedirectLocation(string $url): ?string {
+    private function getRedirectLocation(string $url): ?string
+    {
         $ch = curl_init();
         curl_setopt_array($ch, [
             CURLOPT_URL => $url,
@@ -130,6 +138,7 @@ class WebsiteSnapshotFetcher {
             CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_TIMEOUT => self::TIMEOUT_SECONDS,
             CURLOPT_USERAGENT => self::USER_AGENT,
+            CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4, // نفس سبب httpGet - الاتصال الفعلي لازم يطابق فحص SSRF
         ]);
         $headers = curl_exec($ch);
         curl_close($ch);
@@ -151,7 +160,8 @@ class WebsiteSnapshotFetcher {
         return null;
     }
 
-    private function extract(?string $html, ?int $httpStatus, array $headers = []): array {
+    private function extract(?string $html, ?int $httpStatus, array $headers = []): array
+    {
         if ($html === null || trim($html) === '') {
             return $this->failure('empty_body', $httpStatus);
         }
@@ -222,7 +232,8 @@ class WebsiteSnapshotFetcher {
         ];
     }
 
-    private function failure(string $reason, ?int $httpStatus = null): array {
+    private function failure(string $reason, ?int $httpStatus = null): array
+    {
         return [
             'success' => false,
             'http_status' => $httpStatus,

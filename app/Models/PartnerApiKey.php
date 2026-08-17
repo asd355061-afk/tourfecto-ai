@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Partner API Key Model
  * إدارة مفاتيح API الخاصة بالشركاء الخارجيين (Partners) - منفصلة عن
@@ -6,7 +7,8 @@
  * @version 1.0.0
  */
 
-class PartnerApiKey extends Model {
+class PartnerApiKey extends Model
+{
     /** @var string $table */
     protected $table = 'partner_api_keys';
 
@@ -79,7 +81,8 @@ class PartnerApiKey extends Model {
      * @param string $rawKey
      * @return self|null
      */
-    public static function verify(string $rawKey): ?self {
+    public static function verify(string $rawKey): ?self
+    {
         if (strlen($rawKey) < self::PREFIX_LENGTH) {
             return null;
         }
@@ -97,20 +100,23 @@ class PartnerApiKey extends Model {
     }
 
     /** الصلاحيات كمصفوفة PHP بدل JSON خام */
-    public function getScopes(): array {
+    public function getScopes(): array
+    {
         $raw = $this->getAttribute('scopes');
         $decoded = is_string($raw) ? json_decode($raw, true) : $raw;
         return is_array($decoded) ? $decoded : [];
     }
 
     /** هل المفتاح ده معاه صلاحية معينة؟ (أو صلاحية '*' الشاملة) */
-    public function hasScope(string $scope): bool {
+    public function hasScope(string $scope): bool
+    {
         $scopes = $this->getScopes();
         return in_array('*', $scopes, true) || in_array($scope, $scopes, true);
     }
 
     /** تحديث وقت وIP آخر استخدام - بدون ما يفشل الطلب لو حصل خطأ بسيط */
-    public function touchUsage(string $ip): void {
+    public function touchUsage(string $ip): void
+    {
         try {
             $this->setAttribute('last_used_at', date('Y-m-d H:i:s'));
             $this->setAttribute('last_used_ip', $ip);
@@ -121,14 +127,16 @@ class PartnerApiKey extends Model {
     }
 
     /** إلغاء المفتاح فورًا */
-    public function revoke(): bool {
+    public function revoke(): bool
+    {
         $this->setAttribute('status', 'revoked');
         $this->setAttribute('revoked_at', date('Y-m-d H:i:s'));
         return (bool) $this->save();
     }
 
     /** تمثيل آمن للعرض في لوحة الأدمن - بدون أي جزء من الـ hash */
-    public function toPublicArray(): array {
+    public function toPublicArray(): array
+    {
         return [
             'id' => $this->getAttribute('id'),
             'partner_name' => $this->getAttribute('partner_name'),

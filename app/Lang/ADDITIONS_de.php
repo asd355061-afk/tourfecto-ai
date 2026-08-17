@@ -1,4 +1,5 @@
 <?php
+
 // مفاتيح ترجمة جديدة (de) لميزات Batch 7: Review Requests الموسّع + Settings الموسّع
 // أضف السطور دي جوه الـ array الحالي في app/Lang/de.php
 return [

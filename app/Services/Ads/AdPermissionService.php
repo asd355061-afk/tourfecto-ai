@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Ads Team Permissions Service
  * حل حقيقي لبند 27 من طلب Ads Frontend (Viewer/Manager/Admin) - أول مرة
@@ -14,12 +15,14 @@
  * - owner: صاحب الحساب الأصلي - كل الصلاحيات دايمًا، مش صف في ad_team_members
  *   أصلًا (owner_user_id == member نفسه ضمنيًا).
  */
-class AdPermissionService {
+class AdPermissionService
+{
     private const ROLE_RANK = ['viewer' => 1, 'manager' => 2, 'admin' => 3, 'owner' => 4];
 
     private Database $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
@@ -27,7 +30,8 @@ class AdPermissionService {
      * بيحدد دور المستخدم الحالي على حساب إعلانات معيّن (مالكه resourceOwnerUserId).
      * @return array{allowed: bool, role: ?string}
      */
-    public function resolveAccess(int $currentUserId, int $resourceOwnerUserId): array {
+    public function resolveAccess(int $currentUserId, int $resourceOwnerUserId): array
+    {
         if ($currentUserId === $resourceOwnerUserId) {
             return ['allowed' => true, 'role' => 'owner'];
         }
@@ -45,8 +49,11 @@ class AdPermissionService {
     }
 
     /** هل الدور ده كافي لمستوى الصلاحية المطلوب؟ */
-    public function hasMinRole(?string $role, string $minRole): bool {
-        if ($role === null) return false;
+    public function hasMinRole(?string $role, string $minRole): bool
+    {
+        if ($role === null) {
+            return false;
+        }
         return (self::ROLE_RANK[$role] ?? 0) >= (self::ROLE_RANK[$minRole] ?? 99);
     }
 
@@ -54,7 +61,8 @@ class AdPermissionService {
     // إدارة الفريق
     // ================================================================
 
-    public function listMembers(int $ownerUserId): array {
+    public function listMembers(int $ownerUserId): array
+    {
         $rows = $this->db->query(
             "SELECT tm.id, tm.role, tm.status, tm.created_at, u.company_name, u.email
              FROM ad_team_members tm JOIN users u ON u.id = tm.member_user_id
@@ -69,7 +77,8 @@ class AdPermissionService {
      * دعوة بإيميل لشخص جديد كليًا في هذا الإصدار - يحتاج نظام دعوات/تسجيل
      * منفصل، خارج النطاق المعقول لإضافة صلاحيات فقط).
      */
-    public function addMemberByEmail(int $ownerUserId, string $email, string $role, int $invitedByUserId): array {
+    public function addMemberByEmail(int $ownerUserId, string $email, string $role, int $invitedByUserId): array
+    {
         if (!in_array($role, ['viewer', 'manager', 'admin'], true)) {
             return ['success' => false, 'error' => 'دور غير صالح'];
         }
@@ -101,15 +110,19 @@ class AdPermissionService {
         return ['success' => true];
     }
 
-    public function updateMemberRole(int $ownerUserId, int $memberId, string $newRole): bool {
-        if (!in_array($newRole, ['viewer', 'manager', 'admin'], true)) return false;
+    public function updateMemberRole(int $ownerUserId, int $memberId, string $newRole): bool
+    {
+        if (!in_array($newRole, ['viewer', 'manager', 'admin'], true)) {
+            return false;
+        }
         return $this->db->exec(
             "UPDATE ad_team_members SET role = ? WHERE id = ? AND owner_user_id = ?",
             [$newRole, $memberId, $ownerUserId]
         );
     }
 
-    public function removeMember(int $ownerUserId, int $memberId): bool {
+    public function removeMember(int $ownerUserId, int $memberId): bool
+    {
         return $this->db->exec(
             "UPDATE ad_team_members SET status = 'removed' WHERE id = ? AND owner_user_id = ?",
             [$memberId, $ownerUserId]
@@ -120,7 +133,8 @@ class AdPermissionService {
      * قائمة كل حسابات الإعلانات اللي المستخدم الحالي عضو فيها (بخلاف حسابه
      * هو) - يُستخدم في UI لاختيار "أنا بشتغل كعضو في حساب مين؟".
      */
-    public function accountsUserBelongsTo(int $memberUserId): array {
+    public function accountsUserBelongsTo(int $memberUserId): array
+    {
         return $this->db->query(
             "SELECT tm.owner_user_id, tm.role, u.company_name
              FROM ad_team_members tm JOIN users u ON u.id = tm.owner_user_id

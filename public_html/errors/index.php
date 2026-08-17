@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Index (نسخة مبسطة)
  */
@@ -41,4 +42,3 @@ echo "<!DOCTYPE html>
     </div>
 </body>
 </html>";
-?>

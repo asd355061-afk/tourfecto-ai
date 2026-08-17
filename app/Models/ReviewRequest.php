@@ -1,9 +1,11 @@
 <?php
+
 /**
  * Tourfecto - Review Request Model
  * @version 1.0.0
  */
-class ReviewRequest extends Model {
+class ReviewRequest extends Model
+{
     protected $table = 'review_requests';
 
     protected $fillable = [
@@ -19,7 +21,8 @@ class ReviewRequest extends Model {
      * مزود واتساب/إيميل الحاليين) بيتم تجاهلها تمامًا، مش عرضها فاضية.
      * @return array<int, array{event:string, at:?string}>
      */
-    public function buildTimeline(): array {
+    public function buildTimeline(): array
+    {
         $timeline = [];
 
         $push = function (string $event, $at) use (&$timeline) {
@@ -44,8 +47,12 @@ class ReviewRequest extends Model {
         }
 
         usort($timeline, function ($a, $b) {
-            if ($a['at'] === null) return 1;
-            if ($b['at'] === null) return -1;
+            if ($a['at'] === null) {
+                return 1;
+            }
+            if ($b['at'] === null) {
+                return -1;
+            }
             return strtotime($a['at']) <=> strtotime($b['at']);
         });
 
