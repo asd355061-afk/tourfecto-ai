@@ -189,6 +189,7 @@ $optionalNewClassFiles = [
     APP_PATH . '/Models/CiUserPreference.php',
     APP_PATH . '/Jobs/MonitorCompetitorJob.php',
     APP_PATH . '/Jobs/SendCompetitorAlertEmailJob.php',
+    APP_PATH . '/Jobs/SendOnboardingCompletionEmailJob.php',
     // Profile Center Phase 9 (2026-08-10): Data Export
     APP_PATH . '/Jobs/ExportUserDataJob.php',
     APP_PATH . '/Controllers/CompetitorIntelligenceController.php',
@@ -224,6 +225,10 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/RevenueIntelligence/RevenueBenchmarkService.php',
     APP_PATH . '/Services/RevenueIntelligence/RevenueChurnService.php',
     APP_PATH . '/Services/RevenueIntelligence/StripeRevenueMapper.php',
+    // v1.6.0 (2026-08-17): Dashboard personalization + Stripe webhook live -
+    // كلاسات جديدة مش في classmap composer (لا SSH)، تتحمّل يدويًا بنفس النمط.
+    APP_PATH . '/Services/RevenueIntelligence/RevenueDashboardService.php',
+    APP_PATH . '/Services/RevenueIntelligence/StripeWebhookService.php',
     APP_PATH . '/Controllers/RevenueIntelligenceController.php',
     APP_PATH . '/Jobs/RecomputeRevenueInsightsJob.php',
     APP_PATH . '/Jobs/SendRevenueDigestJob.php',

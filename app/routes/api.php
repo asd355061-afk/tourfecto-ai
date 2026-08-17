@@ -172,6 +172,14 @@ $router->get('/api/revenue-intelligence/forecast/deals', 'RevenueIntelligenceCon
 $router->get('/api/revenue-intelligence/attribution', 'RevenueIntelligenceController', 'apiSalesAttribution', ['AuthMiddleware']);
 $router->get('/api/revenue-intelligence/benchmarks', 'RevenueIntelligenceController', 'apiBenchmarks', ['AuthMiddleware']);
 $router->get('/api/revenue-intelligence/churn', 'RevenueIntelligenceController', 'apiChurnAnalytics', ['AuthMiddleware']);
+$router->get('/api/revenue-intelligence/dashboard-prefs', 'RevenueIntelligenceController', 'apiDashboardPrefsGet', ['AuthMiddleware']);
+$router->post('/api/revenue-intelligence/dashboard-prefs', 'RevenueIntelligenceController', 'apiDashboardPrefsSave', ['AuthMiddleware']);
+$router->post('/api/revenue-intelligence/dashboard-prefs/reset', 'RevenueIntelligenceController', 'apiDashboardPrefsReset', ['AuthMiddleware']);
+$router->get('/api/revenue-intelligence/stripe/settings', 'RevenueIntelligenceController', 'apiStripeSettingsGet', ['AuthMiddleware']);
+$router->post('/api/revenue-intelligence/stripe/settings', 'RevenueIntelligenceController', 'apiStripeSettingsSave', ['AuthMiddleware']);
+// Webhook من Stripe نفسه - بدون AuthMiddleware (يُتحقق بالتوقيع)، ولا يمس
+// أي بيانات مالك الحساب خارج نطاق user_id المحدد.
+$router->post('/api/revenue-intelligence/stripe/webhook/{user_id}', 'RevenueIntelligenceController', 'apiStripeWebhook');
 $router->get('/api/revenue-intelligence/reports/export', 'RevenueIntelligenceController', 'apiExportReport', ['AuthMiddleware']);
 
 $router->get('/api/website-optimizer/websites', 'WebsiteOptimizerController', 'listWebsites', ['AuthMiddleware']);
@@ -448,6 +456,8 @@ $router->group('/api/admin', function ($router) {
     // سجل تسجيل الدخول (Login History)
     $router->get('/login-history', 'AdminController', 'getAllLoginHistory', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/users/{id}/login-history', 'AdminController', 'getUserLoginHistory', ['AuthMiddleware', 'AdminMiddleware']);
+    // Phase 20.1: لوحة فونيل الـOnboarding (viewed → step N → submitted → completed)
+    $router->get('/onboarding-funnel', 'AdminController', 'onboardingFunnel', ['AuthMiddleware', 'AdminMiddleware']);
     $router->post('/users/{id}/feature-overrides', 'AdminController', 'addUserFeatureOverride', ['AuthMiddleware', 'AdminMiddleware']);
     $router->delete('/users/{id}/feature-overrides/{key}', 'AdminController', 'removeUserFeatureOverride', ['AuthMiddleware', 'AdminMiddleware']);
 
@@ -1010,6 +1020,11 @@ $router->post('/api/onboarding/complete', 'OnboardingController', 'complete', ['
 $router->get('/api/onboarding/status', 'OnboardingController', 'status', ['AuthMiddleware']);
 // Phase 20 (Onboarding Competitive): كشف تلقائي لاسم النشاط من الموقع
 $router->get('/api/onboarding/preview', 'OnboardingController', 'preview', ['AuthMiddleware']);
+// Phase 20.1 (Onboarding Professional): مسودة سيرفر (استئناف عبر الأجهزة) + فونيل
+$router->get('/api/onboarding/draft', 'OnboardingController', 'getDraft', ['AuthMiddleware']);
+$router->put('/api/onboarding/draft', 'OnboardingController', 'saveDraft', ['AuthMiddleware']);
+$router->delete('/api/onboarding/draft', 'OnboardingController', 'clearDraft', ['AuthMiddleware']);
+$router->post('/api/onboarding/step', 'OnboardingController', 'recordStep', ['AuthMiddleware']);
 // Phase 11 (AI CEO Advisor)
 $router->post('/api/executive/ceo-advisor/ask', 'ExecutiveExtrasController', 'askCeoAdvisor', ['AuthMiddleware']);
 // Phase 12 (Action Center)

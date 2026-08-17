@@ -134,6 +134,33 @@ HTML;
             sel.innerHTML = `<option value="">${I18N['wo.no_websites']}</option>`;
         }
         sel.onchange = () => { currentWebsiteId = sel.value; if (currentWebsiteId) loadHistory(currentWebsiteId); };
+
+        // Deep-link (من quick-wins في الـOnboarding): ?website_id=X&category=Y
+        // بيختار الموقع ويحمّل سجلّه وبيحدّد فئة الملاحظات اللي المستخدم جي ليها.
+        const params = new URLSearchParams(window.location.search);
+        const deepId = params.get('website_id');
+        if (deepId && Array.from(sel.options).some(o => o.value === deepId)) {
+            sel.value = deepId;
+            currentWebsiteId = deepId;
+            loadHistory(deepId);
+            const cat = params.get('category');
+            if (cat) {
+                try {
+                    const ar = await fetchJSON('/api/website-optimizer/fixes?website_id=' + encodeURIComponent(deepId));
+                    const fixes = (ar.success && ar.data && ar.data.fixes) || [];
+                    const hit = fixes.find(f => f.category === cat);
+                    if (hit) {
+                        const rows = Array.from(document.querySelectorAll('.wo-fix-card'));
+                        const target = rows.find(r => r.dataset && r.dataset.category === cat);
+                        if (target) {
+                            rows.forEach(r => r.style.boxShadow = '');
+                            target.style.boxShadow = '0 0 0 2px var(--panel-accent)';
+                            setTimeout(function () { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 500);
+                        }
+                    }
+                } catch (e) { /* الـdeep-link اختياري */ }
+            }
+        }
     }
 
     window.woRunAudit = async function () {
@@ -221,7 +248,7 @@ HTML;
         const list = document.getElementById('woFixesList');
         if (!fixes.length) { list.innerHTML = ''; return; }
         list.innerHTML = fixes.map(fx => `
-            <div class="wo-fix-card" data-fix-id="${fx.id}">
+            <div class="wo-fix-card" data-fix-id="${fx.id}" data-category="${esc(fx.category)}">
                 <div class="wo-fix-head">
                     <div>
                         <span class="wo-cat-badge">${categoryLabel[fx.category] || esc(fx.category)}</span>
@@ -471,6 +498,23 @@ JS;
         }
 
         $auditId = (int) $this->get('audit_id');
+        // Deep-link من الـOnboarding: لو جاله website_id بدون audit_id بيجيب
+        // آخر تدقيق مكتمل للموقع تلقائيًا (المستخدم بيوصل من quick-wins).
+        if (!$auditId && $this->get('website_id')) {
+            try {
+                $latest = $this->db->query(
+                    "SELECT id FROM wo_audits
+                     WHERE website_id = ? AND user_id = ? AND status = 'completed'
+                     ORDER BY id DESC LIMIT 1",
+                    [(int) $this->get('website_id'), (int) $this->user['id']]
+                );
+                if (!empty($latest)) {
+                    $auditId = (int) $latest[0]['id'];
+                }
+            } catch (Exception $e) {
+                $auditId = 0;
+            }
+        }
         if (!$auditId) {
             return $this->error('audit_id مطلوب', 422);
         }

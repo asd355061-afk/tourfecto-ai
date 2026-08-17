@@ -125,6 +125,7 @@ class StripeRevenueMapper {
 
         $eventRow = [
             'stripe_event_id' => (string) ($payload['id'] ?? ''),
+            'stripe_subscription_id' => (string) ($invoice['subscription'] ?? ''),
             'event_type' => 'expansion',
             'mrr_delta' => $mrr,
             'occurred_at' => isset($payload['created']) ? gmdate('Y-m-d H:i:s', (int) $payload['created']) : gmdate('Y-m-d H:i:s'),
@@ -149,6 +150,7 @@ class StripeRevenueMapper {
 
         $eventRow = [
             'stripe_event_id' => (string) ($payload['id'] ?? ''),
+            'stripe_subscription_id' => (string) ($subscription['id'] ?? ''),
             'event_type' => 'churn',
             'mrr_delta' => -abs($mrr),
             'occurred_at' => isset($payload['created']) ? gmdate('Y-m-d H:i:s', (int) $payload['created']) : gmdate('Y-m-d H:i:s'),
@@ -156,6 +158,23 @@ class StripeRevenueMapper {
             'stripe_customer_id' => $customer,
         ];
 
-        return ['event' => $eventRow];
+        // صف اشتراك (status=cancelled) حتى يتمكن الخادم من تحديث حالة الاشتراك
+        // المرتبط عند استلام حدث الحذف - إضافة فقط بدون فقدان البيانات.
+        $subscriptionRow = [
+            'stripe_subscription_id' => (string) ($subscription['id'] ?? ''),
+            'stripe_customer_id' => $customer,
+            'customer_name' => (string) ($subscription['customer_name'] ?? ''),
+            'customer_email' => (string) ($subscription['customer_email'] ?? ''),
+            'plan_name' => (string) ($plan['nickname'] ?? $plan['id'] ?? ''),
+            'status' => 'cancelled',
+            'billing_cycle' => $cycle,
+            'amount' => $amountNormalized,
+            'currency' => strtoupper($currency),
+            'mrr' => 0.0,
+            'current_period_start' => null,
+            'current_period_end' => null,
+        ];
+
+        return ['event' => $eventRow, 'subscription' => $subscriptionRow];
     }
 }
