@@ -32,8 +32,6 @@ class CrmApiController extends Controller
     private $templateService;
     private $reportService;
     private $customFieldService;
-<<<<<<< HEAD
-=======
     private $productService;
     private $leadRoutingService;
     private $lifecycleService;
@@ -41,7 +39,6 @@ class CrmApiController extends Controller
     private $chartService;
     private $emailTrackingService;
     private $activityService;
->>>>>>> origin/main
 
     public function __construct()
     {
@@ -62,8 +59,6 @@ class CrmApiController extends Controller
         $this->templateService = new CrmMessageTemplateService();
         $this->reportService = new CrmReportService();
         $this->customFieldService = new CrmCustomFieldService();
-<<<<<<< HEAD
-=======
         $this->productService = new CrmProductService();
         $this->leadRoutingService = new CrmLeadRoutingService();
         $this->lifecycleService = new CrmLifecycleService();
@@ -71,7 +66,6 @@ class CrmApiController extends Controller
         $this->chartService = new CrmChartService();
         $this->emailTrackingService = new CrmEmailTrackingService();
         $this->activityService = new CrmActivityService();
->>>>>>> origin/main
     }
 
     /** المستخدم المسجّل دخوله فعليًا (Actor الحقيقي - يُستخدم لحقول "مين اللي عمل ده") */
@@ -1692,8 +1686,6 @@ class CrmApiController extends Controller
             return $this->handleException($e, 'setEntityCustomFields');
         }
     }
-<<<<<<< HEAD
-=======
     // المرحلة 13 (G3) - Product Catalog & Deal Line Items
     // ============================================================
 
@@ -2224,5 +2216,4 @@ class CrmApiController extends Controller
             return $this->handleException($e, 'deleteActivity');
         }
     }
->>>>>>> origin/main
 }
