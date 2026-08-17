@@ -1117,6 +1117,115 @@ class AdminController extends Controller
         }
     }
 
+    /**
+     * GET /api/admin/onboarding-funnel
+     * لوحة الفونيل: من شاهد الـOnboarding → وصل لخطوة N → سابها → قدم → خلص.
+     * بيجمع بين activity_logs (viewed/submitted) و onboarding_drafts (أقصى
+     * خطوة لكل مستخدم - تسرب حقيقي لكل خطوة) و websites (الاكتمال الفعلي).
+     * أي جدول لسه مش متعمل على السيرفر بنتجاهله بصمت.
+     */
+    public function onboardingFunnel(array $params = []): array
+    {
+        try {
+            $views = 0;
+            $submitted = 0;
+            $completed = 0;
+            $avgMinutes = null;
+            $stepRows = [];
+            $trendRows = [];
+
+            // أحداث الفونيل من activity_logs (لو موجود)
+            try {
+                $views = (int) ($this->db->query("SELECT COUNT(*) AS c FROM activity_logs WHERE module = 'onboarding' AND action = 'onboarding.viewed'")[0]['c'] ?? 0);
+                $submitted = (int) ($this->db->query("SELECT COUNT(*) AS c FROM activity_logs WHERE module = 'onboarding' AND action = 'onboarding.submitted'")[0]['c'] ?? 0);
+            } catch (Throwable $e) {
+                // جدول activity_logs لسه مش متعمل
+            }
+
+            // الاكتمال الفعلي من مواقع خلصت الـOnboarding
+            try {
+                $completed = (int) ($this->db->query("SELECT COUNT(*) AS c FROM websites WHERE onboarding_completed_at IS NOT NULL")[0]['c'] ?? 0);
+                $avgRow = $this->db->query(
+                    "SELECT AVG(TIMESTAMPDIFF(MINUTE, created_at, onboarding_completed_at)) AS a
+                     FROM websites WHERE onboarding_completed_at IS NOT NULL AND created_at IS NOT NULL AND created_at <> onboarding_completed_at"
+                );
+                if (!empty($avgRow) && $avgRow[0]['a'] !== null) {
+                    $avgMinutes = (int) round((float) $avgRow[0]['a']);
+                }
+            } catch (Throwable $e) {
+                // الجدول/الأعمدة مش موجودة لسه
+            }
+
+            // توزيع "أقصى خطوة" لكل مستخدم من المسودات (لو الجدول موجود)
+            try {
+                $stepRows = $this->db->query(
+                    "SELECT step, COUNT(*) AS c FROM onboarding_drafts GROUP BY step ORDER BY step ASC"
+                );
+            } catch (Throwable $e) {
+                $stepRows = [];
+            }
+
+            // اتجاه 14 يوم (views vs submitted) - لو النشاط مسجّل
+            try {
+                $trendRows = $this->db->query(
+                    "SELECT DATE(created_at) AS d,
+                            SUM(action = 'onboarding.viewed') AS views,
+                            SUM(action = 'onboarding.submitted') AS submitted
+                     FROM activity_logs
+                     WHERE module = 'onboarding' AND action IN ('onboarding.viewed','onboarding.submitted')
+                       AND created_at >= NOW() - INTERVAL 14 DAY
+                     GROUP BY DATE(created_at)
+                     ORDER BY d ASC"
+                );
+            } catch (Throwable $e) {
+                $trendRows = [];
+            }
+
+            // تحويل أقصى خطوة إلى قناة تراكمية: "كم مستخدم وصل خطوة N فأكثر"
+            $stepMax = [];
+            $totalDrafted = 0;
+            foreach ($stepRows as $r) {
+                $stepMax[(int) $r['step']] = (int) $r['c'];
+                $totalDrafted += (int) $r['c'];
+            }
+            $stepCumulative = [];
+            for ($i = 1; $i <= 7; $i++) {
+                $acc = 0;
+                foreach ($stepMax as $s => $c) {
+                    if ($s >= $i) {
+                        $acc += $c;
+                    }
+                }
+                $stepCumulative[] = ['step' => $i, 'users' => $acc];
+            }
+
+            return $this->success([
+                'funnel' => [
+                    'total_views' => $views,
+                    'started' => $totalDrafted,
+                    'submitted' => $submitted,
+                    'completed' => $completed,
+                    'view_to_submit_pct' => $views > 0 ? round(($submitted / $views) * 100, 1) : 0,
+                    'view_to_complete_pct' => $views > 0 ? round(($completed / $views) * 100, 1) : 0,
+                ],
+                'steps' => $stepCumulative,
+                'avg_completion_minutes' => $avgMinutes,
+                'trend' => $trendRows,
+            ]);
+        } catch (Exception $e) {
+            Logger::error('Admin onboardingFunnel Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر جلب بيانات الفونيل', 500);
+        }
+    }
+
+    /** GET /admin/onboarding-funnel — صفحة لوحة الفونيل */
+    public function onboardingFunnelPage(array $params = []): array
+    {
+        header('Content-Type: text/html; charset=utf-8');
+        echo $this->renderAdminPage('onboarding-funnel');
+        exit;
+    }
+
     /** GET /api/admin/users/{id}/login-history — سجل دخول حساب معيّن */
     public function getUserLoginHistory(array $params): array
     {
@@ -1409,6 +1518,7 @@ class AdminController extends Controller
             'plans' => [$this->tr('admin.tab.plans'), $this->tr('admin.tab.plans_sub')],
             'visitors' => [$this->tr('admin.tab.visitors'), $this->tr('admin.tab.visitors_sub')],
             'login-history' => [$this->tr('admin.tab.login_history'), $this->tr('admin.tab.login_history_sub')],
+            'onboarding-funnel' => [$this->tr('admin.tab.onboarding_funnel'), $this->tr('admin.tab.onboarding_funnel_sub')],
             'system' => [$this->tr('admin.tab.system'), $this->tr('admin.tab.system_sub')],
             'logs' => [$this->tr('admin.tab.logs'), $this->tr('admin.tab.logs_sub')],
             'settings' => [$this->tr('admin.tab.settings'), $this->tr('admin.tab.settings_sub')],
@@ -2173,6 +2283,47 @@ class AdminController extends Controller
         renderLoginHistory(list);
     };
 
+    async function loadOnboardingFunnel() {
+        const res = await fetchJSON('/api/admin/onboarding-funnel');
+        if (!res.success || !res.data) return;
+        const f = res.data.funnel || {};
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        set('ofViews', f.total_views ?? 0);
+        set('ofSubmitted', f.submitted ?? 0);
+        set('ofCompleted', f.completed ?? 0);
+        set('ofSubmitPct', (f.view_to_submit_pct ?? 0) + '%');
+        set('ofCompletePct', (f.view_to_complete_pct ?? 0) + '%');
+        set('ofAvgMin', res.data.avg_completion_minutes != null ? res.data.avg_completion_minutes + ' ' + (I18N['admin.onboarding_funnel.minutes'] || '') : '—');
+
+        const tbody = document.querySelector('#ofStepsTable tbody');
+        const steps = Array.isArray(res.data.steps) ? res.data.steps : [];
+        const maxUsers = steps.length ? Math.max(1, ...steps.map(s => s.users)) : 1;
+        tbody.innerHTML = steps.length ? steps.map(s => {
+            const pct = Math.round((s.users / maxUsers) * 100);
+            const drop = s.step > 1 && steps[s.step - 2] && steps[s.step - 2].users > 0
+                ? Math.round(((steps[s.step - 2].users - s.users) / steps[s.step - 2].users) * 100) + '%'
+                : (s.step > 1 ? (100 - Math.round((s.users / maxUsers) * 100)) + '%' : '—');
+            return `<tr><td><strong>${s.step}</strong></td><td>${s.users}</td><td><div class="p-progress" style="height:6px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;margin-top:6px;"><span style="display:block;height:100%;width:${pct}%;background:linear-gradient(90deg,#0077be,#17a673);border-radius:4px;"></span></div></td></tr>`;
+        }).join('') : '<tr><td colspan="3" class="p-cell-muted text-center">' + I18N['admin.no_data'] + '</td></tr>';
+
+        const ctx = document.getElementById('ofTrendChart');
+        if (ctx) {
+            destroyChart('ofTrend');
+            const trend = Array.isArray(res.data.trend) ? res.data.trend : [];
+            charts.ofTrend = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: trend.map(r => r.d),
+                    datasets: [
+                        { label: I18N['admin.onboarding_funnel.views'] || 'Views', data: trend.map(r => Number(r.views) || 0), borderColor: '#0077be', backgroundColor: 'rgba(0,119,190,0.08)', tension: 0.35, fill: true, pointRadius: 0 },
+                        { label: I18N['admin.onboarding_funnel.submitted'] || 'Submitted', data: trend.map(r => Number(r.submitted) || 0), borderColor: '#17a673', backgroundColor: 'rgba(23,166,115,0.06)', tension: 0.35, fill: true, pointRadius: 0 },
+                    ],
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { family: 'Tajawal' } } } }, scales: { y: { beginAtZero: true } } },
+            });
+        }
+    }
+
     async function loadLogs() {
         const res = await fetchJSON('/api/admin/system/logs');
         const tbody = document.querySelector('#logsTable tbody');
@@ -2589,6 +2740,7 @@ class AdminController extends Controller
             else if (tab === 'subscriptions') await loadSubscriptions();
             else if (tab === 'visitors') await loadVisitors(30);
             else if (tab === 'login-history') await loadLoginHistory();
+            else if (tab === 'onboarding-funnel') await loadOnboardingFunnel();
             else if (tab === 'logs') await loadLogs();
             else if (tab === 'contact-messages') await loadContactMessages();
             else if (tab === 'plans') { await loadPlans(); await loadWalletStats(); await loadCards(); await loadPendingDeposits(); await loadWalletSettings(); await loadUsagePricing(); }
@@ -2715,6 +2867,7 @@ HTML;
             $this->tr('admin.nav.security_tracking') => [
                 'visitors' => [$this->tr('admin.nav.visitors'), '🧭', '/admin/visitors'],
                 'login-history' => [$this->tr('admin.nav.login_history'), '🔐', '/admin/login-history'],
+                'onboarding-funnel' => [$this->tr('admin.nav.onboarding_funnel'), '🧪', '/admin/onboarding-funnel'],
             ],
             $this->tr('admin.nav.system') => [
                 'system' => [$this->tr('admin.nav.system_status'), '🖥️', '/admin/system'],
@@ -2894,6 +3047,36 @@ HTML;
                             <thead><tr><th>{$this->tr('admin.account')}</th><th>{$this->tr('admin.result')}</th><th>IP</th><th>{$this->tr('admin.device')}</th><th>{$this->tr('admin.location')}</th><th>{$this->tr('admin.col.date')}</th></tr></thead>
                             <tbody><tr class="p-loading-row"><td colspan="6">{$this->tr('common.loading')}</td></tr></tbody>
                         </table>
+                    </div>
+                </div>
+HTML;
+
+            case 'onboarding-funnel':
+                return <<<HTML
+                <div class="p-toolbar">
+                    <span class="p-cell-muted" style="font-size:12.5px;">{$this->tr('admin.onboarding_funnel.hint')}</span>
+                </div>
+                <div class="p-grid cols-3">
+                    <div class="p-card stat-tile"><div class="stat-icon blue">👀</div><div class="stat-info"><div class="stat-value" id="ofViews">0</div><div class="stat-label">{$this->tr('admin.onboarding_funnel.views')}</div></div></div>
+                    <div class="p-card stat-tile"><div class="stat-icon purple">📝</div><div class="stat-info"><div class="stat-value" id="ofSubmitted">0</div><div class="stat-label">{$this->tr('admin.onboarding_funnel.submitted')}</div></div></div>
+                    <div class="p-card stat-tile"><div class="stat-icon green">✅</div><div class="stat-info"><div class="stat-value" id="ofCompleted">0</div><div class="stat-label">{$this->tr('admin.onboarding_funnel.completed')}</div></div></div>
+                </div>
+                <div class="p-grid cols-3" style="margin-top:14px;">
+                    <div class="p-card stat-tile"><div class="stat-icon amber">🎯</div><div class="stat-info"><div class="stat-value" id="ofSubmitPct">0%</div><div class="stat-label">{$this->tr('admin.onboarding_funnel.view_to_submit')}</div></div></div>
+                    <div class="p-card stat-tile"><div class="stat-icon gold">🏁</div><div class="stat-info"><div class="stat-value" id="ofCompletePct">0%</div><div class="stat-label">{$this->tr('admin.onboarding_funnel.view_to_complete')}</div></div></div>
+                    <div class="p-card stat-tile"><div class="stat-icon cyan">⏱️</div><div class="stat-info"><div class="stat-value" id="ofAvgMin">—</div><div class="stat-label">{$this->tr('admin.onboarding_funnel.avg_completion')}</div></div></div>
+                </div>
+                <div class="p-grid cols-2" style="margin-top:18px;">
+                    <div class="p-card no-pad">
+                        <div class="p-card-head" style="padding:18px 20px 0;"><h3>{$this->tr('admin.onboarding_funnel.steps_title')}</h3></div>
+                        <div class="p-table-scroll"><table class="p-table" id="ofStepsTable">
+                            <thead><tr><th>{$this->tr('admin.onboarding_funnel.step')}</th><th>{$this->tr('admin.onboarding_funnel.users_reached')}</th><th style="width:40%;">{$this->tr('admin.onboarding_funnel.dropoff')}</th></tr></thead>
+                            <tbody><tr class="p-loading-row"><td colspan="3">{$this->tr('common.loading')}</td></tr></tbody>
+                        </table></div>
+                    </div>
+                    <div class="p-card" style="margin-top:0;">
+                        <div class="p-card-head"><h3>{$this->tr('admin.onboarding_funnel.trend_title')}</h3></div>
+                        <div class="chart-wrap"><canvas id="ofTrendChart"></canvas></div>
                     </div>
                 </div>
 HTML;
