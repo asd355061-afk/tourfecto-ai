@@ -74,6 +74,21 @@ class RefreshToken extends Model
         return (bool) $this->save();
     }
 
+    /**
+     * إعادة تسمية جهاز/جلسة معيّنة - المستخدم يختار اسم يسهل يتعرف
+     * بيه على الجهاز (مثلًا "لابتوب الشغل" بدل "جهاز غير معروف").
+     * نفس سلوك GitHub/Apple في تسمية الأجهزة الموثوقة.
+     */
+    public function renameDevice(string $deviceName): bool
+    {
+        $name = trim(strip_tags($deviceName));
+        if ($name === '' || mb_strlen($name) > 60) {
+            return false;
+        }
+        $this->setAttribute('device_name', mb_substr($name, 0, 60));
+        return (bool) $this->save();
+    }
+
     /** إلغاء كل توكنات مستخدم (تسجيل خروج من كل الأجهزة) */
     public static function revokeAllForUser(int $userId): void
     {

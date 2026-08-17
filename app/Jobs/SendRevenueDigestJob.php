@@ -25,6 +25,17 @@ class SendRevenueDigestJob implements QueueJobInterface {
             throw new Exception("SendRevenueDigestJob: user #{$userId} not found or has no email");
         }
 
+        // Phase 16C: لو المستخدم قفّل الملخص اليومي من Settings >
+        // Notifications، نتخطاه من غير ما نبعت إيميل ولا حتى ندخل على
+        // حسابات البيانات (Togglable Daily Digest - GitHub/Stripe parity).
+        // `digest_daily` هو المعرّف الرسمي اللي Settings بيستعمله.
+        if (class_exists('Notification') && !Notification::digestEnabledFor($user, 'digest_daily')) {
+            if (class_exists('Logger')) {
+                Logger::info('SendRevenueDigestJob: user opted out of daily digest, skipping', ['user_id' => $userId]);
+            }
+            return;
+        }
+
         $mailer = new Mailer();
         if (!$mailer->isConfigured()) {
             if (class_exists('Logger')) {

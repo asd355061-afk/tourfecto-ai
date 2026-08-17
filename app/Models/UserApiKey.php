@@ -18,6 +18,7 @@ class UserApiKey extends Model
         'key_hash',
         'last_used_at',
         'expires_at',
+        'scopes',
         'revoked_at',
     ];
 
@@ -31,13 +32,45 @@ class UserApiKey extends Model
     private const DISPLAY_PREFIX_LENGTH = 14; // "tf_pk_" + 8 حروف
 
     /**
+     * الصلاحيات المدعومة لمفاتيح API - نفس فلسفة GitHub Fine-grained PAT:
+     * كل مفتاح بيتقيّد بصلاحيات محددة بدل ما يكون عنده وصول كامل دائمًا.
+     * لما الـ scopes = null (مفتاح قديم/افتراضي) يبقى وصول كامل.
+     */
+    public const SCOPES = [
+        'profile:read' => 'قراءة الملف الشخصي والإعدادات',
+        'profile:write' => 'تعديل الملف الشخصي والإعدادات',
+        'billing:read' => 'قراءة الفواتير والمحفظة والاشتراك',
+        'workspace:read' => 'قراءة بيانات الشركة والأعضاء',
+        'workspace:write' => 'إدارة الشركة والأعضاء والأدوار',
+        'audit:read' => 'قراءة سجل التدقيق',
+        'data:export' => 'تصدير البيانات والسجل',
+    ];
+
+    /**
+     * هل المفتاح (منتهي من أي جهة) مسموح له يexecute صلاحية معينة؟
+     * null/فاضي = وصول كامل (توافق خلفي مع المفاتيح القديمة).
+     */
+    public static function hasScope(?string $scopesJson, string $scope): bool
+    {
+        if ($scopesJson === null || $scopesJson === '') {
+            return true; // مفتاح قديم من غير scopes = وصول كامل
+        }
+        $scopes = json_decode($scopesJson, true);
+        if (!is_array($scopes)) {
+            return true; // JSON غير صالح - نسامح ونسمح (نفس قيمة null)
+        }
+        return in_array($scope, $scopes, true);
+    }
+
+    /**
      * إنشاء مفتاح جديد لمستخدم معيّن، وتخزين الـ hash بتاعه فقط.
      * المفتاح الخام بيترجع مرة واحدة هنا بس - النظام مايخزّنهوش نص صريح
      * أبدًا، ومش هيتعرض تاني بعد كده حتى لصاحبه.
      *
+     * @param array|null $scopes قائمة الصلاحيات (null = وصول كامل)
      * @return array{model: UserApiKey, raw_key: string}
      */
-    public static function generateFor(int $userId, string $name, ?string $expiresAt = null): array {
+    public static function generateFor(int $userId, string $name, ?string $expiresAt = null, ?array $scopes = null): array {
         $rawKey = self::KEY_PREFIX_TAG . bin2hex(random_bytes(self::RAW_RANDOM_BYTES));
 
         // نضيف expires_at للأعمدة بس لو فيه صلاحية فعليًا (مش null) -
@@ -51,6 +84,14 @@ class UserApiKey extends Model
         ];
         if ($expiresAt !== null) {
             $attrs['expires_at'] = $expiresAt;
+        }
+        if ($scopes !== null) {
+            // ننضّف القيم: ندخل فقط الصلاحيات المعروفة فعليًا، عشان
+            // مفيش حد يكتب scope مش موجود في النظام.
+            $clean = array_values(array_intersect($scopes, array_keys(self::SCOPES)));
+            if (!empty($clean)) {
+                $attrs['scopes'] = json_encode($clean, JSON_UNESCAPED_UNICODE);
+            }
         }
 
         $model = new self($attrs);
@@ -123,6 +164,7 @@ class UserApiKey extends Model
     /** تمثيل آمن للعرض في الواجهة - بدون أي جزء من الـ hash */
     public function toSafeArray(): array
     {
+        $rawScopes = $this->getAttribute('scopes');
         return [
             'id' => (int) $this->getAttribute('id'),
             'name' => $this->getAttribute('name'),
@@ -130,6 +172,9 @@ class UserApiKey extends Model
             'last_used_at' => $this->getAttribute('last_used_at'),
             'created_at' => $this->getAttribute('created_at'),
             'expires_at' => $this->getAttribute('expires_at'),
+            'scopes' => $rawScopes === null || $rawScopes === ''
+                ? array_keys(self::SCOPES)
+                : (is_array(json_decode($rawScopes, true)) ? json_decode($rawScopes, true) : []),
             'revoked' => (bool) $this->getAttribute('revoked_at'),
         ];
     }
