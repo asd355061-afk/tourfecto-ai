@@ -30,7 +30,7 @@
 
 | الميزة | HubSpot | Pipedrive | Zoho | Freshsales | الموديول |
 |---|---|---|---|---|---|
-| التقاط Leads (Web Form / API) | ✅ | ✅ | ✅ | ✅ | 🔶 (إدخال يدوي + API، بدون Form Builder) |
+| التقاط Leads (Web Form / API) | ✅ | ✅ | ✅ | ✅ | ✅ (Form Builder + رابط عام + إرسال عام يخلق Contact/Lead) |
 | مصادر Leads قابلة للتخصيص | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Scoring قائم على قواعد | ✅ | 🔶 | ✅ (Zia AI) | ✅ (Freddy AI) | ✅ (قواعد قابلة للشرح، بدون AI) |
 | **Scoring تنبؤي (ML)** | ✅ | 🔶 | ✅ | ✅ | ❌ |
@@ -80,7 +80,7 @@
 | Builder بصري (Schema) | ✅ | ✅ | ✅ | ✅ | ✅ (SCHEMA + مسبقة القالب) |
 | قوالب أتمتة جاهزة | ✅ | ✅ | ✅ | ✅ | ✅ (Templates) |
 | **أتمتة اتصالات خارجية (Email/WA/SMS)** | ✅ | ✅ | ✅ | ✅ (Sales Sequences) | ❌ (مقصود: إجراءات داخلية فقط) |
-| Sequences متعددة الخطوات | ✅ | ✅ (Projects) | ✅ | ✅ | ❌ |
+| Sequences متعددة الخطوات | ✅ | ✅ (Projects) | ✅ | ✅ | ✅ (تسلسلات بعدة خطوات مؤجلة + تسجيل Contact/Lead/Deal) |
 
 ### 2.6 التواصل (Communication)
 
@@ -122,7 +122,7 @@
 | الميزة | HubSpot | Pipedrive | Zoho | Freshsales | الموديول |
 |---|---|---|---|---|---|
 | لوحة تحكم/إحصائيات | ✅ | ✅ | ✅ | ✅ | ✅ (مخزّنة 90 ثانية) |
-| تقارير قابلة للتخصيص | ✅ | ✅ | ✅ | ✅ | 🔶 (ثابتة، بدون Builder) |
+| تقارير قابلة للتخصيص | ✅ | ✅ | ✅ | ✅ | ✅ (Report Builder: كيان + حقول + فلاتر + تجميع + حفظ) |
 | Win/Loss Analysis | ✅ | ✅ | ✅ | ✅ | 🔶 |
 | Sales Goals | ✅ | ✅ | ✅ | ✅ | ❌ |
 
@@ -133,7 +133,7 @@
 | استيراد CSV بمرحلتين | ✅ | ✅ | ✅ | ✅ | ✅ (Preview → Commit) |
 | استيراد خلفي (Async/Background) | ✅ | ✅ | ✅ | ✅ | ✅ (Job + Queue) |
 | تصدير CSV | ✅ | ✅ | ✅ | ✅ | ✅ (UTF-8 BOM) |
-| **الاستيراد من CRMs أخرى** | ✅ | ✅ | ✅ (Zwitch) | ✅ | ❌ |
+| **الاستيراد من CRMs أخرى** | ✅ | ✅ | ✅ (Zwitch) | ✅ | ✅ (قوالب جاهزة: HubSpot/Zoho/Pipedrive/Freshsales) |
 | سجل التكرارات وقت الاستيراد | ✅ | ✅ | ✅ | ✅ | ✅ (duplicate_candidates) |
 
 ---
@@ -161,6 +161,15 @@
 | G8 | **تتبع فتح البريد** (Email Open Tracking) | إضافة بكسل تتبع في Mailer | ✅ منفَّذ في المرحلة 14 |
 | G9 | **دعوة أعضاء الفريق عبر بريد إلكتروني** | رفع قيد "يجب أن يكون له حساب" | ✅ منفَّذ في المرحلة 13 |
 | G10 | **أنشطة/نتائج مخصصة** (Custom Activity Types) | مثل زيارات الموقع، مكالمات | ✅ منفَّذ في المرحلة 14 |
+
+### 3.2ب فجوات مكمِّلة (المرحلة 15)
+
+| # | الفجوة | ملاحظات |
+|---|---|---|
+| G11 | **التقاط Leads عبر Web Form** (Form Builder) | نموذج عام بحقول مخصصة + رابط slug + إرسال عام ينشئ Contact/Lead | ✅ منفَّذ في المرحلة 15 |
+| G12 | **Sequences متعددة الخطوات** | تسلسل خطوات مؤجلة (مهمة/إيميل/واتساب/ملاحظة/إشعار) على Contact/Lead/Deal | ✅ منفَّذ في المرحلة 15 |
+| G13 | **تقرير قابل للتخصيص** (Report Builder) | كيان + حقول + فلاتر + تجميع + ترتيب، يُحفظ ويُعاد تشغيله | ✅ منفَّذ في المرحلة 15 |
+| G14 | **استيراد من CRMs خارجية** | قوالب جاهزة لرؤوس CSV الخاصة بـHubSpot/Zoho/Pipedrive/Freshsales | ✅ منفَّذ في المرحلة 15 |
 
 ### 3.3 أولوية منخفضة / خارج نطاق تنفيذ اليوم
 
@@ -232,6 +241,25 @@
   7 دوال Controller + 7 مسارات.
 - **التسليم**: migrations `000012/000013` + 3 Models + 3 Services + 16 دالة Controller
   + 16 مسارًا + ~50 مفتاح Lang ثنائي اللغة.
+
+### تنفيذ الجولة المقترحة 4 (المرحلة 15 — منفَّذة ✔)
+- **G11 ✔**: `CrmWebFormService` — نماذج التقاط Leads (`crm_web_forms` + `crm_web_form_submissions`):
+  حقول مخصصة (JSON) + slug عام + مسار إرسال بلا AuthMiddleware
+  (`POST /api/crm/public/web-forms/{slug}/submit`) ينشئ Contact + Lead عبر `CrmLeadService`
+  مع Honeypot بسيط + تسجيل IP/المتصفح + استدعاء `CrmLeadRoutingService` تلقائيًا.
+- **G12 ✔**: `CrmSequenceService` — تسلسلات مبيعات (`crm_sequences` + `crm_sequence_enrollments`):
+  خطوات مؤجلة بأنواع (task/note/email/whatsapp/notify) على Contact/Lead/Deal، مع
+  تسجيل (enroll) + تنفيذ الخطوات المستحقة عند الطلب (processDue) + pause/resume/cancel.
+  نفس قيد Automation: لا إرسال خارجي فعلي — email/whatsapp تُنشئ مهمة متابعة بنص مُصيَّر من القالب.
+- **G13 ✔**: `CrmReportBuilderService` — تقارير مخصصة (`crm_saved_reports`): 5 كيانات
+  (contacts/leads/deals/activities/tasks) + حقول/فلاتر/تجميع/ترتيب من قوائم بيضاء فقط
+  (لا SQL حر) + تنفيذ فوري أو محفوظ. 8 دوال Controller + 8 مسارات.
+- **G14 ✔**: `CrmExternalImportService` — استيراد من CRMs خارجية بلا لمس
+  `CrmImportExportService` القائم: قوائم جاهزة لرؤوس أعمدة CSV الفعلية لكل نظام
+  (HubSpot/Zoho/Pipedrive/Freshsales) مع معاينة (preview) قبل الاستيراد (commit)
+  بنفس نمط المرحلتين.
+- **التسليم**: migrations `000014/000015/000016` + 5 Models + 4 Services + 28 دالة Controller
+  + 28 مسارًا + ~80 مفتاح Lang ثنائي اللغة.
 
 ---
 

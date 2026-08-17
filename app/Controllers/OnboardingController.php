@@ -93,7 +93,9 @@ class OnboardingController extends Controller
             $domain = $domain ?? trim((string) $c['domain']);
             // SSRF: نفس منطق الحماية - نستبعد المنافسين اللي بيشاوروا على
             // عناوين داخلية بدل ما نكسّر كل الـWizard على منافس واحد.
-            if (class_exists('SsrfGuard') && !SsrfGuard::isSafe($domain)) continue;
+            if (class_exists('SsrfGuard') && !SsrfGuard::isSafe($domain)) {
+                continue;
+            }
             $competitors[] = [
                 'name' => trim((string) ($c['name'] ?? '')),
                 'domain' => $domain,
@@ -104,6 +106,13 @@ class OnboardingController extends Controller
             $websiteId = $this->findOrCreateWebsite($userId, $mainUrl, $competitors);
             if (!$websiteId) {
                 return $this->error($this->tr('onboarding.api.create_failed'), 500);
+            }
+
+            // بعد نجاح التسجيل نمسح مسودة السيرفر (استئناف تاني هيبدأ من جديد).
+            try {
+                $this->db->exec("DELETE FROM onboarding_drafts WHERE user_id = ?", [$userId]);
+            } catch (Throwable $e) {
+                // جدول المسودات لسه مش موجود - تجاهل بصمت
             }
 
             // Phase 20 - Rate limiting: لو في job شغال/معلّق أصلًا لنفس
@@ -272,7 +281,8 @@ class OnboardingController extends Controller
      * Phase 20 - Whitelist الـ industry: أي قيمة خارج القائمة المعروفة
      * بتتحول لـ 'other' بدل ما تحفظ أي حاجة من الـClient في الداتابيز.
      */
-    private function sanitizeIndustry(string $industry): string {
+    private function sanitizeIndustry(string $industry): string
+    {
         $allowed = ['tourism', 'tours', 'hotel', 'travel_agency', 'other'];
         return in_array($industry, $allowed, true) ? $industry : 'other';
     }
@@ -288,6 +298,20 @@ class OnboardingController extends Controller
     {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
+        }
+
+        // Rate limiting (Phase 20.1): حد 30 استعلام كشف في الدقيقة لكل مستخدم
+        // - الحماية من إساءة استخدام النقطة (كل استعلام = طلب HTTP للسيرفر
+        // المستهدف من عندنا)، مش منع لاستخدام الشرعي أثناء كتابة الـURL.
+        try {
+            if (class_exists('RateLimiter')) {
+                $rl = new RateLimiter();
+                if (!$rl->check('user:' . (int) ($this->user['id'] ?? 0), 'onboarding_preview', 30, 60)) {
+                    return $this->error($this->tr('onboarding.api.rate_limited'), 429);
+                }
+            }
+        } catch (Throwable $e) {
+            // فشل الـRateLimiter نفسه مايقفلش الميزة - نكمل بحد أقصى بسيط
         }
 
         $url = $this->canonicalizeUrl((string) $this->get('url'));
@@ -323,6 +347,161 @@ class OnboardingController extends Controller
         } catch (Exception $e) {
             Logger::error('Onboarding Preview Error', ['message' => $e->getMessage()]);
             return $this->success(['detected' => false]);
+        }
+    }
+
+    /**
+     * GET /api/onboarding/draft
+     * استئناف المسودة المحفوظة على السيرفر (عبر الأجهزة). بترجع الـdraft
+     * + أقصى خطوة وصلها المستخدم. لو مفيش مسودة => draft: null.
+     */
+    public function getDraft(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $userId = (int) $this->user['id'];
+
+        try {
+            $rows = $this->db->query(
+                "SELECT draft, step, updated_at FROM onboarding_drafts WHERE user_id = ? LIMIT 1",
+                [$userId]
+            );
+            if (empty($rows)) {
+                return $this->success(['draft' => null, 'step' => 1]);
+            }
+
+            $raw = $rows[0]['draft'] ?? null;
+            $draft = $raw ? json_decode((string) $raw, true) : null;
+            if (!is_array($draft)) {
+                $draft = [];
+            }
+
+            return $this->success([
+                'draft' => $draft,
+                'step' => (int) ($rows[0]['step'] ?? 1),
+                'updated_at' => (string) ($rows[0]['updated_at'] ?? ''),
+            ]);
+        } catch (Throwable $e) {
+            // الجدول لسه مش متعمل على السيرفر - الميزة اختيارية مش حاسمة
+            return $this->success(['draft' => null, 'step' => 1]);
+        }
+    }
+
+    /**
+     * PUT /api/onboarding/draft
+     * حفظ المسودة على السيرفر (upsert). بيحفظ كمان أقصى خطوة وصلها
+     * المستخدم - وهي الأساس اللي لوحة الفونيل الإدارية بتحسب عليه
+     * معدل التسرب (drop-off) لكل خطوة.
+     */
+    public function saveDraft(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $userId = (int) $this->user['id'];
+
+        $rawDraft = $this->get('draft', []);
+        if (!is_array($rawDraft)) {
+            $rawDraft = [];
+        }
+        // منع ضخ حقول غير معروفة - نأخذ بس الحقول اللي الـWizard بيبعتها
+        $allowed = ['business_name', 'main_url', 'industry', 'target_country', 'target_customers', 'main_services', 'competitors'];
+        $draft = [];
+        foreach ($allowed as $key) {
+            if (array_key_exists($key, $rawDraft)) {
+                $draft[$key] = $rawDraft[$key];
+            }
+        }
+        // طول أقصى للحد من تخزين بيانات ضخمة
+        $draftJson = json_encode($draft, JSON_UNESCAPED_UNICODE);
+        if (strlen($draftJson) > 12000) {
+            return $this->error($this->tr('onboarding.api.invalid_data'), 422);
+        }
+
+        $step = (int) $this->get('step', 1);
+        $step = max(1, min(7, $step));
+
+        try {
+            $this->db->exec(
+                "INSERT INTO onboarding_drafts (user_id, draft, step, updated_at)
+                 VALUES (?, ?, ?, NOW())
+                 ON DUPLICATE KEY UPDATE draft = VALUES(draft), step = GREATEST(step, VALUES(step)), updated_at = NOW()",
+                [$userId, $draftJson, $step]
+            );
+            return $this->success(['saved' => true, 'step' => $step]);
+        } catch (Throwable $e) {
+            return $this->error($this->tr('onboarding.api.invalid_data'), 500);
+        }
+    }
+
+    /**
+     * DELETE /api/onboarding/draft
+     * مسح المسودة بعد اكتمال الـOnboarding (أو إلغاء صريح).
+     */
+    public function clearDraft(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $userId = (int) $this->user['id'];
+
+        try {
+            $this->db->exec("DELETE FROM onboarding_drafts WHERE user_id = ?", [$userId]);
+            return $this->success(['cleared' => true]);
+        } catch (Throwable $e) {
+            return $this->success(['cleared' => false]);
+        }
+    }
+
+    /**
+     * POST /api/onboarding/step
+     * بيكّن المستخدم وصل لأقصى خطوة N (بيتخزن في مسودته). الـواجهة بتبعت
+     * الأحداث دي بشكل متحفظ (أقصى خطوة بس، مش كل تنقّل) عشان لوحة
+     * الفونيل الإدارية تعرض drop-off حقيقي لكل خطوة من غير إزعاج للـDB.
+     */
+    public function recordStep(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $userId = (int) $this->user['id'];
+
+        $step = (int) $this->get('step', 1);
+        $step = max(1, min(7, $step));
+
+        try {
+            $this->db->exec(
+                "INSERT INTO onboarding_drafts (user_id, draft, step, updated_at)
+                 VALUES (?, NULL, ?, NOW())
+                 ON DUPLICATE KEY UPDATE step = GREATEST(step, VALUES(step)), updated_at = NOW()",
+                [$userId, $step]
+            );
+            return $this->success(['ok' => true]);
+        } catch (Throwable $e) {
+            return $this->success(['ok' => false]);
+        }
+    }
+
+    /**
+     * بيانات الثقة (Social Proof): عدد النشاطات اللي خلصوا الـOnboarding
+     * فعليًا على المنصة. بتتقرأ مباشرة من جدول websites - لو الجدول/العمود
+     * لسه مش متعمل على السيرفر بنقع على رقم افتراضي متحفظ (بدل صفر).
+     */
+    private function trustStats(): array
+    {
+        try {
+            $row = $this->db->query(
+                "SELECT COUNT(*) AS c FROM websites WHERE onboarding_completed_at IS NOT NULL"
+            );
+            $completed = (int) ($row[0]['c'] ?? 0);
+
+            $row2 = $this->db->query("SELECT COUNT(*) AS c FROM users");
+            $users = (int) ($row2[0]['c'] ?? 0);
+
+            return ['completed' => $completed, 'users' => $users];
+        } catch (Throwable $e) {
+            return ['completed' => 0, 'users' => 0];
         }
     }
 
@@ -462,6 +641,35 @@ class OnboardingController extends Controller
         }
         $prefillJson = json_encode($prefill, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS);
 
+        // مسودة السيرفر (استئناف عبر الأجهزة) - أولوية على التعبئة المسبقة.
+        $serverDraftJson = 'null';
+        try {
+            $rows = $this->db->query(
+                "SELECT draft, step FROM onboarding_drafts WHERE user_id = ? LIMIT 1",
+                [(int) ($this->user['id'] ?? 0)]
+            );
+            if (!empty($rows) && !empty($rows[0]['draft'])) {
+                $serverDraft = json_decode((string) $rows[0]['draft'], true);
+                if (is_array($serverDraft)) {
+                    $serverDraft['__step'] = (int) ($rows[0]['step'] ?? 1);
+                    $serverDraftJson = json_encode($serverDraft, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS);
+                }
+            }
+        } catch (Throwable $e) {
+            // الجدول لسه مش متعمل - مفيش مسودة سيرفر
+        }
+
+        // Social Proof: عدد النشاطات المكتملة فعلًا على المنصة.
+        $trust = $this->trustStats();
+        $trustCount = max((int) $trust['completed'], (int) $trust['users']);
+        $trustNoteHtml = htmlspecialchars(t('onboarding.trust_note'), ENT_QUOTES, 'UTF-8') . '<br><strong>'
+            . htmlspecialchars(t('onboarding.trust_count', ['n' => number_format($trustCount)]), ENT_QUOTES, 'UTF-8') . '</strong>';
+
+        $selAr = $lang === 'ar' ? ' selected' : '';
+        $selEn = $lang === 'en' ? ' selected' : '';
+        $selFr = $lang === 'fr' ? ' selected' : '';
+        $selDe = $lang === 'de' ? ' selected' : '';
+
         return <<<HTML
 <!DOCTYPE html>
 <html lang="{$lang}" dir="{$dir}">
@@ -548,6 +756,23 @@ class OnboardingController extends Controller
         .ob-badge.err { background: rgba(229,115,109,.15); color: var(--ob-red); }
         .ob-trust { font-size:12px; color: var(--ob-muted); margin-top:16px; line-height:1.7; text-align:center; }
         .ob-trust strong { color: var(--ob-text); font-weight:600; }
+        .ob-opt-badge { display:inline-block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color: var(--ob-muted); border:1px solid var(--ob-line); border-radius:20px; padding:2px 9px; vertical-align:middle; margin-inline-start:8px; }
+        .ob-skip-step { background:none; border:none; color: var(--ob-muted); font-size:12.5px; font-family:inherit; text-decoration:underline; text-underline-offset:3px; cursor:pointer; padding:6px 2px; }
+        .ob-skip-step:hover { color: var(--ob-gold); }
+        .ob-lang-select { background:#0A1220; border:1px solid var(--ob-line); color: var(--ob-text); border-radius:8px; padding:5px 8px; font-family:inherit; font-size:12px; cursor:pointer; }
+        .ob-hp { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; opacity:0; }
+        .ob-progress-mini { display:flex; align-items:center; gap:6px; }
+        .ob-result-whatnext { display:flex; gap:12px; padding:10px 0; border-bottom:1px solid var(--ob-line); }
+        .ob-result-whatnext .ob-step-ic { width:26px; height:26px; flex-shrink:0; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; background:rgba(239,176,94,.12); color: var(--ob-gold); }
+        .ob-result-whatnext.done .ob-step-ic { background: rgba(63,167,150,.15); color: var(--ob-green); }
+        .ob-result-whatnext .ob-step-txt { font-size:13px; }
+        .ob-result-whatnext .ob-step-txt small { display:block; color: var(--ob-muted); font-size:12px; margin-top:2px; }
+        .ob-quickwin-fix { margin-inline-start:auto; flex-shrink:0; background:none; border:1px solid var(--ob-gold); color: var(--ob-gold); border-radius:20px; padding:4px 12px; font-size:11.5px; font-weight:600; cursor:pointer; font-family:inherit; text-decoration:none; transition:.15s; }
+        .ob-quickwin-fix:hover { background: var(--ob-gold); color:#1A1200; }
+        .ob-confetti { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:50; }
+        .ob-ring-score { font-family:'Fraunces',serif; font-size:30px; font-weight:700; fill: var(--ob-gold); }
+        .ob-ring-label { font-size:10px; fill: var(--ob-muted); letter-spacing:.3px; }
+        .ob-draft-saved { font-size:11.5px; color: var(--ob-green); margin-top:6px; min-height:16px; }
         .ob-detect-hint { display:none; font-size:12.5px; color: var(--ob-muted); background:#0A1220; border:1px solid var(--ob-line); border-radius:10px; padding:10px 12px; margin-top:-6px; margin-bottom:14px; line-height:1.7; }
         .ob-detect-hint strong { color: var(--ob-text); }
         .ob-detect-hint .ob-comp-add { margin-top:6px; }
@@ -567,7 +792,15 @@ class OnboardingController extends Controller
 <body>
     <div class="ob-nav">
         <div class="ob-nav-brand">{$topNavBrandHtml}</div>
-        <a href="/dashboard" class="ob-nav-skip">{$t('onboarding.nav.skip')}</a>
+        <div class="ob-progress-mini">
+            <select id="obLangSelect" class="ob-lang-select" aria-label="{$t('onboarding.lang.label')}" onchange="obChangeLang(this)">
+                <option value="ar"{$selAr}>العربية</option>
+                <option value="en"{$selEn}>English</option>
+                <option value="fr"{$selFr}>Français</option>
+                <option value="de"{$selDe}>Deutsch</option>
+            </select>
+            <a href="/dashboard" class="ob-nav-skip">{$t('onboarding.nav.skip')}</a>
+        </div>
     </div>
     <div class="ob-wrap">
         <div class="ob-card">
@@ -599,7 +832,7 @@ class OnboardingController extends Controller
 
             <!-- Step 3: Business Type -->
             <div class="ob-step" data-step="3">
-                <h2 class="ob-h">{$t('onboarding.step3.title')}</h2>
+                <h2 class="ob-h">{$t('onboarding.step3.title')}<span class="ob-opt-badge">{$t('onboarding.optional')}</span></h2>
                 <p class="ob-sub">{$t('onboarding.step3.sub')}</p>
                 <div class="ob-field">
                     <label for="obIndustry">{$t('onboarding.field.industry')}</label>
@@ -614,7 +847,7 @@ class OnboardingController extends Controller
 
             <!-- Step 4: Country / Market -->
             <div class="ob-step" data-step="4">
-                <h2 class="ob-h">{$t('onboarding.step4.title')}</h2>
+                <h2 class="ob-h">{$t('onboarding.step4.title')}<span class="ob-opt-badge">{$t('onboarding.optional')}</span></h2>
                 <p class="ob-sub">{$t('onboarding.step4.sub')}</p>
                 <div class="ob-field">
                     <label for="obTargetCountry">{$t('onboarding.field.target_country')}</label>
@@ -624,7 +857,7 @@ class OnboardingController extends Controller
 
             <!-- Step 5: Target Customers -->
             <div class="ob-step" data-step="5">
-                <h2 class="ob-h">{$t('onboarding.step5.title')}</h2>
+                <h2 class="ob-h">{$t('onboarding.step5.title')}<span class="ob-opt-badge">{$t('onboarding.optional')}</span></h2>
                 <p class="ob-sub">{$t('onboarding.step5.sub')}</p>
                 <div class="ob-field">
                     <label for="obTargetCustomers">{$t('onboarding.field.target_customers')}</label>
@@ -634,7 +867,7 @@ class OnboardingController extends Controller
 
             <!-- Step 6: Main Services -->
             <div class="ob-step" data-step="6">
-                <h2 class="ob-h">{$t('onboarding.step6.title')}</h2>
+                <h2 class="ob-h">{$t('onboarding.step6.title')}<span class="ob-opt-badge">{$t('onboarding.optional')}</span></h2>
                 <p class="ob-sub">{$t('onboarding.step6.sub')}</p>
                 <div class="ob-field">
                     <label for="obMainServices">{$t('onboarding.field.main_services')}</label>
@@ -644,7 +877,7 @@ class OnboardingController extends Controller
 
             <!-- Step 7: Competitors -->
             <div class="ob-step" data-step="7">
-                <h2 class="ob-h">{$t('onboarding.step7.title')}</h2>
+                <h2 class="ob-h">{$t('onboarding.step7.title')}<span class="ob-opt-badge">{$t('onboarding.optional')}</span></h2>
                 <p class="ob-sub">{$t('onboarding.step7.sub')}</p>
                 <div id="obCompetitorRows"></div>
                 <button type="button" class="ob-comp-add" id="obAddCompetitor">+ {$t('onboarding.nav.add_competitor')}</button>
@@ -672,11 +905,19 @@ class OnboardingController extends Controller
 
             <div id="obError" class="ob-error" role="alert" aria-live="assertive"></div>
 
+            <!-- Honeypot anti-bot: مخفي تمامًا عن البشر - لو اتكتب فيه بنعتبر الطلب روبوت -->
+            <div class="ob-hp" aria-hidden="true">
+                <label for="obCompanyWebsite">Website</label>
+                <input type="text" id="obCompanyWebsite" tabindex="-1" autocomplete="off">
+            </div>
+
             <div class="ob-nav-btns" id="obNavBtns">
                 <button class="ob-btn ghost" id="obBackBtn" onclick="obBack()">{$t('onboarding.nav.back')}</button>
+                <button class="ob-skip-step" id="obSkipStepBtn" onclick="obSkipStep()" style="display:none;">{$t('onboarding.nav.skip_step')}</button>
                 <button class="ob-btn primary" id="obNextBtn" onclick="obNext()">{$t('onboarding.nav.next')}</button>
             </div>
-            <p class="ob-trust" id="obTrustNote">{$t('onboarding.trust_note')}</p>
+            <p class="ob-draft-saved" id="obDraftStatus"></p>
+            <p class="ob-trust" id="obTrustNote">{$trustNoteHtml}</p>
         </div>
     </div>
 
@@ -685,6 +926,8 @@ class OnboardingController extends Controller
     const OB_TOTAL_STEPS = 7;
     const OB_MAX_COMPETITORS = 3;
     const OB_DRAFT_KEY = 'tf_onboarding_draft';
+    const OB_SERVER_DRAFT = {$serverDraftJson};
+    const OB_OPTIONAL_STEPS = [3, 4, 5, 6, 7];
     const OB_ICON = {
         eyes: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>',
         rocket: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"></path><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"></path></svg>',
@@ -693,6 +936,8 @@ class OnboardingController extends Controller
     const OB_PREFILL = {$prefillJson};
     let obCurrentStep = 1;
     let obProcessing = false;
+    let obServerSaveTimer = null;
+    let obWebsiteId = '';
 
     const obL = function (k) { return (window.I18N && window.I18N[k]) || k; };
 
@@ -722,6 +967,12 @@ class OnboardingController extends Controller
         const first = el ? el.querySelector('input, select, textarea') : null;
         if (first) setTimeout(function () { first.focus(); }, 60);
 
+        // أزرار اختيارية: "تخطّي الخطوة" بتظهر في الخطوات غير الأساسية
+        const skipBtn = document.getElementById('obSkipStepBtn');
+        if (skipBtn) {
+            skipBtn.style.display = OB_OPTIONAL_STEPS.includes(n) && !obProcessing ? 'inline-block' : 'none';
+        }
+
         const navBtns = document.getElementById('obNavBtns');
         if (n <= OB_TOTAL_STEPS) {
             navBtns.style.display = 'flex';
@@ -731,6 +982,22 @@ class OnboardingController extends Controller
         } else {
             navBtns.style.display = 'none';
         }
+
+        // Beacon متحفظ للفونيل: نسجّل أقصى خطوة وصلها المستخدم (مرة واحدة
+        // لكل خطوة - GREATEST في الـDB) من غير ما نزعج بالطلبات المتكررة.
+        if (!obProcessing) {
+            obBeaconStep(n);
+        }
+    }
+
+    function obBeaconStep(n) {
+        try {
+            fetchJSON('/api/onboarding/step', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ step: n }),
+            });
+        } catch (e) { /* الفونيل مش حاسم */ }
     }
 
     function obShowError(msg) {
@@ -809,12 +1076,45 @@ class OnboardingController extends Controller
                 }))
             };
             localStorage.setItem(OB_DRAFT_KEY, JSON.stringify(data));
+            obSaveDraftToServer(data);
         } catch (e) { /* localStorage غير متاح */ }
+    }
+
+    // حفظ متحفّظ على السيرفر (debounce 900ms) عشان الاستئناف عبر الأجهزة.
+    function obSaveDraftToServer(data) {
+        if (obServerSaveTimer) clearTimeout(obServerSaveTimer);
+        obServerSaveTimer = setTimeout(function () {
+            try {
+                fetchJSON('/api/onboarding/draft', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ draft: data, step: obCurrentStep }),
+                });
+                const status = document.getElementById('obDraftStatus');
+                if (status) {
+                    status.textContent = obL('onboarding.draft.saved');
+                    setTimeout(function () { if (status) status.textContent = ''; }, 1600);
+                }
+            } catch (e) { /* الفشل مش حاسم - النسخة المحلية لسه شغالة */ }
+        }, 900);
+    }
+
+    function obClearServerDraft() {
+        try { fetchJSON('/api/onboarding/draft', { method: 'DELETE' }); } catch (e) {}
     }
 
     function obRestoreDraft() {
         let draft = null;
         try { draft = JSON.parse(localStorage.getItem(OB_DRAFT_KEY) || 'null'); } catch (e) { draft = null; }
+
+        // مسودة السيرفر لها الأولوية (آخر حالة عبر أي جهاز)، بعدين المحلية،
+        // بعدين التعبئة المسبقة من آخر موقع.
+        if (OB_SERVER_DRAFT && typeof OB_SERVER_DRAFT === 'object') {
+            draft = Object.assign({}, draft, OB_SERVER_DRAFT);
+            if (OB_SERVER_DRAFT.__step) {
+                obCurrentStep = Math.min(7, Math.max(1, OB_SERVER_DRAFT.__step));
+            }
+        }
         if (!draft) draft = OB_PREFILL;
         if (!draft) return;
         const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
@@ -826,6 +1126,11 @@ class OnboardingController extends Controller
         set('obMainServices', draft.main_services);
         if (Array.isArray(draft.competitors)) {
             obRenderCompetitors(draft.competitors);
+        }
+
+        const status = document.getElementById('obDraftStatus');
+        if (status && (OB_SERVER_DRAFT || draft !== OB_PREFILL)) {
+            status.textContent = obL('onboarding.draft.resumed');
         }
     }
 
@@ -868,6 +1173,34 @@ class OnboardingController extends Controller
         if (obCurrentStep > 1) { obCurrentStep--; obShowStep(obCurrentStep); }
     }
 
+    // Progressive profiling: تخطّي الخطوات الاختيارية - لو وصل للآخر
+    // بيبدأ التحليل على طول (البيانات الأساسية = الاسم + الموقع كفاية).
+    function obSkipStep() {
+        if (obProcessing) return;
+        if (obCurrentStep < OB_TOTAL_STEPS) {
+            obCurrentStep++;
+            obShowStep(obCurrentStep);
+        } else {
+            obNext();
+        }
+    }
+
+    // مفتاح اللغة في شريط الـWizard: بيحدّث تفضيل المستخدم ويعيد تحميل
+    // الصفحة بنفس المسودة (المحفوظة محليًا + على السيرفر).
+    function obChangeLang(sel) {
+        const lang = sel.value;
+        try { localStorage.setItem('tf_lang', lang); } catch (e) {}
+        try {
+            fetchJSON('/api/user/profile', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ language: lang }),
+            }).then(function () { window.location.reload(); });
+        } catch (e) {
+            window.location.reload();
+        }
+    }
+
     async function obNext() {
         if (!obValidateStep(obCurrentStep)) return;
         obSaveDraft();
@@ -897,6 +1230,14 @@ class OnboardingController extends Controller
 
     async function obSubmit() {
         obProcessing = true;
+
+        // Honeypot: لو حقل مخفي اتكتب فيه فده روبوت - نحاكي نجاح ونخرج بصمت
+        const hp = document.getElementById('obCompanyWebsite');
+        if (hp && hp.value && hp.value.trim() !== '') {
+            window.location.href = '/dashboard';
+            return;
+        }
+
         const submitBtn = document.getElementById('obNextBtn');
         if (submitBtn) submitBtn.disabled = true;
         obStartRunning();
@@ -936,8 +1277,10 @@ class OnboardingController extends Controller
             }
 
             try { localStorage.removeItem(OB_DRAFT_KEY); } catch (e) {}
+            obClearServerDraft();
 
             const data = res.data || {};
+            obWebsiteId = data.website_id || obWebsiteId;
             if (data.processing) {
                 obPollUntilReady(data.website_id, stageTimer);
             } else {
@@ -961,6 +1304,7 @@ class OnboardingController extends Controller
         const startedAt = Date.now();
         const maxWait = 90000;
         let lastAuditState = '';
+        obWebsiteId = websiteId;
 
         const poll = async function () {
             const elapsed = Date.now() - startedAt;
@@ -1003,6 +1347,36 @@ class OnboardingController extends Controller
         return (window.I18N && window.I18N[k]) ? window.I18N[k] : cat;
     }
 
+    // حلقة النتيجة المتحركة (نفس أسلوب حلقات الأداء في المنتجات العالمية).
+    function obScoreRing(score) {
+        const c = 2 * Math.PI * 34;
+        return `<svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true">
+            <circle cx="48" cy="48" r="34" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="7"/>
+            <circle class="ob-ring-anim" cx="48" cy="48" r="34" fill="none" stroke="var(--ob-gold)" stroke-width="7" stroke-linecap="round"
+                stroke-dasharray="\${c.toFixed(1)}" stroke-dashoffset="\${c.toFixed(1)}"
+                style="transform:rotate(-90deg);transform-origin:48px 48px;transition:stroke-dashoffset 1.2s cubic-bezier(.3,.7,.3,1) .15s;"/>
+            <text x="48" y="46" text-anchor="middle" class="ob-ring-score">\${Math.round(score)}</text>
+            <text x="48" y="62" text-anchor="middle" class="ob-ring-label">SEO</text>
+        </svg>`;
+    }
+
+    // قصاصات احتفال خفيفة (Canvas-less، CSS animations) عند نجاح التحليل.
+    function obCelebrate() {
+        const colors = ['#EFB05E', '#3FA796', '#7C93C9', '#E5736D', '#C9A0DC'];
+        for (let i = 0; i < 42; i++) {
+            const el = document.createElement('div');
+            el.style.cssText = 'position:fixed;top:-14px;left:' + (Math.random() * 100) + 'vw;'
+                + 'width:' + (5 + Math.random() * 5) + 'px;height:' + (5 + Math.random() * 5) + 'px;'
+                + 'background:' + colors[i % colors.length] + ';border-radius:2px;z-index:999;pointer-events:none;';
+            document.body.appendChild(el);
+            const dx = (Math.random() - 0.5) * 140;
+            el.animate([
+                { transform: 'translateY(0) rotate(0deg)', opacity: .95 },
+                { transform: 'translate(' + dx.toFixed(0) + 'px,' + (window.innerHeight + 24) + 'px) rotate(' + (Math.random() * 560 - 280) + 'deg)', opacity: 0 }
+            ], { duration: 1600 + Math.random() * 1400, easing: 'cubic-bezier(.2,.6,.4,1)' }).onfinish = function () { el.remove(); };
+        }
+    }
+
     function obRenderResult(data) {
         const box = document.getElementById('obResultBody');
         let html = '';
@@ -1021,7 +1395,8 @@ class OnboardingController extends Controller
                 ? data.findings_count
                 : ((data.audit && data.audit.findings || []).length);
             const scoreLabel = score != null ? score : '—';
-            html += `<div class="ob-result-row"><span class="ob-score-badge\${score == null ? ' muted' : ''}">\${scoreLabel}</span><span>\${obL('onboarding.result.seo_score')} \${findingsCount || 0} \${obL('onboarding.result.findings_found')}</span></div>`;
+            html += `<div class="ob-result-row" style="justify-content:center;padding:16px 0 6px;border-bottom:none;">\${score != null ? obScoreRing(score) : '<span class="ob-score-badge muted">—</span>'}</div>`;
+            html += `<div class="ob-result-row" style="justify-content:center;border-bottom:none;"><span>\${obL('onboarding.result.seo_score')}: <strong>\${scoreLabel}</strong> · \${findingsCount || 0} \${obL('onboarding.result.findings_found')}</span></div>`;
 
             if (score != null) {
                 // Industry Benchmark (Phase 20): مقارنة بمتوسط نفس النشاط من
@@ -1043,7 +1418,8 @@ class OnboardingController extends Controller
                 wins.slice(0, 3).forEach(function (w) {
                     const sev = w.severity || 'medium';
                     const cls = (sev === 'critical' || sev === 'high') ? 'err' : (sev === 'medium' ? 'warn' : 'ok');
-                    html += `<div class="ob-result-row"><span class="ob-badge \${cls}">\${esc(obCatLabel(w.category))}</span><span>\${esc(w.title)}</span></div>`;
+                    const fixHref = '/website-optimizer?website_id=' + encodeURIComponent(obWebsiteId || '') + '&category=' + encodeURIComponent(w.category || '');
+                    html += `<div class="ob-result-row"><span class="ob-badge \${cls}">\${esc(obCatLabel(w.category))}</span><span>\${esc(w.title)}</span><a class="ob-quickwin-fix" href="\${fixHref}">\${obL('onboarding.result.fix_now')}</a></div>`;
                 });
             }
 
@@ -1069,6 +1445,14 @@ class OnboardingController extends Controller
                     html += `<div class="ob-result-row ob-bench"><span class="ob-bench-ico">🕵️</span><span><strong>\${esc(c.title || c.domain)}</strong><span class="ob-note" style="display:block;margin-top:2px;">\${esc(c.domain)}\${cms}</span></span>\${unreachable}</div>`;
                 });
             }
+
+            // "What happens next" (Phase 20.1): مسار واضح للمستخدم بعد أول
+            // دقيقة - زي أول اتصال إيميل ومنتج عالمي، مش مجرد شاشة "تمام".
+            html += `<p class="ob-sub" style="margin:16px 0 6px;">\${obL('onboarding.result.whatnext_title')}</p>`;
+            const auditReadyNow = score != null;
+            html += `<div class="ob-result-whatnext \${auditReadyNow ? 'done' : ''}"><span class="ob-step-ic">1</span><span class="ob-step-txt">\${obL('onboarding.result.whatnext_audit')}<small>\${obL('onboarding.result.whatnext_audit_sub')}</small></span></div>`;
+            html += `<div class="ob-result-whatnext"><span class="ob-step-ic">2</span><span class="ob-step-txt">\${obL('onboarding.result.whatnext_email')}<small>\${obL('onboarding.result.whatnext_email_sub')}</small></span></div>`;
+            html += `<div class="ob-result-whatnext"><span class="ob-step-ic">3</span><span class="ob-step-txt">\${obL('onboarding.result.whatnext_dashboard')}<small>\${obL('onboarding.result.whatnext_dashboard_sub')}</small></span></div>`;
         }
 
         const compsCount = data.competitors_count != null ? data.competitors_count : (data.competitors_added ? data.competitors_added.length : 0);
@@ -1086,6 +1470,18 @@ class OnboardingController extends Controller
         }
 
         box.innerHTML = html;
+
+        // تحريك حلقة النتيجة + قصاصات الاحتفال عند نجاح حقيقي
+        requestAnimationFrame(function () {
+            const ring = box.querySelector('.ob-ring-anim');
+            if (ring) {
+                const pct = Math.max(0, Math.min(100, score != null ? Math.round(score) : 0));
+                const c = 2 * Math.PI * 34;
+                ring.style.strokeDashoffset = String(c * (1 - pct / 100));
+            }
+        });
+        if (score != null && score >= 50) obCelebrate();
+
         const retryBtn = showRetry
             ? `<button class="ob-btn primary block" style="text-align:center;" onclick="obRetry()">\${obL('onboarding.result.retry')}</button>`
             : '';
@@ -1124,7 +1520,7 @@ class OnboardingController extends Controller
     document.getElementById('obCompetitorRows').addEventListener('input', obSaveDraft);
 
     obRestoreDraft();
-    obShowStep(1);
+    obShowStep(obCurrentStep);
     </script>
 </body>
 </html>
@@ -1279,7 +1675,8 @@ HTML;
      * الموقع؟ بيرجّع الـ job_id لو موجود (عشان الواجهة تحط polling عليه)
      * أو null لو مفيش. أي خطأ DB بيرجّع null (مش نحظر الـOnboarding).
      */
-    private function activeOnboardingJobId(int $websiteId): ?int {
+    private function activeOnboardingJobId(int $websiteId): ?int
+    {
         try {
             // REGEXP بحدود: يطابق `"website_id":5` بس مش `"website_id":50`
             $rows = $this->db->query(
@@ -1297,13 +1694,16 @@ HTML;
      * بيرجّع ['id','audit_data'] أو null. audit_data بنفس شكل اللي
      * websiteAuditStatus بترجّعه عشان الواجهة تعرضه مباشرة.
      */
-    private function recentCompletedAudit(int $websiteId, int $withinMinutes): ?array {
+    private function recentCompletedAudit(int $websiteId, int $withinMinutes): ?array
+    {
         try {
             $rows = $this->db->query(
                 "SELECT id, overall_score, completed_at FROM wo_audits WHERE website_id = ? AND status = 'completed' AND completed_at >= NOW() - INTERVAL ? MINUTE ORDER BY id DESC LIMIT 1",
                 [$websiteId, $withinMinutes]
             );
-            if (empty($rows)) return null;
+            if (empty($rows)) {
+                return null;
+            }
 
             $auditId = (int) $rows[0]['id'];
             $findingsCount = (int) ($this->db->query(
@@ -1318,7 +1718,9 @@ HTML;
             $categoryScores = [];
             foreach ($catRows as $cr) {
                 $total = (int) ($cr['total'] ?? 0);
-                if ($total <= 0) continue;
+                if ($total <= 0) {
+                    continue;
+                }
                 $passed = (int) ($cr['passed'] ?? 0);
                 $categoryScores[] = [
                     'category' => (string) $cr['category'],
@@ -1545,7 +1947,8 @@ HTML;
      * الموحّد لو متاح، وبنكتفي بـLogger لو مش متحمّل (class_exists) - وأي
      * فشل تسجيل ميكسّرش الطلب أبدًا.
      */
-    private function recordEvent(string $action, array $meta = []): void {
+    private function recordEvent(string $action, array $meta = []): void
+    {
         try {
             if (class_exists('ActivityLog')) {
                 ActivityLog::record('onboarding', $action, [

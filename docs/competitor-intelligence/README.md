@@ -1,10 +1,17 @@
 # Tourfecto — Competitor Intelligence Module
 
-> Version 1.5.1 — a self-contained module for discovering, tracking, and
+> Version 1.6.0 — a self-contained module for discovering, tracking, and
 > benchmarking competitors: monitoring, change detection, alerts, AI
 > insights, reports, and settings. Arabic-first codebase (comments, UI
-> strings, Lang files). v1.5.1 adds the competitive-differentiator pass:
+> strings, Lang files). v1.5.1 added the competitive-differentiator pass:
 > structured price tracking, careers/hiring signals, and CSV export.
+> **v1.6.0** is a UI-only professionalization pass: the embedded panel was
+> rebuilt on the unified "Compass" design system (`panel.css`), all emoji
+> were replaced by a single SVG icon sprite shared by PHP and JS, stat
+> tiles + skeleton/empty states + a custom confirm/prompt modal were added,
+> full ARIA/focus/keyboard support (`tab`/`dialog` roles, Escape close,
+> focus restore, `prefers-reduced-motion`), and 33 `ci.*` i18n keys were
+> added to `en.php`/`ar.php`. No API/route/migration changed.
 
 ## Quick navigation
 
