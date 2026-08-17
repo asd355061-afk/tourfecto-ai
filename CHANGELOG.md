@@ -1,4 +1,39 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## v1.7.0 — بيع داخل الشات + نظام أيقونات SVG موحّد (In-Chat Quotes + Icon Polish) — 2026-08-17
+
+إضافة **بيع داخل الشات عبر عروض أسعار (In-Chat Quotes)** ونظام **أيقونات SVG مركزي**
+مع توحيد كل صفحات AI Chat Platform على نمط الواجهة الاحترافي الجديد — بلا كسر أي
+من المسارات الـ32 الخاصة بالمنصة.
+
+### بيع داخل الشات (In-Chat Quotes)
+- جدول `ai_quotes` جديد (migration `2026_08_16_000002_create_ai_quotes_table.sql`): items
+  JSON، subtotal/discount/total، currency، status enum
+  `draft/sent/accepted/declined/expired/cancelled`، quote_number تسلسلي، created_by_user_id + فهارس.
+- `AiQuote` model جديد: `forWebsite()` + `nextQuoteNumber()` (يستخدم `Database::query` مباشرة).
+- `AiQuoteController` جديد: `index/store/update/send` + `serialize()` + مخصّصات ملكية
+  (`authorizedWebsite/authorizedConversation/authorizedQuote`) على نفس نمط بقية الـControllers.
+- `send()` يبني رسالة بصيغة WhatsApp، يرسلها عبر `ChatManager::sendMessageForWebsite()`،
+  يسجّل الرسالة outgoing في `chat_messages`، ويحوّل الحالة إلى `sent` (تظهر في الثريد الموحّد).
+- قبول العرض يغلق حلقة المبيعات: `quoteSetStatus('accepted')` → lead_status `converted` + status `resolved`.
+- 4 مسارات جديدة: `GET/POST /api/ai-chat/websites/{id}/quotes`، `PUT .../quotes/{id}`، `POST .../quotes/{id}/send`.
+- UI في صفحة `/chat`: زر "عرض سعر" + محرّر عروض (عناصر name/qty/unit_price ديناميكية + خصم + عملة + ملاحظات)
+  + قائمة بطاقات العروض بأزرار إرسال/قبول/رفض/إلغاء؛ `quoteLoad()` يُستدعى عند فتح أي محادثة.
+
+### نظام الأيقونات SVG الموحّد
+- `chatIcons()`: sprite مخفي (33 symbol: search/inbox/chart/book/sparkles/target/clock/gear/send/handoff/
+  pause/check/x/plus/trash/edit/refresh/alert/user/user-plus/phone/mail/globe/chat/tag/flag/external/
+  wallet/fire/dollar/phone-call) + `ic(name, cls)` + `chatUiCss()` (hover/focus-visible/transitions/
+  skeleton shimmer + `prefers-reduced-motion`).
+- `applyChatUi($html)`: يستبدل `{ICON_SPRITE}`/`{CHAT_UI_CSS}` وplaceholders `{IC_*}` — heredocs تبقى readable.
+- طُبّق على كل صفحات الشات: `/chat` (toolbar + حالات التحميل/الخطأ/الفارغة + lead panel + threads)،
+  `analytics`، `learning`، `knowledge-base`، `followup`، `leads`، `pending`، `settings`، `conversation`.
+- استُبدلت كل الإيموجي في تلك الصفحات بأيقونات SVG (مع `aria-hidden` للوصولية).
+
+### التحقق
+- `php -l` نظيف على كل الملفات المعدّلة.
+- `tests/route_registration_test.php`: **32/32 passed** (أُضيفت 4 مسارات Quotes).
+- هارنس الـSidebar: 39 رابطًا، "منصة الشات الذكي" rendred صحيحة.
+
 ## v1.6.0 — واجهة احترافية لموديول ذكاء المنافسة (Professional UI) — 2026-08-16
 
 تمرير احترافي كامل على واجهة موديول **Competitor Intelligence** في
