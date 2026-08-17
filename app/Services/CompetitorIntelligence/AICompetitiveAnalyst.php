@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: AI Competitive Analyst
  * @version 1.0.0
@@ -9,18 +10,21 @@
  * يخترع مصادر أبدًا (يُعاد استخدام GeminiClient الموحّد بالمشروع، بنفس
  * أسلوب CompetitorAnalysisService الموجود مسبقًا).
  */
-class AICompetitiveAnalyst {
+class AICompetitiveAnalyst
+{
     /** @var GeminiClient */
     private $ai;
 
-    public function __construct(?GeminiClient $ai = null) {
+    public function __construct(?GeminiClient $ai = null)
+    {
         $this->ai = $ai ?? new GeminiClient();
     }
 
     /**
      * سؤال حر بالعربي أو الإنجليزي، مبني على آخر نشاط حقيقي مُسجَّل فقط.
      */
-    public function ask(int $userId, string $question, int $days = 30): array {
+    public function ask(int $userId, string $question, int $days = 30): array
+    {
         $context = $this->buildContext($userId, $days);
 
         if (empty($context['changes']) && empty($context['insights'])) {
@@ -41,7 +45,7 @@ class AICompetitiveAnalyst {
         return [
             'success' => true,
             'answer' => trim((string) ($response['data'] ?? '')),
-            'grounded_on' => array_map(fn($c) => $c['summary'], array_slice($context['changes'], 0, 10)),
+            'grounded_on' => array_map(fn ($c) => $c['summary'], array_slice($context['changes'], 0, 10)),
         ];
     }
 
@@ -50,7 +54,8 @@ class AICompetitiveAnalyst {
      * Recommended Actions) - فقط لو توفرت بيانات كافية، وإلا يُرجَّع بوضوح
      * أن البيانات غير كافية بدل توليد ملخص فارغ/مُختلَق.
      */
-    public function weeklySummary(int $userId, int $websiteId): array {
+    public function weeklySummary(int $userId, int $websiteId): array
+    {
         $context = $this->buildContext($userId, 7);
 
         if (empty($context['changes'])) {
@@ -79,7 +84,8 @@ class AICompetitiveAnalyst {
         return ['available' => true, 'reason' => null, 'summary' => $parsed];
     }
 
-    private function buildContext(int $userId, int $days): array {
+    private function buildContext(int $userId, int $days): array
+    {
         $db = Database::getInstance();
 
         $changeRows = $db->query(
@@ -106,11 +112,12 @@ class AICompetitiveAnalyst {
         return ['changes' => $changes, 'insights' => $insightRows];
     }
 
-    private function buildPrompt(string $question, array $context): string {
-        $lines = array_map(fn($c) => '- ' . $c['summary'], $context['changes']);
+    private function buildPrompt(string $question, array $context): string
+    {
+        $lines = array_map(fn ($c) => '- ' . $c['summary'], $context['changes']);
         $dataBlock = implode("\n", $lines);
 
-        $insightLines = array_map(fn($i) => "- [{$i['type']}] {$i['title']}: {$i['description']}", $context['insights']);
+        $insightLines = array_map(fn ($i) => "- [{$i['type']}] {$i['title']}: {$i['description']}", $context['insights']);
         $insightBlock = implode("\n", $insightLines);
 
         return <<<PROMPT
@@ -138,7 +145,8 @@ PROMPT;
      * عشان تظهر في Competitor Profile زي أي insight تاني، ومُعلَّم إنه
      * تحليل مش حقيقة مؤكدة.
      */
-    public function analyzeProfile(Competitor $competitor): array {
+    public function analyzeProfile(Competitor $competitor): array
+    {
         $competitorId = (int) $competitor->getAttribute('id');
         $db = Database::getInstance();
 
@@ -146,7 +154,8 @@ PROMPT;
             "SELECT s1.* FROM ci_snapshots s1
              INNER JOIN (SELECT page_type, MAX(captured_at) AS max_date FROM ci_snapshots WHERE competitor_id = ? AND fetch_status = 'ok' GROUP BY page_type) s2
              ON s1.page_type = s2.page_type AND s1.captured_at = s2.max_date
-             WHERE s1.competitor_id = ?", [$competitorId, $competitorId]
+             WHERE s1.competitor_id = ?",
+            [$competitorId, $competitorId]
         );
 
         if (empty($snapshots)) {

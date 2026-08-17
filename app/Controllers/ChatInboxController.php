@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * Unified Inbox Controller (بند 1، 8، 15، 16): واجهة API للوحة الإدارة
@@ -10,8 +11,8 @@
  * @copyright 2026 Tourfecto
  */
 
-class ChatInboxController extends Controller {
-
+class ChatInboxController extends Controller
+{
     /** @var UnifiedInboxService */
     private $inbox;
 
@@ -21,7 +22,8 @@ class ChatInboxController extends Controller {
     /** @var AiReplySuggestionsService */
     private $replySuggestions;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->inbox = new UnifiedInboxService();
         $this->conversationModel = new AiChatConversation();
@@ -33,7 +35,8 @@ class ChatInboxController extends Controller {
      * GET /api/ai-chat/websites/{id}/conversations
      * Query: status, ai_status, lead_status, channel, priority, tag, search, page
      */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -53,7 +56,9 @@ class ChatInboxController extends Controller {
             'search' => $this->get('search'),
             'assigned_agent_id' => $this->get('assigned_agent_id'),
         ];
-        $filters = array_filter($filters, function ($v) { return $v !== null && $v !== ''; });
+        $filters = array_filter($filters, function ($v) {
+            return $v !== null && $v !== '';
+        });
 
         $page = max(1, (int) $this->get('page', 1));
         $limit = 30;
@@ -71,7 +76,8 @@ class ChatInboxController extends Controller {
      * تفاصيل محادثة واحدة: الرسائل + الملخص + الوسوم + حالة الـLead.
      * GET /api/ai-chat/websites/{id}/conversations/{conversationId}
      */
-    public function show(array $params = []): array {
+    public function show(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -108,7 +114,8 @@ class ChatInboxController extends Controller {
      * POST /api/ai-chat/websites/{id}/conversations/{conversationId}/reply
      * Body: message
      */
-    public function reply(array $params = []): array {
+    public function reply(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -170,7 +177,8 @@ class ChatInboxController extends Controller {
      * POST /api/ai-chat/websites/{id}/conversations/{conversationId}/handoff
      * Body: reason (اختياري)
      */
-    public function handoff(array $params = []): array {
+    public function handoff(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -195,7 +203,8 @@ class ChatInboxController extends Controller {
      * إعادة تفعيل الـAI بعد التحويل اليدوي.
      * POST /api/ai-chat/websites/{id}/conversations/{conversationId}/resume-ai
      */
-    public function resumeAI(array $params = []): array {
+    public function resumeAI(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -220,7 +229,8 @@ class ChatInboxController extends Controller {
      * PUT /api/ai-chat/websites/{id}/conversations/{conversationId}
      * Body: status, priority, assigned_agent_id, tags (array), do_not_contact
      */
-    public function update(array $params = []): array {
+    public function update(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -248,6 +258,16 @@ class ChatInboxController extends Controller {
 
         $this->inbox->updateConversation((int) $conversation->getAttribute('id'), $fields);
 
+        // Learning Loop: عند إغلاق/حل المحادثة نسجّل نتيجتها (هل حلها الـAI
+        // أم أحيلت لموظف؟) لتحسين معدلات الحل مستقبلًا (Zendesk/Fin).
+        if (in_array((string) ($fields['status'] ?? ''), ['resolved', 'closed'], true)) {
+            try {
+                (new LearningLoopService())->recordResolutionForClosedConversation((int) $conversation->getAttribute('id'));
+            } catch (Exception $e) {
+                Logger::warning('ChatInboxController: resolution recording failed', ['error' => $e->getMessage()]);
+            }
+        }
+
         return $this->success([], 'Conversation updated');
     }
 
@@ -255,7 +275,8 @@ class ChatInboxController extends Controller {
      * اقتراحات ردود جاهزة للموظف (بند 12) - لا يُرسَل أي شيء تلقائيًا.
      * GET /api/ai-chat/websites/{id}/conversations/{conversationId}/reply-suggestions
      */
-    public function suggestReplies(array $params = []): array {
+    public function suggestReplies(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -287,7 +308,8 @@ class ChatInboxController extends Controller {
      * @param int $websiteId
      * @return Website|null
      */
-    private function authorizedWebsite(int $websiteId): ?Website {
+    private function authorizedWebsite(int $websiteId): ?Website
+    {
         if ($websiteId <= 0) {
             return null;
         }
@@ -303,7 +325,8 @@ class ChatInboxController extends Controller {
      * @param int $websiteId
      * @return AiChatConversation|null
      */
-    private function authorizedConversation(int $conversationId, int $websiteId): ?AiChatConversation {
+    private function authorizedConversation(int $conversationId, int $websiteId): ?AiChatConversation
+    {
         if ($conversationId <= 0) {
             return null;
         }
@@ -319,7 +342,8 @@ class ChatInboxController extends Controller {
      * @param bool $detailed
      * @return array
      */
-    private function serializeConversation(AiChatConversation $conversation, bool $detailed = false): array {
+    private function serializeConversation(AiChatConversation $conversation, bool $detailed = false): array
+    {
         $data = [
             'id' => $conversation->getAttribute('id'),
             'channel' => $conversation->getAttribute('channel'),

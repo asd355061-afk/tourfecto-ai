@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Export User Data Job
  * @version 1.0.0
@@ -17,8 +18,10 @@
  * لا تُصدَّر أي أسرار: لا password_hash، لا api_token، لا
  * two_factor_secret/recovery_codes، ولا أي Access/Refresh Token خام.
  */
-class ExportUserDataJob implements QueueJobInterface {
-    public function handle(array $payload): void {
+class ExportUserDataJob implements QueueJobInterface
+{
+    public function handle(array $payload): void
+    {
         $requestId = (int) ($payload['export_request_id'] ?? 0);
         $userId = (int) ($payload['user_id'] ?? 0);
 

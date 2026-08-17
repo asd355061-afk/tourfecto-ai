@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Integrations Controller
  * صفحة واحدة موحّدة تجمع كل نقاط الربط الحقيقية الموجودة في المنصة
@@ -13,10 +14,11 @@
  * كده، عشان الصفحة تفضل معبّرة عن الواقع.
  * @version 1.0.0
  */
-class IntegrationsController extends Controller {
-
+class IntegrationsController extends Controller
+{
     /** GET /integrations */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             header('Location: /login?redirect=' . urlencode('/integrations'));
             exit;

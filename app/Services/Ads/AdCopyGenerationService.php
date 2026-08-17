@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Ad Copy Generation Service
  * توليد نصوص إعلانية + كلمات مفتاحية بالذكاء الاصطناعي لحملة موجودة،
@@ -13,7 +14,8 @@
  * فعليًا مش مجرد تعليمات للنموذج ممكن يتجاهلها.
  * @version 1.1.0
  */
-class AdCopyGenerationService {
+class AdCopyGenerationService
+{
     /** @var GeminiClient */
     private $ai;
 
@@ -45,17 +47,20 @@ class AdCopyGenerationService {
     /** دعوات لاتخاذ إجراء (CTA) نظيفة ومتوافقة مع أزرار المنصات الجاهزة - بنطلب من الذكاء الاصطناعي يختار منها بس عشان منحصلش على CTA غريب أو غير مدعوم */
     private const ALLOWED_CTAS = ['احجز الآن', 'تواصل معنا', 'اعرف أكتر', 'اتصل الآن', 'تسوق الآن', 'سجّل الآن', 'راسلنا واتساب'];
 
-    public function __construct(?GeminiClient $ai = null) {
+    public function __construct(?GeminiClient $ai = null)
+    {
         $this->ai = $ai ?? new GeminiClient();
     }
 
     /** قايمة الـ CTAs المسموحة - بتتعرض في الواجهة عشان تتطابق مع نفس القايمة اللي بيختار منها الذكاء الاصطناعي */
-    public static function allowedCtas(): array {
+    public static function allowedCtas(): array
+    {
         return self::ALLOWED_CTAS;
     }
 
     /** @return AdCopy[] */
-    public function generateCopies(AdCampaign $campaign, int $count = 3): array {
+    public function generateCopies(AdCampaign $campaign, int $count = 3): array
+    {
         $product = $campaign->getAttribute('objective') . ' - ' . $campaign->getAttribute('name');
 
         $prompt = $this->buildCopiesOnlyPrompt($product, $count);
@@ -104,7 +109,8 @@ class AdCopyGenerationService {
      * ملحوظة: النتيجة دي "معاينة" بس - ملهاش أي تأثير على قاعدة البيانات
      * لحد ما العميل يراجعها ويأكّد الإنشاء فعليًا.
      */
-    public function generateCampaignBrief(string $goalDescription, string $objectiveKey, ?float $dailyBudget = null): array {
+    public function generateCampaignBrief(string $goalDescription, string $objectiveKey, ?float $dailyBudget = null): array
+    {
         $objectiveLabel = self::OBJECTIVES[$objectiveKey] ?? $objectiveKey;
         $prompt = $this->buildFullBriefPrompt($goalDescription, $objectiveLabel, $dailyBudget);
 
@@ -168,7 +174,8 @@ class AdCopyGenerationService {
         ];
     }
 
-    private function buildCopiesOnlyPrompt(string $product, int $count): string {
+    private function buildCopiesOnlyPrompt(string $product, int $count): string
+    {
         return <<<PROMPT
 اكتب {$count} نسخ إعلانية مختلفة (A/B testing) لحملة إعلانية عن: "{$product}".
 كل نسخة لازم تلتزم حرفيًا بحدود منصات الإعلانات دي (لو الرد أطول هيتقطع تلقائيًا):
@@ -182,7 +189,8 @@ class AdCopyGenerationService {
 PROMPT;
     }
 
-    private function buildFullBriefPrompt(string $goalDescription, string $objectiveLabel, ?float $dailyBudget): string {
+    private function buildFullBriefPrompt(string $goalDescription, string $objectiveLabel, ?float $dailyBudget): string
+    {
         $budgetLine = $dailyBudget
             ? "الميزانية اليومية اللي العميل حاطط في دماغه: {$dailyBudget} دولار (اقترح تعديل عليها لو شايف إنها مش كافية أو زيادة عن اللازم، واشرح ليه)."
             : "العميل لسه محددش ميزانية - اقترح رقم واقعي بناءً على وصف العرض.";
@@ -224,14 +232,16 @@ PROMPT;
 PROMPT;
     }
 
-    private function parseJsonResponse(string $raw): ?array {
+    private function parseJsonResponse(string $raw): ?array
+    {
         $clean = preg_replace('/^```(json)?|```$/m', '', trim($raw));
         $parsed = json_decode(trim((string) $clean), true);
         return is_array($parsed) ? $parsed : null;
     }
 
     /** يفرض الحدود القصوى فعليًا بالقص (مش مجرد تحذير) - دي الضمانة الحقيقية لـ "من غير غلطة" */
-    private function enforceLimits(array $copy): array {
+    private function enforceLimits(array $copy): array
+    {
         $headline = trim((string) ($copy['headline'] ?? ''));
         $description = trim((string) ($copy['description'] ?? ''));
         $primaryText = trim((string) ($copy['primary_text'] ?? ''));
@@ -249,7 +259,8 @@ PROMPT;
         ];
     }
 
-    private function truncate(string $text, int $max): string {
+    private function truncate(string $text, int $max): string
+    {
         if (mb_strlen($text) <= $max) {
             return $text;
         }
@@ -261,14 +272,20 @@ PROMPT;
         return rtrim($truncated) . '…';
     }
 
-    private function charStatus(int $length, int $recommended, int $max): string {
-        if ($length <= $recommended) return 'ok';
-        if ($length <= $max) return 'warn';
+    private function charStatus(int $length, int $recommended, int $max): string
+    {
+        if ($length <= $recommended) {
+            return 'ok';
+        }
+        if ($length <= $max) {
+            return 'warn';
+        }
         return 'over';
     }
 
     /** كشف عبارات وأنماط بتزوّد احتمال رفض الإعلان من مراجعة المنصة - تحذير إرشادي بس، مش قص إجباري (النص المهني ده محتاج مراجعة بشرية) */
-    private function lintPolicy(string $text): array {
+    private function lintPolicy(string $text): array
+    {
         $warnings = [];
         $lower = mb_strtolower($text);
 
@@ -289,28 +306,59 @@ PROMPT;
         return $warnings;
     }
 
-    private function clampAge($value): int {
+    private function clampAge($value): int
+    {
         $age = (int) $value;
-        if ($age < 13) return 13;
-        if ($age > 65) return 65;
+        if ($age < 13) {
+            return 13;
+        }
+        if ($age > 65) {
+            return 65;
+        }
         return $age;
     }
 
-    private function cleanStringList($list): array {
-        if (!is_array($list)) return [];
+    private function cleanStringList($list): array
+    {
+        if (!is_array($list)) {
+            return [];
+        }
         $out = [];
         foreach ($list as $item) {
             $clean = trim((string) $item);
-            if ($clean !== '') $out[] = mb_substr($clean, 0, 100);
+            if ($clean !== '') {
+                $out[] = mb_substr($clean, 0, 100);
+            }
         }
         return array_slice($out, 0, 10);
     }
 
-    private function headlineMax(): int { return self::HEADLINE_MAX; }
-    private function headlineRecommended(): int { return self::HEADLINE_RECOMMENDED; }
-    private function descriptionMax(): int { return self::DESCRIPTION_MAX; }
-    private function descriptionRecommended(): int { return self::DESCRIPTION_RECOMMENDED; }
-    private function primaryTextMax(): int { return self::PRIMARY_TEXT_MAX; }
-    private function primaryTextRecommended(): int { return self::PRIMARY_TEXT_RECOMMENDED; }
-    private function allowedCtasList(): string { return implode('، ', self::ALLOWED_CTAS); }
+    private function headlineMax(): int
+    {
+        return self::HEADLINE_MAX;
+    }
+    private function headlineRecommended(): int
+    {
+        return self::HEADLINE_RECOMMENDED;
+    }
+    private function descriptionMax(): int
+    {
+        return self::DESCRIPTION_MAX;
+    }
+    private function descriptionRecommended(): int
+    {
+        return self::DESCRIPTION_RECOMMENDED;
+    }
+    private function primaryTextMax(): int
+    {
+        return self::PRIMARY_TEXT_MAX;
+    }
+    private function primaryTextRecommended(): int
+    {
+        return self::PRIMARY_TEXT_RECOMMENDED;
+    }
+    private function allowedCtasList(): string
+    {
+        return implode('، ', self::ALLOWED_CTAS);
+    }
 }

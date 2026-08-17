@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Google Places Discovery Source
  * @version 1.0.0
@@ -16,11 +17,13 @@
  * مفعّلة على نفس المشروع)، يرجّع available=false بسبب واضح - لا يخترع
  * نتائج بديلة أبدًا.
  */
-class GooglePlacesDiscoverySource implements CompetitorDiscoverySourceInterface {
+class GooglePlacesDiscoverySource implements CompetitorDiscoverySourceInterface
+{
     private const MAX_RESULTS = 6;
     private const TIMEOUT_SECONDS = 8;
 
-    public function discover(array $context): array {
+    public function discover(array $context): array
+    {
         $apiKey = $this->resolveApiKey();
         if ($apiKey === '') {
             return ['available' => false, 'reason' => 'google_maps_api_key_not_configured', 'candidates' => []];
@@ -56,7 +59,8 @@ class GooglePlacesDiscoverySource implements CompetitorDiscoverySourceInterface 
         return ['available' => true, 'reason' => null, 'candidates' => $candidates];
     }
 
-    public function sourceName(): string {
+    public function sourceName(): string
+    {
         return 'google_places';
     }
 
@@ -65,7 +69,8 @@ class GooglePlacesDiscoverySource implements CompetitorDiscoverySourceInterface 
      * واحتياطيًا GOOGLE_MAPS_API_KEY من .env لو الأدمن لسه ما ضبطش
      * الإعداد من اللوحة.
      */
-    private function resolveApiKey(): string {
+    private function resolveApiKey(): string
+    {
         if (class_exists('SystemSettingsService')) {
             $fromAdminPanel = (new SystemSettingsService())->get('google_maps_api_key', defined('GOOGLE_MAPS_API_KEY') ? GOOGLE_MAPS_API_KEY : '');
             if ($fromAdminPanel !== '') {
@@ -75,7 +80,8 @@ class GooglePlacesDiscoverySource implements CompetitorDiscoverySourceInterface 
         return defined('GOOGLE_MAPS_API_KEY') ? GOOGLE_MAPS_API_KEY : '';
     }
 
-    private function textSearch(string $query, string $apiKey): array {
+    private function textSearch(string $query, string $apiKey): array
+    {
         if (!function_exists('curl_init')) {
             return ['success' => false, 'error' => 'curl_extension_missing', 'places' => []];
         }
@@ -94,7 +100,8 @@ class GooglePlacesDiscoverySource implements CompetitorDiscoverySourceInterface 
         return ['success' => true, 'error' => null, 'places' => $response['results'] ?? []];
     }
 
-    private function placeDetails(string $placeId, string $apiKey): array {
+    private function placeDetails(string $placeId, string $apiKey): array
+    {
         if ($placeId === '') {
             return [];
         }
@@ -108,7 +115,8 @@ class GooglePlacesDiscoverySource implements CompetitorDiscoverySourceInterface 
         return ['website' => $response['result']['website'] ?? null];
     }
 
-    private function httpGetJson(string $url): ?array {
+    private function httpGetJson(string $url): ?array
+    {
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,

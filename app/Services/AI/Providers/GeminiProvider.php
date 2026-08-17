@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * محوّل (Adapter) لمزود Gemini، يبني فوق GeminiClient الموجود والمُختبر
@@ -13,27 +14,31 @@
  * @version 1.0.0
  */
 
-class GeminiProvider implements AIProviderInterface {
-
+class GeminiProvider implements AIProviderInterface
+{
     /** @var GeminiClient */
     private $client;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->client = new GeminiClient();
     }
 
-    public function getName(): string {
+    public function getName(): string
+    {
         return 'gemini';
     }
 
-    public function isConfigured(): bool {
+    public function isConfigured(): bool
+    {
         $key = class_exists('SystemSettingsService')
             ? (new SystemSettingsService())->get('gemini_api_key', GEMINI_API_KEY)
             : GEMINI_API_KEY;
         return !empty($key);
     }
 
-    public function generateReply(string $systemPrompt, array $messages, array $options = []): array {
+    public function generateReply(string $systemPrompt, array $messages, array $options = []): array
+    {
         $startTime = microtime(true);
         $prompt = $this->buildFlatPrompt($systemPrompt, $messages);
 
@@ -85,7 +90,8 @@ class GeminiProvider implements AIProviderInterface {
      * @param array $messages
      * @return string
      */
-    private function buildFlatPrompt(string $systemPrompt, array $messages): string {
+    private function buildFlatPrompt(string $systemPrompt, array $messages): string
+    {
         $parts = [];
         $parts[] = "### SYSTEM INSTRUCTIONS ###\n" . $systemPrompt;
 

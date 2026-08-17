@@ -1,10 +1,12 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * سجلّ استخدام وتكلفة كل طلب AI (بند 21).
  * @version 1.0.0
  */
-class AiUsageLog extends Model {
+class AiUsageLog extends Model
+{
     protected $table = 'ai_usage_logs';
     protected $fillable = [
         'website_id', 'user_id', 'conversation_id', 'provider', 'model',
@@ -18,7 +20,8 @@ class AiUsageLog extends Model {
      * @param string|null $sinceDate 'Y-m-d'
      * @return array
      */
-    public static function statsFor(int $websiteId, ?string $sinceDate = null): array {
+    public static function statsFor(int $websiteId, ?string $sinceDate = null): array
+    {
         $db = Database::getInstance();
         $sql = "SELECT
                     COUNT(*) as total_requests,

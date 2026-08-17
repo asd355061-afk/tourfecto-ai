@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - GBP Background Sync Job
  * Job منفصل حقيقي في نظام الطابور (queue) - مش بس اعتماد على الـ Cron
@@ -9,8 +10,10 @@
  * @version 1.0.0
  * @since 2026-08-10 (GBP Module Upgrade - Round 5)
  */
-class GbpBackgroundSyncJob implements QueueJobInterface {
-    public function handle(array $payload): void {
+class GbpBackgroundSyncJob implements QueueJobInterface
+{
+    public function handle(array $payload): void
+    {
         $websiteId = (int) ($payload['website_id'] ?? 0);
         $userId = (int) ($payload['user_id'] ?? 0);
 

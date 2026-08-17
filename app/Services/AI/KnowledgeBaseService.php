@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * خدمة قاعدة معرفة الشركة (بند 4): إدارة المحتوى + تجميعه في نص Context
@@ -9,8 +10,8 @@
  * @version 1.0.0
  */
 
-class KnowledgeBaseService {
-
+class KnowledgeBaseService
+{
     /** @var AiKnowledgeBase */
     private $model;
 
@@ -30,7 +31,8 @@ class KnowledgeBaseService {
         'brand_voice' => 'Brand Voice',
     ];
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->model = new AiKnowledgeBase();
     }
 
@@ -40,7 +42,8 @@ class KnowledgeBaseService {
      * @param array $data ['section','title','content','structured_data','language','tone','priority','created_by_user_id']
      * @return AiKnowledgeBase|null
      */
-    public function addEntry(int $websiteId, array $data): ?AiKnowledgeBase {
+    public function addEntry(int $websiteId, array $data): ?AiKnowledgeBase
+    {
         if (empty($data['section']) || !isset($this->sectionLabels[$data['section']])) {
             throw new InvalidArgumentException('Invalid knowledge base section: ' . ($data['section'] ?? ''));
         }
@@ -52,7 +55,7 @@ class KnowledgeBaseService {
             'title' => $data['title'] ?? null,
             'content' => $data['content'] ?? null,
             'structured_data' => isset($data['structured_data']) ? json_encode($data['structured_data'], JSON_UNESCAPED_UNICODE) : null,
-            'language' => $data['language'] ?? 'ar',
+            'language' => $data['language'] ?? 'en',
             'tone' => $data['tone'] ?? null,
             'priority' => $data['priority'] ?? 0,
             'is_active' => 1,
@@ -69,7 +72,8 @@ class KnowledgeBaseService {
      * @param array $data
      * @return bool
      */
-    public function updateEntry(int $entryId, int $websiteId, array $data): bool {
+    public function updateEntry(int $entryId, int $websiteId, array $data): bool
+    {
         $entry = $this->model->find($entryId);
         if (!$entry || (int) $entry->getAttribute('website_id') !== $websiteId) {
             return false;
@@ -92,7 +96,8 @@ class KnowledgeBaseService {
      * @param int $websiteId
      * @return bool
      */
-    public function deleteEntry(int $entryId, int $websiteId): bool {
+    public function deleteEntry(int $entryId, int $websiteId): bool
+    {
         return $this->updateEntry($entryId, $websiteId, ['is_active' => 0]);
     }
 
@@ -101,7 +106,8 @@ class KnowledgeBaseService {
      * @param int $websiteId
      * @return array
      */
-    public function getGroupedByCompany(int $websiteId): array {
+    public function getGroupedByCompany(int $websiteId): array
+    {
         $entries = $this->model->activeFor($websiteId);
         $grouped = [];
         foreach ($entries as $entry) {
@@ -117,7 +123,8 @@ class KnowledgeBaseService {
      * @param int $websiteId
      * @return array ['tone' => string, 'custom_instructions' => string|null]
      */
-    public function getBrandVoice(int $websiteId): array {
+    public function getBrandVoice(int $websiteId): array
+    {
         $entries = $this->model->forSection($websiteId, 'brand_voice');
         $tone = 'professional';
         $customInstructions = null;
@@ -136,11 +143,20 @@ class KnowledgeBaseService {
      * الأساسية بين الوحدة الحالية (Knowledge Base) وبين بند 4 و5 و9
      * (عدم اختلاق معلومات، وطلب تحويل لموظف عند نقص المعرفة).
      *
+     * تحسين تنافسي (Re-ranking): لو وُردت رسالة العميل `$customerMessage`
+     * ومعها `$maxEntries`، تُرتَّب العناصر حسب الصلة بـ
+     * `rerankForQuery()` ويُستخدم الأعلى صلة فقط بدل كل المحتوى —
+     * يحسّن دقة الإجابة ويوفر توكنز (مستوحى من Reranker في Intercom Fin).
+     * لغة محايدة تمامًا (تعمل على عربي/إنجليزي/أي لغة).
+     *
      * @param int $websiteId
      * @param string|null $language لو محدد، يُفضَّل محتوى بنفس اللغة أولاً
+     * @param string|null $customerMessage نص رسالة العميل للترتيب حسب الصلة
+     * @param int $maxEntries عدد أقصى للعناصر عند استخدام إعادة الترتيب (0 = الكل)
      * @return string
      */
-    public function buildContextForPrompt(int $websiteId, ?string $language = null): string {
+    public function buildContextForPrompt(int $websiteId, ?string $language = null, ?string $customerMessage = null, int $maxEntries = 0): string
+    {
         $entries = $this->model->activeFor($websiteId, $language);
 
         // لو لا يوجد محتوى بنفس اللغة، استخدم كل المحتوى المتاح كاحتياط
@@ -153,6 +169,11 @@ class KnowledgeBaseService {
                 . "You must NOT invent any company information, services, prices, or policies. "
                 . "If the customer asks anything beyond a generic greeting, tell them you need to "
                 . "check with the team and offer to connect them with a human agent.";
+        }
+
+        // إعادة ترتيب حسب الصلة بسؤال العميل (اختياري، عند توفير الرسالة والحد)
+        if ($customerMessage !== null && $maxEntries > 0) {
+            $entries = $this->rerankForQuery($entries, $customerMessage, $maxEntries);
         }
 
         $bySection = [];
@@ -183,5 +204,136 @@ class KnowledgeBaseService {
         }
 
         return $output;
+    }
+
+    /**
+     * إعادة ترتيب عناصر قاعدة المعرفة حسب صلة كل عنصر برسالة العميل
+     * (Re-ranking / Retrieval). خوارزمية لغة محايدة (agnostic): تقطيع
+     * الكلمات، وتجاهل علامات الترقيم واختلاف الحالة، ووزن الصلة من
+     * العنوان والمحتوى مع معاملات قسم/أولوية. لا تتطلب أي خدمة خارجية.
+     *
+     * @param array $entries عناصر AiKnowledgeBase
+     * @param string $customerMessage
+     * @param int $limit أقصى عدد عناصر يُرجَع
+     * @return array العناصر مرتبة تنازليًا حسب الصلة
+     */
+    public function rerankForQuery(array $entries, string $customerMessage, int $limit = 10): array
+    {
+        if (empty($entries)) {
+            return [];
+        }
+        $queryTokens = $this->tokenize($customerMessage);
+        if (empty($queryTokens)) {
+            return array_slice($entries, 0, $limit);
+        }
+
+        // أوزان أقسام: بعض الأقسام أقرب لنية العميل في المحادثة (FAQ/سعر/جولة)
+        $sectionWeights = [
+            'faq' => 1.4,
+            'pricing' => 1.3,
+            'service' => 1.2,
+            'tour' => 1.3,
+            'destination' => 1.2,
+            'policy' => 1.1,
+            'cancellation_policy' => 1.1,
+            'contact_info' => 1.0,
+            'business_hours' => 1.0,
+            'company_info' => 0.9,
+            'custom_instructions' => 0.9,
+        ];
+
+        $scored = [];
+        foreach ($entries as $entry) {
+            $title = (string) $entry->getAttribute('title');
+            $content = (string) $entry->getAttribute('content');
+            $section = (string) $entry->getAttribute('section');
+            $priority = (int) $entry->getAttribute('priority');
+
+            $titleTokens = $this->tokenize($title);
+            $contentTokens = $this->tokenize($content);
+
+            $titleHits = $this->countOverlap($queryTokens, $titleTokens);
+            $contentHits = $this->countOverlap($queryTokens, $contentTokens);
+
+            // الصلة: تطابق العنوان أعلى وزنًا من المحتوى (أسلوب RAG قياسي)
+            $score = ($titleHits * 2.0) + ($contentHits * 1.0);
+
+            if ($score <= 0) {
+                $score = 0.05; // حد أدنى حتى لا يختفي محتوى لا يطابقه أي كلمة
+            }
+
+            $score *= ($sectionWeights[$section] ?? 1.0);
+            $score += min(2.0, $priority * 0.5); // الأولوية الأعلى تُزيح قليلًا
+
+            $scored[] = ['entry' => $entry, 'score' => $score];
+        }
+
+        usort($scored, function ($a, $b) {
+            return $b['score'] <=> $a['score'];
+        });
+
+        return array_slice(array_map(function ($item) {
+            return $item['entry'];
+        }, $scored), 0, $limit);
+    }
+
+    /**
+     * تقطيع نص إلى كلمات مع تطبيع محايد للغة (حروف صغيرة + إزالة ترقيم
+     * + استثناء الكلمات الأكثر شيوعًا التي لا تحمل معنى).
+     * @param string $text
+     * @return string[]
+     */
+    private function tokenize(string $text): array
+    {
+        $text = mb_strtolower(trim($text));
+        if ($text === '') {
+            return [];
+        }
+        $text = preg_replace('/[\p{P}\p{S}]/u', ' ', $text);
+        $text = preg_replace('/\s+/u', ' ', $text);
+
+        $words = preg_split('/\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if (empty($words)) {
+            return [];
+        }
+
+        $stopWords = [
+            'the', 'a', 'an', 'is', 'are', 'was', 'were', 'to', 'of', 'in',
+            'on', 'for', 'and', 'or', 'with', 'about', 'at', 'do', 'does',
+            'did', 'i', 'you', 'we', 'can', 'could', 'will', 'would', 'what',
+            'how', 'when', 'where', 'who', 'which', 'it', 'its', 'my', 'your',
+            'our', 'their', 'this', 'that', 'these', 'those', 'have', 'has',
+            'had', 'be', 'by', 'from', 'as', 'than', 'then', 'there', 'please',
+            'hi', 'hello', 'hey', 'thank', 'thanks', 'yes', 'no', 'ok', 'okay',
+            'على', 'من', 'عن', 'في', 'إلى', 'الى', 'ما', 'لا', 'هل', 'و',
+            'التي', 'الذي', 'هذا', 'هذه', 'مع', 'بين', 'بعد', 'قبل', 'كل',
+        ];
+
+        return array_values(array_filter($words, function ($word) use ($stopWords) {
+            $word = trim($word);
+            return $word !== '' && mb_strlen($word) >= 2 && !in_array($word, $stopWords, true);
+        }));
+    }
+
+    /**
+     * عدد كلمات الاستعلام المطابقة في نص مرجعي (لكلمة تظهر مرتين تُحسب مرتين).
+     * @param string[] $queryTokens
+     * @param string[] $targetTokens
+     * @return int
+     */
+    private function countOverlap(array $queryTokens, array $targetTokens): int
+    {
+        if (empty($queryTokens) || empty($targetTokens)) {
+            return 0;
+        }
+        $targetCounts = array_count_values($targetTokens);
+        $hits = 0;
+        foreach ($queryTokens as $token) {
+            if (isset($targetCounts[$token]) && $targetCounts[$token] > 0) {
+                $hits++;
+                $targetCounts[$token]--;
+            }
+        }
+        return $hits;
     }
 }

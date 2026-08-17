@@ -1,9 +1,11 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Page Snapshot Model
  * @version 1.0.0
  */
-class CiSnapshot extends Model {
+class CiSnapshot extends Model
+{
     protected $table = 'ci_snapshots';
     protected $fillable = [
         'competitor_id', 'page_type', 'url', 'http_status', 'content_hash',

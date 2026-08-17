@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Ad Campaign Service (إدارة الإعلانات)
  * لا يوجد أي موديول مرفوع يغطي الإعلانات - هذا بناء جديد بالكامل بنفس
@@ -8,14 +9,16 @@
  * الموجود، عبر platform_connections (platform = google_ads/meta_ads).
  * @version 1.1.0
  */
-class AdCampaignService {
+class AdCampaignService
+{
     /**
      * إنشاء حملة. لو الطلب فيه `audience` أو `copies` أو `budget_recommendation`
      * (من ويزارد الذكاء الاصطناعي)، بيتحفظوا كلهم مع بعض في معاملة واحدة
      * (transaction) عشان الحملة متتحفظش أبدًا من غير جمهورها ونصوصها لو
      * حصل خطأ نص الطريق.
      */
-    public function create(int $userId, array $data): AdCampaign {
+    public function create(int $userId, array $data): AdCampaign
+    {
         $db = Database::getInstance();
         $db->beginTransaction();
 
@@ -71,7 +74,9 @@ class AdCampaignService {
             if (!empty($data['copies']) && is_array($data['copies'])) {
                 $labels = ['A', 'B', 'C', 'D', 'E'];
                 foreach (array_slice($data['copies'], 0, 5) as $i => $c) {
-                    if (empty($c['headline'])) continue;
+                    if (empty($c['headline'])) {
+                        continue;
+                    }
                     $copy = new AdCopy([
                         'campaign_id' => $campaignId,
                         'headline' => $c['headline'] ?? null,
@@ -86,13 +91,13 @@ class AdCampaignService {
                 }
             }
 
-            // كلمات مفتاحية (خاصة بحملات بحث Google Ads بشكل أساسي) - بتيجي من
-            // ويزارد الذكاء الاصطناعي لما يكون platform=google_ads
             if (!empty($data['keywords']) && is_array($data['keywords'])) {
                 foreach (array_slice($data['keywords'], 0, 30) as $k) {
                     $keywordText = is_array($k) ? ($k['keyword'] ?? '') : (string) $k;
                     $keywordText = trim($keywordText);
-                    if ($keywordText === '') continue;
+                    if ($keywordText === '') {
+                        continue;
+                    }
 
                     $matchType = is_array($k) && in_array($k['match_type'] ?? '', ['exact', 'phrase', 'broad', 'negative'], true)
                         ? $k['match_type'] : 'phrase';
@@ -124,7 +129,70 @@ class AdCampaignService {
         return $campaign;
     }
 
-    public function listForUser(int $userId): array {
-        return (new AdCampaign())->where(['user_id' => $userId], ['created_at' => 'DESC']);
+    /**
+     * لاحظ إن الـmethod دي اتحوّلت لـSQL مباشر بدل Model::where() - Model::where()
+     * مبيقدرش يعبّر عن `deleted_at IS NULL` (بيولّد `deleted_at = ?` دايمًا
+     * حتى لو القيمة NULL، وده مش بيطابق صفوف NULL في SQL). التغيير ده
+     * بيحافظ على نفس السلوك القديم بالظبط (كل حملات المستخدم مرتّبة
+     * بالأحدث) + استبعاد الحملات المحذوفة (Soft Delete) اللي محتاجة
+     * الاستبعاد ده أصلًا عشان الميزة تشتغل صح.
+     */
+    public function listForUser(int $userId): array
+    {
+        $rows = Database::getInstance()->query(
+            "SELECT * FROM ad_campaigns WHERE user_id = ? AND deleted_at IS NULL ORDER BY created_at DESC",
+            [$userId]
+        );
+        return array_map(fn ($r) => new AdCampaign($r), $rows);
+    }
+
+    /**
+     * نسخة Server-side كاملة من listForUser(): بحث (LIKE على الاسم)،
+     * فلترة (حالة/منصة)، ترتيب، وTرقيم صفحات حقيقي (LIMIT/OFFSET) - مطلوبة
+     * لأداء صفحة "الحملات" لأي حساب فيه عدد كبير من الحملات (بند 31 من
+     * طلب الـFrontend "Performance"). listForUser() الأصلية فضلت زي ما هي
+     * من غير أي تعديل - أي استدعاء قديم ليها لسه شغال بالظبط زي الأول.
+     *
+     * @return array{campaigns: array, total: int, page: int, per_page: int}
+     */
+    public function listForUserPaginated(int $userId, array $filters = []): array
+    {
+        $db = Database::getInstance();
+
+        $page = max(1, (int) ($filters['page'] ?? 1));
+        $perPage = max(1, min(100, (int) ($filters['per_page'] ?? 20)));
+        $offset = ($page - 1) * $perPage;
+
+        $allowedSorts = ['created_at', 'name', 'spend', 'daily_budget', 'status'];
+        $sortField = in_array($filters['sort'] ?? '', $allowedSorts, true) ? $filters['sort'] : 'created_at';
+        $sortDir = (($filters['dir'] ?? 'desc') === 'asc') ? 'ASC' : 'DESC';
+
+        $where = ['user_id = ?', 'deleted_at IS NULL'];
+        $params = [$userId];
+
+        if (!empty($filters['search'])) {
+            $where[] = 'name LIKE ?';
+            $params[] = '%' . $filters['search'] . '%';
+        }
+        if (!empty($filters['status'])) {
+            $where[] = 'status = ?';
+            $params[] = $filters['status'];
+        }
+        if (!empty($filters['platform_connection_id'])) {
+            $where[] = 'platform_connection_id = ?';
+            $params[] = (int) $filters['platform_connection_id'];
+        }
+
+        $whereSql = implode(' AND ', $where);
+
+        $totalRow = $db->query("SELECT COUNT(*) as cnt FROM ad_campaigns WHERE {$whereSql}", $params);
+        $total = (int) ($totalRow[0]['cnt'] ?? 0);
+
+        $rows = $db->query(
+            "SELECT * FROM ad_campaigns WHERE {$whereSql} ORDER BY {$sortField} {$sortDir} LIMIT {$perPage} OFFSET {$offset}",
+            $params
+        );
+
+        return ['campaigns' => $rows, 'total' => $total, 'page' => $page, 'per_page' => $perPage];
     }
 }

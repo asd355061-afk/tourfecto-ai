@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Formatting Helper
  * دوال تنسيق النصوص والأرقام والتواريخ
@@ -15,14 +16,15 @@ if (!function_exists('format_currency')) {
      * @param int $decimals
      * @return string
      */
-    function format_currency(float $amount, string $currency = 'USD', int $decimals = 2): string {
+    function format_currency(float $amount, string $currency = 'USD', int $decimals = 2): string
+    {
         $symbols = CURRENCY_SYMBOLS ?? [
-            'USD' => '$', 'EUR' => '€', 'GBP' => '£', 
+            'USD' => '$', 'EUR' => '€', 'GBP' => '£',
             'EGP' => 'E£', 'SAR' => '﷼', 'AED' => 'د.إ'
         ];
-        
+
         $symbol = $symbols[$currency] ?? $currency;
-        
+
         return $symbol . number_format($amount, $decimals);
     }
 }
@@ -53,7 +55,8 @@ if (!function_exists('format_percentage')) {
      * @param int $decimals
      * @return string
      */
-    function format_percentage(float $value, int $decimals = 2): string {
+    function format_percentage(float $value, int $decimals = 2): string
+    {
         return number_format($value, $decimals) . '%';
     }
 }
@@ -65,14 +68,15 @@ if (!function_exists('format_money')) {
      * @param string $currency
      * @return string
      */
-    function format_money(float $amount, string $currency = 'USD'): string {
+    function format_money(float $amount, string $currency = 'USD'): string
+    {
         $formatted = format_currency($amount, $currency);
-        
+
         // إضافة مسافة بين الرمز والمبلغ
         if (in_array($currency, ['EGP', 'SAR', 'AED', 'KWD', 'BHD'])) {
             return $formatted . ' ' . $currency;
         }
-        
+
         return $formatted;
     }
 }
@@ -84,9 +88,10 @@ if (!function_exists('format_phone')) {
      * @param string $format
      * @return string
      */
-    function format_phone(string $phone, string $format = 'default'): string {
+    function format_phone(string $phone, string $format = 'default'): string
+    {
         $phone = preg_replace('/[^0-9]/', '', $phone);
-        
+
         if ($format === 'international') {
             if (strlen($phone) === 10) {
                 return '+1 ' . substr($phone, 0, 3) . '-' . substr($phone, 3, 3) . '-' . substr($phone, 6, 4);
@@ -95,16 +100,16 @@ if (!function_exists('format_phone')) {
                 return '+' . substr($phone, 0, 1) . ' ' . substr($phone, 1, 3) . '-' . substr($phone, 4, 3) . '-' . substr($phone, 7, 4);
             }
         }
-        
+
         // تنسيق افتراضي
         if (strlen($phone) === 10) {
             return substr($phone, 0, 3) . '-' . substr($phone, 3, 3) . '-' . substr($phone, 6, 4);
         }
-        
+
         if (strlen($phone) === 11) {
             return substr($phone, 0, 1) . ' ' . substr($phone, 1, 3) . ' ' . substr($phone, 4, 3) . ' ' . substr($phone, 7, 4);
         }
-        
+
         return $phone;
     }
 }
@@ -116,29 +121,30 @@ if (!function_exists('format_address')) {
      * @param string $separator
      * @return string
      */
-    function format_address(array $address, string $separator = ', '): string {
+    function format_address(array $address, string $separator = ', '): string
+    {
         $parts = [];
-        
+
         if (isset($address['street'])) {
             $parts[] = $address['street'];
         }
-        
+
         if (isset($address['city'])) {
             $parts[] = $address['city'];
         }
-        
+
         if (isset($address['state'])) {
             $parts[] = $address['state'];
         }
-        
+
         if (isset($address['postal_code'])) {
             $parts[] = $address['postal_code'];
         }
-        
+
         if (isset($address['country'])) {
             $parts[] = $address['country'];
         }
-        
+
         return implode($separator, $parts);
     }
 }
@@ -150,12 +156,13 @@ if (!function_exists('format_json')) {
      * @param bool $pretty
      * @return string
      */
-    function format_json($data, bool $pretty = true): string {
+    function format_json($data, bool $pretty = true): string
+    {
         $flags = JSON_UNESCAPED_UNICODE;
         if ($pretty) {
             $flags |= JSON_PRETTY_PRINT;
         }
-        
+
         return json_encode($data, $flags);
     }
 }
@@ -168,13 +175,14 @@ if (!function_exists('format_xml')) {
      * @param bool $pretty
      * @return string
      */
-    function format_xml(array $data, string $root = 'root', bool $pretty = true): string {
+    function format_xml(array $data, string $root = 'root', bool $pretty = true): string
+    {
         $xml = new SimpleXMLElement('<' . $root . '/>');
         array_to_xml($data, $xml);
-        
+
         $dom = dom_import_simplexml($xml)->ownerDocument;
         $dom->formatOutput = $pretty;
-        
+
         return $dom->saveXML();
     }
 }
@@ -184,13 +192,14 @@ if (!function_exists('format_xml')) {
  * @param array $data
  * @param SimpleXMLElement $xml
  */
-function array_to_xml(array $data, SimpleXMLElement $xml): void {
+function array_to_xml(array $data, SimpleXMLElement $xml): void
+{
     foreach ($data as $key => $value) {
         if (is_array($value)) {
             if (isset($value['@attributes'])) {
                 $attributes = $value['@attributes'];
                 unset($value['@attributes']);
-                
+
                 $child = $xml->addChild($key);
                 foreach ($attributes as $attrKey => $attrValue) {
                     $child->addAttribute($attrKey, $attrValue);
@@ -213,7 +222,8 @@ if (!function_exists('format_slug')) {
      * @param string $separator
      * @return string
      */
-    function format_slug(string $text, string $separator = '-'): string {
+    function format_slug(string $text, string $separator = '-'): string
+    {
         return slugify($text, $separator);
     }
 }
@@ -226,18 +236,19 @@ if (!function_exists('format_truncate')) {
      * @param string $suffix
      * @return string
      */
-    function format_truncate(string $text, int $length = 100, string $suffix = '...'): string {
+    function format_truncate(string $text, int $length = 100, string $suffix = '...'): string
+    {
         if (mb_strlen($text) <= $length) {
             return $text;
         }
-        
+
         $text = mb_substr($text, 0, $length);
         $lastSpace = mb_strrpos($text, ' ');
-        
+
         if ($lastSpace !== false) {
             $text = mb_substr($text, 0, $lastSpace);
         }
-        
+
         return $text . $suffix;
     }
 }
@@ -249,19 +260,20 @@ if (!function_exists('format_camel_case')) {
      * @param bool $capitalizeFirst
      * @return string
      */
-    function format_camel_case(string $text, bool $capitalizeFirst = false): string {
+    function format_camel_case(string $text, bool $capitalizeFirst = false): string
+    {
         $words = explode(' ', str_replace(['-', '_'], ' ', $text));
-        
+
         foreach ($words as &$word) {
             $word = ucfirst(strtolower($word));
         }
-        
+
         $result = implode('', $words);
-        
+
         if (!$capitalizeFirst) {
             $result = lcfirst($result);
         }
-        
+
         return $result;
     }
 }
@@ -272,7 +284,8 @@ if (!function_exists('format_snake_case')) {
      * @param string $text
      * @return string
      */
-    function format_snake_case(string $text): string {
+    function format_snake_case(string $text): string
+    {
         $text = preg_replace('/\s+/', '_', $text);
         $text = preg_replace('/-/', '_', $text);
         return strtolower($text);
@@ -285,7 +298,8 @@ if (!function_exists('format_kebab_case')) {
      * @param string $text
      * @return string
      */
-    function format_kebab_case(string $text): string {
+    function format_kebab_case(string $text): string
+    {
         $text = preg_replace('/\s+/', '-', $text);
         $text = preg_replace('/_/', '-', $text);
         return strtolower($text);
@@ -299,11 +313,12 @@ if (!function_exists('format_duration')) {
      * @param string $format
      * @return string
      */
-    function format_duration(int $seconds, string $format = 'hms'): string {
+    function format_duration(int $seconds, string $format = 'hms'): string
+    {
         $hours = floor($seconds / 3600);
         $minutes = floor(($seconds % 3600) / 60);
         $secs = $seconds % 60;
-        
+
         switch ($format) {
             case 'hms':
                 return sprintf('%02d:%02d:%02d', $hours, $minutes, $secs);

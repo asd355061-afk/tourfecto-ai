@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - UltraMsg API Integration
  * تكامل مع UltraMsg لخدمات WhatsApp
@@ -13,7 +14,8 @@
  * نفسه (https://api.ultramsg.com/{instanceId}/...) - مش base URL منفصل
  * كان بيتحط من .env بشكل غير منطقي.
  */
-class UltraMsgAPI {
+class UltraMsgAPI
+{
     private string $instanceId;
     private string $apiKey;
     private string $baseUrl;
@@ -23,13 +25,15 @@ class UltraMsgAPI {
      * @param string $instanceId معرف المثيل الخاص بحساب هذا العميل على UltraMsg
      * @param string $apiKey توكن الحساب الخاص بهذا العميل
      */
-    public function __construct(string $instanceId = '', string $apiKey = '') {
+    public function __construct(string $instanceId = '', string $apiKey = '')
+    {
         $this->instanceId = $instanceId;
         $this->apiKey = $apiKey;
         $this->baseUrl = 'https://api.ultramsg.com/' . $instanceId;
     }
 
-    public function isConfigured(): bool {
+    public function isConfigured(): bool
+    {
         return $this->instanceId !== '' && $this->apiKey !== '';
     }
 
@@ -39,7 +43,8 @@ class UltraMsgAPI {
      * @param string $message - نص الرسالة
      * @return bool
      */
-    public function sendMessage(string $phoneNumber, string $message): bool {
+    public function sendMessage(string $phoneNumber, string $message): bool
+    {
         if (!$this->isConfigured()) {
             Logger::warning('UltraMsg not configured for this connection');
             return false;
@@ -73,7 +78,8 @@ class UltraMsgAPI {
     /**
      * جلب حالة الاتصال (متصل/QR مطلوب/إلخ) - مفيد لعرض حالة الربط للعميل.
      */
-    public function getInstanceStatus(): array {
+    public function getInstanceStatus(): array
+    {
         if (!$this->isConfigured()) {
             return ['success' => false, 'error' => 'UltraMsg غير مظبوط'];
         }
@@ -91,7 +97,8 @@ class UltraMsgAPI {
         ];
     }
 
-    private function makeRequest(string $method, string $url, array $params = []): array {
+    private function makeRequest(string $method, string $url, array $params = []): array
+    {
         $ch = curl_init();
 
         $fullUrl = $url . '?' . http_build_query($params);
@@ -126,7 +133,8 @@ class UltraMsgAPI {
         return ['success' => true, 'data' => $decoded, 'http_code' => $httpCode];
     }
 
-    private function cleanPhoneNumber(string $phoneNumber): string {
+    private function cleanPhoneNumber(string $phoneNumber): string
+    {
         $cleaned = preg_replace('/[^0-9+]/', '', $phoneNumber);
         $cleaned = ltrim($cleaned, '+');
 

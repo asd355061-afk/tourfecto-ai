@@ -58,7 +58,8 @@ if ($action === 'download') {
 /**
  * تنظيف ملف السجل
  */
-function clearLogFile(string $logFile): void {
+function clearLogFile(string $logFile): void
+{
     $logPath = __DIR__ . '/../storage/logs/' . $logFile;
     if (file_exists($logPath)) {
         file_put_contents($logPath, '');
@@ -68,7 +69,8 @@ function clearLogFile(string $logFile): void {
 /**
  * تحميل ملف السجل
  */
-function downloadLogFile(string $logFile): void {
+function downloadLogFile(string $logFile): void
+{
     $logPath = __DIR__ . '/../storage/logs/' . $logFile;
     if (file_exists($logPath)) {
         header('Content-Type: text/plain');
@@ -80,37 +82,39 @@ function downloadLogFile(string $logFile): void {
 /**
  * قراءة محتوى ملف السجل
  */
-function readLogFile(string $logFile, int $lines = 100, string $filter = ''): array {
+function readLogFile(string $logFile, int $lines = 100, string $filter = ''): array
+{
     $logPath = __DIR__ . '/../storage/logs/' . $logFile;
-    
+
     if (!file_exists($logPath)) {
         return ['error' => 'ملف السجل غير موجود: ' . $logFile];
     }
-    
+
     $content = file_get_contents($logPath);
     $logLines = explode("\n", $content);
     $logLines = array_filter($logLines);
-    
+
     // تطبيق الفلتر
     if (!empty($filter)) {
-        $logLines = array_filter($logLines, function($line) use ($filter) {
+        $logLines = array_filter($logLines, function ($line) use ($filter) {
             return stripos($line, $filter) !== false;
         });
     }
-    
+
     // جلب آخر N سطر
     $logLines = array_slice($logLines, -$lines);
-    
+
     return $logLines;
 }
 
 /**
  * تحليل سطر السجل
  */
-function parseLogLine(string $line): array {
+function parseLogLine(string $line): array
+{
     // تنسيق: [2026-01-09 14:30:25] ERROR: message
     preg_match('/\[(.*?)\]\s+(\w+):\s+(.*)/', $line, $matches);
-    
+
     if (empty($matches)) {
         return [
             'timestamp' => date('Y-m-d H:i:s'),
@@ -119,7 +123,7 @@ function parseLogLine(string $line): array {
             'raw' => $line
         ];
     }
-    
+
     return [
         'timestamp' => $matches[1] ?? date('Y-m-d H:i:s'),
         'level' => $matches[2] ?? 'INFO',
@@ -131,7 +135,8 @@ function parseLogLine(string $line): array {
 /**
  * الحصول على لون مستوى الخطأ
  */
-function getLevelColor(string $level): string {
+function getLevelColor(string $level): string
+{
     $colors = [
         'EMERGENCY' => '#dc3545',
         'ALERT' => '#fd7e14',
@@ -142,23 +147,24 @@ function getLevelColor(string $level): string {
         'INFO' => '#28a745',
         'DEBUG' => '#6c757d'
     ];
-    
+
     return $colors[strtoupper($level)] ?? '#6c757d';
 }
 
 /**
  * الحصول على قائمة ملفات السجلات
  */
-function getLogFiles(): array {
+function getLogFiles(): array
+{
     $logPath = __DIR__ . '/../storage/logs/';
     $files = glob($logPath . '*.log');
     $result = [];
-    
+
     foreach ($files as $file) {
         $filename = basename($file);
         $size = filesize($file);
         $modified = filemtime($file);
-        
+
         $result[] = [
             'name' => $filename,
             'size' => $size,
@@ -167,14 +173,15 @@ function getLogFiles(): array {
             'lines' => count(file($file))
         ];
     }
-    
+
     return $result;
 }
 
 /**
  * تنسيق الحجم
  */
-function formatSize(int $bytes): string {
+function formatSize(int $bytes): string
+{
     $units = ['B', 'KB', 'MB', 'GB'];
     $i = 0;
     while ($bytes >= 1024 && $i < 3) {
@@ -187,32 +194,33 @@ function formatSize(int $bytes): string {
 /**
  * الحصول على إحصائيات الأخطاء
  */
-function getErrorStats(string $logFile): array {
+function getErrorStats(string $logFile): array
+{
     $logPath = __DIR__ . '/../storage/logs/' . $logFile;
     if (!file_exists($logPath)) {
         return ['total' => 0, 'by_level' => []];
     }
-    
+
     $content = file_get_contents($logPath);
     $lines = explode("\n", $content);
     $lines = array_filter($lines);
-    
+
     $stats = [
         'total' => count($lines),
         'by_level' => [],
         'recent' => []
     ];
-    
+
     foreach ($lines as $line) {
         if (preg_match('/\]\s+(\w+):/', $line, $matches)) {
             $level = $matches[1];
             $stats['by_level'][$level] = ($stats['by_level'][$level] ?? 0) + 1;
         }
     }
-    
+
     // آخر 5 أخطاء
     $stats['recent'] = array_slice($lines, -5);
-    
+
     return $stats;
 }
 
@@ -837,15 +845,15 @@ $errorStats = getErrorStats($currentFile);
                     <div class="number"><?php echo count($logLines); ?></div>
                     <div class="label">إجمالي السطور</div>
                 </div>
-                <?php 
+                <?php
                 $levelCounts = [];
-                foreach ($logLines as $line) {
-                    if (preg_match('/\]\s+(\w+):/', $line, $m)) {
-                        $levelCounts[$m[1]] = ($levelCounts[$m[1]] ?? 0) + 1;
-                    }
-                }
-                foreach ($levelCounts as $level => $count): 
-                ?>
+foreach ($logLines as $line) {
+    if (preg_match('/\]\s+(\w+):/', $line, $m)) {
+        $levelCounts[$m[1]] = ($levelCounts[$m[1]] ?? 0) + 1;
+    }
+}
+foreach ($levelCounts as $level => $count):
+    ?>
                 <div class="stat-card">
                     <div class="number" style="color: <?php echo getLevelColor($level); ?>;">
                         <span class="level-indicator" style="background: <?php echo getLevelColor($level); ?>; display: inline-block;"></span>

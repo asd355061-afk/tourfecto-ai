@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Google Business Profile Content Service
  * توليد محتوى منشورات GBP بالذكاء الاصطناعي + جدولة نشرها. النشر
@@ -6,15 +7,18 @@
  * (نفس اتصال OAuth المستخدم لاستيراد المراجعات) - لا عميل API منفصل.
  * @version 1.0.0
  */
-class GbpContentService {
+class GbpContentService
+{
     /** @var GeminiClient */
     private $ai;
 
-    public function __construct(?GeminiClient $ai = null) {
+    public function __construct(?GeminiClient $ai = null)
+    {
         $this->ai = $ai ?? new GeminiClient();
     }
 
-    public function generate(int $userId, int $websiteId, string $type, string $prompt): GbpContent {
+    public function generate(int $userId, int $websiteId, string $type, string $prompt): GbpContent
+    {
         $typeLabels = ['update' => 'تحديث عام', 'offer' => 'عرض خاص', 'event' => 'فعالية', 'product' => 'منتج/خدمة'];
         $label = $typeLabels[$type] ?? 'تحديث عام';
 
@@ -51,7 +55,8 @@ class GbpContentService {
         return $content;
     }
 
-    public function schedule(int $contentId, int $platformConnectionId, string $scheduledAt): GbpScheduledPost {
+    public function schedule(int $contentId, int $platformConnectionId, string $scheduledAt): GbpScheduledPost
+    {
         $connection = (new PlatformConnection())->find($platformConnectionId);
         if (!$connection || $connection->getAttribute('platform') !== 'google_business') {
             throw new Exception('اتصال Google Business غير موجود أو غير صحيح');
@@ -103,7 +108,8 @@ class GbpContentService {
      * - لو المنشور اتجدول بالفعل، لازم تلغي الجدولة الأول (cancelScheduled)
      * قبل ما تقدر تعدّل، عشان منخليش نص يتغيّر تحت مهمة شغالة في الطابور.
      */
-    public function editContent(int $contentId, int $userId, string $newText): GbpContent {
+    public function editContent(int $contentId, int $userId, string $newText): GbpContent
+    {
         $content = (new GbpContent())->find($contentId);
         if (!$content || (int) $content->getAttribute('user_id') !== $userId) {
             throw new Exception('المنشور غير موجود');
@@ -138,7 +144,8 @@ class GbpContentService {
      * 'cancelled'. لو المنشور نشر بالفعل أو قيد التنفيذ دلوقتي، بيرفض
      * الإلغاء بدل ما يدّعي نجاح وهمي.
      */
-    public function cancelScheduled(int $scheduledPostId, int $userId): GbpScheduledPost {
+    public function cancelScheduled(int $scheduledPostId, int $userId): GbpScheduledPost
+    {
         $scheduled = (new GbpScheduledPost())->find($scheduledPostId);
         if (!$scheduled) {
             throw new Exception('الجدولة غير موجودة');
@@ -187,7 +194,8 @@ class GbpContentService {
     }
 
     /** تحقق: فيه جدولة "pending" فعلية لسه شغالة لنفس المحتوى؟ */
-    private function findActiveSchedule(int $contentId): ?GbpScheduledPost {
+    private function findActiveSchedule(int $contentId): ?GbpScheduledPost
+    {
         $rows = (new GbpScheduledPost())->where(['gbp_content_id' => $contentId, 'status' => 'pending'], [], 1);
         return !empty($rows) ? $rows[0] : null;
     }
@@ -199,7 +207,8 @@ class GbpContentService {
      * لحذف Local Post بعد نشره من غير Google Business Profile UI نفسه،
      * فمعملناش استدعاء وهمي هنا.
      */
-    public function deleteContent(int $contentId, int $userId): void {
+    public function deleteContent(int $contentId, int $userId): void
+    {
         $content = (new GbpContent())->find($contentId);
         if (!$content || (int) $content->getAttribute('user_id') !== $userId) {
             throw new Exception('المنشور غير موجود');

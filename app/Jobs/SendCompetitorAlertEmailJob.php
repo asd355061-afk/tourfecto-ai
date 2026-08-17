@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Send Alert Email Job
  * @version 1.0.0
@@ -8,8 +9,10 @@
  * الـ queue الحالي (jobs table + cron/process_queue.php) - نفس آلية كل
  * الـ Jobs الأخرى بالمشروع.
  */
-class SendCompetitorAlertEmailJob implements QueueJobInterface {
-    public function handle(array $payload): void {
+class SendCompetitorAlertEmailJob implements QueueJobInterface
+{
+    public function handle(array $payload): void
+    {
         $userId = (int) ($payload['user_id'] ?? 0);
         $title = (string) ($payload['title'] ?? 'Competitor Alert');
         $message = (string) ($payload['message'] ?? '');

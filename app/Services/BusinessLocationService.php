@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Location Service
  * @version 1.0.0
@@ -9,14 +10,15 @@
  * تاني، عشان أي كود مستقبلي (Onboarding Wizard مثلاً) يستخدم نفس المنطق
  * بدل ما يعيد كتابته وممكن يفوّت الحالة الحدّية.
  */
-class BusinessLocationService {
-
+class BusinessLocationService
+{
     /**
      * إنشاء موقع جديد. لو is_primary=true، بيلغي أي primary سابق لنفس
      * الـBusiness أولًا (Transaction-safe: لو فشل أي جزء، محدش هيفضل في
      * حالة نصف متضاربة - أكتر من موقع primary في نفس الوقت).
      */
-    public function create(int $businessId, array $data): BusinessLocation {
+    public function create(int $businessId, array $data): BusinessLocation
+    {
         $db = Database::getInstance();
         $wantsPrimary = !empty($data['is_primary']);
 
@@ -61,7 +63,8 @@ class BusinessLocationService {
     }
 
     /** تحديث موقع موجود - نفس منطق الـPrimary أعلاه */
-    public function update(BusinessLocation $location, array $data): bool {
+    public function update(BusinessLocation $location, array $data): bool
+    {
         $db = Database::getInstance();
         $businessId = (int) $location->getAttribute('business_id');
         $wantsPrimary = array_key_exists('is_primary', $data) && !empty($data['is_primary']);
@@ -110,7 +113,8 @@ class BusinessLocationService {
      * Primary خالص - كسر للـInvariant اللي الخدمة دي مكلفة بضمانه. دلوقتي
      * لو فشل أي جزء، كله بيتراجع والحذف نفسه مش بيحصل.
      */
-    public function delete(BusinessLocation $location): bool {
+    public function delete(BusinessLocation $location): bool
+    {
         $db = Database::getInstance();
         $businessId = (int) $location->getAttribute('business_id');
         $wasPrimary = (bool) $location->getAttribute('is_primary');
@@ -142,7 +146,8 @@ class BusinessLocationService {
         }
     }
 
-    private function clearPrimaryFlag(int $businessId): void {
+    private function clearPrimaryFlag(int $businessId): void
+    {
         Database::getInstance()->exec(
             'UPDATE business_locations SET is_primary = 0 WHERE business_id = ?',
             [$businessId]

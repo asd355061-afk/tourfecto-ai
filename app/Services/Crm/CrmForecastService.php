@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM AI Forecasting Service (بند 25)
  * @version 1.0.0
@@ -10,16 +11,19 @@
  * (بند 25: "لا تعرض التوقع كحقيقة")، وأي مقياس بدون بيانات كافية لحسابه
  * يُعاد كـnull صراحة بدل اختلاق رقم (بند 39).
  */
-class CrmForecastService {
+class CrmForecastService
+{
     private $db;
     private $dealService;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
         $this->dealService = new CrmDealService();
     }
 
-    public function forecast(int $ownerUserId): array {
+    public function forecast(int $ownerUserId): array
+    {
         $dashboard = new CrmDashboardService();
         $stats = $dashboard->stats($ownerUserId);
 

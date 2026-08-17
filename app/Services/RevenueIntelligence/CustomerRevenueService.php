@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Customer Revenue Intelligence Service
  * @version 1.0.0
@@ -14,16 +15,19 @@
  * "Customer Revenue" الفعلي، ونفصح عن ذلك بوضوح بدل الادعاء بشمولية
  * كاملة. لا نعيد بناء CRM - نقرأ منه فقط عبر RevenueDataGateway.
  */
-class CustomerRevenueService {
+class CustomerRevenueService
+{
     /** @var RevenueDataGateway */
     private $gateway;
 
-    public function __construct(?RevenueDataGateway $gateway = null) {
+    public function __construct(?RevenueDataGateway $gateway = null)
+    {
         $this->gateway = $gateway ?? new RevenueDataGateway();
     }
 
     /** قائمة عملاء مع مؤشرات الإيراد والتقسيم لكل واحد منهم. */
-    public function getCustomerRevenueIntelligence(int $userId): array {
+    public function getCustomerRevenueIntelligence(int $userId): array
+    {
         $wonDeals = $this->gateway->getWonDealsByContact($userId);
         if (empty($wonDeals)) {
             return [
@@ -35,16 +39,21 @@ class CustomerRevenueService {
         }
 
         $byContact = self::groupDealsByContact($wonDeals);
-        $totals = array_map(static function ($d) { return $d['total']; }, $byContact);
+        $totals = array_map(static function ($d) {
+            return $d['total'];
+        }, $byContact);
         $customers = self::buildCustomerRecords($byContact, $totals);
 
-        usort($customers, static function ($a, $b) { return $b['customer_revenue'] <=> $a['customer_revenue']; });
+        usort($customers, static function ($a, $b) {
+            return $b['customer_revenue'] <=> $a['customer_revenue'];
+        });
 
         return ['has_data' => true, 'customers' => $customers, 'data_source' => 'crm_deals (status=won)'];
     }
 
     /** تجميع الصفقات المكسوبة حسب contact_id. */
-    public static function groupDealsByContact(array $wonDeals): array {
+    public static function groupDealsByContact(array $wonDeals): array
+    {
         $out = [];
         foreach ($wonDeals as $deal) {
             $cid = (int) $deal['contact_id'];
@@ -63,7 +72,8 @@ class CustomerRevenueService {
      * @param array $totals قيم totals لكل عميل (لحساب الـ percentile)
      * @param string|null $nowStr للاختبار - تاريخ "الآن" الثابت
      */
-    public static function buildCustomerRecords(array $byContact, array $totals, ?string $nowStr = null): array {
+    public static function buildCustomerRecords(array $byContact, array $totals, ?string $nowStr = null): array
+    {
         $now = new DateTime($nowStr ?? 'now');
         sort($totals);
         $countTotals = count($totals);
@@ -71,7 +81,9 @@ class CustomerRevenueService {
         $customers = [];
         foreach ($byContact as $cid => $data) {
             $deals = $data['deals'];
-            usort($deals, static function ($a, $b) { return strcmp($a['closed_at'] ?? '', $b['closed_at'] ?? ''); });
+            usort($deals, static function ($a, $b) {
+                return strcmp($a['closed_at'] ?? '', $b['closed_at'] ?? '');
+            });
 
             $revenue = round($data['total'], 2);
             $frequency = count($deals);
@@ -88,8 +100,11 @@ class CustomerRevenueService {
                 $firstSum = array_sum(array_column($firstHalf, 'value'));
                 $secondSum = array_sum(array_column($secondHalf, 'value'));
                 if ($firstSum > 0) {
-                    if ($secondSum > $firstSum * 1.15) { $trend = 'growing'; }
-                    elseif ($secondSum < $firstSum * 0.85) { $trend = 'declining'; }
+                    if ($secondSum > $firstSum * 1.15) {
+                        $trend = 'growing';
+                    } elseif ($secondSum < $firstSum * 0.85) {
+                        $trend = 'declining';
+                    }
                 }
             }
 
@@ -115,18 +130,24 @@ class CustomerRevenueService {
         return $customers;
     }
 
-    private static function percentileRank(array $sortedTotals, float $value): float {
+    private static function percentileRank(array $sortedTotals, float $value): float
+    {
         $count = count($sortedTotals);
-        if ($count === 0) { return 0.0; }
+        if ($count === 0) {
+            return 0.0;
+        }
         $below = 0;
         foreach ($sortedTotals as $t) {
-            if ($t <= $value) { $below++; }
+            if ($t <= $value) {
+                $below++;
+            }
         }
         return round(($below / $count) * 100, 1);
     }
 
     /** VIP / High Value / Growing / Declining / Inactive - بترتيب أولوية واضح ومفسَّر. */
-    public static function determineSegment(?int $daysSinceLast, float $revenuePercentile, string $trend, int $frequency): string {
+    public static function determineSegment(?int $daysSinceLast, float $revenuePercentile, string $trend, int $frequency): string
+    {
         if ($daysSinceLast !== null && $daysSinceLast > 180) {
             return 'Inactive';
         }
@@ -149,7 +170,8 @@ class CustomerRevenueService {
      * Section 12: تجميع العملاء في Segments قابلة للفلترة، بالإضافة إلى
      * New/Returning المبنية على عدد الصفقات المكسوبة.
      */
-    public function getSegments(int $userId): array {
+    public function getSegments(int $userId): array
+    {
         $intelligence = $this->getCustomerRevenueIntelligence($userId);
         if (!$intelligence['has_data']) {
             return $intelligence;
@@ -168,7 +190,9 @@ class CustomerRevenueService {
                 'total_revenue' => round(array_sum(array_column($customers, 'customer_revenue')), 2),
             ];
         }
-        usort($summary, static function ($a, $b) { return $b['total_revenue'] <=> $a['total_revenue']; });
+        usort($summary, static function ($a, $b) {
+            return $b['total_revenue'] <=> $a['total_revenue'];
+        });
 
         return ['has_data' => true, 'summary' => $summary, 'segments' => $segments];
     }

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Search Console Controller
  * ربط حساب Google Search Console الخاص بكل عميل (OAuth) بكل موقع من مواقعه،
@@ -17,13 +18,15 @@
  *  3) GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET نفسهم المستخدمين في .env
  *     لـ Google Business (نفس المشروع، عميل OAuth واحد كفاية لأكتر من API).
  */
-class SearchConsoleController extends Controller {
-
-    private function userId(): ?int {
+class SearchConsoleController extends Controller
+{
+    private function userId(): ?int
+    {
         return $this->user['id'] ?? null;
     }
 
-    private function oauthClient(): GoogleOAuthClient {
+    private function oauthClient(): GoogleOAuthClient
+    {
         $redirectUri = defined('GOOGLE_SEARCH_CONSOLE_REDIRECT_URI')
             ? GOOGLE_SEARCH_CONSOLE_REDIRECT_URI
             : (getenv('GOOGLE_SEARCH_CONSOLE_REDIRECT_URI') ?: '');
@@ -31,7 +34,8 @@ class SearchConsoleController extends Controller {
         return new GoogleOAuthClient(GoogleOAuthClient::SCOPE_SEARCH_CONSOLE, $redirectUri ?: null);
     }
 
-    private function renderOAuthError(string $message): void {
+    private function renderOAuthError(string $message): void
+    {
         $safe = htmlspecialchars($message, ENT_QUOTES, 'UTF-8');
         $body = '<div class="p-card"><div class="p-empty"><div class="p-empty-icon">⚠️</div>' . $safe
             . '<br><br><a href="/websites" class="p-btn primary">الرجوع لمواقعي</a></div></div>';
@@ -42,7 +46,8 @@ class SearchConsoleController extends Controller {
     // ============================================
     // GET /search-console/connect/{website_id} - يبدأ تدفّق OAuth
     // ============================================
-    public function connect(array $params = []): array {
+    public function connect(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             header('Location: /login?redirect=' . urlencode('/websites'));
             exit;
@@ -73,7 +78,8 @@ class SearchConsoleController extends Controller {
     // ============================================
     // GET /search-console/callback - Google بيرجّع العميل هنا
     // ============================================
-    public function callback(array $params = []): array {
+    public function callback(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             header('Location: /login');
             exit;
@@ -126,7 +132,8 @@ class SearchConsoleController extends Controller {
     // ============================================
     // GET /search-console/choose - يختار العميل site
     // ============================================
-    public function showSitePicker(array $params = []): array {
+    public function showSitePicker(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             header('Location: /login');
             exit;
@@ -196,7 +203,8 @@ JS;
     // ============================================
     // POST /api/search-console/finalize
     // ============================================
-    public function finalize(array $params = []): array {
+    public function finalize(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -254,7 +262,8 @@ JS;
     // ============================================
     // POST /api/search-console/disconnect/{website_id}
     // ============================================
-    public function disconnect(array $params = []): array {
+    public function disconnect(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -287,7 +296,8 @@ JS;
     // ============================================
     // GET /api/search-console/stats/{website_id} - ملخص آخر 28 يوم
     // ============================================
-    public function stats(array $params = []): array {
+    public function stats(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('غير مسجل دخول', 401);
         }

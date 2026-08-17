@@ -1,13 +1,18 @@
 <?php
-/** Tourfecto - CRM Note Service @version 1.0.0 */
-class CrmNoteService {
-    public function create(int $userId, array $data): CrmNote {
+
+/** Tourfecto - CRM Note Service @version 1.1.0 */
+class CrmNoteService
+{
+    /** $actorUserId اختياري (بند 30 - استكمال) - راجع نفس الشرح في CrmTaskService::create() */
+    public function create(int $userId, array $data, ?int $actorUserId = null): CrmNote
+    {
         if (empty($data['body'])) {
             throw new Exception('نص الملاحظة مطلوب');
         }
+        $actorUserId = $actorUserId ?? $userId;
         $note = new CrmNote([
             'user_id' => $userId,
-            'author_user_id' => $userId,
+            'author_user_id' => $actorUserId,
             'related_type' => $data['related_type'] ?? null,
             'related_id' => $data['related_id'] ?? null,
             'body' => $data['body'],
@@ -16,13 +21,14 @@ class CrmNoteService {
         $note->save();
 
         ActivityLog::record('crm', 'note.created', [
-            'user_id' => $userId, 'subject_type' => 'crm_notes', 'subject_id' => (int) $note->getAttribute('id'),
+            'user_id' => $actorUserId, 'subject_type' => 'crm_notes', 'subject_id' => (int) $note->getAttribute('id'),
         ]);
 
         return $note;
     }
 
-    public function forRelated(string $relatedType, int $relatedId): array {
+    public function forRelated(string $relatedType, int $relatedId): array
+    {
         return (new CrmNote())->forRelated($relatedType, $relatedId);
     }
 }

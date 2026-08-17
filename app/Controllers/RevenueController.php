@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Revenue Intelligence Controller
  * أول مصدر بيانات إيرادات حقيقي في المنصة - قبل كده كانت بطاقة
@@ -7,10 +8,11 @@
  * مصدر خارجي لاحقًا) ونحسب KPIs حقيقية منها.
  * @version 1.0.0 - BATCH6
  */
-class RevenueController extends Controller {
-
+class RevenueController extends Controller
+{
     /** GET /revenue */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $body = <<<HTML
         <div class="p-grid cols-4" id="revKpis">
             <div class="p-card stat-tile"><div class="stat-icon green">💰</div><div class="stat-info"><div class="stat-value" id="revTotal">0</div><div class="stat-label">{$this->tr('revenue.kpi.total')}</div></div></div>
@@ -109,8 +111,11 @@ JS;
     }
 
     /** POST /api/revenue/records */
-    public function createRecord(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function createRecord(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $amount = (float) $this->get('amount');
         $source = $this->get('source', 'manual');
@@ -142,8 +147,11 @@ JS;
     }
 
     /** GET /api/revenue/kpis */
-    public function getKpis(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getKpis(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $days = max(1, min(365, (int) $this->get('days', 30)));
         $userId = (int) $this->user['id'];
@@ -204,7 +212,9 @@ JS;
                 [$userId, $days]
             );
             $spendByDate = [];
-            foreach ($spendTrendRows as $r) { $spendByDate[$r['d']] = (float) $r['spend']; }
+            foreach ($spendTrendRows as $r) {
+                $spendByDate[$r['d']] = (float) $r['spend'];
+            }
             $trend = array_map(function ($r) use ($spendByDate) {
                 return ['date' => date('d M', strtotime($r['d'])), 'revenue' => round((float) $r['revenue'], 2), 'spend' => round($spendByDate[$r['d']] ?? 0, 2)];
             }, $trendRows);

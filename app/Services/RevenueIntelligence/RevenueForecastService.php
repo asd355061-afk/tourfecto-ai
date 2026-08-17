@@ -1,7 +1,8 @@
 <?php
+
 /**
  * Tourfecto - Revenue Forecast Service
- * @version 1.0.0
+ * @version 1.1.0
  *
  * Section 2: REVENUE FORECASTING
  *
@@ -13,14 +14,16 @@
  * لو البيانات غير كافية لموثوقية معقولة، نرجّع رسالة واضحة:
  * "Not enough data for reliable forecast." - لا نخترع أرقام.
  */
-class RevenueForecastService {
+class RevenueForecastService
+{
     /** أقل عدد أيام فيها إيراد فعلي مسجّل عشان نحاول Forecast أصلاً. */
     public const MIN_DATA_POINTS = 10;
 
     /** @var RevenueDataGateway */
     private $gateway;
 
-    public function __construct(?RevenueDataGateway $gateway = null) {
+    public function __construct(?RevenueDataGateway $gateway = null)
+    {
         $this->gateway = $gateway ?? new RevenueDataGateway();
     }
 
@@ -28,7 +31,8 @@ class RevenueForecastService {
      * يولّد توقع إيراد للفترة القادمة (نفس طول period_type) بناءً على
      * آخر 90 يوم من بيانات فعلية.
      */
-    public function forecast(int $userId, string $periodType = 'monthly', bool $persist = true): array {
+    public function forecast(int $userId, string $periodType = 'monthly', bool $persist = true): array
+    {
         $lookbackDays = 90;
         $now = new DateTime('now');
         $from = (clone $now)->modify("-{$lookbackDays} days");
@@ -78,13 +82,16 @@ class RevenueForecastService {
      * @param string $periodType daily/weekly/monthly/quarterly/yearly
      * @param string $todayStr Y-m-d - نقطة الانطلاق لحساب فترة التوقع القادمة
      */
-    public static function computeForecast(array $dailySeries, string $periodType, string $todayStr): array {
+    public static function computeForecast(array $dailySeries, string $periodType, string $todayStr): array
+    {
         $futureDays = RevenueOverviewService::periodToDays($periodType);
         $today = new DateTime($todayStr);
         $periodFrom = (clone $today)->modify('+1 day');
         $periodTo = (clone $today)->modify('+' . $futureDays . ' days');
 
-        $points = array_values(array_filter($dailySeries, static function ($p) { return isset($p['revenue']); }));
+        $points = array_values(array_filter($dailySeries, static function ($p) {
+            return isset($p['revenue']);
+        }));
         $n = count($points);
 
         $base = [
@@ -107,12 +114,15 @@ class RevenueForecastService {
 
         // انحدار خطي بسيط (least squares) على y=revenue اليومي مقابل x=index اليوم.
         $xs = range(0, $n - 1);
-        $ys = array_map(static function ($p) { return (float) $p['revenue']; }, $points);
+        $ys = array_map(static function ($p) {
+            return (float) $p['revenue'];
+        }, $points);
 
         $meanX = array_sum($xs) / $n;
         $meanY = array_sum($ys) / $n;
 
-        $num = 0.0; $den = 0.0;
+        $num = 0.0;
+        $den = 0.0;
         foreach ($xs as $i => $x) {
             $num += ($x - $meanX) * ($ys[$i] - $meanY);
             $den += ($x - $meanX) ** 2;
@@ -121,7 +131,8 @@ class RevenueForecastService {
         $intercept = $meanY - $slope * $meanX;
 
         // معامل التحديد R^2 لقياس مدى ثبات/انتظام الاتجاه (يستخدم لتحديد Confidence)
-        $ssTot = 0.0; $ssRes = 0.0;
+        $ssTot = 0.0;
+        $ssRes = 0.0;
         foreach ($xs as $i => $x) {
             $predicted = $intercept + $slope * $x;
             $ssRes += ($ys[$i] - $predicted) ** 2;
@@ -177,12 +188,148 @@ class RevenueForecastService {
     }
 
     /**
+     * What-if Scenario (ميزة تنافسية - زي ChartMogul "Explore future
+     * scenarios"): بياخد نفس الـ Forecast التاريخي الحقيقي وبيطبّق عليه
+     * نسبة نمو مفترضة (growthPercent) ليعرض "لو حصل كذا، الإيراد المتوقع
+     * هيبقى كام". الرقم الأساسي مش مخترع - مبني على سلسلة إيراد فعلية.
+     * Pure function قابلة للاختبار مباشرة.
+     *
+     * @param array $dailySeries [['date'=>Y-m-d,'revenue'=>float], ...] (نفس شكل computeForecast)
+     * @param string $periodType daily/weekly/monthly/quarterly/yearly
+     * @param string $todayStr Y-m-d
+     * @param float $growthPercent نسبة التغيير المفترضة (20 = زيادة 20%)
+     */
+    public static function scenarioForecast(array $dailySeries, string $periodType, string $todayStr, float $growthPercent = 0.0): array
+    {
+        $base = self::computeForecast($dailySeries, $periodType, $todayStr);
+        if ($base['insufficient_data']) {
+            return $base + ['scenario' => true, 'scenario_growth_percent' => $growthPercent];
+        }
+
+        $factor = 1 + ($growthPercent / 100);
+        return [
+            'scenario' => true,
+            'scenario_growth_percent' => round($growthPercent, 2),
+            'base_expected_revenue' => $base['expected_revenue'],
+            'expected_revenue' => round($base['expected_revenue'] * $factor, 2),
+            'forecast_range' => [
+                'low' => round($base['forecast_range']['low'] * $factor, 2),
+                'high' => round($base['forecast_range']['high'] * $factor, 2),
+            ],
+            'confidence' => $base['confidence'],
+            'period' => $base['period'],
+            'data_points_used' => $base['data_points_used'],
+            'method' => 'linear_regression_daily_with_growth_scenario',
+            'note' => 'Scenario estimate: base forecast scaled by the assumed growth percentage. Not a guarantee.',
+        ];
+    }
+
+    /**
+     * Seasonality adjustment (v1.3.0): مقارنة فترة سابقة مكافئة بنفس الطول
+     * من السلسلة التاريخية الحقيقية لاكتشاف ما إذا كانت الفترة الحالية
+     * موسميًا أعلى أو أقل من المعتاد (مثل موسم حجوزات الصيف). الناتج
+     * factor > 1 يعني أن الفترة الحالية فوق المتوسط الموسمي وfactor < 1
+     * تحت المتوسط - يُطبَّق على التوقع الأساسي. Pure function قابلة
+     * للاختبار مباشرة، وتعتمد فقط على بيانات فعلية (لا اختراع).
+     *
+     * ملاحظة صادقة: هذا مجرّد "مقارنة بنفس الفترة السابقة المكافئة"،
+     * وليس نموذج موسمية كامل (يتطلب سنوات متعددة من التاريخ) - نصرّح
+     * بذلك في المخرجات بدل تقديمه كـ"موسمية حقيقية".
+     *
+     * @param array $dailySeries [['date' => 'Y-m-d', 'revenue' => float], ...]
+     * @param string $periodType daily/weekly/monthly/quarterly/yearly
+     * @param string $todayStr Y-m-d
+     */
+    public static function computeSeasonalFactor(array $dailySeries, string $periodType, string $todayStr): array
+    {
+        $days = RevenueOverviewService::periodToDays($periodType);
+        $today = new DateTime($todayStr);
+        $currentStart = (clone $today)->modify("-{$days} days");
+        $previousStart = (clone $currentStart)->modify("-{$days} days");
+
+        $currentDaily = self::dailyAverages($dailySeries, $currentStart->format('Y-m-d'), $today->format('Y-m-d'));
+        $previousDaily = self::dailyAverages($dailySeries, $previousStart->format('Y-m-d'), $currentStart->format('Y-m-d'));
+
+        if ($previousDaily <= 0) {
+            return [
+                'seasonal_factor' => null,
+                'has_seasonality' => false,
+                'reason' => 'Not enough data',
+                'current_period_daily_avg' => $currentDaily,
+                'previous_period_daily_avg' => $previousDaily,
+            ];
+        }
+
+        $factor = round($currentDaily / $previousDaily, 3);
+        return [
+            'seasonal_factor' => $factor,
+            // نعتبرها "موسمية ملحوظة" فقط إذا انحرفت الفترة الحالية بأكثر من
+            // 20% عن سابقتها - أي أقل من كده هو تشويش عادي مش إشارة موسمية.
+            'has_seasonality' => $factor < 0.8 || $factor > 1.2,
+            'reason' => null,
+            'current_period_daily_avg' => round($currentDaily, 2),
+            'previous_period_daily_avg' => round($previousDaily, 2),
+            'note' => 'Simple same-length prior-period comparison, not a full multi-year seasonal model.',
+        ];
+    }
+
+    /**
+     * توقع مراعٍ للموسمية (v1.3.0): التوقع الخطي الأساسي × عامل الموسمية
+     * المستخرج من الفترة المكافئة السابقة. لو الموسمية غير ملحوظة، الناتج
+     * مطابق للتوقع الأساسي مع factor=1. Pure function قابلة للاختبار.
+     */
+    public static function seasonalForecast(array $dailySeries, string $periodType, string $todayStr): array
+    {
+        $base = self::computeForecast($dailySeries, $periodType, $todayStr);
+        $seasonal = self::computeSeasonalFactor($dailySeries, $periodType, $todayStr);
+
+        if ($base['insufficient_data'] || $seasonal['seasonal_factor'] === null) {
+            return $base + [
+                'seasonal' => false,
+                'seasonal_factor' => $seasonal['seasonal_factor'],
+                'seasonality_note' => 'Not enough data to apply a seasonal adjustment.',
+            ];
+        }
+
+        $factor = $seasonal['seasonal_factor'];
+        return array_merge($base, [
+            'seasonal' => $seasonal['has_seasonality'],
+            'seasonal_factor' => $factor,
+            'expected_revenue' => round($base['expected_revenue'] * $factor, 2),
+            'forecast_range' => [
+                'low' => round($base['forecast_range']['low'] * $factor, 2),
+                'high' => round($base['forecast_range']['high'] * $factor, 2),
+            ],
+            'method' => 'linear_regression_daily_with_seasonality',
+            'seasonality_note' => $seasonal['has_seasonality']
+                ? 'Current period is ' . ($factor > 1 ? 'above' : 'below') . ' the prior equivalent period by ' . abs(round(($factor - 1) * 100, 1)) . '%; forecast adjusted accordingly. Simple prior-period comparison, not a full multi-year seasonal model.'
+                : 'No meaningful seasonality detected vs the prior equivalent period; forecast left unchanged.',
+        ]);
+    }
+
+    /** متوسط الإيراد اليومي ضمن نافذة زمنية من سلسلة يومية فعلية. */
+    private static function dailyAverages(array $dailySeries, string $fromDate, string $toDate): float
+    {
+        $total = 0.0;
+        $count = 0;
+        foreach ($dailySeries as $p) {
+            $d = (string) ($p['date'] ?? '');
+            if ($d >= $fromDate && $d < $toDate && isset($p['revenue'])) {
+                $total += (float) $p['revenue'];
+                $count++;
+            }
+        }
+        return $count > 0 ? $total / $count : 0.0;
+    }
+
+    /**
      * Forecast Accuracy (إضافة): يقارن كل توقع قديم (فترته خلصت فعليًا)
      * بالإيراد الحقيقي اللي حصل في نفس الفترة بالظبط - عشان يديك مصداقية
      * حقيقية قابلة للتحقق للـ AI ("توقعنا 5000، حصل فعليًا 4800، دقة 96%")
      * بدل ما يفضل التوقع رقم مجرد محدش راجعه بعدين.
      */
-    public function getAccuracyHistory(int $userId, int $limit = 10): array {
+    public function getAccuracyHistory(int $userId, int $limit = 10): array
+    {
         $pastForecasts = $this->gateway->getPastForecasts($userId, $limit);
         if (empty($pastForecasts)) {
             return ['has_data' => false, 'message' => 'Not enough data', 'history' => [], 'average_accuracy_percent' => null];

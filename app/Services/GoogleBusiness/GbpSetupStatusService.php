@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - GBP Setup Status Service
  * Setup Wizard حقيقي: بيفحص فعليًا حالة كل متطلبات تشغيل GBP (Maps،
@@ -6,11 +7,13 @@
  * @version 1.0.0
  * @since 2026-08-09 (GBP Module Upgrade)
  */
-class GbpSetupStatusService {
+class GbpSetupStatusService
+{
     /** @var Database */
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
@@ -18,7 +21,8 @@ class GbpSetupStatusService {
      * حالة إعداد النظام العامة (مش خاصة بموقع معيّن): Maps + OAuth Client.
      * كل حالة من: connected | missing | error
      */
-    public function systemStatus(): array {
+    public function systemStatus(): array
+    {
         $envMapsKey = defined('GOOGLE_MAPS_API_KEY') ? GOOGLE_MAPS_API_KEY : '';
         $mapsKey = class_exists('SystemSettingsService')
             ? (new SystemSettingsService())->get('google_maps_api_key', $envMapsKey)
@@ -59,7 +63,8 @@ class GbpSetupStatusService {
     /**
      * حالة الاتصال والمزامنة لكل مواقع المستخدم (Connection Center).
      */
-    public function connectionsForUser(int $userId): array {
+    public function connectionsForUser(int $userId): array
+    {
         $rows = $this->db->query(
             "SELECT pc.id, pc.website_id, pc.status, pc.last_error, pc.last_synced_at,
                     pc.external_account_id, pc.external_location_id, pc.external_location_name,
@@ -89,7 +94,8 @@ class GbpSetupStatusService {
     }
 
     /** كل مواقع المستخدم مع علامة إذا كانت مربوطة أم لا (لعرض "Add Location" بشكل صحيح) */
-    public function websitesWithConnectionState(int $userId): array {
+    public function websitesWithConnectionState(int $userId): array
+    {
         $rows = $this->db->query(
             "SELECT w.id, w.company_name, w.main_url,
                     pc.id AS connection_id, pc.status AS connection_status

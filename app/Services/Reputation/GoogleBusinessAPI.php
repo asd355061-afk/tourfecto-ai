@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Google Business API Integration
  * تكامل مع Google Business Profile API
@@ -15,7 +16,8 @@
  * ما تعمل أي طلب فعلي لـ Google - ده كان هيخلي الواجهة تقول "تم الرد"
  * والرد الحقيقي مبعتش. اتصلحت هنا عشان تنفّذ الطلب فعليًا.
  */
-class GoogleBusinessAPI {
+class GoogleBusinessAPI
+{
     private const REVIEWS_BASE_URL = 'https://mybusiness.googleapis.com/v4';
     private const ACCOUNT_MGMT_BASE_URL = 'https://mybusinessaccountmanagement.googleapis.com/v1';
     private const BUSINESS_INFO_BASE_URL = 'https://mybusinessbusinessinformation.googleapis.com/v1';
@@ -51,7 +53,8 @@ class GoogleBusinessAPI {
      * @param string|null $accountId
      * @param string|null $locationId
      */
-    public function __construct(string $accessToken = '', ?string $accountId = null, ?string $locationId = null) {
+    public function __construct(string $accessToken = '', ?string $accountId = null, ?string $locationId = null)
+    {
         $this->accessToken = $accessToken;
         $this->accountId = $accountId;
         $this->locationId = $locationId;
@@ -62,7 +65,8 @@ class GoogleBusinessAPI {
      * بعد الموافقة عشان نعرف نعرض للعميل يختار حسابه/فرعه لو عنده أكتر
      * من واحد.
      */
-    public function listAccounts(): array {
+    public function listAccounts(): array
+    {
         $response = $this->makeRequest('GET', self::ACCOUNT_MGMT_BASE_URL, '/accounts');
         if (!$response['success']) {
             return $response;
@@ -82,7 +86,8 @@ class GoogleBusinessAPI {
     /**
      * قائمة الفروع/المواقع (locations) تحت حساب معيّن.
      */
-    public function listLocations(string $accountId): array {
+    public function listLocations(string $accountId): array
+    {
         $response = $this->makeRequest(
             'GET',
             self::BUSINESS_INFO_BASE_URL,
@@ -109,7 +114,8 @@ class GoogleBusinessAPI {
      * @param array $params - معاملات الطلب
      * @return array
      */
-    public function getReviews(array $params = []): array {
+    public function getReviews(array $params = []): array
+    {
         try {
             $accountId = $params['account_id'] ?? $this->accountId;
             $locationId = $params['location_id'] ?? $this->locationId;
@@ -122,7 +128,7 @@ class GoogleBusinessAPI {
             $query = array_filter([
                 'pageSize' => $params['limit'] ?? 20,
                 'pageToken' => $params['page_token'] ?? null,
-            ], fn($v) => $v !== null);
+            ], fn ($v) => $v !== null);
 
             $response = $this->makeRequest('GET', self::REVIEWS_BASE_URL, $endpoint, $query);
 
@@ -152,7 +158,8 @@ class GoogleBusinessAPI {
      * @param string $reply
      * @return array
      */
-    public function sendReply(string $reviewId, string $reply): array {
+    public function sendReply(string $reviewId, string $reply): array
+    {
         try {
             if (!$this->accountId || !$this->locationId) {
                 return ['success' => false, 'error' => 'Account ID و Location ID مطلوبين'];
@@ -187,7 +194,8 @@ class GoogleBusinessAPI {
      * @param string|null $locationId
      * @return array
      */
-    public function getLocation(?string $locationId = null): array {
+    public function getLocation(?string $locationId = null): array
+    {
         try {
             $locationId = $locationId ?? $this->locationId;
             if (!$locationId) {
@@ -226,7 +234,7 @@ class GoogleBusinessAPI {
                     'description' => $data['profile']['description'] ?? null,
                     'primary_category' => $data['categories']['primaryCategory']['displayName'] ?? null,
                     'additional_categories' => array_map(
-                        fn($c) => $c['displayName'] ?? '',
+                        fn ($c) => $c['displayName'] ?? '',
                         $data['categories']['additionalCategories'] ?? []
                     ),
                     'regular_hours' => $data['regularHours']['periods'] ?? null,
@@ -261,7 +269,8 @@ class GoogleBusinessAPI {
      * @return array ['success'=>bool, 'error'=>?string]
      * @since 2026-08-09 (GBP Module Upgrade)
      */
-    public function updateLocation(?string $locationId, array $fields): array {
+    public function updateLocation(?string $locationId, array $fields): array
+    {
         $locationId = $locationId ?? $this->locationId;
         if (!$locationId) {
             return ['success' => false, 'error' => 'Location ID مطلوب'];
@@ -318,7 +327,8 @@ class GoogleBusinessAPI {
      * نفسه كان صحيح، الدومين بس كان غلط.
      * @since 2026-08-09 (GBP Module Upgrade)
      */
-    public function listMedia(?string $locationId = null): array {
+    public function listMedia(?string $locationId = null): array
+    {
         $locationId = $locationId ?? $this->locationId;
         if (!$locationId || !$this->accountId) {
             return ['success' => false, 'error' => 'Account ID و Location ID مطلوبين'];
@@ -355,7 +365,8 @@ class GoogleBusinessAPI {
      * @param string $category واحدة من: COVER, PROFILE, EXTERIOR, INTERIOR, PRODUCT, AT_WORK, FOOD_AND_DRINK, MENU, COMMON_AREA, ROOMS, TEAMS, ADDITIONAL
      * @since 2026-08-09 (GBP Module Upgrade)
      */
-    public function insertMedia(?string $locationId, string $sourceUrl, string $category = 'ADDITIONAL'): array {
+    public function insertMedia(?string $locationId, string $sourceUrl, string $category = 'ADDITIONAL'): array
+    {
         $locationId = $locationId ?? $this->locationId;
         if (!$locationId || !$this->accountId) {
             return ['success' => false, 'error' => 'Account ID و Location ID مطلوبين'];
@@ -388,7 +399,8 @@ class GoogleBusinessAPI {
      * (accounts/{a}/locations/{l}/media/{m}).
      * @since 2026-08-09 (GBP Module Upgrade)
      */
-    public function deleteMedia(string $mediaResourceName): array {
+    public function deleteMedia(string $mediaResourceName): array
+    {
         // مسموح نستقبل الاسم الكامل أو المعرف بس؛ لو معرف بس نبنيه بالكامل.
         if (strpos($mediaResourceName, 'accounts/') !== 0) {
             if (!$this->accountId || !$this->locationId) {
@@ -426,7 +438,8 @@ class GoogleBusinessAPI {
      * LIVE GOOGLE TEST REQUIRED قبل الاعتماد عليها 100% في بيئة إنتاج.
      * @since 2026-08-10 (Round 5), محدّثة 2026-08-14 (Round 7)
      */
-    public function listAvailableAttributes(?string $locationId = null): array {
+    public function listAvailableAttributes(?string $locationId = null): array
+    {
         $locationId = $locationId ?? $this->locationId;
         if (!$locationId) {
             return ['success' => false, 'error' => 'Location ID مطلوب'];
@@ -444,7 +457,7 @@ class GoogleBusinessAPI {
         }
 
         $items = array_map(function ($meta) {
-            $options = array_map(fn($vm) => [
+            $options = array_map(fn ($vm) => [
                 'value' => $vm['value'] ?? '',
                 'display_name' => $vm['displayName'] ?? ($vm['value'] ?? ''),
             ], $meta['valueMetadata'] ?? []);
@@ -460,10 +473,11 @@ class GoogleBusinessAPI {
             ];
         }, $response['data']['attributeMetadata'] ?? []);
 
-        return ['success' => true, 'available_attributes' => array_values(array_filter($items, fn($i) => !$i['deprecated']))];
+        return ['success' => true, 'available_attributes' => array_values(array_filter($items, fn ($i) => !$i['deprecated']))];
     }
 
-    public function getAttributes(?string $locationId = null): array {
+    public function getAttributes(?string $locationId = null): array
+    {
         $locationId = $locationId ?? $this->locationId;
         if (!$locationId) {
             return ['success' => false, 'error' => 'Location ID مطلوب'];
@@ -486,7 +500,7 @@ class GoogleBusinessAPI {
             } elseif ($valueType === 'REPEATED_ENUM') {
                 $current = ['set' => $attr['repeatedEnumValue']['setValues'] ?? [], 'unset' => $attr['repeatedEnumValue']['unsetValues'] ?? []];
             } elseif ($valueType === 'URL') {
-                $current = array_map(fn($u) => $u['uri'] ?? '', $attr['uriValues'] ?? []);
+                $current = array_map(fn ($u) => $u['uri'] ?? '', $attr['uriValues'] ?? []);
             }
 
             return [
@@ -504,7 +518,8 @@ class GoogleBusinessAPI {
      *                        أو ['type'=>'REPEATED_ENUM','set'=>[...],'unset'=>[...]]
      *                        أو ['type'=>'URL','values'=>['https://...']]
      */
-    public function updateAttributes(?string $locationId, array $changes): array {
+    public function updateAttributes(?string $locationId, array $changes): array
+    {
         $locationId = $locationId ?? $this->locationId;
         if (!$locationId) {
             return ['success' => false, 'error' => 'Location ID مطلوب'];
@@ -526,7 +541,7 @@ class GoogleBusinessAPI {
                     'unsetValues' => $change['unset'] ?? [],
                 ];
             } elseif ($type === 'URL') {
-                $entry['uriValues'] = array_map(fn($u) => ['uri' => $u], $change['values'] ?? []);
+                $entry['uriValues'] = array_map(fn ($u) => ['uri' => $u], $change['values'] ?? []);
             } else {
                 continue; // نوع غير مدعوم - نتجاهله بدل ما نبعت طلب هيترفض من جوجل
             }
@@ -567,7 +582,8 @@ class GoogleBusinessAPI {
      * @param string $endDate Y-m-d
      * @since 2026-08-09 (GBP Module Upgrade)
      */
-    public function fetchDailyMetrics(?string $locationId, array $metrics, string $startDate, string $endDate): array {
+    public function fetchDailyMetrics(?string $locationId, array $metrics, string $startDate, string $endDate): array
+    {
         $locationId = $locationId ?? $this->locationId;
         if (!$locationId) {
             return ['success' => false, 'error' => 'Location ID مطلوب'];
@@ -608,7 +624,9 @@ class GoogleBusinessAPI {
                 $points = [];
                 foreach ($entry['timeSeries']['datedValues'] ?? [] as $dv) {
                     $d = $dv['date'] ?? [];
-                    if (empty($d)) continue;
+                    if (empty($d)) {
+                        continue;
+                    }
                     $date = sprintf('%04d-%02d-%02d', $d['year'] ?? 0, $d['month'] ?? 1, $d['day'] ?? 1);
                     $points[] = ['date' => $date, 'value' => isset($dv['value']) ? (int) $dv['value'] : 0];
                 }
@@ -628,7 +646,8 @@ class GoogleBusinessAPI {
      * @param string|null $ctaUrl رابط اختياري لزرار "Call to Action" (لو موجود بيبقى نوعه LEARN_MORE)
      * @return array ['success'=>bool, 'post_id'=>?string, 'error'=>?string]
      */
-    public function publishPost(string $summary, string $languageCode = 'ar', ?string $ctaUrl = null): array {
+    public function publishPost(string $summary, string $languageCode = 'ar', ?string $ctaUrl = null): array
+    {
         try {
             if (!$this->accountId || !$this->locationId) {
                 return ['success' => false, 'error' => 'Account ID و Location ID مطلوبين'];
@@ -675,24 +694,31 @@ class GoogleBusinessAPI {
      * Business Information/Reviews القديم).
      */
     /**
-     * تصنيف أخطاء Google لرسالة عربية مفهومة للمستخدم + كود ثابت للـ Frontend
-     * (بدل ما نعرض نص Google الخام أو أي Stack Trace/Secrets).
-     * @since 2026-08-09 (GBP Module Upgrade - Round 3)
+     * تصنيف أخطاء Google لرسالة عربية مفهومة للمستخدم + كود ثابت للـ
+     * Frontend (بدل ما نعرض نص Google الخام أو أي Stack Trace/Secrets).
+     * Round 8 (2026-08-14 - Phase AI): وحّدنا أسماء الأكواد مع القائمة
+     * القياسية المطلوبة (AUTH_REQUIRED/TOKEN_EXPIRED/PERMISSION_DENIED/
+     * NOT_FOUND/INVALID_ARGUMENT/RATE_LIMITED/GOOGLE_UNAVAILABLE/
+     * NETWORK_ERROR/QUOTA_EXCEEDED/NOT_SUPPORTED/INTERNAL_ERROR) - تأكدنا
+     * الأول (grep) إن error_code مش متطابق عليه (matched) في أي مكان
+     * تاني في الكود، فالتغيير ده آمن ومفيش API Contract اتكسر.
+     * @since 2026-08-09 (GBP Module Upgrade - Round 3), محدّثة Round 8
      */
-    private static function classifyError(int $httpCode, string $rawMessage, ?string $googleStatus): array {
+    private static function classifyError(int $httpCode, string $rawMessage, ?string $googleStatus): array
+    {
         $lower = strtolower($rawMessage);
 
         if (strpos($lower, 'token has expired') !== false || strpos($lower, 'invalid_grant') !== false) {
-            return ['code' => 'EXPIRED_TOKEN', 'message' => 'انتهت صلاحية الجلسة - يحتاج إعادة ربط (Reconnect)'];
+            return ['code' => 'TOKEN_EXPIRED', 'message' => 'انتهت صلاحية الجلسة - يحتاج إعادة ربط (Reconnect)'];
         }
         if ($httpCode === 401 || strpos($lower, 'invalid authentication') !== false || strpos($lower, 'invalid credentials') !== false) {
-            return ['code' => 'INVALID_CREDENTIALS', 'message' => 'بيانات الاعتماد غير صحيحة أو منتهية - يحتاج إعادة ربط (Reconnect)'];
+            return ['code' => 'AUTH_REQUIRED', 'message' => 'بيانات الاعتماد غير صحيحة أو منتهية - يحتاج إعادة ربط (Reconnect)'];
         }
         if ($httpCode === 403 && (strpos($lower, 'permission') !== false || strpos($lower, 'insufficient') !== false)) {
-            return ['code' => 'INSUFFICIENT_PERMISSIONS', 'message' => 'صلاحيات الحساب غير كافية لتنفيذ هذا الإجراء على Google Business Profile'];
+            return ['code' => 'PERMISSION_DENIED', 'message' => 'صلاحيات الحساب غير كافية لتنفيذ هذا الإجراء على Google Business Profile'];
         }
         if ($httpCode === 403 && (strpos($lower, 'has not been used') !== false || strpos($lower, 'api not enabled') !== false || strpos($lower, 'disabled') !== false)) {
-            return ['code' => 'API_DISABLED', 'message' => 'الـ API المطلوب غير مفعّل على مشروع Google Cloud - فعّله من Google Cloud Console'];
+            return ['code' => 'NOT_SUPPORTED', 'message' => 'الـ API المطلوب غير مفعّل على مشروع Google Cloud - فعّله من Google Cloud Console'];
         }
         if ($httpCode === 429 && strpos($lower, 'quota') !== false) {
             return ['code' => 'QUOTA_EXCEEDED', 'message' => 'تم تجاوز الحد المسموح به من Google لهذا اليوم - حاول لاحقًا'];
@@ -701,19 +727,20 @@ class GoogleBusinessAPI {
             return ['code' => 'RATE_LIMITED', 'message' => 'طلبات كتيرة في وقت قصير - انتظر شوية وحاول تاني'];
         }
         if ($httpCode === 404 || strpos($lower, 'not found') !== false) {
-            return ['code' => 'LOCATION_NOT_FOUND', 'message' => 'الموقع/الفرع غير موجود على Google أو تم حذفه'];
+            return ['code' => 'NOT_FOUND', 'message' => 'الموقع/العنصر غير موجود على Google أو تم حذفه'];
         }
-        if ($httpCode === 400) {
-            return ['code' => 'INVALID_REQUEST', 'message' => 'بيانات الطلب غير صحيحة'];
+        if ($httpCode === 400 || strpos($lower, 'invalid argument') !== false) {
+            return ['code' => 'INVALID_ARGUMENT', 'message' => 'بيانات الطلب غير صحيحة'];
         }
         if ($httpCode >= 500) {
-            return ['code' => 'GOOGLE_SERVER_ERROR', 'message' => 'خطأ مؤقت من خوادم Google - حاول لاحقًا'];
+            return ['code' => 'GOOGLE_UNAVAILABLE', 'message' => 'خطأ مؤقت من خوادم Google - حاول لاحقًا'];
         }
 
-        return ['code' => 'GOOGLE_API_ERROR', 'message' => 'حدث خطأ من Google Business Profile API'];
+        return ['code' => 'INTERNAL_ERROR', 'message' => 'حدث خطأ من Google Business Profile API'];
     }
 
-    private function makeRequest(string $method, string $baseUrl, string $endpoint, array $query = [], array $data = []): array {
+    private function makeRequest(string $method, string $baseUrl, string $endpoint, array $query = [], array $data = []): array
+    {
         $url = $baseUrl . $endpoint;
 
         if (!empty($query)) {
@@ -733,8 +760,6 @@ class GoogleBusinessAPI {
             $url .= '?' . implode('&', $parts);
         }
 
-        $ch = curl_init($url);
-
         $headers = ['Accept: application/json'];
         if ($this->accessToken) {
             $headers[] = 'Authorization: Bearer ' . $this->accessToken;
@@ -743,6 +768,11 @@ class GoogleBusinessAPI {
         $options = [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => $this->timeout,
+            // Round 8 (2026-08-14 - GBP Professional Finalization / Phase B):
+            // Connect timeout منفصل عن Total timeout - كانت مضبوطة بس
+            // CURLOPT_TIMEOUT، فطلب معلّق على DNS/TCP handshake كان ممكن
+            // ياخد لحد 30 ثانية كاملة قبل ما يفشل.
+            CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_CUSTOMREQUEST => $method,
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_SSL_VERIFYPEER => true,
@@ -754,18 +784,64 @@ class GoogleBusinessAPI {
             $options[CURLOPT_POSTFIELDS] = json_encode($data, JSON_UNESCAPED_UNICODE);
         }
 
-        curl_setopt_array($ch, $options);
+        // Round 8 (Phase B): Retry policy حقيقي - بس على العمليات الآمنة
+        // للإعادة (GET/PATCH/DELETE - Idempotent فعليًا في Business
+        // Information API). POST (زي insertMedia/publishPost) بيتعمله
+        // محاولة واحدة بس هنا - إعادة POST تلقائيًا ممكن تعمل نسخة
+        // مكررة فعلية على حساب العميل الحقيقي على Google (صورة أو
+        // منشور اتنين بدل واحد). أي إعادة محاولة لـ POST لازم تتم على
+        // مستوى الـ Job نفسه (Queue retry)، اللي أصلاً محمي بـ
+        // Idempotency guard (شوف PublishGbpPostJob).
+        $isRetryable = in_array($method, ['GET', 'PATCH', 'DELETE'], true);
+        $maxAttempts = $isRetryable ? 3 : 1;
+        $retryableHttpCodes = [429, 500, 502, 503, 504];
 
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlError = curl_error($ch);
-        curl_close($ch);
+        $response = null;
+        $httpCode = 0;
+        $curlError = '';
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, $options);
+
+            $response = curl_exec($ch);
+            $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+
+            $isNetworkError = $curlError !== '';
+            $isRetryableHttp = in_array($httpCode, $retryableHttpCodes, true);
+
+            if (!$isNetworkError && !$isRetryableHttp) {
+                break; // نجح أو فشل بخطأ نهائي (400/401/403/404...) - منعادش المحاولة
+            }
+            if ($attempt >= $maxAttempts) {
+                break; // خلصت المحاولات المسموحة
+            }
+
+            // Exponential backoff: 500ms, 1s, (لو احتجنا محاولة تالتة كانت هتبقى 2s) - محدود بحد أقصى معقول
+            $backoffMs = min(2000, 500 * (2 ** ($attempt - 1)));
+            usleep($backoffMs * 1000);
+
+            if (class_exists('Logger')) {
+                Logger::info('GBP API retry', ['method' => $method, 'attempt' => $attempt + 1, 'http_code' => $httpCode, 'network_error' => $isNetworkError]);
+            }
+        }
 
         if ($curlError) {
             return ['success' => false, 'error' => 'تعذر الاتصال بخوادم Google - تحقق من الشبكة وحاول تاني', 'error_code' => 'NETWORK_ERROR'];
         }
 
-        $decoded = json_decode($response, true);
+        // Round 8 (Phase B): تحقق فعلي من نجاح json_decode قبل ما نستخدم
+        // النتيجة - كان ممكن Google يرجع HTML (صفحة خطأ من Load Balancer
+        // مثلاً) في حالات نادرة، وكان $decoded['error']['message'] هيرجع
+        // null بصمت من غير ما نعرف إن الـ response أصلاً مش JSON صالح.
+        $decoded = json_decode((string) $response, true);
+        if ($decoded === null && json_last_error() !== JSON_ERROR_NONE && $httpCode >= 200 && $httpCode < 300) {
+            return ['success' => false, 'error' => 'رد غير متوقع من Google (مش JSON صالح)', 'error_code' => 'GOOGLE_UNAVAILABLE'];
+        }
+        $decoded = $decoded ?? [];
+
 
         if ($httpCode < 200 || $httpCode >= 300) {
             $errorMessage = $decoded['error']['message'] ?? 'Unknown error';
@@ -785,7 +861,8 @@ class GoogleBusinessAPI {
     /**
      * تحليل بيانات المراجعات
      */
-    private function parseReviews(array $data): array {
+    private function parseReviews(array $data): array
+    {
         $reviews = [];
 
         $items = $data['reviews'] ?? [];
@@ -807,12 +884,14 @@ class GoogleBusinessAPI {
     }
 
     /** Google بترجع التقييم كنص (ONE..FIVE) مش رقم */
-    private function starRatingToNumber($starRating): int {
+    private function starRatingToNumber($starRating): int
+    {
         $map = ['ONE' => 1, 'TWO' => 2, 'THREE' => 3, 'FOUR' => 4, 'FIVE' => 5];
         return $map[$starRating] ?? 0;
     }
 
-    private function extractId(string $name): string {
+    private function extractId(string $name): string
+    {
         $parts = explode('/', $name);
         return end($parts);
     }

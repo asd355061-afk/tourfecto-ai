@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - TripAdvisor Review Sync Service
  * سحب أحدث المراجعات من كل حسابات TripAdvisor المربوطة
@@ -7,19 +8,22 @@
  * أبسط من Google لأن مفتاح API واحد بيغطي كل العملاء (مفيش OAuth ولا
  * تجديد توكن لكل عميل).
  */
-class TripAdvisorReviewSyncService {
+class TripAdvisorReviewSyncService
+{
     /** @var Database */
     private $db;
     private TripAdvisorAPI $api;
     private ReputationManager $reputationManager;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
         $this->api = new TripAdvisorAPI();
         $this->reputationManager = new ReputationManager();
     }
 
-    public function syncAll(): array {
+    public function syncAll(): array
+    {
         $summary = ['synced' => 0, 'new_reviews' => 0, 'errors' => 0];
 
         if (!$this->api->isConfigured()) {
@@ -57,7 +61,8 @@ class TripAdvisorReviewSyncService {
         return $summary;
     }
 
-    private function syncConnection(PlatformConnection $connection): int {
+    private function syncConnection(PlatformConnection $connection): int
+    {
         $locationId = $connection->getAttribute('external_location_id');
         $result = $this->api->getReviews(['location_id' => $locationId]);
 
@@ -120,7 +125,8 @@ class TripAdvisorReviewSyncService {
         return $newCount;
     }
 
-    private function reviewExists(int $websiteId, string $platform, string $platformReviewId): bool {
+    private function reviewExists(int $websiteId, string $platform, string $platformReviewId): bool
+    {
         try {
             $sql = "SELECT id FROM reviews WHERE website_id = ? AND source_platform = ? AND external_review_id = ? LIMIT 1";
             $result = $this->db->query($sql, [$websiteId, $platform, $platformReviewId]);

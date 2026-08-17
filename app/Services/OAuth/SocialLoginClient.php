@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Social Login Client (تسجيل الدخول بواسطة Google / Facebook / Microsoft)
  * تدفّق OAuth 2.0 القياسي (Authorization Code) لأغراض تسجيل الدخول فقط
@@ -24,7 +25,8 @@
  *    اختياري - افتراضيًا "common" يعني أي حساب Microsoft شخصي أو عمل).
  * @version 1.0.0
  */
-class SocialLoginClient {
+class SocialLoginClient
+{
     private const PROVIDERS = [
         'google' => [
             'auth_url' => 'https://accounts.google.com/o/oauth2/v2/auth',
@@ -60,7 +62,8 @@ class SocialLoginClient {
     private string $redirectUri;
     private string $tenant;
 
-    public function __construct(string $provider) {
+    public function __construct(string $provider)
+    {
         if (!isset(self::PROVIDERS[$provider])) {
             throw new InvalidArgumentException("منصة تسجيل دخول غير مدعومة: {$provider}");
         }
@@ -74,20 +77,24 @@ class SocialLoginClient {
         $this->redirectUri = self::redirectUri($provider);
     }
 
-    public static function redirectUri(string $provider): string {
+    public static function redirectUri(string $provider): string
+    {
         $base = defined('APP_URL') ? rtrim(APP_URL, '/') : '';
         return "{$base}/auth/{$provider}/callback";
     }
 
-    public function isConfigured(): bool {
+    public function isConfigured(): bool
+    {
         return $this->clientId !== '' && $this->clientSecret !== '';
     }
 
-    private function url(string $key): string {
+    private function url(string $key): string
+    {
         return str_replace('{tenant}', $this->tenant, $this->config[$key]);
     }
 
-    public function buildAuthUrl(string $state): string {
+    public function buildAuthUrl(string $state): string
+    {
         $params = [
             'client_id' => $this->clientId,
             'redirect_uri' => $this->redirectUri,
@@ -102,7 +109,8 @@ class SocialLoginClient {
     }
 
     /** @return array ['success'=>bool, 'access_token'=>?, 'error'=>?] */
-    public function exchangeCodeForToken(string $code): array {
+    public function exchangeCodeForToken(string $code): array
+    {
         $fields = [
             'code' => $code,
             'client_id' => $this->clientId,
@@ -145,7 +153,8 @@ class SocialLoginClient {
     }
 
     /** @return array|null ['id'=>string,'email'=>?string,'name'=>?string] أو null لو فشل */
-    public function fetchProfile(string $accessToken): ?array {
+    public function fetchProfile(string $accessToken): ?array
+    {
         $url = $this->url('userinfo_url');
         if ($this->provider === 'facebook') {
             $url .= '?' . http_build_query(['fields' => 'id,name,email', 'access_token' => $accessToken]);

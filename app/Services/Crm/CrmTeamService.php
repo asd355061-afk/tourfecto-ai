@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Team Service (بند 30)
  * @version 1.0.0
@@ -13,8 +14,10 @@
  * constraint على member_user_id) - تبسيط مقصود بدل بناء نظام "تبديل بين
  * أكثر من حساب" الأكبر والأعقد، وهو خارج نطاق الطلب الأصلي.
  */
-class CrmTeamService {
-    public function addMember(int $tenantUserId, int $actorUserId, string $email, string $role): CrmTeamMember {
+class CrmTeamService
+{
+    public function addMember(int $tenantUserId, int $actorUserId, string $email, string $role): CrmTeamMember
+    {
         if (!in_array($role, CrmPermissionService::ROLES, true)) {
             throw new Exception('دور غير معروف');
         }
@@ -47,7 +50,8 @@ class CrmTeamService {
         return $member;
     }
 
-    public function updateRole(int $tenantUserId, int $memberRowId, string $role): CrmTeamMember {
+    public function updateRole(int $tenantUserId, int $memberRowId, string $role): CrmTeamMember
+    {
         if (!in_array($role, CrmPermissionService::ROLES, true)) {
             throw new Exception('دور غير معروف');
         }
@@ -60,7 +64,8 @@ class CrmTeamService {
         return $member;
     }
 
-    public function removeMember(int $tenantUserId, int $memberRowId): bool {
+    public function removeMember(int $tenantUserId, int $memberRowId): bool
+    {
         $member = (new CrmTeamMember())->find($memberRowId);
         if (!$member || (int) $member->getAttribute('tenant_user_id') !== $tenantUserId) {
             throw new Exception('عضو الفريق غير موجود', 404);
@@ -68,12 +73,14 @@ class CrmTeamService {
         return $member->delete();
     }
 
-    public function listForTenant(int $tenantUserId): array {
+    public function listForTenant(int $tenantUserId): array
+    {
         return (new CrmTeamMember())->forTenant($tenantUserId);
     }
 
     /** يرجع بيانات عضوية المستخدم (لو عضو في فريق حساب تاني) أو null لو مالك حساب نفسه */
-    public function myMembership(int $userId): ?CrmTeamMember {
+    public function myMembership(int $userId): ?CrmTeamMember
+    {
         return (new CrmTeamMember())->membershipFor($userId);
     }
 }

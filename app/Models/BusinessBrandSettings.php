@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Brand Settings Model
  * صف واحد بس لكل Business (1:1) - Business Control Center Phase 7
@@ -8,7 +9,8 @@
  * preferred_tone موجودين في BusinessAiContext (Phase 6) - مش مكررين
  * هنا عمدًا. الموديل ده بيحتوي بس الحقول الجديدة فعليًا في Phase 7.
  */
-class BusinessBrandSettings extends Model {
+class BusinessBrandSettings extends Model
+{
     protected $table = 'business_brand_settings';
 
     protected $fillable = [
@@ -27,7 +29,8 @@ class BusinessBrandSettings extends Model {
      * افتراضي) - الواجهة هي اللي تقرر الـFallback البصري، مش الباك إند.
      * @return array{primary?: string, secondary?: string, accent?: string}
      */
-    public function getBrandColors(): array {
+    public function getBrandColors(): array
+    {
         $raw = $this->getAttribute('brand_colors');
         if (empty($raw)) {
             return [];
@@ -39,10 +42,17 @@ class BusinessBrandSettings extends Model {
         return is_array($decoded) ? $decoded : [];
     }
 
-    public function getPreferredTerminology(): array { return $this->decodeJsonArray('preferred_terminology'); }
-    public function getProhibitedTerminology(): array { return $this->decodeJsonArray('prohibited_terminology'); }
+    public function getPreferredTerminology(): array
+    {
+        return $this->decodeJsonArray('preferred_terminology');
+    }
+    public function getProhibitedTerminology(): array
+    {
+        return $this->decodeJsonArray('prohibited_terminology');
+    }
 
-    private function decodeJsonArray(string $field): array {
+    private function decodeJsonArray(string $field): array
+    {
         $raw = $this->getAttribute($field);
         if (empty($raw)) {
             return [];

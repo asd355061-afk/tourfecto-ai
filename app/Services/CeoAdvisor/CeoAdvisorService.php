@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CEO Advisor Service
  * Phase 11 (AI CEO Advisor). بيجمع بيانات حقيقية من كل الـAgents اللي
@@ -15,11 +16,13 @@
  * ده أول مستهلك حقيقي ليها بالمعنى ده.
  * @version 1.0.0
  */
-class CeoAdvisorService {
+class CeoAdvisorService
+{
     /** @var mixed أي كائن عنده generateContent($prompt,$options):array - عادة AIOrchestrator */
     private $ai;
 
-    public function __construct($ai = null) {
+    public function __construct($ai = null)
+    {
         $this->ai = $ai ?? (class_exists('AIOrchestrator') ? new AIOrchestrator() : new GeminiClient());
     }
 
@@ -28,7 +31,8 @@ class CeoAdvisorService {
      * دالة عامة (مش private) عشان تقدر تتستخدم لوحدها لو حبينا نعرضها
      * كـ"ملخص الحساب" في مكان تاني من غير سؤال AI أصلًا.
      */
-    public function gatherAccountSnapshot(Database $db, int $userId): array {
+    public function gatherAccountSnapshot(Database $db, int $userId): array
+    {
         $websites = $db->query("SELECT id, main_url, company_name FROM websites WHERE user_id = ?", [$userId]);
         $websiteIds = array_column($websites, 'id');
 
@@ -61,11 +65,14 @@ class CeoAdvisorService {
             );
             $seen = [];
             foreach ($rows as $r) {
-                if (isset($seen[$r['main_url']])) continue; // أحدث سكور لكل موقع بس
+                if (isset($seen[$r['main_url']])) {
+                    continue;
+                } // أحدث سكور لكل موقع بس
                 $seen[$r['main_url']] = true;
                 $snapshot['seo_scores'][] = ['url' => $r['main_url'], 'score' => (float) $r['overall_score']];
             }
-        } catch (Exception $e) { /* الجدول ممكن يكون مش موجود لسه على بيئات قديمة - نكمل من غيره */ }
+        } catch (Exception $e) { /* الجدول ممكن يكون مش موجود لسه على بيئات قديمة - نكمل من غيره */
+        }
 
         // مقارنات المنافسين (Phase 7)
         try {
@@ -76,7 +83,8 @@ class CeoAdvisorService {
                 $websiteIds
             );
             $snapshot['competitor_comparisons'] = $rows;
-        } catch (Exception $e) {}
+        } catch (Exception $e) {
+        }
 
         // فرص الكلمات المفتاحية (Phase 6)
         try {
@@ -86,7 +94,8 @@ class CeoAdvisorService {
                 'high_priority_count' => (int) ($high[0]['c'] ?? 0),
                 'total_tracked' => (int) ($total[0]['c'] ?? 0),
             ];
-        } catch (Exception $e) {}
+        } catch (Exception $e) {
+        }
 
         // حالة Outreach Pipeline (Phase 10)
         try {
@@ -99,7 +108,8 @@ class CeoAdvisorService {
                     $snapshot['outreach_pipeline'][$r['status']] = (int) $r['c'];
                 }
             }
-        } catch (Exception $e) {}
+        } catch (Exception $e) {
+        }
 
         // تكلفة AI الشهر ده (Phase 4)
         try {
@@ -110,7 +120,8 @@ class CeoAdvisorService {
                 [$userId]
             );
             $snapshot['ai_cost_this_month'] = round((float) ($rows[0]['total'] ?? 0), 4);
-        } catch (Exception $e) {}
+        } catch (Exception $e) {
+        }
 
         // الملاحظات/المخاطر/الفرص اليدوية الموجودة بالفعل (ExecutiveExtrasController)
         try {
@@ -126,7 +137,8 @@ class CeoAdvisorService {
                 "SELECT title, estimated_impact FROM ceo_growth_opportunities WHERE user_id = ? AND status NOT IN ('done','dismissed') LIMIT 5",
                 [$userId]
             );
-        } catch (Exception $e) {}
+        } catch (Exception $e) {
+        }
 
         return $snapshot;
     }
@@ -135,7 +147,8 @@ class CeoAdvisorService {
      * سؤال حر مبني على بيانات الحساب الحقيقية.
      * @return array ['success'=>bool, 'answer'=>?string, 'snapshot_used'=>array, 'error'=>?string]
      */
-    public function ask(Database $db, int $userId, string $question): array {
+    public function ask(Database $db, int $userId, string $question): array
+    {
         $question = trim($question);
         if ($question === '') {
             return ['success' => false, 'error' => 'اكتب سؤالك الأول'];
@@ -167,15 +180,16 @@ class CeoAdvisorService {
         ];
     }
 
-    private function buildPrompt(string $question, array $snapshot): string {
+    private function buildPrompt(string $question, array $snapshot): string
+    {
         $seoLines = empty($snapshot['seo_scores'])
             ? '- لا يوجد تدقيق SEO تم تشغيله بعد لأي موقع.'
-            : implode("\n", array_map(fn($s) => "- {$s['url']}: SEO Score {$s['score']}/100", $snapshot['seo_scores']));
+            : implode("\n", array_map(fn ($s) => "- {$s['url']}: SEO Score {$s['score']}/100", $snapshot['seo_scores']));
 
         $compLines = empty($snapshot['competitor_comparisons'])
             ? '- لا يوجد تحليل منافسين حتى الآن.'
             : implode("\n", array_map(
-                fn($c) => "- {$c['competitor_name']} ({$c['competitor_domain']}): موقعي {$c['my_score']}/100 مقابل المنافس {$c['competitor_score']}/100",
+                fn ($c) => "- {$c['competitor_name']} ({$c['competitor_domain']}): موقعي {$c['my_score']}/100 مقابل المنافس {$c['competitor_score']}/100",
                 $snapshot['competitor_comparisons']
             ));
 
@@ -183,9 +197,9 @@ class CeoAdvisorService {
         $outreach = $snapshot['outreach_pipeline'];
         $cost = $snapshot['ai_cost_this_month'];
 
-        $notesLines = empty($snapshot['manual_notes']) ? '- لا يوجد.' : implode("\n", array_map(fn($n) => "- {$n}", $snapshot['manual_notes']));
-        $risksLines = empty($snapshot['open_risks']) ? '- لا يوجد.' : implode("\n", array_map(fn($r) => "- [{$r['severity']}] {$r['title']}", $snapshot['open_risks']));
-        $oppsLines = empty($snapshot['open_opportunities']) ? '- لا يوجد.' : implode("\n", array_map(fn($o) => "- [{$o['estimated_impact']}] {$o['title']}", $snapshot['open_opportunities']));
+        $notesLines = empty($snapshot['manual_notes']) ? '- لا يوجد.' : implode("\n", array_map(fn ($n) => "- {$n}", $snapshot['manual_notes']));
+        $risksLines = empty($snapshot['open_risks']) ? '- لا يوجد.' : implode("\n", array_map(fn ($r) => "- [{$r['severity']}] {$r['title']}", $snapshot['open_risks']));
+        $oppsLines = empty($snapshot['open_opportunities']) ? '- لا يوجد.' : implode("\n", array_map(fn ($o) => "- [{$o['estimated_impact']}] {$o['title']}", $snapshot['open_opportunities']));
 
         return <<<PROMPT
 أنت مستشار نمو أعمال (CEO Advisor) لشركة سياحة، وعندك وصول لبيانات الحساب الفعلية دي بس -

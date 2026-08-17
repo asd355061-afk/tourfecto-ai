@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - GBP Photo Upload Job
  * تنفيذ رفع صورة GBP فعليًا على Google في الخلفية - بيخلي المستخدم مش
@@ -7,8 +8,10 @@
  * @version 1.0.0
  * @since 2026-08-11 (GBP Module Upgrade - Round 6: Async Photo Upload)
  */
-class GbpPhotoUploadJob implements QueueJobInterface {
-    public function handle(array $payload): void {
+class GbpPhotoUploadJob implements QueueJobInterface
+{
+    public function handle(array $payload): void
+    {
         $photoId = (int) ($payload['photo_id'] ?? 0);
         if (!$photoId) {
             throw new Exception('GbpPhotoUploadJob: photo_id مطلوب');

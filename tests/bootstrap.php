@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Test Bootstrap
  * تهيئة بيئة الاختبار لـ PHPUnit
@@ -142,21 +143,22 @@ foreach ($testDirs as $dir) {
 // ============================================
 // 12. إعداد قاعدة بيانات الاختبار
 // ============================================
-function setupTestDatabase(): void {
+function setupTestDatabase(): void
+{
     $db = Database::getInstance();
-    
+
     try {
         // إنشاء قاعدة بيانات الاختبار
         $sql = "CREATE DATABASE IF NOT EXISTS " . TOURFECTO_TEST_DB . " 
                 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
         $db->query($sql);
-        
+
         // استخدام قاعدة بيانات الاختبار
         $sql = "USE " . TOURFECTO_TEST_DB;
         $db->query($sql);
-        
+
         echo "✅ Test database created/selected: " . TOURFECTO_TEST_DB . "\n";
-        
+
     } catch (Exception $e) {
         echo "❌ Failed to setup test database: " . $e->getMessage() . "\n";
     }
@@ -165,31 +167,32 @@ function setupTestDatabase(): void {
 // ============================================
 // 13. تحميل مخطط قاعدة البيانات
 // ============================================
-function loadDatabaseSchema(): void {
+function loadDatabaseSchema(): void
+{
     $db = Database::getInstance();
     $schemaFile = TOURFECTO_ROOT . '/database/schema.sql';
-    
+
     if (!file_exists($schemaFile)) {
         echo "❌ Schema file not found: " . $schemaFile . "\n";
         return;
     }
-    
+
     try {
         // قراءة ملف الـ SQL
         $sql = file_get_contents($schemaFile);
-        
+
         // تقسيم الاستعلامات
         $queries = explode(';', $sql);
-        
+
         foreach ($queries as $query) {
             $query = trim($query);
             if (!empty($query) && strpos($query, 'CREATE DATABASE') === false) {
                 $db->query($query);
             }
         }
-        
+
         echo "✅ Database schema loaded successfully\n";
-        
+
     } catch (Exception $e) {
         echo "❌ Failed to load schema: " . $e->getMessage() . "\n";
     }
@@ -198,12 +201,13 @@ function loadDatabaseSchema(): void {
 // ============================================
 // 14. تحميل بيانات الاختبار الافتراضية
 // ============================================
-function loadTestFixtures(): void {
+function loadTestFixtures(): void
+{
     try {
         $loader = new FixtureLoader();
         $loader->loadAll(true);
         echo "✅ Test fixtures loaded successfully\n";
-        
+
     } catch (Exception $e) {
         echo "❌ Failed to load fixtures: " . $e->getMessage() . "\n";
     }
@@ -218,9 +222,10 @@ function loadTestFixtures(): void {
  * @param array $overrides - بيانات مخصصة
  * @return int
  */
-function createTestUser(array $overrides = []): int {
+function createTestUser(array $overrides = []): int
+{
     $db = Database::getInstance();
-    
+
     $defaults = [
         'company_name' => 'Test Company',
         'email' => 'test_' . uniqid() . '@example.com',
@@ -233,9 +238,9 @@ function createTestUser(array $overrides = []): int {
         'is_active' => 1,
         'email_verified' => 1
     ];
-    
+
     $data = array_merge($defaults, $overrides);
-    
+
     $sql = "INSERT INTO users (
         company_name, email, password, phone, country, language,
         timezone, role, is_active, email_verified
@@ -243,7 +248,7 @@ function createTestUser(array $overrides = []): int {
         :company_name, :email, :password, :phone, :country, :language,
         :timezone, :role, :is_active, :email_verified
     )";
-    
+
     return (int) $db->query($sql, $data);
 }
 
@@ -253,9 +258,10 @@ function createTestUser(array $overrides = []): int {
  * @param array $overrides
  * @return int
  */
-function createTestWebsite(int $userId, array $overrides = []): int {
+function createTestWebsite(int $userId, array $overrides = []): int
+{
     $db = Database::getInstance();
-    
+
     $defaults = [
         'user_id' => $userId,
         'main_url' => 'https://test-' . uniqid() . '.com',
@@ -265,9 +271,9 @@ function createTestWebsite(int $userId, array $overrides = []): int {
         'target_country' => 'SA',
         'is_verified' => 1
     ];
-    
+
     $data = array_merge($defaults, $overrides);
-    
+
     $sql = "INSERT INTO websites (
         user_id, main_url, company_name, industry, target_language,
         target_country, is_verified
@@ -275,7 +281,7 @@ function createTestWebsite(int $userId, array $overrides = []): int {
         :user_id, :main_url, :company_name, :industry, :target_language,
         :target_country, :is_verified
     )";
-    
+
     return (int) $db->query($sql, $data);
 }
 
@@ -286,17 +292,18 @@ function createTestWebsite(int $userId, array $overrides = []): int {
  * @param array $overrides
  * @return int
  */
-function createTestSubscription(int $userId, string $plan = 'starter', array $overrides = []): int {
+function createTestSubscription(int $userId, string $plan = 'starter', array $overrides = []): int
+{
     $db = Database::getInstance();
-    
+
     $plans = [
         'starter' => ['ai_credits' => 50, 'chat_credits' => 100, 'review_credits' => 10, 'competitor_limit' => 5, 'price' => 49.00],
         'professional' => ['ai_credits' => 200, 'chat_credits' => 500, 'review_credits' => 50, 'competitor_limit' => 20, 'price' => 99.00],
         'enterprise' => ['ai_credits' => 1000, 'chat_credits' => 2000, 'review_credits' => 200, 'competitor_limit' => 100, 'price' => 299.00]
     ];
-    
+
     $planData = $plans[$plan] ?? $plans['starter'];
-    
+
     $defaults = [
         'user_id' => $userId,
         'plan_name' => $plan,
@@ -316,9 +323,9 @@ function createTestSubscription(int $userId, string $plan = 'starter', array $ov
         'start_date' => date('Y-m-d H:i:s'),
         'expiry_date' => date('Y-m-d H:i:s', strtotime('+1 month'))
     ];
-    
+
     $data = array_merge($defaults, $overrides);
-    
+
     $sql = "INSERT INTO subscriptions (
         user_id, plan_name, plan_type, status, price, currency,
         ai_credits, ai_credits_used, chat_credits, chat_credits_used,
@@ -330,7 +337,7 @@ function createTestSubscription(int $userId, string $plan = 'starter', array $ov
         :review_credits, :review_credits_used, :competitor_analysis_limit,
         :competitor_analysis_used, :auto_pilot, :start_date, :expiry_date
     )";
-    
+
     return (int) $db->query($sql, $data);
 }
 
@@ -339,7 +346,8 @@ function createTestSubscription(int $userId, string $plan = 'starter', array $ov
  * @param string $table
  * @param string $condition
  */
-function cleanTestData(string $table, string $condition = '1=1'): void {
+function cleanTestData(string $table, string $condition = '1=1'): void
+{
     $db = Database::getInstance();
     $sql = "DELETE FROM {$table} WHERE {$condition}";
     $db->query($sql);
@@ -349,7 +357,8 @@ function cleanTestData(string $table, string $condition = '1=1'): void {
  * الحصول على وقت التنفيذ
  * @return float
  */
-function getExecutionTime(): float {
+function getExecutionTime(): float
+{
     static $startTime;
     if ($startTime === null) {
         $startTime = microtime(true);
@@ -366,7 +375,8 @@ function getExecutionTime(): float {
  * @param float $time
  * @return string
  */
-function formatExecutionTime(float $time): string {
+function formatExecutionTime(float $time): string
+{
     if ($time < 1) {
         return round($time * 1000, 2) . 'ms';
     }
@@ -381,7 +391,8 @@ function formatExecutionTime(float $time): string {
  * @param array $headers
  * @return array
  */
-function createMockRequest(string $method, string $uri, array $data = [], array $headers = []): array {
+function createMockRequest(string $method, string $uri, array $data = [], array $headers = []): array
+{
     return [
         'method' => $method,
         'uri' => $uri,
@@ -401,7 +412,8 @@ function createMockRequest(string $method, string $uri, array $data = [], array 
  * @param int $statusCode
  * @return array
  */
-function createMockResponse(array $data = [], int $statusCode = 200): array {
+function createMockResponse(array $data = [], int $statusCode = 200): array
+{
     return [
         'success' => $statusCode >= 200 && $statusCode < 300,
         'data' => $data,

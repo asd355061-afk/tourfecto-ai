@@ -1,9 +1,11 @@
 <?php
+
 /**
  * Tourfecto - Review Request Settings Model
  * @version 1.0.0
  */
-class ReviewRequestSettings extends Model {
+class ReviewRequestSettings extends Model
+{
     protected $table = 'review_request_settings';
 
     protected $fillable = [
@@ -13,7 +15,8 @@ class ReviewRequestSettings extends Model {
     ];
 
     /** الإعدادات الافتراضية لموقع لسه معملش إعدادات خاصة بيه */
-    public static function defaults(int $websiteId): array {
+    public static function defaults(int $websiteId): array
+    {
         return [
             'website_id' => $websiteId,
             'is_enabled' => 1,

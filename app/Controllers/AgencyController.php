@@ -1,19 +1,23 @@
 <?php
+
 /**
  * Tourfecto - Agency Controller (White-Label)
  * @version 1.0.0
  */
-class AgencyController extends Controller {
+class AgencyController extends Controller
+{
     /** @var AgencyService */
     private $service;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->service = new AgencyService();
     }
 
     /** GET /agency */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $body = <<<HTML
         <div class="p-toolbar">
             <button class="p-btn" onclick="document.getElementById('newAgencyModal').classList.add('open')">+ وكالة جديدة</button>
@@ -142,16 +146,24 @@ JS;
     }
 
     /** GET /api/agency/list */
-    public function list(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function list(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $agencies = (new Agency())->where(['owner_user_id' => $this->user['id']], ['created_at' => 'DESC']);
-        return $this->success(['agencies' => array_map(fn($a) => $a->toArray(), $agencies)]);
+        return $this->success(['agencies' => array_map(fn ($a) => $a->toArray(), $agencies)]);
     }
 
     /** POST /api/agency/create */
-    public function create(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!$this->validate(['name' => 'required'])) return $this->error('اسم الوكالة مطلوب', 422);
+    public function create(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!$this->validate(['name' => 'required'])) {
+            return $this->error('اسم الوكالة مطلوب', 422);
+        }
 
         if (!in_array($this->user['role'] ?? '', ['super_admin', 'admin', 'agency_owner'], true)) {
             return $this->error('صلاحياتك الحالية لا تسمح بإنشاء وكالة White-Label - تواصل مع الدعم لترقية باقتك', 403);
@@ -167,7 +179,8 @@ JS;
     }
 
     /** يتأكد إن الوكالة دي فعلاً ملك المستخدم الحالي، أو يرجّع null */
-    private function ownedAgency(int $agencyId): ?Agency {
+    private function ownedAgency(int $agencyId): ?Agency
+    {
         $agency = (new Agency())->find($agencyId);
         if (!$agency || (int) $agency->getAttribute('owner_user_id') !== (int) $this->user['id']) {
             return null;
@@ -176,11 +189,16 @@ JS;
     }
 
     /** GET /api/agency/{id}/clients */
-    public function listClients(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listClients(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $agency = $this->ownedAgency((int) ($params['id'] ?? 0));
-        if (!$agency) return $this->error('الوكالة غير موجودة', 404);
+        if (!$agency) {
+            return $this->error('الوكالة غير موجودة', 404);
+        }
 
         try {
             $links = (new AgencyClient())->where(['agency_id' => $agency->getAttribute('id')]);
@@ -191,7 +209,7 @@ JS;
             // تصحيح أداء: كان بيعمل استعلام منفصل لكل عميل جوه اللوب
             // (N+1) - لو الوكالة عندها 50 عميل كان بيبعت 50 استعلام
             // بدل واحد بس. دلوقتي استعلام واحد مجمّع بـ IN (...).
-            $userIds = array_map(fn($link) => (int) $link->getAttribute('client_user_id'), $links);
+            $userIds = array_map(fn ($link) => (int) $link->getAttribute('client_user_id'), $links);
             $placeholders = implode(',', array_fill(0, count($userIds), '?'));
             $users = $this->db->query("SELECT id, email, company_name FROM users WHERE id IN ({$placeholders})", $userIds);
             $usersById = [];
@@ -219,12 +237,19 @@ JS;
     }
 
     /** POST /api/agency/{id}/clients - إضافة عميل موجود بالفعل في تورفكتو للوكالة عن طريق بريده */
-    public function addClient(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!$this->validate(['email' => 'required|email'])) return $this->error('بريد إلكتروني غير صحيح', 422);
+    public function addClient(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!$this->validate(['email' => 'required|email'])) {
+            return $this->error('بريد إلكتروني غير صحيح', 422);
+        }
 
         $agency = $this->ownedAgency((int) ($params['id'] ?? 0));
-        if (!$agency) return $this->error('الوكالة غير موجودة', 404);
+        if (!$agency) {
+            return $this->error('الوكالة غير موجودة', 404);
+        }
 
         $clientUser = User::findByEmail((string) $this->get('email'));
         if (!$clientUser) {
@@ -243,11 +268,16 @@ JS;
     }
 
     /** DELETE /api/agency/{id}/clients/{clientId} */
-    public function removeClient(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function removeClient(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $agency = $this->ownedAgency((int) ($params['id'] ?? 0));
-        if (!$agency) return $this->error('الوكالة غير موجودة', 404);
+        if (!$agency) {
+            return $this->error('الوكالة غير موجودة', 404);
+        }
 
         try {
             $link = (new AgencyClient())->find((int) ($params['clientId'] ?? 0));

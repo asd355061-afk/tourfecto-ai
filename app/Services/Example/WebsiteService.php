@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Website Service (مثال توضيحي)
  * @version 1.0.0
@@ -8,7 +9,8 @@
  * جوه كل method - ده اللي بيخلي اختبار الكلاس ده بـ mock سهل.
  * لسه مش متصل بأي Controller حالي.
  */
-class WebsiteService extends BaseService {
+class WebsiteService extends BaseService
+{
     /** @var WebsiteRepository */
     private $websites;
 
@@ -27,7 +29,8 @@ class WebsiteService extends BaseService {
      * مهتم (مثلاً: إرسال إشعار ترحيبي، أو جدولة أول تحليل AI تلقائي عن
      * طريق QueueManager).
      */
-    public function registerWebsite(int $userId, array $data): int {
+    public function registerWebsite(int $userId, array $data): int
+    {
         $id = $this->websites->create(array_merge($data, ['user_id' => $userId, 'is_verified' => 0]));
 
         $this->log('info', 'Website registered via WebsiteService', ['user_id' => $userId, 'website_id' => $id]);
@@ -36,7 +39,8 @@ class WebsiteService extends BaseService {
         return $id;
     }
 
-    public function verifiedCountForUser(int $userId): int {
+    public function verifiedCountForUser(int $userId): int
+    {
         return $this->websites->countVerifiedForUser($userId);
     }
 }

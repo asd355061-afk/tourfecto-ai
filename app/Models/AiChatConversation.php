@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * محادثة موحدة (Unified Inbox) - بند 1.
@@ -10,7 +11,8 @@
  *
  * @version 1.0.0
  */
-class AiChatConversation extends Model {
+class AiChatConversation extends Model
+{
     protected $table = 'ai_conversations';
     protected $fillable = [
         'website_id', 'user_id', 'channel', 'channel_thread_id',
@@ -28,7 +30,8 @@ class AiChatConversation extends Model {
      * @param array $filters ['status','ai_status','lead_status','channel','priority']
      * @return array
      */
-    public function forWebsite(int $websiteId, array $filters = []): array {
+    public function forWebsite(int $websiteId, array $filters = []): array
+    {
         $conditions = ['website_id' => $websiteId];
         foreach (['status', 'ai_status', 'lead_status', 'channel', 'priority', 'assigned_agent_id'] as $key) {
             if (!empty($filters[$key])) {
@@ -46,7 +49,8 @@ class AiChatConversation extends Model {
      * @param string $channelThreadId
      * @return AiChatConversation|null
      */
-    public function findByChannelThread(int $websiteId, string $channel, string $channelThreadId): ?self {
+    public function findByChannelThread(int $websiteId, string $channel, string $channelThreadId): ?self
+    {
         $result = $this->where([
             'website_id' => $websiteId,
             'channel' => $channel,

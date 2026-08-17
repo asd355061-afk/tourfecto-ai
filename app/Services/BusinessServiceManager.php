@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Service Manager (Service layer)
  * @version 1.0.0
@@ -9,15 +10,16 @@
  * المسؤولية الوحيدة هنا: توليد slug فريد لكل خدمة **داخل نطاق نفس
  * الـBusiness فقط** (مش عالميًا - راجع تعليق الـUNIQUE KEY في الـMigration).
  */
-class BusinessServiceManager {
-
+class BusinessServiceManager
+{
     /**
      * يولّد slug من الاسم، ولو فيه تعارض مع خدمة تانية لنفس الـBusiness،
      * يضيف رقم تسلسلي (-2, -3...) لحد ما يلاقي واحد فاضي. بيستبعد
      * الخدمة الحالية نفسها لو بنعمل Update (عشان نفس الاسم القديم
      * يفضل شغال من غير ما يتصادم مع نفسه).
      */
-    public function generateUniqueSlug(int $businessId, string $name, ?int $excludeServiceId = null): string {
+    public function generateUniqueSlug(int $businessId, string $name, ?int $excludeServiceId = null): string
+    {
         $base = $this->slugify($name);
         if ($base === '') {
             $base = 'service';
@@ -34,7 +36,8 @@ class BusinessServiceManager {
         return $slug;
     }
 
-    protected function slugExists(int $businessId, string $slug, ?int $excludeServiceId): bool {
+    protected function slugExists(int $businessId, string $slug, ?int $excludeServiceId): bool
+    {
         $conditions = ['business_id' => $businessId, 'slug' => $slug];
         $matches = (new BusinessService())->where($conditions, [], 2);
 
@@ -48,7 +51,8 @@ class BusinessServiceManager {
         return false;
     }
 
-    private function slugify(string $text): string {
+    private function slugify(string $text): string
+    {
         // نقل عمومي بسيط: يدعم عربي وإنجليزي - بيشيل أي حرف مش
         // حروف/أرقام/مسافة/شرطة، ويحوّل المسافات لشرطات، ويوحّد
         // الشرطات المتتالية (لو جت من " - " أو مسافات مضاعفة).

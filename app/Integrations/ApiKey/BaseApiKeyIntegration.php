@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Base API-Key Integration
  * @version 1.0.0
@@ -7,14 +8,15 @@
  * ويحدد بس baseUrl() وbuildHeaders() وdoRequest() الخاصة به. منطق الـ
  * cURL والـ error handling والـ logging مشترك هنا مرة واحدة.
  */
-abstract class BaseApiKeyIntegration implements IntegrationInterface {
-
+abstract class BaseApiKeyIntegration implements IntegrationInterface
+{
     abstract protected function baseUrl(): string;
 
     /** الهيدرز المطلوبة (Authorization: Bearer ... إلخ) */
     abstract protected function buildHeaders(): array;
 
-    protected function httpRequest(string $method, string $path, array $body = []): array {
+    protected function httpRequest(string $method, string $path, array $body = []): array
+    {
         $ch = curl_init($this->baseUrl() . $path);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
@@ -45,7 +47,8 @@ abstract class BaseApiKeyIntegration implements IntegrationInterface {
         return ['success' => true, 'data' => $decoded, 'error' => null];
     }
 
-    protected function log(string $level, string $message, array $context = []): void {
+    protected function log(string $level, string $message, array $context = []): void
+    {
         if (function_exists('app_log')) {
             app_log($level, $message, $context);
         }

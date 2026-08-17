@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Readiness Service Test
  * @version 1.0.0
@@ -12,16 +13,19 @@
  */
 require_once dirname(__DIR__, 3) . '/app/Services/BusinessReadinessService.php';
 
-class BusinessReadinessServiceTest {
+class BusinessReadinessServiceTest
+{
     private $passed = 0;
     private $failed = 0;
     private $service;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->service = new BusinessReadinessService();
     }
 
-    public function runAll(): void {
+    public function runAll(): void
+    {
         echo "\nBusiness Readiness Service Tests\n";
         echo "=================================\n\n";
 
@@ -36,14 +40,16 @@ class BusinessReadinessServiceTest {
         $this->printSummary();
     }
 
-    private function testNonexistentContext(): void {
+    private function testNonexistentContext(): void
+    {
         $this->startTest('Nonexistent business returns exists=false');
         $r = $this->service->scoreFromContext(['exists' => false]);
         $ok = $r['exists'] === false && $r['total'] === 0 && $r['grade'] === 'F';
         $ok ? $this->pass('exists=false, total=0, grade=F') : $this->fail('Unexpected: ' . json_encode($r));
     }
 
-    private function testEmptyBusinessScoresZero(): void {
+    private function testEmptyBusinessScoresZero(): void
+    {
         $this->startTest('Empty business (exists=true, no data) scores 0 with recommendations');
         $r = $this->service->scoreFromContext($this->buildContext([]));
         $ok = $r['total'] === 0 && $r['grade'] === 'F' && !empty($r['recommendations']);
@@ -52,7 +58,8 @@ class BusinessReadinessServiceTest {
             : $this->fail('Unexpected: ' . json_encode($r));
     }
 
-    private function testCompleteBusinessScoresHundred(): void {
+    private function testCompleteBusinessScoresHundred(): void
+    {
         $this->startTest('Fully complete business scores 100 (grade A, no recommendations)');
         $r = $this->service->scoreFromContext($this->buildContext([
             'business' => $this->fullBusiness(),
@@ -92,7 +99,8 @@ class BusinessReadinessServiceTest {
             : $this->fail('Unexpected: total=' . $r['total'] . ' grade=' . $r['grade']);
     }
 
-    private function testPartialBusinessPartialScore(): void {
+    private function testPartialBusinessPartialScore(): void
+    {
         $this->startTest('Partial business scores proportionally (identity only = 20)');
         $r = $this->service->scoreFromContext($this->buildContext([
             'business' => $this->identityOnlyBusiness(),
@@ -104,7 +112,8 @@ class BusinessReadinessServiceTest {
             : $this->fail('Unexpected: ' . json_encode($r));
     }
 
-    private function testRecommendationsOrderedByPriority(): void {
+    private function testRecommendationsOrderedByPriority(): void
+    {
         $this->startTest('Recommendations are sorted high priority first');
         $r = $this->service->scoreFromContext($this->buildContext([
             'business' => $this->fullBusiness(),
@@ -116,7 +125,8 @@ class BusinessReadinessServiceTest {
             : $this->fail('First recommendation not high priority: ' . json_encode($recs[0] ?? null));
     }
 
-    private function testGradeBoundaries(): void {
+    private function testGradeBoundaries(): void
+    {
         $this->startTest('Grade boundaries map correctly (F/D/C/B/A)');
         // نختبر عبر بناء حالات جزئية بدل ثغرة - كل حالة بتحدد درجة محددة:
         // identity+contact+locations كاملة = 50 => D
@@ -130,7 +140,8 @@ class BusinessReadinessServiceTest {
         $ok ? $this->pass('50 => D') : $this->fail('50 => ' . $r50['grade'] . ' (expected D)');
     }
 
-    private function testCategoryContributionsSumToTotal(): void {
+    private function testCategoryContributionsSumToTotal(): void
+    {
         $this->startTest('Category contributions sum to the reported total');
         $r = $this->service->scoreFromContext($this->buildContext([
             'business' => $this->fullBusiness(),
@@ -154,7 +165,8 @@ class BusinessReadinessServiceTest {
      * بيبقى بنفس القيمة الافتراضية اللي بيرجعها الـService الحقيقي
      * (مثلاً ai_context = null لو مفيش بيانات).
      */
-    private function buildContext(array $overrides): array {
+    private function buildContext(array $overrides): array
+    {
         $base = [
             'exists' => true,
             'business' => [],
@@ -176,7 +188,8 @@ class BusinessReadinessServiceTest {
         return array_merge($base, $overrides);
     }
 
-    private function fullBusiness(): array {
+    private function fullBusiness(): array
+    {
         return [
             'legal_name' => 'Nile Wonders Travel',
             'trade_name' => 'Nile Wonders',
@@ -197,7 +210,8 @@ class BusinessReadinessServiceTest {
     }
 
     /** Business يملك كل مقومات الهوية بس من غير أي بيانات تواصل (حالة جزئية قابلة للحساب بدقة) */
-    private function identityOnlyBusiness(): array {
+    private function identityOnlyBusiness(): array
+    {
         return [
             'legal_name' => 'Nile Wonders Travel',
             'description' => 'Premium travel company in Egypt',
@@ -208,7 +222,8 @@ class BusinessReadinessServiceTest {
         ];
     }
 
-    private function fullLocation(): array {
+    private function fullLocation(): array
+    {
         return [
             'name' => 'Head Office',
             'country_code' => 'EG',
@@ -221,7 +236,8 @@ class BusinessReadinessServiceTest {
         ];
     }
 
-    private function fullService(string $name = 'Egypt Classic Tours'): array {
+    private function fullService(string $name = 'Egypt Classic Tours'): array
+    {
         return [
             'name' => $name,
             'category' => 'egypt_tours',
@@ -230,11 +246,23 @@ class BusinessReadinessServiceTest {
         ];
     }
 
-    private function startTest(string $name): void { echo "\n  > {$name}\n"; }
-    private function pass(string $message): void { echo "    [PASS] {$message}\n"; $this->passed++; }
-    private function fail(string $message): void { echo "    [FAIL] {$message}\n"; $this->failed++; }
+    private function startTest(string $name): void
+    {
+        echo "\n  > {$name}\n";
+    }
+    private function pass(string $message): void
+    {
+        echo "    [PASS] {$message}\n";
+        $this->passed++;
+    }
+    private function fail(string $message): void
+    {
+        echo "    [FAIL] {$message}\n";
+        $this->failed++;
+    }
 
-    private function printSummary(): void {
+    private function printSummary(): void
+    {
         $total = $this->passed + $this->failed;
         $percentage = $total > 0 ? round(($this->passed / $total) * 100, 2) : 0;
         echo "\n" . str_repeat('=', 50) . "\n";

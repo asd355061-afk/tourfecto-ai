@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM AI Lead Scoring Service (بند 8)
  * @version 1.0.0
@@ -12,10 +13,12 @@
  * إضافية مستقبلية (رد فعل بريد/واتساب حقيقي مثلًا) يمكن إضافتها هنا لاحقًا
  * دون تغيير الواجهة الخارجية للخدمة.
  */
-class CrmLeadScoringService {
+class CrmLeadScoringService
+{
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
@@ -23,7 +26,8 @@ class CrmLeadScoringService {
      * يحسب Score (0-100) وPriority وReason نصي لسبب التقييم، بناءً على
      * إشارات حقيقية فقط، ثم يحفظها على سجل الـLead.
      */
-    public function scoreLead(int $leadId): CrmLead {
+    public function scoreLead(int $leadId): CrmLead
+    {
         $lead = (new CrmLead())->find($leadId);
         if (!$lead) {
             throw new Exception('Lead غير موجود', 404);
@@ -47,17 +51,21 @@ class CrmLeadScoringService {
     }
 
     /** يجمع كل الإشارات الحقيقية المتاحة عن الـLead - بدون أي قيمة افتراضية مُختلقة */
-    private function collectSignals(CrmLead $lead): array {
+    private function collectSignals(CrmLead $lead): array
+    {
         $contactId = (int) $lead->getAttribute('contact_id');
 
         $tasksCount = (int) $this->scalar(
-            "SELECT COUNT(*) FROM crm_tasks WHERE related_type = 'crm_leads' AND related_id = ?", [$lead->getAttribute('id')]
+            "SELECT COUNT(*) FROM crm_tasks WHERE related_type = 'crm_leads' AND related_id = ?",
+            [$lead->getAttribute('id')]
         );
         $notesCount = (int) $this->scalar(
-            "SELECT COUNT(*) FROM crm_notes WHERE related_type = 'crm_leads' AND related_id = ?", [$lead->getAttribute('id')]
+            "SELECT COUNT(*) FROM crm_notes WHERE related_type = 'crm_leads' AND related_id = ?",
+            [$lead->getAttribute('id')]
         );
         $meetingsCount = (int) $this->scalar(
-            "SELECT COUNT(*) FROM crm_meetings WHERE contact_id = ?", [$contactId]
+            "SELECT COUNT(*) FROM crm_meetings WHERE contact_id = ?",
+            [$contactId]
         );
 
         $lastEngagement = $lead->getAttribute('last_engagement_at');
@@ -78,7 +86,8 @@ class CrmLeadScoringService {
     }
 
     /** منطق التسجيل - قابل للمراجعة بالكامل، كل بند مُفسَّر بسبب واضح */
-    private function computeScore(array $s): array {
+    private function computeScore(array $s): array
+    {
         $score = 20; // نقطة بداية محايدة لأي Lead جديد (يمثّل "لسه مجهول")
         $reasons = [];
 
@@ -140,9 +149,12 @@ class CrmLeadScoringService {
         return [$score, $reasons];
     }
 
-    private function scalar(string $sql, array $params) {
+    private function scalar(string $sql, array $params)
+    {
         $rows = $this->db->query($sql, $params);
-        if (empty($rows)) return 0;
+        if (empty($rows)) {
+            return 0;
+        }
         return reset($rows[0]);
     }
 }

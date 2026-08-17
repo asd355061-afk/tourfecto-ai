@@ -1,19 +1,23 @@
 <?php
+
 /**
  * Tourfecto - Video Script Service (Creative Studio)
  * توليد سكربتات فيديو قصيرة بالذكاء الاصطناعي - يعيد استخدام GeminiClient
  * الموحّد (نفس محرك مقالات SEO والشات) بدل عميل AI منفصل.
  * @version 1.0.0
  */
-class VideoScriptService {
+class VideoScriptService
+{
     /** @var GeminiClient */
     private $ai;
 
-    public function __construct(?GeminiClient $ai = null) {
+    public function __construct(?GeminiClient $ai = null)
+    {
         $this->ai = $ai ?? new GeminiClient();
     }
 
-    public function generate(int $userId, string $topic, string $platform, int $durationSeconds = 30, string $language = 'ar'): VideoScript {
+    public function generate(int $userId, string $topic, string $platform, int $durationSeconds = 30, string $language = 'ar'): VideoScript
+    {
         $script = new VideoScript([
             'user_id' => $userId,
             'topic' => $topic,

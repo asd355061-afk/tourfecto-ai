@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Next Best Revenue Action Service
  * @version 1.0.0
@@ -9,16 +10,19 @@
  * يقترح، مبنيًا على Opportunities/Risks/Anomalies الحقيقية المُولّدة من
  * RevenueInsightService/RevenueAnomalyService.
  */
-class RevenueActionService {
+class RevenueActionService
+{
     private RevenueInsightService $insightService;
     private RevenueAnomalyService $anomalyService;
 
-    public function __construct(?RevenueInsightService $insightService = null, ?RevenueAnomalyService $anomalyService = null) {
+    public function __construct(?RevenueInsightService $insightService = null, ?RevenueAnomalyService $anomalyService = null)
+    {
         $this->insightService = $insightService ?? new RevenueInsightService();
         $this->anomalyService = $anomalyService ?? new RevenueAnomalyService();
     }
 
-    public function getNextBestActions(int $userId, int $limit = 10): array {
+    public function getNextBestActions(int $userId, int $limit = 10): array
+    {
         $opportunities = $this->insightService->getOpportunities($userId);
         $risks = $this->insightService->getRisks($userId);
         $anomalies = $this->anomalyService->detect($userId);
@@ -28,7 +32,8 @@ class RevenueActionService {
     }
 
     /** Pure function - قابلة للاختبار مباشرة بمدخلات ثابتة. */
-    public static function rankActions(array $opportunities, array $risks, array $anomalies, int $limit = 10): array {
+    public static function rankActions(array $opportunities, array $risks, array $anomalies, int $limit = 10): array
+    {
         $actions = [];
 
         foreach ($opportunities as $o) {
@@ -92,7 +97,8 @@ class RevenueActionService {
         return array_slice($actions, 0, $limit);
     }
 
-    private static function categoryToActionLabel(string $category): string {
+    private static function categoryToActionLabel(string $category): string
+    {
         $map = [
             'high_value_customer' => 'Contact High-value Customer',
             'upsell_growing_customer' => 'Upsell',

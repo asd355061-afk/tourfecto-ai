@@ -1,13 +1,17 @@
 <?php
+
 /** Tourfecto - CRM Global Search Service (بند 28) @version 1.0.0 */
-class CrmSearchService {
+class CrmSearchService
+{
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
-    public function search(int $userId, string $query, int $limitPerType = 10): array {
+    public function search(int $userId, string $query, int $limitPerType = 10): array
+    {
         $like = '%' . $query . '%';
 
         $contacts = $this->db->query(

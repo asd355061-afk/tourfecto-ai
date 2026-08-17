@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Monitoring Engine
  * @version 1.0.0
@@ -10,7 +11,8 @@
  * اليدوي في الـ Controller (استدعاء واحد متزامن لمنافس واحد فقط - لا
  * يجوز أبدًا استدعاؤه لعشرات المنافسين داخل نفس الـ HTTP request).
  */
-class MonitoringEngine {
+class MonitoringEngine
+{
     /** الصفحات العامة المدعومة، بنفس ترتيب الأهمية */
     private const MONITORED_PAGES = [
         'homepage' => '',
@@ -46,7 +48,8 @@ class MonitoringEngine {
     /**
      * @return array{competitor_id:int, pages_checked:int, changes_detected:int, failures:int, results:array}
      */
-    public function monitor(Competitor $competitor): array {
+    public function monitor(Competitor $competitor): array
+    {
         $baseUrl = $this->resolveBaseUrl($competitor);
         $results = [];
         $changesDetected = 0;
@@ -138,14 +141,8 @@ class MonitoringEngine {
         ];
     }
 
-    private function resolveBaseUrl(Competitor $competitor): ?string {
-        $domain = (string) $competitor->getAttribute('competitor_domain');
-        if ($domain === '') {
-            return null;
-        }
-        if (!preg_match('#^https?://#i', $domain)) {
-            $domain = 'https://' . $domain;
-        }
-        return SsrfGuard::isSafe($domain) ? $domain : null;
+    private function resolveBaseUrl(Competitor $competitor): ?string
+    {
+        return CompetitorDomain::normalizeSafe($competitor->getAttribute('competitor_domain'));
     }
 }

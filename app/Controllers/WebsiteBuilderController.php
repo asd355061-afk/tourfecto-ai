@@ -1,21 +1,25 @@
 <?php
+
 /**
  * Tourfecto - Website Builder Controller
  * معالج شات موجّه لتوليد موقع سياحي كامل، + عرض عام للموقع المولّد على
  * tourfecto.pro/sites/{slug}، + تعديل بسيط بعد التوليد.
  * @version 1.0.0
  */
-class WebsiteBuilderController extends Controller {
+class WebsiteBuilderController extends Controller
+{
     /** @var WebsiteBuilderService */
     private $service;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->service = new WebsiteBuilderService();
     }
 
     /** GET /website-builder */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $tTitle = $this->tr('wb.title');
         $tSubtitle = $this->tr('wb.subtitle');
         $tPlaceholder = $this->tr('wb.input_placeholder');
@@ -375,36 +379,55 @@ JS;
     }
 
     /** GET /api/website-builder/state */
-    public function getState(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getState(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         return $this->success($this->service->getCurrentState());
     }
 
     /** POST /api/website-builder/answer */
-    public function submitAnswer(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!$this->validate(['message' => 'required'])) return $this->error('اكتب إجابة', 422);
+    public function submitAnswer(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!$this->validate(['message' => 'required'])) {
+            return $this->error('اكتب إجابة', 422);
+        }
         return $this->success($this->service->submitAnswer((string) $this->get('message')));
     }
 
     /** POST /api/website-builder/reset */
-    public function resetWizard(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function resetWizard(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $this->service->resetWizard();
         return $this->success([]);
     }
 
     /** POST /api/website-builder/generate */
-    public function generateSite(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function generateSite(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $result = $this->service->generateSite((int) $this->user['id']);
-        if (!$result['success']) return $this->error($result['error'], 402, $result);
+        if (!$result['success']) {
+            return $this->error($result['error'], 402, $result);
+        }
         return $this->success($result);
     }
 
     /** GET /api/website-builder/my-websites */
-    public function myWebsites(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function myWebsites(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $websites = (new GeneratedWebsite())->where(['user_id' => (int) $this->user['id']], ['created_at' => 'DESC']);
             $result = array_map(function ($w) {
@@ -419,18 +442,28 @@ JS;
     }
 
     /** GET /api/website-builder/{id} */
-    public function getWebsite(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getWebsite(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
-        if (!$website) return $this->error('غير موجود', 404);
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
         return $this->success(['content' => $website->getContent(), 'theme_color' => $website->getAttribute('theme_color')]);
     }
 
     /** PUT /api/website-builder/{id} */
-    public function updateWebsite(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function updateWebsite(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
-        if (!$website) return $this->error('غير موجود', 404);
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
 
         $content = $website->getContent();
         if ($this->get('theme_color') !== null && array_key_exists((string) $this->get('theme_color'), ['gold' => 1, 'blue' => 1, 'green' => 1, 'red' => 1, 'purple' => 1])) {
@@ -457,10 +490,15 @@ JS;
 
     /** POST /api/website-builder/{id}/tours - إضافة رحلة جديدة بالذكاء الاصطناعي من وصف مختصر */
     /** POST /api/website-builder/{id}/tours - إضافة عنصر جديد (رحلة أو غرفة حسب مجال الموقع) */
-    public function addTour(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function addTour(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
-        if (!$website) return $this->error('غير موجود', 404);
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
 
         if (!$this->validate(['description' => 'required'])) {
             return $this->error('اكتب وصف مختصر الأول', 422);
@@ -499,10 +537,15 @@ JS;
     }
 
     /** PUT /api/website-builder/{id}/tours/{tourSlug} - تعديل عنصر موجود (رحلة أو غرفة) */
-    public function updateTour(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function updateTour(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
-        if (!$website) return $this->error('غير موجود', 404);
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
 
         $itemSlug = (string) ($params['tourSlug'] ?? '');
         $content = $website->getContent();
@@ -518,7 +561,9 @@ JS;
             if (($item['slug'] ?? '') === $itemSlug) {
                 $found = true;
                 foreach (array_merge($sharedFields, $industryFields) as $field) {
-                    if ($this->get($field) !== null) $item[$field] = (string) $this->get($field);
+                    if ($this->get($field) !== null) {
+                        $item[$field] = (string) $this->get($field);
+                    }
                 }
                 foreach (['highlights' => 'highlights_text', 'includes' => 'includes_text', 'excludes' => 'excludes_text', 'amenities' => 'amenities_text'] as $key => $inputField) {
                     if ($this->get($inputField) !== null) {
@@ -542,16 +587,21 @@ JS;
     }
 
     /** DELETE /api/website-builder/{id}/tours/{tourSlug} */
-    public function deleteTour(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function deleteTour(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
-        if (!$website) return $this->error('غير موجود', 404);
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
 
         $itemSlug = (string) ($params['tourSlug'] ?? '');
         $content = $website->getContent();
         $industry = $content['industry'] ?? 'tours';
         $itemsKey = $industry === 'hotel' ? 'rooms' : 'tours';
-        $content[$itemsKey] = array_values(array_filter($content[$itemsKey] ?? [], fn($t) => ($t['slug'] ?? '') !== $itemSlug));
+        $content[$itemsKey] = array_values(array_filter($content[$itemsKey] ?? [], fn ($t) => ($t['slug'] ?? '') !== $itemSlug));
 
         $website->setAttribute('content_json', json_encode($content, JSON_UNESCAPED_UNICODE));
         $website->save();
@@ -561,10 +611,15 @@ JS;
 
     /** POST /api/website-builder/{id}/publish */
 
-    public function publish(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function publish(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
-        if (!$website) return $this->error('غير موجود', 404);
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
 
         $website->setAttribute('status', 'published');
         $website->setAttribute('last_published_at', date('Y-m-d H:i:s'));
@@ -573,10 +628,15 @@ JS;
     }
 
     /** POST /sites/{slug}/lead - طلب حجز/تواصل من زائر الموقع المنشور (بدون تسجيل دخول) */
-    public function submitLead(array $params = []): array {
+    public function submitLead(array $params = []): array
+    {
         $website = $this->findViewableWebsite((string) ($params['slug'] ?? ''));
-        if (!$website) return $this->error('غير موجود', 404);
-        if (!$this->validate(['visitor_name' => 'required'])) return $this->error('اكتب اسمك من فضلك', 422);
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
+        if (!$this->validate(['visitor_name' => 'required'])) {
+            return $this->error('اكتب اسمك من فضلك', 422);
+        }
 
         $lead = new WebsiteLead();
         $lead->setAttribute('website_id', (int) $website->getAttribute('id'));
@@ -592,14 +652,19 @@ JS;
     }
 
     /** POST /sites/{slug}/review - تقييم من زائر الموقع المنشور (بدون تسجيل دخول، يحتاج اعتماد صاحب الموقع) */
-    public function submitReview(array $params = []): array {
+    public function submitReview(array $params = []): array
+    {
         $website = $this->findViewableWebsite((string) ($params['slug'] ?? ''));
-        if (!$website) return $this->error('غير موجود', 404);
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
         if (!$this->validate(['visitor_name' => 'required', 'rating' => 'required'])) {
             return $this->error('اكتب اسمك وتقييمك من فضلك', 422);
         }
         $rating = (int) $this->get('rating');
-        if ($rating < 1 || $rating > 5) return $this->error('التقييم لازم يكون من 1 لـ 5', 422);
+        if ($rating < 1 || $rating > 5) {
+            return $this->error('التقييم لازم يكون من 1 لـ 5', 422);
+        }
 
         $review = new WebsiteReview();
         $review->setAttribute('website_id', (int) $website->getAttribute('id'));
@@ -621,7 +686,8 @@ JS;
      * دالة مشتركة: تجيب الموقع بالـ slug، وتتأكد من صلاحية العرض
      * (منشور = عام، مسوّدة = لصاحبها بس).
      */
-    private function findViewableWebsite(string $slug): ?GeneratedWebsite {
+    private function findViewableWebsite(string $slug): ?GeneratedWebsite
+    {
         $rows = (new GeneratedWebsite())->where(['slug' => $slug], [], 1);
         if (empty($rows)) {
             return null;
@@ -653,11 +719,12 @@ JS;
      * (meta_description/canonical/open_graph) على أي موقع تاني - دلوقتي
      * مواقع الـWebsite Builder نفسها ماعادتش ناقصاها.
      */
-    private function siteHeadHtml(string $title, string $themeKey = 'gold', ?string $description = null, ?string $canonicalUrl = null, ?string $ogImage = null): string {
+    private function siteHeadHtml(string $title, string $themeKey = 'gold', ?string $description = null, ?string $canonicalUrl = null, ?string $ogImage = null): string
+    {
         $theme = self::THEMES[$themeKey] ?? self::THEMES['gold'];
         $accent = $theme['accent'];
         $accentRgb = $theme['accent_rgb'];
-        $esc = fn($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
+        $esc = fn ($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
 
         $metaDescription = $description ? "\n    <meta name=\"description\" content=\"" . $esc($description) . "\">" : '';
         $canonicalTag = $canonicalUrl ? "\n    <link rel=\"canonical\" href=\"" . $esc($canonicalUrl) . "\">" : '';
@@ -683,14 +750,16 @@ HTML;
     }
 
     /** لغة واتجاه الصفحة بناءً على اللغة اللي اختارها العميل وقت الإنشاء */
-    private function siteLangAttrs(array $content): array {
+    private function siteLangAttrs(array $content): array
+    {
         $lang = $content['language'] ?? 'ar';
         $dirMap = ['ar' => 'rtl', 'en' => 'ltr', 'fr' => 'ltr', 'de' => 'ltr'];
         return [$lang, $dirMap[$lang] ?? 'rtl'];
     }
 
     /** GET /sites/{slug} - الصفحة الرئيسية: بتتفرّع حسب المجال (رحلات أو فندق) */
-    public function showPublicSite(array $params = []): array {
+    public function showPublicSite(array $params = []): array
+    {
         $slug = (string) ($params['slug'] ?? '');
         $website = $this->findViewableWebsite($slug);
 
@@ -704,7 +773,8 @@ HTML;
         try {
             $website->setAttribute('views_count', (int) $website->getAttribute('views_count') + 1);
             $website->save();
-        } catch (Exception $e) { /* لا شيء - العرض أهم من العداد */ }
+        } catch (Exception $e) { /* لا شيء - العرض أهم من العداد */
+        }
 
         $c = $website->getContent();
         $industry = $c['industry'] ?? 'tours';
@@ -726,13 +796,15 @@ HTML;
     }
 
     /** رابط الموقع المنشور الفعلي - يستخدم في canonical/OG (Phase 5 Auto-Apply) */
-    private function publicSiteUrl(string $slug): string {
+    private function publicSiteUrl(string $slug): string
+    {
         $base = defined('APP_URL') ? rtrim(APP_URL, '/') : '';
         return $base . '/sites/' . rawurlencode($slug);
     }
 
-    private function renderToursHome(string $slug, array $c, string $seoTitle = '', string $seoDescription = '', string $canonicalUrl = '', string $ogImage = ''): string {
-        $esc = fn($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
+    private function renderToursHome(string $slug, array $c, string $seoTitle = '', string $seoDescription = '', string $canonicalUrl = '', string $ogImage = ''): string
+    {
+        $esc = fn ($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
         [$lang, $dir] = $this->siteLangAttrs($c);
 
         $toursHtml = '';
@@ -828,8 +900,9 @@ HTML;
 HTML;
     }
 
-    private function renderHotelHome(string $slug, array $c, string $seoTitle = '', string $seoDescription = '', string $canonicalUrl = '', string $ogImage = ''): string {
-        $esc = fn($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
+    private function renderHotelHome(string $slug, array $c, string $seoTitle = '', string $seoDescription = '', string $canonicalUrl = '', string $ogImage = ''): string
+    {
+        $esc = fn ($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
         [$lang, $dir] = $this->siteLangAttrs($c);
 
         $roomsHtml = '';
@@ -927,7 +1000,8 @@ HTML;
     }
 
     /** GET /sites/{slug}/tours/{tourSlug} - صفحة تفصيل رحلة واحدة */
-    public function showTourDetail(array $params = []): array {
+    public function showTourDetail(array $params = []): array
+    {
         $slug = (string) ($params['slug'] ?? '');
         $tourSlug = (string) ($params['tourSlug'] ?? '');
         $website = $this->findViewableWebsite($slug);
@@ -939,12 +1013,15 @@ HTML;
         }
 
         $c = $website->getContent();
-        $esc = fn($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
+        $esc = fn ($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
         [$lang, $dir] = $this->siteLangAttrs($c);
 
         $tour = null;
         foreach (($c['tours'] ?? []) as $t) {
-            if (($t['slug'] ?? '') === $tourSlug) { $tour = $t; break; }
+            if (($t['slug'] ?? '') === $tourSlug) {
+                $tour = $t;
+                break;
+            }
         }
 
         if (!$tour) {
@@ -959,7 +1036,9 @@ HTML;
         $whatsappLink = $whatsappNumber ? "https://wa.me/{$whatsappNumber}?text={$bookingMessage}" : '#';
 
         $highlightsHtml = '';
-        foreach (($tour['highlights'] ?? []) as $h) { $highlightsHtml .= '<li>✔ ' . $esc($h) . '</li>'; }
+        foreach (($tour['highlights'] ?? []) as $h) {
+            $highlightsHtml .= '<li>✔ ' . $esc($h) . '</li>';
+        }
 
         $itineraryHtml = '';
         foreach (($tour['itinerary'] ?? []) as $day) {
@@ -967,9 +1046,13 @@ HTML;
         }
 
         $includesHtml = '';
-        foreach (($tour['includes'] ?? []) as $inc) { $includesHtml .= '<li>✔ ' . $esc($inc) . '</li>'; }
+        foreach (($tour['includes'] ?? []) as $inc) {
+            $includesHtml .= '<li>✔ ' . $esc($inc) . '</li>';
+        }
         $excludesHtml = '';
-        foreach (($tour['excludes'] ?? []) as $exc) { $excludesHtml .= '<li>✖ ' . $esc($exc) . '</li>'; }
+        foreach (($tour['excludes'] ?? []) as $exc) {
+            $excludesHtml .= '<li>✖ ' . $esc($exc) . '</li>';
+        }
 
         $businessName = $esc($c['business_name'] ?? '');
         $tourName = $esc($tour['name'] ?? '');
@@ -1040,7 +1123,8 @@ HTML;
     }
 
     /** GET /sites/{slug}/rooms/{roomSlug} - صفحة تفصيل غرفة فندقية واحدة */
-    public function showRoomDetail(array $params = []): array {
+    public function showRoomDetail(array $params = []): array
+    {
         $slug = (string) ($params['slug'] ?? '');
         $roomSlug = (string) ($params['roomSlug'] ?? '');
         $website = $this->findViewableWebsite($slug);
@@ -1052,12 +1136,15 @@ HTML;
         }
 
         $c = $website->getContent();
-        $esc = fn($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
+        $esc = fn ($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
         [$lang, $dir] = $this->siteLangAttrs($c);
 
         $room = null;
         foreach (($c['rooms'] ?? []) as $r) {
-            if (($r['slug'] ?? '') === $roomSlug) { $room = $r; break; }
+            if (($r['slug'] ?? '') === $roomSlug) {
+                $room = $r;
+                break;
+            }
         }
 
         if (!$room) {
@@ -1072,9 +1159,13 @@ HTML;
         $whatsappLink = $whatsappNumber ? "https://wa.me/{$whatsappNumber}?text={$bookingMessage}" : '#';
 
         $highlightsHtml = '';
-        foreach (($room['highlights'] ?? []) as $h) { $highlightsHtml .= '<li>✔ ' . $esc($h) . '</li>'; }
+        foreach (($room['highlights'] ?? []) as $h) {
+            $highlightsHtml .= '<li>✔ ' . $esc($h) . '</li>';
+        }
         $amenitiesHtml = '';
-        foreach (($room['amenities'] ?? []) as $a) { $amenitiesHtml .= '<li>✔ ' . $esc($a) . '</li>'; }
+        foreach (($room['amenities'] ?? []) as $a) {
+            $amenitiesHtml .= '<li>✔ ' . $esc($a) . '</li>';
+        }
 
         $businessName = $esc($c['business_name'] ?? '');
         $roomName = $esc($room['name'] ?? '');
@@ -1139,8 +1230,11 @@ HTML;
         exit;
     }
 
-    private function ownedWebsite(int $id): ?GeneratedWebsite {
-        if (!$id) return null;
+    private function ownedWebsite(int $id): ?GeneratedWebsite
+    {
+        if (!$id) {
+            return null;
+        }
         $website = (new GeneratedWebsite())->find($id);
         if (!$website || (int) $website->getAttribute('user_id') !== (int) $this->user['id']) {
             return null;
