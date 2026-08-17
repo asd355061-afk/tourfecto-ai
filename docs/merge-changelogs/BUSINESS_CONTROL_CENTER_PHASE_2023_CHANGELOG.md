@@ -1,8 +1,8 @@
-# Business Control Center — Phases 20–23 Changelog
+# Business Control Center — Phases 20–24 Changelog
 
 **Branch:** `feat/business-control-center`
 **Date:** 2026-08-17
-**Scope:** DB quality pass, validation hardening, API design review, Frontend UX
+**Scope:** DB quality pass, validation hardening, API design review, Frontend UX, Notifications expansion
 
 ---
 
@@ -55,6 +55,17 @@ Wiring & consistency:
 - All `business_center.*` i18n keys in `en/ar/fr/de`.
 - New `bc-*` styles appended to `public_html/assets/css/panel.css` (readiness ring, category bars, alert box).
 - Controller registered in `$optionalNewClassFiles` (public_html/index.php).
+
+## Phase 24 — Notifications expansion
+
+New `app/Services/BusinessNotificationService.php` — in-app notifications for business events, split into pure builders (testable offline) + thin `push()` wrapper that calls `Notification::notify` when available and fails silently otherwise:
+
+- **Team events** wired into `BusinessTeamService`: member added (notify the added member), invite sent (notify owner), invite accepted (notify owner), member removed (notify the removed member), role changed (notify the member). `acceptInvite` also refactored to fetch the business once instead of twice.
+- **API key events** wired into `BusinessApiKeyService`: create + revoke notify the business owner with the key name.
+- All events link back to `/business-center` and use distinct types (`business_team_*`, `business_api_key_*`).
+- Registered in `$optionalNewClassFiles`.
+
+New `tests/Unit/Business/BusinessNotificationServiceTest.php` — **8/8** covering every builder payload + `push()` no-op safety.
 
 ## Tests
 

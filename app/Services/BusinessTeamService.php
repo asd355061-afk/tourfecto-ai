@@ -68,6 +68,15 @@ class BusinessTeamService {
             if ($member->save() === false) {
                 return ['ok' => false, 'error' => 'تعذر إضافة العضو'];
             }
+
+            $this->notify(
+                BusinessNotificationService::memberAdded(
+                    $invitedUserId,
+                    $this->businessName($existing),
+                    $this->userName($actorUserId),
+                    $role
+                )
+            );
             return ['ok' => true, 'type' => 'added', 'member' => $this->memberToArray($member)];
         }
 
@@ -91,6 +100,15 @@ class BusinessTeamService {
             return ['ok' => false, 'error' => 'تعذر إنشاء الدعوة'];
         }
 
+        $this->notify(
+            BusinessNotificationService::inviteSent(
+                (int) $existing->getAttribute('owner_user_id'),
+                $this->businessName($existing),
+                $email,
+                $role
+            )
+        );
+
         return [
             'ok' => true,
             'type' => 'invited',
@@ -105,6 +123,11 @@ class BusinessTeamService {
      * وغير منتهي الصلاحية.
      */
     public function acceptInvite(int $businessId, string $token, int $userId, string $userEmail): array {
+        $business = (new Business())->find($businessId);
+        if (!$business) {
+            return ['ok' => false, 'error' => 'Business غير موجود'];
+        }
+
         $pending = (new BusinessMember())->where(
             ['business_id' => $businessId, 'invite_token' => $token, 'status' => 'invited'],
             [],
@@ -135,6 +158,14 @@ class BusinessTeamService {
             return ['ok' => false, 'error' => 'تعذر تفعيل العضوية'];
         }
 
+        $this->notify(
+            BusinessNotificationService::inviteAccepted(
+                (int) $business->getAttribute('owner_user_id'),
+                $this->businessName($business),
+                $this->userName($userId)
+            )
+        );
+
         return ['ok' => true, 'member' => $this->memberToArray($member)];
     }
 
@@ -156,6 +187,16 @@ class BusinessTeamService {
 
         if ($member->delete() === false) {
             return ['ok' => false, 'error' => 'تعذر حذف العضو'];
+        }
+
+        $targetUserId = $member->getAttribute('user_id');
+        if ($targetUserId !== null) {
+            $this->notify(
+                BusinessNotificationService::memberRemoved(
+                    (int) $targetUserId,
+                    $this->businessName((new Business())->find($businessId))
+                )
+            );
         }
         return ['ok' => true];
     }
@@ -189,6 +230,17 @@ class BusinessTeamService {
         $member->setAttribute('role', $newRole);
         if ($member->save() === false) {
             return ['ok' => false, 'error' => 'تعذر تحديث الدور'];
+        }
+
+        $targetUserId = $member->getAttribute('user_id');
+        if ($targetUserId !== null) {
+            $this->notify(
+                BusinessNotificationService::roleChanged(
+                    (int) $targetUserId,
+                    $this->businessName((new Business())->find($businessId)),
+                    $newRole
+                )
+            );
         }
         return ['ok' => true, 'member' => $this->memberToArray($member)];
     }
@@ -270,5 +322,28 @@ class BusinessTeamService {
         $last = (string) $user->getAttribute('last_name');
         $full = trim($first . ' ' . $last);
         return $full !== '' ? $full : (string) $user->getAttribute('email');
+    }
+
+    private function notify(array $payload): void {
+        if (class_exists('BusinessNotificationService')) {
+            BusinessNotificationService::push($payload);
+        }
+    }
+
+    private function businessName(?Business $business): string {
+        if (!$business) {
+            return 'النشاط التجاري';
+        }
+        $trade = trim((string) $business->getAttribute('trade_name'));
+        $legal = trim((string) $business->getAttribute('legal_name'));
+        return $trade !== '' ? $trade : ($legal !== '' ? $legal : 'النشاط التجاري');
+    }
+
+    private function userName(int $userId): string {
+        $user = (new User())->find($userId);
+        if (!$user) {
+            return 'مستخدم';
+        }
+        return $this->userDisplayName($user);
     }
 }

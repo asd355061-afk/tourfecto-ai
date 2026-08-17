@@ -54,6 +54,8 @@ class BusinessApiKeyService {
 
         BusinessAuditLog::record($businessId, $actorUserId, 'api_key_created', 'success', 'api_key', (string) $result['model']->getAttribute('id'), ['scope' => $scope]);
 
+        $this->notifyOwner($businessId, $name, 'api_key_created');
+
         return ['ok' => true, 'key' => $result['model']->toSafeArray(), 'raw_key' => $result['raw_key']];
     }
 
@@ -75,6 +77,32 @@ class BusinessApiKeyService {
 
         BusinessAuditLog::record($businessId, $actorUserId, 'api_key_revoked', 'success', 'api_key', (string) $keyId);
 
+        $this->notifyOwner($businessId, (string) $key->getAttribute('name'), 'api_key_revoked');
+
         return ['ok' => true];
+    }
+
+    private function notifyOwner(int $businessId, string $keyName, string $event): void {
+        if (!class_exists('BusinessNotificationService')) {
+            return;
+        }
+        $business = (new Business())->find($businessId);
+        if (!$business) {
+            return;
+        }
+        $ownerId = (int) $business->getAttribute('owner_user_id');
+        $businessName = trim((string) $business->getAttribute('trade_name'));
+        if ($businessName === '') {
+            $businessName = trim((string) $business->getAttribute('legal_name'));
+        }
+        if ($businessName === '') {
+            $businessName = 'النشاط التجاري';
+        }
+
+        $payload = $event === 'api_key_created'
+            ? BusinessNotificationService::apiKeyCreated($ownerId, $businessName, $keyName)
+            : BusinessNotificationService::apiKeyRevoked($ownerId, $businessName, $keyName);
+
+        BusinessNotificationService::push($payload);
     }
 }
