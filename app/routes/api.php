@@ -1023,6 +1023,11 @@ $router->get('/api/ai-chat/websites/{id}/followup-settings', 'AiFollowupSettings
 $router->put('/api/ai-chat/websites/{id}/followup-settings', 'AiFollowupSettingsController', 'update', ['AuthMiddleware']);
 // AI Analytics
 $router->get('/api/ai-chat/websites/{id}/analytics', 'AiAnalyticsController', 'index', ['AuthMiddleware']);
+// In-Chat Quotes (بيع داخل الشات - عروض أسعار جوه المحادثة)
+$router->get('/api/ai-chat/websites/{id}/quotes', 'AiQuoteController', 'index', ['AuthMiddleware']);
+$router->post('/api/ai-chat/websites/{id}/quotes', 'AiQuoteController', 'store', ['AuthMiddleware']);
+$router->put('/api/ai-chat/websites/{id}/quotes/{quoteId}', 'AiQuoteController', 'update', ['AuthMiddleware']);
+$router->post('/api/ai-chat/websites/{id}/quotes/{quoteId}/send', 'AiQuoteController', 'send', ['AuthMiddleware']);
 // Learning Loop (Zendesk/Fin): فجوات المعرفة المقترحة + إدارتها + إعادة مسح
 $router->get('/api/ai-chat/websites/{id}/learning/gaps', 'AiLearningController', 'gaps', ['AuthMiddleware']);
 $router->post('/api/ai-chat/websites/{id}/learning/gaps/{gapId}/status', 'AiLearningController', 'updateGapStatus', ['AuthMiddleware']);

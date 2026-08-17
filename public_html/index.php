@@ -142,6 +142,10 @@ $optionalNewClassFiles = [
     APP_PATH . '/Controllers/AiFollowupSettingsController.php',
     APP_PATH . '/Controllers/AiAnalyticsController.php',
     APP_PATH . '/Controllers/AiLearningController.php',
+    // In-Chat Quotes (2026-08-16): بيع داخل الشات - عروض أسعار تُبنى وتُرسل
+    // وتُتتبّع جوه المحادثة. بيحتاج AiQuoteModel اللي محمّل فوق كمان.
+    APP_PATH . '/Models/AiQuote.php',
+    APP_PATH . '/Controllers/AiQuoteController.php',
     // OTA Integration: نفس المشكلة بالظبط - الكنترولر ده مش مسجّل في
     // classmap القديم، فأي طلب لـ /api/ota/status كان بيرمي
     // "Controller OTAController not found" (2026-08-09).
