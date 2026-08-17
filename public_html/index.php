@@ -189,6 +189,7 @@ $optionalNewClassFiles = [
     APP_PATH . '/Models/CiUserPreference.php',
     APP_PATH . '/Jobs/MonitorCompetitorJob.php',
     APP_PATH . '/Jobs/SendCompetitorAlertEmailJob.php',
+    APP_PATH . '/Jobs/SendOnboardingCompletionEmailJob.php',
     // Profile Center Phase 9 (2026-08-10): Data Export
     APP_PATH . '/Jobs/ExportUserDataJob.php',
     APP_PATH . '/Controllers/CompetitorIntelligenceController.php',
