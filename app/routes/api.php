@@ -172,6 +172,14 @@ $router->get('/api/revenue-intelligence/forecast/deals', 'RevenueIntelligenceCon
 $router->get('/api/revenue-intelligence/attribution', 'RevenueIntelligenceController', 'apiSalesAttribution', ['AuthMiddleware']);
 $router->get('/api/revenue-intelligence/benchmarks', 'RevenueIntelligenceController', 'apiBenchmarks', ['AuthMiddleware']);
 $router->get('/api/revenue-intelligence/churn', 'RevenueIntelligenceController', 'apiChurnAnalytics', ['AuthMiddleware']);
+$router->get('/api/revenue-intelligence/dashboard-prefs', 'RevenueIntelligenceController', 'apiDashboardPrefsGet', ['AuthMiddleware']);
+$router->post('/api/revenue-intelligence/dashboard-prefs', 'RevenueIntelligenceController', 'apiDashboardPrefsSave', ['AuthMiddleware']);
+$router->post('/api/revenue-intelligence/dashboard-prefs/reset', 'RevenueIntelligenceController', 'apiDashboardPrefsReset', ['AuthMiddleware']);
+$router->get('/api/revenue-intelligence/stripe/settings', 'RevenueIntelligenceController', 'apiStripeSettingsGet', ['AuthMiddleware']);
+$router->post('/api/revenue-intelligence/stripe/settings', 'RevenueIntelligenceController', 'apiStripeSettingsSave', ['AuthMiddleware']);
+// Webhook من Stripe نفسه - بدون AuthMiddleware (يُتحقق بالتوقيع)، ولا يمس
+// أي بيانات مالك الحساب خارج نطاق user_id المحدد.
+$router->post('/api/revenue-intelligence/stripe/webhook/{user_id}', 'RevenueIntelligenceController', 'apiStripeWebhook');
 $router->get('/api/revenue-intelligence/reports/export', 'RevenueIntelligenceController', 'apiExportReport', ['AuthMiddleware']);
 
 $router->get('/api/website-optimizer/websites', 'WebsiteOptimizerController', 'listWebsites', ['AuthMiddleware']);

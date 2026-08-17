@@ -113,6 +113,9 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Services/RevenueIntelligence/RevenueBenchmarkService.php',
     APP_PATH . '/Services/RevenueIntelligence/RevenueChurnService.php',
     APP_PATH . '/Services/RevenueIntelligence/StripeRevenueMapper.php',
+    // v1.6.0: Dashboard personalization + Stripe webhook
+    APP_PATH . '/Services/RevenueIntelligence/RevenueDashboardService.php',
+    APP_PATH . '/Services/RevenueIntelligence/StripeWebhookService.php',
     APP_PATH . '/Services/Mailer.php',
     APP_PATH . '/Models/User.php',
 ];

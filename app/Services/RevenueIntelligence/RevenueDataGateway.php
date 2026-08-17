@@ -404,4 +404,219 @@ class RevenueDataGateway
             return [];
         }
     }
+
+    // ============================================================
+    // v1.6.0: Dashboard Prefs (revai_dashboard_prefs)
+    // ============================================================
+
+    public function getDashboardPrefs(int $userId): ?array
+    {
+        try {
+            $rows = $this->db->query("SELECT * FROM revai_dashboard_prefs WHERE user_id = ? LIMIT 1", [$userId]);
+            return $rows[0] ?? null;
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    public function upsertDashboardPrefs(int $userId, array $layout): void
+    {
+        try {
+            $this->db->query(
+                "INSERT INTO revai_dashboard_prefs (user_id, layout)
+                 VALUES (?, ?)
+                 ON DUPLICATE KEY UPDATE layout = VALUES(layout)",
+                [$userId, json_encode($layout, JSON_UNESCAPED_UNICODE)]
+            );
+        } catch (Exception $e) {
+            // إضافة فقط - لا يكسر الداشبورد لو الجدول غير مثبت
+        }
+    }
+
+    public function deleteDashboardPrefs(int $userId): void
+    {
+        try {
+            $this->db->query("DELETE FROM revai_dashboard_prefs WHERE user_id = ?", [$userId]);
+        } catch (Exception $e) {
+            // no-op
+        }
+    }
+
+    // ============================================================
+    // v1.6.0: Stripe Settings (revai_stripe_settings) - secrets encrypted
+    // ============================================================
+
+    public function getStripeSettings(int $userId): ?array
+    {
+        try {
+            $rows = $this->db->query(
+                "SELECT id, user_id, webhook_secret_enc, connected_account_id, mode, is_enabled, last_event_at, last_event_type
+                 FROM revai_stripe_settings WHERE user_id = ? LIMIT 1",
+                [$userId]
+            );
+            return $rows[0] ?? null;
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * حفظ إعدادات Stripe. webhook_secret يُمرَّر مشفرًا مسبقًا (Encryption::encrypt)
+     * ولا يُحفظ نص صريح أبدًا.
+     */
+    public function upsertStripeSettings(int $userId, array $data): void
+    {
+        try {
+            $secret = (string) ($data['webhook_secret_enc'] ?? '');
+            $account = (string) ($data['connected_account_id'] ?? '');
+            $mode = in_array($data['mode'] ?? 'test', ['test', 'live'], true) ? $data['mode'] : 'test';
+            $enabled = !empty($data['is_enabled']) ? 1 : 0;
+
+            // التحقق من الفرق في السر: لو قيمته فاضية نأخذ القديمة كما هي
+            // (تحديث جزئي لا يمسح السر المخزّن).
+            $existing = $this->getStripeSettings($userId);
+            if ($secret === '' && $existing !== null) {
+                $secret = (string) ($existing['webhook_secret_enc'] ?? '');
+            }
+
+            $this->db->query(
+                "INSERT INTO revai_stripe_settings (user_id, webhook_secret_enc, connected_account_id, mode, is_enabled)
+                 VALUES (?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE
+                    webhook_secret_enc = VALUES(webhook_secret_enc),
+                    connected_account_id = VALUES(connected_account_id),
+                    mode = VALUES(mode),
+                    is_enabled = VALUES(is_enabled)",
+                [$userId, $secret, $account, $mode, $enabled]
+            );
+        } catch (Exception $e) {
+            // no-op على النشرات القديمة
+        }
+    }
+
+    // ============================================================
+    // v1.6.0: Stripe Webhook ingestion (idempotent)
+    // ============================================================
+
+    /** هل حدث Stripe ده اتستلم من قبل لهذا المستخدم؟ (Idempotency) */
+    public function stripeEventExists(int $userId, string $eventId): bool
+    {
+        try {
+            $rows = $this->db->query(
+                "SELECT 1 FROM revai_stripe_events WHERE user_id = ? AND stripe_event_id = ? LIMIT 1",
+                [$userId, $eventId]
+            );
+            return !empty($rows);
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    /** تسجيل حدث مستلم (للـ idempotency + audit). */
+    public function touchStripeEvent(int $userId, string $eventId, string $type, string $status = 'processed'): void
+    {
+        try {
+            $this->db->query(
+                "INSERT IGNORE INTO revai_stripe_events (user_id, stripe_event_id, event_type, status, received_at)
+                 VALUES (?, ?, ?, ?, NOW())",
+                [$userId, $eventId, $type, $status]
+            );
+            $this->db->query(
+                "UPDATE revai_stripe_settings
+                 SET last_event_at = NOW(), last_event_type = ?
+                 WHERE user_id = ?",
+                [$type, $userId]
+            );
+        } catch (Exception $e) {
+            // no-op
+        }
+    }
+
+    /** إدراج اشتراك من حدث Stripe (upsert على stripe_subscription_id). */
+    public function upsertBizSubscriptionFromStripe(int $userId, array $row, ?string $forceStatus = null): void
+    {
+        try {
+            $stripeSubId = (string) ($row['stripe_subscription_id'] ?? '');
+            if ($stripeSubId === '') {
+                return;
+            }
+            $status = $forceStatus ?? (string) ($row['status'] ?? 'active');
+            if (!in_array($status, ['active', 'trialing', 'past_due', 'cancelled', 'expired'], true)) {
+                $status = 'active';
+            }
+            $started = (string) ($row['current_period_start'] ?? '');
+            $periodEnd = (string) ($row['current_period_end'] ?? '');
+            $this->db->query(
+                "INSERT INTO biz_subscriptions
+                    (user_id, stripe_subscription_id, customer_name, customer_email, plan_name, status, billing_cycle, mrr, currency, started_at, current_period_end, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                 ON DUPLICATE KEY UPDATE
+                    customer_name = VALUES(customer_name),
+                    customer_email = VALUES(customer_email),
+                    plan_name = VALUES(plan_name),
+                    status = VALUES(status),
+                    billing_cycle = VALUES(billing_cycle),
+                    mrr = VALUES(mrr),
+                    currency = VALUES(currency),
+                    current_period_end = VALUES(current_period_end),
+                    updated_at = NOW()",
+                [
+                    $userId,
+                    $stripeSubId,
+                    (string) ($row['customer_name'] ?? ''),
+                    (string) ($row['customer_email'] ?? ''),
+                    (string) ($row['plan_name'] ?? ''),
+                    $status,
+                    in_array($row['billing_cycle'] ?? 'monthly', ['monthly', 'quarterly', 'yearly'], true) ? $row['billing_cycle'] : 'monthly',
+                    (float) ($row['mrr'] ?? 0),
+                    (string) ($row['currency'] ?? 'USD'),
+                    $started !== '' ? substr($started, 0, 10) : gmdate('Y-m-d'),
+                    $periodEnd !== '' ? substr($periodEnd, 0, 10) : null,
+                ]
+            );
+        } catch (Exception $e) {
+            // no-op على النشرات القديمة
+        }
+    }
+
+    /** إدراج حدث تغيير MRR من Stripe. */
+    public function insertBizSubscriptionEvent(int $userId, array $row): void
+    {
+        try {
+            $type = in_array($row['event_type'] ?? 'new', ['new', 'expansion', 'contraction', 'churn'], true) ? $row['event_type'] : 'new';
+            $mrrDelta = (float) ($row['mrr_delta'] ?? 0);
+            $occurred = (string) ($row['occurred_at'] ?? gmdate('Y-m-d H:i:s'));
+
+            // نحدد الاشتراك المرتبط: الأولوية للـ stripe_subscription_id إن وجد
+            // (يضمن إسناد الحدث للاشتراك الصحيح)، وإلا آخر اشتراك للمستخدم.
+            $stripeSubId = (string) ($row['stripe_subscription_id'] ?? '');
+            $subId = 0;
+            if ($stripeSubId !== '') {
+                $subs = $this->db->query(
+                    "SELECT id FROM biz_subscriptions WHERE user_id = ? AND stripe_subscription_id = ? ORDER BY id DESC LIMIT 1",
+                    [$userId, $stripeSubId]
+                );
+                $subId = (int) ($subs[0]['id'] ?? 0);
+            }
+            if ($subId <= 0) {
+                $subs = $this->db->query(
+                    "SELECT id FROM biz_subscriptions WHERE user_id = ? ORDER BY id DESC LIMIT 1",
+                    [$userId]
+                );
+                $subId = (int) ($subs[0]['id'] ?? 0);
+            }
+            if ($subId <= 0) {
+                return; // لا اشتراك -> لا حدث (لا نضيع بيانات، ننتظر إدراج الاشتراك أولًا)
+            }
+
+            $this->db->query(
+                "INSERT INTO biz_subscription_events
+                    (user_id, subscription_id, event_type, mrr_delta, mrr_after, occurred_at, notes, created_at)
+                 VALUES (?, ?, ?, ?, 0, ?, ?, NOW())",
+                [$userId, $subId, $type, $mrrDelta, $occurred, (string) ($row['description'] ?? '')]
+            );
+        } catch (Exception $e) {
+            // no-op
+        }
+    }
 }
