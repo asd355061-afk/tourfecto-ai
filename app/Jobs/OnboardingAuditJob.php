@@ -42,6 +42,9 @@ class OnboardingAuditJob implements QueueJobInterface
             '/Services/CompetitorIntelligence/CompetitorAnalysisService.php',
             '/Models/ActivityLog.php',
             '/Services/CompetitorIntelligence/WebsiteSnapshotFetcher.php',
+            '/Jobs/SendOnboardingCompletionEmailJob.php',
+            '/Services/Mailer.php',
+            '/Core/Queue/QueueManager.php',
         ];
         foreach ($deps as $rel) {
             $file = APP_PATH . $rel;
@@ -114,14 +117,16 @@ class OnboardingAuditJob implements QueueJobInterface
         // Phase 20: إشعار فوري للمستخدم إن النتيجة جاهزة (زي إشعارات
         // "تم تحليل موقعك" في المنصات العالمية). بأمان تام: لو جدول
         // notifications لسه مش متعمل على السيرفر بنتجاهل بصمت.
-        $this->notifyCompletion($userId, $result);
+        $this->notifyCompletion($userId, $websiteId, $result);
     }
 
     /**
      * إشعار فوري بأن الإعداد خلص. بيحترم لغة المستخدم المفضلة، وبيفشل
      * بصمت (من غير ما يكسر الجوب) لو جدول notifications مش موجود.
+     * كمان بيدفع إيميل "التحليل جاهز" في الطابور (SendOnboardingCompletionEmailJob)
+     * لو البريد مظبوط - نفس الـfollow-up في المنتجات العالمية.
      */
-    private function notifyCompletion(int $userId, array $result): void
+    private function notifyCompletion(int $userId, int $websiteId, array $result): void
     {
         try {
             $db = Database::getInstance();
@@ -161,6 +166,22 @@ class OnboardingAuditJob implements QueueJobInterface
             );
         } catch (Throwable $e) {
             // جدول notifications مش موجود على السيرفر لسه - إشعار اختياري مش حاسم
+        }
+
+        // إيميل الـfollow-up: بيدفع الجوب في الطابور من غير ما نحظر - لو
+        // الطابور/البريد مش متاحين بنتجاهل بصمت (الإشعار الداخلي يكفي).
+        try {
+            $queue = new QueueManager();
+            if ($queue->isReady() && class_exists('SendOnboardingCompletionEmailJob')) {
+                $queue->push(SendOnboardingCompletionEmailJob::class, [
+                    'user_id' => $userId,
+                    'website_id' => $websiteId,
+                ]);
+            }
+        } catch (Throwable $e) {
+            if (class_exists('Logger')) {
+                Logger::warning('Onboarding email dispatch failed: ' . $e->getMessage());
+            }
         }
     }
 }

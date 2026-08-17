@@ -237,3 +237,117 @@ Migrations الجديدة الست (`database/migrations/2026_08_08_*.sql` و
 > "كسول" لما الأدمن يفتح صفحة الاشتراكات أو يضغط
 > `/api/admin/subscriptions/run-lifecycle-checks`. لأداء حقيقي لازم
 > Job runner يستدعي الـ endpoint ده دوريًا (يوميًا على الأقل).
+
+---
+
+## 7) Phase 19 — سكريبت Cron للفوترة (2026-08-15)
+
+سد فجوة "مفيش Cron حقيقي": السكريبت `cron/run_billing_lifecycle.php`
+بيشغّل كل فحوصات الفوترة دوريًا من غير أي تدخل بشري - فالتجديد
+التلقائي من الرصيد بقى يشتغل فعلاً في ميعاده، مش "كسول" لما الأدمن
+يفتح الصفحة بالصدفة.
+
+### بيعمل إيه (بالترتيب)
+1. `SubscriptionLifecycleService::runLifecycleChecks()` → التجديد التلقائي
+   + انتقالات الحالة (cancelled_at_period_end / past_due / trials / grace)
+   + التذكيرات المتدرجة والإنذار الأخير.
+2. `InvoiceLifecycleService::runLifecycleChecks()` → وضع علامة الـ overdue
+   والـ refunded على الفواتير.
+
+### الإعداد في cPanel (Hostinger)
+```
+Cron Job: Once a day
+php /home/USERNAME/domains/YOURSITE.com/cron/run_billing_lifecycle.php >> /home/USERNAME/domains/YOURSITE.com/storage/logs/billing_lifecycle.log 2>&1
+```
+
+### لماذا مرة واحدة يوميًا؟
+التجديد فترة سماحه 7 أيام والإنذارات بتتدرج على أيام — مرة يوميًا
+كفاية تمامًا ومش بتضغط على الاستضافة المشتركة. Idempotent بالكامل:
+حتى لو اتنفّذ مرتين بالغلط، مفيش خصم مزدوج (قفل FOR UPDATE +
+`idempotency_key`).
+
+### ملحوظة
+السكريبت بيطبع تقرير موجز للـ log (كم تجديد نجح/فشل، انتقالات الحالة،
+تذكيرات) + سطر لكل خطأ تجديد لو حصل — عشان تتابع صحة الفوترة من ملف
+`storage/logs/billing_lifecycle.log`.
+
+### 7.1 SubscriptionPeriod helper + اختبار
+
+- `app/Services/Subscription/SubscriptionPeriod.php` — كلاس pure لحسابات
+  فترات الاشتراك (`nextPeriodEnd` + `renewalIdempotencyKey`) - كان
+  المنطق مكرر في `Subscription::createSubscription` و
+  `WalletService::renewSubscriptionFromBalance`، اتحوّل لمرجع واحد.
+- `tests/Unit/SubscriptionPeriodTest.php` — اختبار offline بـ 8 حالات
+  (تمديد شهري/سنوي، التثبيت على تاريخ الإدخال مش now()، السلوك المحافظ
+  للأنواع المجهولة، الـ fallback للتاريخ غير الصالح، صيغة/تفرد/استقرار
+  مفتاح الـ idempotency). بيشتغل مباشرة:
+  ```
+  php tests/Unit/SubscriptionPeriodTest.php
+  ```
+  النتيجة الحالية: 8/8 نجحت.
+
+---
+
+## 8) Phase 20 — واجهة الفوترة الاحترافية (2026-08-16)
+
+بعد ما الموديول كان API خالص، اتبنى **واجهة SPA ثابتة احترافية** تتوضع
+في `public/billing/` وتشتغل نفس-الأصل مع الـ PHP backend (session auth،
+مفيش CORS). ثيم **Dark OLED** بألوان بحرية احترافية + أخضر "مدفوع"،
+خطوط Fira Sans/Fira Code، ودعم كامل للعربية RTL.
+
+### الملفات
+- `public/billing/index.html` — صفحة العميل
+- `public/billing/admin.html` — لوحة الأدمن
+- `public/billing/assets/css/billing.css` — نظام التصميم (design tokens،
+  cards، tables، modals، toasts، skeleton loading، pricing cards،
+  responsive 375/768/1024/1440)
+- `public/billing/assets/js/icons.js` — مكتبة أيقونات SVG (نمط Lucide)
+- `public/billing/assets/js/api.js` — عميل API بنفس-الأصل + auto-fallback
+  لبيانات معاينة (mock) لما الخادم مش متاح — عشان المعاينة تشتغل من
+  غير backend. الـ dynamic routes (`/{id}`) بتشتغل في الوضعين.
+- `public/billing/assets/js/mock-data.js` — بيانات معاينة مطابقة لشكل
+  الـ API الحقيقي حرفيًا
+- `public/billing/assets/js/ui.js` — مكتبة UI مشتركة (toast، modal،
+  confirm dialogs، formatters، رسوم SVG خفيفة بدون أي مكتبات خارجية:
+  line/donut/bar)
+- `public/billing/assets/js/billing.js` — منطق صفحة العميل
+- `public/billing/assets/js/admin.js` — منطق لوحة الأدمن
+
+### صفحة العميل
+- **نظرة عامة**: بطاقة الباقة الحالية (الاسم/الحالة/نهاية الفترة) +
+  عدادات الاستخدام (AI/شات/مراجعات/منافسين) بشرائط تقدم تحذّر عند 70%/
+  90% + رصيد المحفظة
+- **الباقات**: 3 بطاقات أسعار مع toggle شهري/سنوي (وفّر 17%)، تمييز
+  "الأكثر اختيارًا"، زر ترقية/اشتراك، modal تأكيد بيحسب الفرق ويظهر
+  النقص لو الرصيد غير كافٍ (يعرض إيداع تكميلي تلقائيًا)
+- **المحفظة**: balance hero + بيانات الدفع (IBAN/PayPal/واتساب) + سجل
+  حركات (نوع/حالة/مبلغ موجّه/وقت) + إيداع جديد + استرداد بطاقة
+- **الفواتير**: جدول + عرض تفصيلي للفاتورة (items/الضريبة/الإجمالي)
+- **بيانات الفوترة**: نموذج save + شرح فائدة البيانات الضريبية
+
+### لوحة الأدمن
+- **مؤشرات**: 8 KPI (MRR/ARR/اشتراكات نشطة/إيداعات/رسوم استخدام/
+  إيداعات معلّقة/أرصدة العملاء/Churn) بأيقونات ملوّنة
+- **مخطط MRR**: line chart بـ range toggle (7/30/90 يوم)
+- **إيراد الاستخدام**: donut chart + legend ملونة حسب الميزة
+- **إيداعات قيد الانتظار**: اعتماد/رفض مع تأكيد
+- **الاشتراكات**: جدول + بحث فوري + إلغاء
+- **بطاقات الشحن**: توليد (count/value/batch) + جدول
+- **إعدادات الفوترة**: مفاتيح toggle (شحن تلقائي، استرداد بطاقات،
+  prorated downgrade credit) + حدود الإيداع
+- **تسعير الاستخدام**: جدول + تعديل الأسعار
+
+### اختبارات
+- فحص `node --check` على كل ملفات JS
+- اختبار DOM smoke (Node stub) للصفحتين — التحقق إن الـ render الفعلي
+  بيطلّع المحتوى الصح (الخطة، الرصيد، الرسوم البيانية)
+- اختبار resolution للـ dynamic routes في mock mode (approve/reject/
+  cancel/edit)
+- المعاينة تعمل: static server + mock fallback تلقائي، مع شارة
+  "وضع المعاينة" واضحة
+
+### النشر على السيرفر
+المجلد `public/billing/` كله يتنسخ جوه الـ web root الحالي. الواجهة
+بتتصل بـ `/api/...` نفس-الأصل، فلما تُرفع على السيرفر مع الـ backend
+بتقرأ البيانات الحقيقية تلقائيًا (مع أول فشل شبكة بس بتقع على
+المعاينة الافتراضية).

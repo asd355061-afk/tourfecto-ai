@@ -51,7 +51,14 @@ class ChangeDetectionService
         // Something Changed - نصنّف النوع والخطورة
         $classification = $this->classify($pageType, $previous, $newSnapshot);
 
-        $change = new CiChange([
+        // ميزة "تاريخ الأسعار" (Prisync-style): لو التغيير على صفحة
+        // تسعير/عروض/منتج، نحاول نستخرج سعرًا مهيكلًا من النصين عشان
+        // نسجّله في ci_changes ويرسم لنا رسم بياني حقيقي لتحركات السعر.
+        $priceData = in_array($classification['change_type'], ['pricing_change', 'offer_change', 'new_product'], true)
+            ? $this->extractPriceChange($previous, $newSnapshot)
+            : null;
+
+        $attributes = [
             'competitor_id' => $competitorId,
             'user_id' => $userId,
             'page_type' => $pageType,
@@ -63,13 +70,42 @@ class ChangeDetectionService
             'confidence' => $classification['confidence'],
             'snapshot_before_id' => (int) $previous->getAttribute('id'),
             'snapshot_after_id' => (int) $newSnapshot->getAttribute('id'),
-        ]);
+        ];
+
+        if ($priceData !== null) {
+            $attributes['price_before'] = $priceData['price_before'];
+            $attributes['price_after'] = $priceData['price_after'];
+            $attributes['currency'] = $priceData['currency'];
+        }
+
+        $change = new CiChange($attributes);
         $change->save();
 
         $competitor->setAttribute('last_change_at', date('Y-m-d H:i:s'));
         $competitor->save();
 
         return $change;
+    }
+
+    /**
+     * يستخرج سعرًا مهيكلًا (رقم + عملة) من لقطتي before/after عبر
+     * PriceExtractor. لو مفيش سعر واضح في أي من النصين، نرجّع null
+     * (مش هنخزن قيم جزئية مضللة). العملة المفضلة = اللي في النص الجديد.
+     */
+    private function extractPriceChange(CiSnapshot $previous, CiSnapshot $new): ?array
+    {
+        $before = PriceExtractor::extract((string) $previous->getAttribute('normalized_excerpt'));
+        $after = PriceExtractor::extract((string) $new->getAttribute('normalized_excerpt'));
+
+        if ($before === null && $after === null) {
+            return null;
+        }
+
+        return [
+            'price_before' => $before['amount'] ?? null,
+            'price_after' => $after['amount'] ?? null,
+            'currency' => ($after['currency'] ?? null) ?: ($before['currency'] ?? null),
+        ];
     }
 
     private function getPreviousSnapshot(int $competitorId, string $pageType, int $excludeId): ?CiSnapshot

@@ -1,6 +1,168 @@
 # Tourfecto AI Chat & Customer Communication Platform
-<<<<<<< HEAD
-=======
+## v1.7.0 — بيع داخل الشات + نظام أيقونات SVG موحّد (In-Chat Quotes + Icon Polish) — 2026-08-17
+
+إضافة **بيع داخل الشات عبر عروض أسعار (In-Chat Quotes)** ونظام **أيقونات SVG مركزي**
+مع توحيد كل صفحات AI Chat Platform على نمط الواجهة الاحترافي الجديد — بلا كسر أي
+من المسارات الـ32 الخاصة بالمنصة.
+
+### بيع داخل الشات (In-Chat Quotes)
+- جدول `ai_quotes` جديد (migration `2026_08_16_000002_create_ai_quotes_table.sql`): items
+  JSON، subtotal/discount/total، currency، status enum
+  `draft/sent/accepted/declined/expired/cancelled`، quote_number تسلسلي، created_by_user_id + فهارس.
+- `AiQuote` model جديد: `forWebsite()` + `nextQuoteNumber()` (يستخدم `Database::query` مباشرة).
+- `AiQuoteController` جديد: `index/store/update/send` + `serialize()` + مخصّصات ملكية
+  (`authorizedWebsite/authorizedConversation/authorizedQuote`) على نفس نمط بقية الـControllers.
+- `send()` يبني رسالة بصيغة WhatsApp، يرسلها عبر `ChatManager::sendMessageForWebsite()`،
+  يسجّل الرسالة outgoing في `chat_messages`، ويحوّل الحالة إلى `sent` (تظهر في الثريد الموحّد).
+- قبول العرض يغلق حلقة المبيعات: `quoteSetStatus('accepted')` → lead_status `converted` + status `resolved`.
+- 4 مسارات جديدة: `GET/POST /api/ai-chat/websites/{id}/quotes`، `PUT .../quotes/{id}`، `POST .../quotes/{id}/send`.
+- UI في صفحة `/chat`: زر "عرض سعر" + محرّر عروض (عناصر name/qty/unit_price ديناميكية + خصم + عملة + ملاحظات)
+  + قائمة بطاقات العروض بأزرار إرسال/قبول/رفض/إلغاء؛ `quoteLoad()` يُستدعى عند فتح أي محادثة.
+
+### نظام الأيقونات SVG الموحّد
+- `chatIcons()`: sprite مخفي (33 symbol: search/inbox/chart/book/sparkles/target/clock/gear/send/handoff/
+  pause/check/x/plus/trash/edit/refresh/alert/user/user-plus/phone/mail/globe/chat/tag/flag/external/
+  wallet/fire/dollar/phone-call) + `ic(name, cls)` + `chatUiCss()` (hover/focus-visible/transitions/
+  skeleton shimmer + `prefers-reduced-motion`).
+- `applyChatUi($html)`: يستبدل `{ICON_SPRITE}`/`{CHAT_UI_CSS}` وplaceholders `{IC_*}` — heredocs تبقى readable.
+- طُبّق على كل صفحات الشات: `/chat` (toolbar + حالات التحميل/الخطأ/الفارغة + lead panel + threads)،
+  `analytics`، `learning`، `knowledge-base`، `followup`، `leads`، `pending`، `settings`، `conversation`.
+- استُبدلت كل الإيموجي في تلك الصفحات بأيقونات SVG (مع `aria-hidden` للوصولية).
+
+### التحقق
+- `php -l` نظيف على كل الملفات المعدّلة.
+- `tests/route_registration_test.php`: **32/32 passed** (أُضيفت 4 مسارات Quotes).
+- هارنس الـSidebar: 39 رابطًا، "منصة الشات الذكي" rendred صحيحة.
+
+---
+# AI Revenue Intelligence — الترقية v1.6.0 (Dashboard Personalization + Stripe Live Webhook) — 2026-08-17
+
+الجولة الثانية من خطة رفع الموديول لمستوى المنافسين (Clari/Gong/Baremetrics).
+ميزتان بشفافية تامة (نفس قاعدة الموديول: أرقام من بيانات حقيقية فقط، وإلا
+"Not enough data"):
+
+## 1) تخصيص الداشبورد — `RevenueDashboardService` v1.0.0 (pure)
+
+- **Dashboard Personalization**: المستخدم يختار أي مقاييس الملخص التنفيذي
+  تظهر وبأي ترتيب، ويُحفظ تخصيصه (`revai_dashboard_prefs`) بعزل تام
+  (Tenant Isolation) حسب `user_id`.
+- Migration جديد `2026_08_17_000001_...sql`: جدول `revai_dashboard_prefs`
+  (layout JSON لكل مستخدم، unique على user_id).
+- **منع المقاييس المخترعة**: أي مفتاح خارج القائمة المعروفة
+  (`WIDGET_KEYS`) يُتجاهل ولا يُحفظ أبدًا — `normalizeLayout` نقي يضمن
+  سلامة أي مدخل من الواجهة أو DB، ويملأ المفاتيح الناقصة بالظهور الافتراضي.
+- `applyLayoutToSummary` يطبّق التخصيص على ملخص Executive Summary (فلترة
+  وإعادة ترتيب فقط — لا يحسب أي شيء).
+- API جديدة: `GET/POST /api/revenue-intelligence/dashboard-prefs` +
+  `POST .../dashboard-prefs/reset` (AuthMiddleware).
+- لوحة "تخصيص" في تبويب Executive (إظهار/إخفاء + ترتيب + حفظ/استعادة).
+
+## 2) تكامل Stripe الحي (webhook) — `StripeWebhookService` v1.0.0
+
+- **Webhook حقيقي بتوقيع**: `POST /api/revenue-intelligence/stripe/webhook/{user_id}`
+  (public — بلا AuthMiddleware؛ التحقق عبر `Stripe-Signature` HMAC-SHA256
+  ضد سر المستخدم المشفر). أي حدث بتوقيع غير صالح = 401.
+- **السر مشفّر**: `webhook_secret` يُخزَّن فقط عبر
+  `(new Encryption())->encrypt($secret, 'revai_stripe_' . $userId)` في جدول
+  `revai_stripe_settings` — لا نص صريح أبدًا، ولا يُعاد في أي GET.
+- **Idempotent ingestion**: جدول `revai_stripe_events` (unique
+  `user_id`+`stripe_event_id`) يمنع تكرار الصفوف من إعادة محاولات Stripe.
+- الأحداث المدعومة: `customer.subscription.created` → upsert اشتراك + حدث
+  `new`؛ `invoice.payment_succeeded` → حدث `expansion`؛
+  `customer.subscription.deleted` → churn (delta سالب). أحداث أخرى تُستقبل
+  بصمت (Stripe يرسل كثيرًا) بلا صفوف جديدة.
+- أعمدة ربط جديدة على `biz_subscriptions` (additive فقط):
+  `stripe_subscription_id` (فريد — أساس الـ upsert الآمن) + `customer_email`.
+- API إعدادات: `GET/POST /api/revenue-intelligence/stripe/settings`
+  (AuthMiddleware) — يعرض حالة الربط + رابط الـ Webhook + آخر حدث مستلم،
+  بدون كشف السر. `buildStripeWebhookUrl` يولّد الرابط تلقائيًا.
+- لوحة "Connect Stripe" في تبويب Subscriptions (secret + account id + mode
+  + حفظ)، مع حالة live/test وآخر حدث مستلم.
+
+## 3) ملفات جديدة / معدّلة (كلها Additive-only)
+
+- جديد: `app/Services/RevenueIntelligence/RevenueDashboardService.php`،
+  `app/Services/RevenueIntelligence/StripeWebhookService.php`،
+  `database/migrations/2026_08_17_000001_create_revai_dashboard_prefs_and_stripe_settings.sql`.
+- معدّل: `RevenueIntelligenceController` (6 endpoints + UI)،
+  `RevenueDataGateway` (Dashboard prefs + Stripe settings + webhook
+  ingestion idempotent)، `StripeRevenueMapper` (returns subscription row
+  للـ deleted event + stripe_subscription_id في أحداث الفواتير)،
+  `app/routes/api.php`، `public_html/index.php` +
+  `cron/bootstrap.php` (تحميل الكلاسين الجديدين يدويًا — لا SSH/composer)،
+  `app/Lang/en.php` + `app/Lang/ar.php` (مفاتيح `revai.prefs.*` +
+  `revai.stripe.*`).
+
+## 4) التحقق
+
+- `php -l` نظيف على كل الملفات المعدّلة + `tools/lint.php`: 632 ملف لا أخطاء.
+- سكربت الواجهة المستخرج من heredoc سليم عبر `node --check`.
+- اختبارات `tests/Unit/RevenueIntelligenceTest.php`: **255/0 (100%)** —
+  تشمل 6 اختبارات جديدة لـ v1.6.0 (تخصيص الداشبورد + توقيع الـ webhook).
+- مسارات الـ API الجديدة الستة مطابقة عبر الـ Router.
+
+---
+## v1.6.0 — واجهة احترافية لموديول ذكاء المنافسة (Professional UI) — 2026-08-16
+
+تمرير احترافي كامل على واجهة موديول **Competitor Intelligence** في
+`CompetitorIntelligenceController` (renderShell + renderScript) بما يتوافق مع
+نظام التصميم الموحد "Compass" (`panel.css`) — بلا تغيير في أي API/route/migration
+قائمة، وكله على مستوى الواجهة فقط.
+
+### التصميم والاتساق
+- اعتماد كلاسات نظام التصميم (`p-tabs`/`p-tab`، `pill`، `p-kv`، `p-empty`،
+  `p-modal`، `p-card-head`، `p-badge`) بدل أنماط `.ci-*` المنسوخة القديمة.
+- **استبدال كل الإيموجي بأيقونات SVG** (Lucide-style) عبر sprite موحّد واحد
+  (`CI_ICONS` + `<symbol>` + `<use href="#ci-icon-...">`) يستخدمه PHP وJS من
+  مصدر واحد — بدون تكرار paths.
+- **بطاقات إحصائية** (Stat Tiles) بأيقونات ملونة موزونة بدل الإيموجي، وألوان
+  الرسوم البيانية (Chart.js) مشتقة من متغيرات CSS الثيمية (`--panel-*`) بدل
+  ألوان ثابتة، مع شبكات/نصوص رمادية متناسقة مع الوضع الليلي.
+
+### تجربة المستخدم وإمكانية الوصول
+- **حالات فارغة (Empty States)** موحّدة لكل التبويبات بأيقونات + عناوين
+  ونصوص مترجمة (`ci.empty.*`).
+- **حالات تحميل (Skeleton loading)** أثناء جلب الجداول.
+- **مودال تأكيد/إدخال** مخصص (`ciConfirm`/`ciPromptValue`) مبني على `.p-modal`
+  يحل محل `confirm()`/`prompt()` الفطريين — مع إدارة التركيز (focus)، إغلاق
+  بـ Escape/خارج المودال، واسترجاع التركيز للعنصر الأصلي.
+- **ARIA**: `role=tab/tabpanel` + `aria-selected`، `role=dialog` للمودالات،
+  `aria-label` لأزرار الأيقونات، `aria-live` لإجابة الذكاء الاصطناعي.
+- **أزرار أيقونية** (عرض/فحص/حذف) في جداول المنافسين/الاكتشاف بأدوات
+  تلميح (title) بدل أزرار نصية متزاحمة.
+- دعم `prefers-reduced-motion` وإبراز `:focus-visible`.
+- شارات الخطورة/التصنيف/الحالة موحّدة عبر `.pill` مع ألوان دلالية وترجمة
+  (`ci.sev.*`).
+
+### الترجمة
+- 33 مفتاح `ci.*` جديد في `en.php`/`ar.php` (تأكيدات الحذف، تسميات ملف
+  المنافس، حالات الفراغ، مستويات الخطورة، تلميحات الكلمات المفتاحية).
+- إزالة إيموجي من قيم أزرار التصدير (`ci.js.export_csv`/`export_pdf`).
+
+### التحقق
+- `php -l` نظيف على الـ controller + ملفي اللغة.
+- سكربت الواجهة المستخرج من heredoc سليم عبر `node --check`.
+- اختبارات الـ offline السبع لموديول ذكاء المنافسة: **126/0**.
+
+---
+## المرحلة 15: الجولة 4 من خطة الترقية التنافسية — 2026-08-16
+
+استكمال كل الفجوات المتبقية في التحليل التنافسي (راجع
+`docs/COMPETITIVE_ANALYSIS.md`): G11 Web Forms لالتقاط Leads،
+G12 Sales Sequences متعددة الخطوات، G13 Report Builder، G14 استيراد
+من CRMs خارجية (HubSpot/Zoho/Pipedrive/Freshsales). دمج Additive فقط —
+`CrmController` الأصلي لم يُلمس، ولا `CrmImportExportService`/
+`CrmReportService`/`CrmAutomationService` القائمة.
+**ملفات جديدة:** 3 migrations (`000014` نماذج ويب + إرسالات، `000015`
+تسلسلات + تسجيلات، `000016` تقارير محفوظة)، 5 Models، 4 Services
+(`CrmWebFormService`/`CrmSequenceService`/`CrmReportBuilderService`/
+`CrmExternalImportService`)، 28 دالة Controller، 28 مسار API (منها مسار
+عام بلا AuthMiddleware لإرسال النماذج)، 80 مفتاح Lang
+(`crm.web_forms.*`/`crm.sequences.*`/`crm.report_builder.*`/`crm.import.*`).
+بهذا اكتملت خطة الترقية التنافسية بالكامل: G1..G14 عبر المراحل 12/13/14/15.
+المتبقي خارج النطاق (AI تنبؤي ML، وكلاء AI مستقلون، Mobile App) موثّق
+بالقسم 3.3 من `docs/COMPETITIVE_ANALYSIS.md`.
+
 ## المرحلة 14: الجولة 3 من خطة الترقية التنافسية — 2026-08-16
 
 تنفيذ الجولة الثالثة والأخيرة من فجوات التحليل التنافسي (راجع
@@ -32,7 +194,6 @@ G6 Contact Lifecycle، G9 Team Invite. دمج Additive فقط — `CrmController
 `crm.team_invite.*`). كما أُصلح تلف سابق في `app/Lang/ar.php` (سطر
 `---count---`/`72` داخل مصفوفة المفاتيح كان يكسر الصياغة).
 
->>>>>>> origin/main
 ## المرحلة 12: دمج موديول CRM + الجولة 1 من خطة الترقية التنافسية — 2026-08-15
 
 دمج موديول Tourfecto AI CRM الكامل (137 مسار API موسّع + 8 صفحات ويب + 229 مفتاح
@@ -45,6 +206,64 @@ G4 Win/Loss + Sales Goals. التفاصيل الكاملة للترقية في �
 حقول مخصصة)، 4 Models، 3 Services (`CrmMessageTemplateService`/
 `CrmReportService`/`CrmCustomFieldService`)، 16 مسار API، 72 مفتاح Lang
 (`crm.templates.*`/`crm.reports.*`/`crm.goals.*`/`crm.custom_fields.*`).
+
+---
+
+## المرحلة 6: احتراف موديول ذكاء المنافسة (Competitor Intelligence) v1.5.0 — 2026-08-14
+
+هذا التسليم هو تمرير احترافي (Professionalization) على موديول
+**Competitor Intelligence** الحالي — بلا أي تعديل على الموديولات الأخرى،
+وكله إضافي (Additive) على الـ migrations والـ routes القائمة.
+
+### الإصلاحات والأمان
+- إصلاح **خطأ Parse حقيقي في الإنتاج**: كان في `cron/monitor_competitors.php`
+  سطر docblock يحتوي `*/30 * * * *` (جدول cron) — النص `*/` كان ينهي تعليق PHP
+  مبكرًا ويسبب **خطأ Parse فادح** يكسر كرون المراقبة بالكامل. استُبدل بـ
+  `cron: كل 30 دقيقة كل ساعة`.
+- **Rate Limiting** لكل مستخدم على الـ 6 endpoints المكلفة (AI ask / profile /
+  insights / weekly summary، discovery run، report generate) عبر `CiRateLimiter`
+  + جدول `ci_rate_limits` الجديد (Migration جديد إضافي).
+- **SsrfGuard** أصبح يحلّ **كل** سجلات A + AAAA (كان IPv4 فقط بسجل واحد) ويرفض
+  أي دومين فيه سجل خاص واحد على الأقل، بما فيها IPv4-mapped IPv6
+  (`::ffff:127.0.0.1`)؛ وطبقة curl صارت تُثبّت `CURLOPT_IPRESOLVE` على IPv4.
+- اقتراحات Discovery اليدوية تُفحص SSRF مسبقًا، وإدخالات AI (سؤال/اسم) محدودة الطول.
+- `CiPermissions` يفشل مغلقًا (دور غير معروف → `viewer`).
+
+### ميزات وواجهة
+- `POST /alerts/read-all` (تعليم كل التنبيهات كمقروءة)،
+  `POST /insights/{id}/status` (مراجعة/إهمال insight)،
+  `GET /alerts/unread-count` (عدّاد غير المقروء) — كلها مقيدة بملكية المستخدم.
+- شارة غير المقروء + "تعليم الكل كمقروء" في تبويب التنبيهات، وpills لحالة
+  الـ insights مع أزرار موافقة/إهمال.
+- ترجمة عربية/إنجليزية كاملة للنصوص الثابتة الجديدة (T() بدل الحروف الميتة).
+
+### اختبارات
+- `CompetitorDomainTest` (17)، `CiRateLimiterTest` (9)، `CiConstantsTest` (21)،
+  `SsrfGuardTest` موسّع (23) + `CiPermissionsTest` (10) — 80 Assertion بدون أي فشل،
+  كلها بدون اتصال (Offline). التوثيق في `docs/competitor-intelligence/README.md`.
+
+### v1.5.1 (2026-08-15) — تحسينات تنافسية (Competitive Gap-Fill)
+
+بناءً على مقارنة تنافسية مع المنصات العالمية الرائدة في نفس الخدمة
+(Klue، Crayon، Kompyte/Semrush، Prisync، SEMrush/Similarweb)، تم سدّ
+ثلاث فجوات مباشرة قابلة للتنفيذ (المقارنة الكاملة في
+`docs/competitor-intelligence/README.md`):
+
+- **أسعار مهيكلة (تاريخ أسعار)** — `PriceExtractor` يستخرج الرقم والعملة
+  من نص تغيير pricing/offers/new_product، تُحفظ في `price_before` /
+  `price_after` / `currency` (Migration 049، إضافي). Endpoint جديد
+  `GET /competitors/{id}/price-history` + بطاقة تاريخ أسعار في
+  التايم لاين (ميزة Prisync).
+- **إشارة توظيف (Job Postings)** — `SitemapMonitor::isCareerUrl()`
+  يكتشف صفحات careers/jobs/join/hiring/vacancies في sitemap ويعلّمها
+  `page_type=careers` بخطورة `high` (ميزة Crayon/Kompyte).
+- **تصدير CSV للمقارنة** — `POST /comparison/export` بنفس بيانات
+  المقارنة كملف CSV قابل للتنزيل (ميزة تقارير Prisync Excel).
+- اختبارات جديدة: `PriceExtractorTest` (31) + `SitemapMonitorTest` (13) +
+  تحديث `CiConstantsTest` (23) — الإجمالي **126 Assertion، صفر فشل**،
+  كلها offline.
+
+---
 
 ## المرحلة 5: Notifications + Rate Limiting — 2026-08-08
 
@@ -439,3 +658,102 @@ Feature موجودة يمكن إعادة استخدامها، استخدمها �
 - الاختبارات التي تحتاج MySQL (DatabaseTest وفحص الفلترة الفعلية) تُشغَّل
   على السيرفر حيث يوجد الـDriver.
 
+# AI Revenue Intelligence — الترقية v1.5.0 (Subscriptions + Stripe + Deal Forecast & Attribution + Benchmarks & Churn) — 2026-08-16
+
+## 1) ما الذي أُضيف ولماذا
+
+الجولة الأولى من خطة رفع الموديول لمستوى المنافسين (Clari/Gong/Baremetrics).
+أربع مجموعات ميزات، بشفافية تامة (نفس قاعدة الموديول: أرقام من بيانات
+حقيقية فقط، وإلا "Not enough data"):
+
+### (D) الاشتراكات وMRR/ARR/NRR/GRR الحرفية — `BizSubscriptionService` v1.0.0
+- Migration جديد `2026_08_16_000010_...sql`: جدول `biz_subscriptions`
+  (اشتراكات **عملاء أعمال العميل**) + `biz_subscription_events`
+  (new/expansion/contraction/churn) + `sales_teams` + `sales_reps`
+  + `ALTER TABLE crm_deals ADD assigned_rep_id`.
+- فصل جوهري عن جدول `subscriptions` القديم: هذا الأخير = خطة المستخدم
+  نفسه في Tourfecto (صف لكل مستخدم، لا يمثل عملاءه) ولا يصح أساسًا
+  لحساب NRR/GRR. الجدول الجديد `biz_subscriptions` بامتياز يحمل
+  `customer_name`/`contact_id`/`mrr`/`billing_cycle` — أساس حقيقي.
+- `computeMrr` / `computeArrFromMrr` / `computeMrrByCycle` /
+  `computeMrrBreakdown` (New/Expansion/Contraction/Churn + Net) /
+  `computeNrr` (حرفي: MRR حالي لعملاء الفترة المرساة ÷ MRR مرساة) /
+  `computeGrr` (الاحتفاظ من MRR المرساة) / `computeChurnRate` —
+  كلها pure functions تعمل على بيانات حقيقية، مع إفصاح واضح أن GRR
+  هنا يقرّب الاحتفاظ من نموذج الصف الواحد (التوسعات غير منفصلة).
+
+### (A) تكامل Stripe — `StripeRevenueMapper` v1.0.0 (pure)
+- تطبيع أحداث Stripe القياسية إلى صفوف الموديول الجاهزة للإدراج:
+  `customer.subscription.created` → `biz_subscriptions` + حدث `new`؛
+  `invoice.payment_succeeded` → حدث `expansion`؛
+  `customer.subscription.deleted` → حدث `churn` (delta سالب).
+- `normalizeAmountForCurrency` (سنتات، يشمل عملات بلا كسور كـ JPY) /
+  `mapIntervalToCycle` / `convertSubscriptionToMrr` (سنوي÷12، ربع÷3).
+- بلا مفاتيح في الكود، بلا شبكة: mapper نقي قابل للاختبار بفيكسشرات.
+
+### (B) Deal-level forecast + Sales attribution — `DealLevelForecastService` v1.0.0
+- `groupOpenDealsByCloseWindow`: توزيع الصفقات المفتوحة على
+  هذا الشهر / هذا الربع / لاحقًا / **غير موقّت** (لا تاريخ مخترع —
+  غير الموقّتة تُعرض منفصلة وتُستثنى من إجمالي التوقيت).
+- `weightedDealValue`: value × probability (مع fallback صريح لـ
+  stage_win_probability؛ لو لا probability → 0، لا افتراض خفي).
+- `aggregateByRep` / `aggregateByTeam`: توزيع الإيراد/الخط على
+  المندوبين والفرق مع رصد "Unassigned" بصدق.
+
+### (C) Benchmarks + Churn analytics — `RevenueBenchmarkService` + `RevenueChurnService`
+- `revai_benchmarks`: جدول منصّي بلا `user_id` (بيانات مجهولة). يُعبَّأ
+  بواسطة `cron/revai_benchmarks_rebuild.php` (تجميع أسبوعي) من
+  نمو المؤشرات الحقيقي عبر كل الحسابات المؤهلة (حد أدنى 10 حسابات،
+  وإلا لا شيء — "Not enough data" منصّي) أو سجلات يدوية مسجلة المصدر.
+- `classifyChurnReason` / `aggregateChurnReasons`: أسباب التوقف من
+  بيانات حقيقية فقط (lost_reason / churn_reason / حالة cancelled) مع
+  موثوقية (high/low) — لا أسباب مخترعة.
+
+## 2) الملفات المعدَّلة
+
+- `database/migrations/2026_08_16_000010_create_revai_subscriptions_teams_benchmarks.sql` (جديد)
+- `app/Services/RevenueIntelligence/BizSubscriptionService.php` (جديد)
+- `app/Services/RevenueIntelligence/StripeRevenueMapper.php` (جديد)
+- `app/Services/RevenueIntelligence/DealLevelForecastService.php` (جديد)
+- `app/Services/RevenueIntelligence/RevenueBenchmarkService.php` (جديد)
+- `app/Services/RevenueIntelligence/RevenueChurnService.php` (جديد)
+- `app/Services/RevenueIntelligence/RevenueDataGateway.php` (طرق جديدة + hasBenchmarkTables/getPlatformBenchmarks)
+- `cron/revai_benchmarks_rebuild.php` (جديد - rebuild أسبوعي للـbenchmarks)
+- `app/Controllers/RevenueIntelligenceController.php` (4 endpoints + 4 تابات + i18n)
+- `app/routes/api.php` (5 مسارات جديدة)
+- `public_html/index.php` + `cron/bootstrap.php` (قائمة التحميل اليدوي - إضافة فقط)
+- `app/Lang/ar.php` + `app/Lang/en.php` (مفاتيح v1.5.0 + إصلاح ضرر سابق)
+- `tests/Unit/RevenueIntelligenceTest.php` (24 اختبارًا جديدًا)
+
+## 3) قاعدة البيانات
+
+شغّل migration واحدًا بعد نسخة احتياطية:
+`database/migrations/2026_08_16_000010_create_revai_subscriptions_teams_benchmarks.sql`
+(إضافي بالكامل: 4 جداول جديدة + عمود `assigned_rep_id` على `crm_deals`).
+لجدولة rebuild الـbenchmarks أسبوعيًا أضف من لوحة التحكم:
+`0 4 * * 1 php /path/to/project/cron/revai_benchmarks_rebuild.php`.
+
+## 4) الصدق في الأرقام
+
+- MRR/ARR/NRR/GRR/Churn = من صفوف `biz_subscriptions`/`biz_subscription_events`
+  الحقيقية للمستخدم. لا جدول → إفصاح "not installed". جدول فاضي → "No biz
+  subscriptions...". لا يوجد تقدير.
+- GRR: نموذج الصف الواحد لا يفصل التوسعات، فـ GRR هنا = نسبة MRR المرساة
+  المحتفظ به، بإفصاح نصّي صريح في `note`.
+- الـbenchmarks: مشتقة من تجميع حقيقي أو مسجلة يدويًا بمصدر، وإلا لا صفوف.
+- أسباب التوقف: من حقول حقيقية (lost_reason / churn_reason / status) فقط.
+
+## 5) الاختبارات
+
+- `php -l` على كل الملفات المعدَّلة - لا أخطاء.
+- `php tests/Unit/RevenueIntelligenceTest.php` → **234/234 ✅ (100%)**
+  (24 اختبارًا جديدًا: MRR/ARR/breakdown/NRR/GRR/churn + Stripe mapper ×6
+  + deal forecast ×3 + attribution ×2 + benchmarks/churn ×5 + no-data guards).
+
+## 6) ملحق: ربط التحميل اليدوي (لا SSH)
+
+- `public_html/index.php`: أُضيفت الخمس خدمات الجديدة إلى
+  `$optionalNewClassFiles` قبل الـController.
+- `cron/bootstrap.php`: أُضيفت الخمس خدمات إلى `$optionalJobDependencyFiles`.
+- `cron/revai_benchmarks_rebuild.php`: يُحمّل `RevenueDataGateway` يدويًا
+  بنفس النمط قبل استخدامه.

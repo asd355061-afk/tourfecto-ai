@@ -167,6 +167,19 @@ $router->get('/api/revenue-intelligence/actions', 'RevenueIntelligenceController
 $router->get('/api/revenue-intelligence/executive-summary', 'RevenueIntelligenceController', 'apiExecutiveSummary', ['AuthMiddleware']);
 $router->post('/api/revenue-intelligence/assistant/ask', 'RevenueIntelligenceController', 'apiAssistantAsk', ['AuthMiddleware']);
 $router->get('/api/revenue-intelligence/retention', 'RevenueIntelligenceController', 'apiRetention', ['AuthMiddleware']);
+$router->get('/api/revenue-intelligence/subscriptions', 'RevenueIntelligenceController', 'apiSubscriptionMetrics', ['AuthMiddleware']);
+$router->get('/api/revenue-intelligence/forecast/deals', 'RevenueIntelligenceController', 'apiDealForecast', ['AuthMiddleware']);
+$router->get('/api/revenue-intelligence/attribution', 'RevenueIntelligenceController', 'apiSalesAttribution', ['AuthMiddleware']);
+$router->get('/api/revenue-intelligence/benchmarks', 'RevenueIntelligenceController', 'apiBenchmarks', ['AuthMiddleware']);
+$router->get('/api/revenue-intelligence/churn', 'RevenueIntelligenceController', 'apiChurnAnalytics', ['AuthMiddleware']);
+$router->get('/api/revenue-intelligence/dashboard-prefs', 'RevenueIntelligenceController', 'apiDashboardPrefsGet', ['AuthMiddleware']);
+$router->post('/api/revenue-intelligence/dashboard-prefs', 'RevenueIntelligenceController', 'apiDashboardPrefsSave', ['AuthMiddleware']);
+$router->post('/api/revenue-intelligence/dashboard-prefs/reset', 'RevenueIntelligenceController', 'apiDashboardPrefsReset', ['AuthMiddleware']);
+$router->get('/api/revenue-intelligence/stripe/settings', 'RevenueIntelligenceController', 'apiStripeSettingsGet', ['AuthMiddleware']);
+$router->post('/api/revenue-intelligence/stripe/settings', 'RevenueIntelligenceController', 'apiStripeSettingsSave', ['AuthMiddleware']);
+// Webhook من Stripe نفسه - بدون AuthMiddleware (يُتحقق بالتوقيع)، ولا يمس
+// أي بيانات مالك الحساب خارج نطاق user_id المحدد.
+$router->post('/api/revenue-intelligence/stripe/webhook/{user_id}', 'RevenueIntelligenceController', 'apiStripeWebhook');
 $router->get('/api/revenue-intelligence/reports/export', 'RevenueIntelligenceController', 'apiExportReport', ['AuthMiddleware']);
 
 $router->get('/api/website-optimizer/websites', 'WebsiteOptimizerController', 'listWebsites', ['AuthMiddleware']);
@@ -194,6 +207,7 @@ $router->put('/api/competitor-intelligence/competitors/{id}', 'CompetitorIntelli
 $router->delete('/api/competitor-intelligence/competitors/{id}', 'CompetitorIntelligenceController', 'apiDeleteCompetitor', ['AuthMiddleware']);
 $router->post('/api/competitor-intelligence/competitors/{id}/check-now', 'CompetitorIntelligenceController', 'apiCheckNow', ['AuthMiddleware']);
 $router->get('/api/competitor-intelligence/competitors/{id}/timeline', 'CompetitorIntelligenceController', 'apiTimeline', ['AuthMiddleware']);
+$router->get('/api/competitor-intelligence/competitors/{id}/price-history', 'CompetitorIntelligenceController', 'apiPriceHistory', ['AuthMiddleware']);
 $router->post('/api/competitor-intelligence/competitors/{id}/scan-insights', 'CompetitorIntelligenceController', 'apiScanInsights', ['AuthMiddleware']);
 $router->post('/api/competitor-intelligence/competitors/{id}/analyze-profile', 'CompetitorIntelligenceController', 'apiAnalyzeProfile', ['AuthMiddleware']);
 $router->post('/api/competitor-intelligence/competitors/{id}/compute-scorecard', 'CompetitorIntelligenceController', 'apiComputeScorecard', ['AuthMiddleware']);
@@ -211,11 +225,15 @@ $router->delete('/api/competitor-intelligence/watchlist/{id}', 'CompetitorIntell
 
 $router->get('/api/competitor-intelligence/activity', 'CompetitorIntelligenceController', 'apiActivityFeed', ['AuthMiddleware']);
 $router->post('/api/competitor-intelligence/comparison', 'CompetitorIntelligenceController', 'apiComparison', ['AuthMiddleware']);
+$router->post('/api/competitor-intelligence/comparison/export', 'CompetitorIntelligenceController', 'apiComparisonExport', ['AuthMiddleware']);
 
 $router->get('/api/competitor-intelligence/alerts', 'CompetitorIntelligenceController', 'apiAlerts', ['AuthMiddleware']);
 $router->post('/api/competitor-intelligence/alerts/{id}/read', 'CompetitorIntelligenceController', 'apiMarkAlertRead', ['AuthMiddleware']);
+$router->post('/api/competitor-intelligence/alerts/read-all', 'CompetitorIntelligenceController', 'apiMarkAllAlertsRead', ['AuthMiddleware']);
+$router->get('/api/competitor-intelligence/alerts/unread-count', 'CompetitorIntelligenceController', 'apiUnreadAlertsCount', ['AuthMiddleware']);
 
 $router->get('/api/competitor-intelligence/insights', 'CompetitorIntelligenceController', 'apiInsights', ['AuthMiddleware']);
+$router->post('/api/competitor-intelligence/insights/{id}/status', 'CompetitorIntelligenceController', 'apiInsightStatus', ['AuthMiddleware']);
 $router->post('/api/competitor-intelligence/ai/ask', 'CompetitorIntelligenceController', 'apiAiAsk', ['AuthMiddleware']);
 $router->get('/api/competitor-intelligence/ai/weekly-summary', 'CompetitorIntelligenceController', 'apiAiWeeklySummary', ['AuthMiddleware']);
 
@@ -438,6 +456,8 @@ $router->group('/api/admin', function ($router) {
     // سجل تسجيل الدخول (Login History)
     $router->get('/login-history', 'AdminController', 'getAllLoginHistory', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/users/{id}/login-history', 'AdminController', 'getUserLoginHistory', ['AuthMiddleware', 'AdminMiddleware']);
+    // Phase 20.1: لوحة فونيل الـOnboarding (viewed → step N → submitted → completed)
+    $router->get('/onboarding-funnel', 'AdminController', 'onboardingFunnel', ['AuthMiddleware', 'AdminMiddleware']);
     $router->post('/users/{id}/feature-overrides', 'AdminController', 'addUserFeatureOverride', ['AuthMiddleware', 'AdminMiddleware']);
     $router->delete('/users/{id}/feature-overrides/{key}', 'AdminController', 'removeUserFeatureOverride', ['AuthMiddleware', 'AdminMiddleware']);
 
@@ -937,6 +957,42 @@ $router->get('/api/crm/activities', 'CrmApiController', 'listActivities', ['Auth
 $router->post('/api/crm/activities', 'CrmApiController', 'createActivity', ['AuthMiddleware']);
 $router->delete('/api/crm/activities/{id}', 'CrmApiController', 'deleteActivity', ['AuthMiddleware']);
 
+// المرحلة 15: Web Forms لالتقاط Leads (G11) - إدارة النماذج والإرسالات
+$router->get('/api/crm/web-forms', 'CrmApiController', 'listWebForms', ['AuthMiddleware']);
+$router->post('/api/crm/web-forms', 'CrmApiController', 'createWebForm', ['AuthMiddleware']);
+$router->put('/api/crm/web-forms/{id}', 'CrmApiController', 'updateWebForm', ['AuthMiddleware']);
+$router->delete('/api/crm/web-forms/{id}', 'CrmApiController', 'deleteWebForm', ['AuthMiddleware']);
+$router->get('/api/crm/web-forms/submissions', 'CrmApiController', 'webFormSubmissions', ['AuthMiddleware']);
+// إرسال عام للنموذج - بدون AuthMiddleware عمدًا (الزائر الخارجي لا يملك جلسة)
+$router->post('/api/crm/public/web-forms/{slug}/submit', 'CrmApiController', 'submitWebForm', []);
+
+// المرحلة 15: Sales Sequences (G12) - تسلسلات مبيعات متعددة الخطوات
+$router->get('/api/crm/sequences/schema', 'CrmApiController', 'sequenceSchema', ['AuthMiddleware']);
+$router->get('/api/crm/sequences', 'CrmApiController', 'listSequences', ['AuthMiddleware']);
+$router->post('/api/crm/sequences', 'CrmApiController', 'createSequence', ['AuthMiddleware']);
+$router->put('/api/crm/sequences/{id}', 'CrmApiController', 'updateSequence', ['AuthMiddleware']);
+$router->delete('/api/crm/sequences/{id}', 'CrmApiController', 'deleteSequence', ['AuthMiddleware']);
+$router->post('/api/crm/sequences/{id}/enroll', 'CrmApiController', 'enrollInSequence', ['AuthMiddleware']);
+$router->get('/api/crm/sequences/enrollments', 'CrmApiController', 'listSequenceEnrollments', ['AuthMiddleware']);
+$router->post('/api/crm/sequences/enrollments/process-due', 'CrmApiController', 'processDueSequences', ['AuthMiddleware']);
+$router->post('/api/crm/sequences/enrollments/{id}/pause', 'CrmApiController', 'pauseSequenceEnrollment', ['AuthMiddleware']);
+$router->post('/api/crm/sequences/enrollments/{id}/resume', 'CrmApiController', 'resumeSequenceEnrollment', ['AuthMiddleware']);
+$router->post('/api/crm/sequences/enrollments/{id}/cancel', 'CrmApiController', 'cancelSequenceEnrollment', ['AuthMiddleware']);
+
+// المرحلة 15: Report Builder (G13) - تقارير مخصصة قابلة للحفظ
+$router->get('/api/crm/reports/builder/schema', 'CrmApiController', 'reportBuilderSchema', ['AuthMiddleware']);
+$router->get('/api/crm/reports/builder', 'CrmApiController', 'listSavedReports', ['AuthMiddleware']);
+$router->post('/api/crm/reports/builder', 'CrmApiController', 'saveReport', ['AuthMiddleware']);
+$router->put('/api/crm/reports/builder/{id}', 'CrmApiController', 'updateSavedReport', ['AuthMiddleware']);
+$router->delete('/api/crm/reports/builder/{id}', 'CrmApiController', 'deleteSavedReport', ['AuthMiddleware']);
+$router->post('/api/crm/reports/builder/run', 'CrmApiController', 'runReport', ['AuthMiddleware']);
+$router->get('/api/crm/reports/builder/{id}/run', 'CrmApiController', 'runSavedReport', ['AuthMiddleware']);
+
+// المرحلة 15: استيراد من CRMs خارجية (G14) - HubSpot / Zoho / Pipedrive / Freshsales
+$router->get('/api/crm/import/presets', 'CrmApiController', 'importPresets', ['AuthMiddleware']);
+$router->post('/api/crm/import/preview-external', 'CrmApiController', 'previewExternalImport', ['AuthMiddleware']);
+$router->post('/api/crm/import/commit-external', 'CrmApiController', 'commitExternalImport', ['AuthMiddleware']);
+
 // Webhook عام (بدون AuthMiddleware عمدًا - Meta هي اللي بتنادي عليه، راجع
 // تعليق CrmWhatsAppWebhookController للتفاصيل الأمنية).
 $router->get('/webhooks/crm/whatsapp', 'CrmWhatsAppWebhookController', 'verify', []);
@@ -964,6 +1020,11 @@ $router->post('/api/onboarding/complete', 'OnboardingController', 'complete', ['
 $router->get('/api/onboarding/status', 'OnboardingController', 'status', ['AuthMiddleware']);
 // Phase 20 (Onboarding Competitive): كشف تلقائي لاسم النشاط من الموقع
 $router->get('/api/onboarding/preview', 'OnboardingController', 'preview', ['AuthMiddleware']);
+// Phase 20.1 (Onboarding Professional): مسودة سيرفر (استئناف عبر الأجهزة) + فونيل
+$router->get('/api/onboarding/draft', 'OnboardingController', 'getDraft', ['AuthMiddleware']);
+$router->put('/api/onboarding/draft', 'OnboardingController', 'saveDraft', ['AuthMiddleware']);
+$router->delete('/api/onboarding/draft', 'OnboardingController', 'clearDraft', ['AuthMiddleware']);
+$router->post('/api/onboarding/step', 'OnboardingController', 'recordStep', ['AuthMiddleware']);
 // Phase 11 (AI CEO Advisor)
 $router->post('/api/executive/ceo-advisor/ask', 'ExecutiveExtrasController', 'askCeoAdvisor', ['AuthMiddleware']);
 // Phase 12 (Action Center)
@@ -1013,6 +1074,11 @@ $router->get('/api/ai-chat/websites/{id}/followup-settings', 'AiFollowupSettings
 $router->put('/api/ai-chat/websites/{id}/followup-settings', 'AiFollowupSettingsController', 'update', ['AuthMiddleware']);
 // AI Analytics
 $router->get('/api/ai-chat/websites/{id}/analytics', 'AiAnalyticsController', 'index', ['AuthMiddleware']);
+// In-Chat Quotes (بيع داخل الشات - عروض أسعار جوه المحادثة)
+$router->get('/api/ai-chat/websites/{id}/quotes', 'AiQuoteController', 'index', ['AuthMiddleware']);
+$router->post('/api/ai-chat/websites/{id}/quotes', 'AiQuoteController', 'store', ['AuthMiddleware']);
+$router->put('/api/ai-chat/websites/{id}/quotes/{quoteId}', 'AiQuoteController', 'update', ['AuthMiddleware']);
+$router->post('/api/ai-chat/websites/{id}/quotes/{quoteId}/send', 'AiQuoteController', 'send', ['AuthMiddleware']);
 // Learning Loop (Zendesk/Fin): فجوات المعرفة المقترحة + إدارتها + إعادة مسح
 $router->get('/api/ai-chat/websites/{id}/learning/gaps', 'AiLearningController', 'gaps', ['AuthMiddleware']);
 $router->post('/api/ai-chat/websites/{id}/learning/gaps/{gapId}/status', 'AiLearningController', 'updateGapStatus', ['AuthMiddleware']);

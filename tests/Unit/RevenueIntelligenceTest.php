@@ -3,7 +3,7 @@
 /**
  * Tourfecto - AI Revenue Intelligence Test
  * اختبارات موديول ذكاء الإيرادات (TOURFECTO AI REVENUE INTELLIGENCE)
- * @version 1.4.0
+ * @version 1.5.0
  * @author Tourfecto Team
  * @copyright 2026 Tourfecto
  *
@@ -40,6 +40,14 @@ require_once __DIR__ . '/../../app/Services/RevenueIntelligence/RevenueAssistant
 require_once __DIR__ . '/../../app/Services/RevenueIntelligence/RevenueCacheService.php';
 require_once __DIR__ . '/../../app/Services/RevenueIntelligence/RevenueRetentionService.php';
 require_once __DIR__ . '/../../app/Services/RevenueIntelligence/RevenueCopilotService.php';
+require_once __DIR__ . '/../../app/Services/RevenueIntelligence/BizSubscriptionService.php';
+require_once __DIR__ . '/../../app/Services/RevenueIntelligence/DealLevelForecastService.php';
+require_once __DIR__ . '/../../app/Services/RevenueIntelligence/RevenueBenchmarkService.php';
+require_once __DIR__ . '/../../app/Services/RevenueIntelligence/RevenueChurnService.php';
+require_once __DIR__ . '/../../app/Services/RevenueIntelligence/StripeRevenueMapper.php';
+// v1.6.0: Dashboard personalization + Stripe webhook (pure static functions)
+require_once __DIR__ . '/../../app/Services/RevenueIntelligence/RevenueDashboardService.php';
+require_once __DIR__ . '/../../app/Services/RevenueIntelligence/StripeWebhookService.php';
 $revaiQueueContract = __DIR__ . '/../../app/Core/Contracts/QueueJobInterface.php';
 if (file_exists($revaiQueueContract)) {
     require_once $revaiQueueContract;
@@ -94,6 +102,34 @@ class RevenueIntelligenceTest
         $this->testRetentionRevenueRetentionRate();
         $this->testRetentionNoInventedData();
         $this->testDigestHtml();
+        $this->testSubscriptionsMrrArr();
+        $this->testSubscriptionsMrrBreakdown();
+        $this->testSubscriptionsNrr();
+        $this->testSubscriptionsGrr();
+        $this->testSubscriptionsChurn();
+        $this->testSubscriptionsNotEnoughData();
+        $this->testStripeMapperNormalizeAmount();
+        $this->testStripeMapperMapInterval();
+        $this->testStripeMapperConvertToMrr();
+        $this->testStripeMapperSubscriptionCreated();
+        $this->testStripeMapperInvoicePaid();
+        $this->testStripeMapperSubscriptionDeleted();
+        $this->testDealForecastBuckets();
+        $this->testDealForecastUndated();
+        $this->testDealForecastWeightedValue();
+        $this->testSalesAttributionByRep();
+        $this->testSalesAttributionByTeam();
+        $this->testBenchmarkClassifyChurnReason();
+        $this->testBenchmarkAggregateChurnReasons();
+        $this->testBenchmarkServiceNotInstalled();
+        $this->testChurnAnalyticsNotEnoughData();
+        $this->testChurnAnalyticsReasons();
+        $this->testDashboardPrefsDefaultLayout();
+        $this->testDashboardPrefsNormalizeUnknownKeys();
+        $this->testDashboardPrefsNormalizeMissingKeys();
+        $this->testDashboardPrefsApplyLayout();
+        $this->testStripeWebhookVerifySignature();
+        $this->testStripeWebhookVerifySignatureTampered();
 
         $this->printSummary();
     }
@@ -628,6 +664,454 @@ class RevenueIntelligenceTest
         $this->assertTrue(strpos($html2, 'Not enough data for a reliable forecast') !== false, 'Honest message when forecast data is insufficient');
         $this->assertTrue(strpos($html2, 'No high-severity risks detected') !== false, 'No risks -> no invented risks block');
         $this->assertTrue(strpos($html2, '17,000.25') === false, 'No fabricated forecast number when insufficient');
+    }
+
+    // ============================================================
+    // v1.5.0: Subscriptions (MRR/ARR/NRR/GRR/Churn) - pure functions
+    // ============================================================
+
+    private function testSubscriptionsMrrArr(): void {
+        $this->startTest('Subscriptions: computeMrr + computeArrFromMrr from real rows');
+        $subs = [
+            ['customer_name' => 'A', 'status' => 'active', 'mrr' => 100],
+            ['customer_name' => 'B', 'status' => 'active', 'mrr' => 250.5],
+            ['customer_name' => 'C', 'status' => 'trialing', 'mrr' => 50],
+            ['customer_name' => 'D', 'status' => 'cancelled', 'mrr' => 999],
+        ];
+        $mrr = BizSubscriptionService::computeMrr($subs);
+        $this->assertTrue($mrr === 400.5, 'MRR sums only active+trialing rows (100 + 250.5 + 50)');
+        $this->assertTrue(BizSubscriptionService::computeArrFromMrr($mrr) === 4806.0, 'ARR = MRR * 12');
+        $this->assertTrue(BizSubscriptionService::computeMrr([]) === 0.0, 'Empty -> 0 (no invented revenue)');
+    }
+
+    private function testSubscriptionsMrrBreakdown(): void {
+        $this->startTest('Subscriptions: computeMrrBreakdown from real events');
+        $events = [
+            ['event_type' => 'new', 'mrr_delta' => 300, 'occurred_at' => '2026-08-01 10:00:00'],
+            ['event_type' => 'expansion', 'mrr_delta' => 100, 'occurred_at' => '2026-08-05 10:00:00'],
+            ['event_type' => 'contraction', 'mrr_delta' => -50, 'occurred_at' => '2026-08-10 10:00:00'],
+            ['event_type' => 'churn', 'mrr_delta' => -120, 'occurred_at' => '2026-08-15 10:00:00'],
+            ['event_type' => 'new', 'mrr_delta' => 40, 'occurred_at' => '2026-09-01 10:00:00'],
+        ];
+        $all = BizSubscriptionService::computeMrrBreakdown($events);
+        $this->assertTrue($all['has_data'] === true, 'Has data when events exist');
+        $this->assertTrue($all['new'] === 340.0, 'New = 300 + 40');
+        $this->assertTrue($all['expansion'] === 100.0, 'Expansion = 100');
+        $this->assertTrue($all['contraction'] === 50.0, 'Contraction = 50 (abs)');
+        $this->assertTrue($all['churn'] === 120.0, 'Churn = 120 (abs)');
+        $this->assertTrue($all['net'] === 270.0, 'Net = 340 + 100 - 50 - 120');
+        $aug = BizSubscriptionService::computeMrrBreakdown($events, '2026-08');
+        $this->assertTrue($aug['new'] === 300.0, 'August filter keeps only August events');
+        $this->assertTrue(BizSubscriptionService::computeMrrBreakdown([])['has_data'] === false, 'Empty events -> has_data=false');
+    }
+
+    private function testSubscriptionsNrr(): void {
+        $this->startTest('Subscriptions: computeNrr literal from anchor period');
+        $past = [
+            ['contact_id' => 1, 'mrr' => 100, 'status' => 'active'],
+            ['contact_id' => 2, 'mrr' => 100, 'status' => 'active'],
+        ];
+        $current = [
+            ['contact_id' => 1, 'mrr' => 120, 'status' => 'active'], // expanded
+            ['contact_id' => 2, 'mrr' => 0, 'status' => 'cancelled'], // churned
+            ['contact_id' => 3, 'mrr' => 500, 'status' => 'active'], // brand new (not in anchor)
+        ];
+        $nrr = BizSubscriptionService::computeNrr($current, $past);
+        $this->assertTrue($nrr['has_data'] === true, 'NRR computed from real rows');
+        $this->assertTrue($nrr['nrr_percent'] === 60.0, 'NRR = 120/200 = 60%');
+        $this->assertTrue(BizSubscriptionService::computeNrr([], [])['has_data'] === false, 'No anchor -> has_data=false');
+    }
+
+    private function testSubscriptionsGrr(): void {
+        $this->startTest('Subscriptions: computeGrr literal (retained anchor MRR)');
+        $past = [
+            ['contact_id' => 1, 'mrr' => 100, 'status' => 'active'],
+            ['contact_id' => 2, 'mrr' => 100, 'status' => 'active'],
+        ];
+        $current = [
+            ['contact_id' => 1, 'mrr' => 120, 'status' => 'active'],
+            ['contact_id' => 2, 'mrr' => 0, 'status' => 'cancelled'],
+        ];
+        $grr = BizSubscriptionService::computeGrr($current, $past);
+        $this->assertTrue($grr['has_data'] === true, 'GRR computed');
+        $this->assertTrue($grr['grr_percent'] === 60.0, 'GRR = retained anchor MRR (120/200) = 60%');
+        $this->assertTrue(BizSubscriptionService::computeGrr([], [])['has_data'] === false, 'No anchor -> has_data=false');
+    }
+
+    private function testSubscriptionsChurn(): void {
+        $this->startTest('Subscriptions: computeChurnRate from real events + base');
+        $subs = [
+            ['status' => 'active'],
+            ['status' => 'active'],
+            ['status' => 'active'],
+            ['status' => 'cancelled'],
+        ];
+        $events = [
+            ['event_type' => 'churn'],
+            ['event_type' => 'churn'],
+            ['event_type' => 'new'],
+        ];
+        $churn = BizSubscriptionService::computeChurnRate($subs, $events);
+        $this->assertTrue($churn['has_data'] === true, 'Churn computed');
+        $this->assertTrue($churn['churned'] === 2, 'Counts only churn events');
+        $this->assertTrue($churn['churn_rate_percent'] === 40.0, 'Churn = 2/(3 active + 2 churn) = 40%');
+        $this->assertTrue(BizSubscriptionService::computeChurnRate([], [])['has_data'] === false, 'No base -> has_data=false');
+    }
+
+    private function testSubscriptionsNotEnoughData(): void {
+        $this->startTest('Subscriptions: service returns honest reason when tables/data missing');
+        $service = new BizSubscriptionService(new class extends RevenueDataGateway {
+            public function hasBizSubscriptionTables(): bool { return true; }
+            public function getBizSubscriptions(int $userId): array { return []; }
+            public function getBizSubscriptionEvents(int $userId): array { return []; }
+        });
+        $metrics = $service->getSubscriptionMetrics(42);
+        $this->assertTrue($metrics['has_data'] === false, 'No subscriptions -> has_data=false');
+        $this->assertTrue(strpos($metrics['reason'], 'No biz subscriptions') !== false, 'Clear honest reason');
+        $this->assertTrue($metrics['mrr'] === 0.0, 'MRR is 0 (never invented)');
+
+        $service2 = new BizSubscriptionService(new class extends RevenueDataGateway {
+            public function hasBizSubscriptionTables(): bool { return false; }
+        });
+        $metrics2 = $service2->getSubscriptionMetrics(42);
+        $this->assertTrue(strpos($metrics2['reason'], 'not installed') !== false, 'Tables-missing disclosure');
+    }
+
+    // ============================================================
+    // v1.5.0 (A): Stripe Revenue Mapper - pure functions
+    // ============================================================
+
+    private function testStripeMapperNormalizeAmount(): void {
+        $this->startTest('Stripe Mapper: normalizeAmountForCurrency (cents to currency)');
+        $this->assertTrue(StripeRevenueMapper::normalizeAmountForCurrency(1000, 'usd') === 10.0, '1000 cents USD = 10.0');
+        $this->assertTrue(StripeRevenueMapper::normalizeAmountForCurrency(1000, 'jpy') === 1000.0, 'JPY has no decimals');
+        $this->assertTrue(StripeRevenueMapper::normalizeAmountForCurrency(250, 'eur') === 2.5, 'EUR cents');
+    }
+
+    private function testStripeMapperMapInterval(): void {
+        $this->startTest('Stripe Mapper: mapIntervalToCycle');
+        $this->assertTrue(StripeRevenueMapper::mapIntervalToCycle('month') === 'monthly', 'month -> monthly');
+        $this->assertTrue(StripeRevenueMapper::mapIntervalToCycle('year') === 'yearly', 'year -> yearly');
+        $this->assertTrue(StripeRevenueMapper::mapIntervalToCycle('week') === 'monthly', 'week -> monthly');
+        $this->assertTrue(StripeRevenueMapper::mapIntervalToCycle('weird') === 'monthly', 'unknown -> monthly (safe default)');
+    }
+
+    private function testStripeMapperConvertToMrr(): void {
+        $this->startTest('Stripe Mapper: convertSubscriptionToMrr');
+        $this->assertTrue(StripeRevenueMapper::convertSubscriptionToMrr(120.0, 'yearly') === 10.0, '120/yr = 10 MRR');
+        $this->assertTrue(StripeRevenueMapper::convertSubscriptionToMrr(30.0, 'quarterly') === 10.0, '30/quarter = 10 MRR');
+        $this->assertTrue(StripeRevenueMapper::convertSubscriptionToMrr(15.0, 'monthly') === 15.0, 'monthly unchanged');
+    }
+
+    private function testStripeMapperSubscriptionCreated(): void {
+        $this->startTest('Stripe Mapper: mapSubscriptionCreated -> biz rows');
+        $payload = [
+            'id' => 'evt_1',
+            'created' => 1755000000,
+            'data' => ['object' => [
+                'id' => 'sub_1', 'customer' => 'cus_123', 'status' => 'active', 'currency' => 'usd',
+                'items' => ['data' => [['plan' => ['amount' => 12000, 'interval' => 'year', 'nickname' => 'Pro']]]],
+            ]],
+        ];
+        $result = StripeRevenueMapper::mapSubscriptionCreated($payload);
+        $this->assertTrue($result['subscription']['stripe_customer_id'] === 'cus_123', 'Maps customer id');
+        $this->assertTrue($result['subscription']['billing_cycle'] === 'yearly', 'Yearly interval mapped');
+        $this->assertTrue($result['subscription']['mrr'] === 10.0, '12000/yr = 10 MRR');
+        $this->assertTrue($result['subscription']['currency'] === 'USD', 'Currency uppercased');
+        $this->assertTrue($result['event']['event_type'] === 'new', 'Created -> new event');
+        $this->assertTrue($result['event']['mrr_delta'] === 10.0, 'New event delta = MRR');
+    }
+
+    private function testStripeMapperInvoicePaid(): void {
+        $this->startTest('Stripe Mapper: mapInvoicePaymentSucceeded -> expansion event');
+        $payload = [
+            'id' => 'evt_2', 'created' => 1755000000,
+            'data' => ['object' => [
+                'customer' => 'cus_456', 'currency' => 'usd',
+                'lines' => ['data' => [
+                    ['amount' => 5000, 'price' => ['recurring' => ['interval' => 'month']]],
+                ]],
+            ]],
+        ];
+        $result = StripeRevenueMapper::mapInvoicePaymentSucceeded($payload);
+        $this->assertTrue($result['event']['event_type'] === 'expansion', 'Payment -> expansion');
+        $this->assertTrue($result['event']['mrr_delta'] === 50.0, '5000 cents = 50 MRR');
+        $this->assertTrue($result['event']['stripe_customer_id'] === 'cus_456', 'Customer attached');
+    }
+
+    private function testStripeMapperSubscriptionDeleted(): void {
+        $this->startTest('Stripe Mapper: mapSubscriptionDeleted -> churn event (negative delta)');
+        $payload = [
+            'id' => 'evt_3', 'created' => 1755000000,
+            'data' => ['object' => [
+                'customer' => 'cus_789', 'currency' => 'usd', 'status' => 'canceled',
+                'items' => ['data' => [['plan' => ['amount' => 3000, 'interval' => 'month']]]],
+            ]],
+        ];
+        $result = StripeRevenueMapper::mapSubscriptionDeleted($payload);
+        $this->assertTrue($result['event']['event_type'] === 'churn', 'Deleted -> churn');
+        $this->assertTrue($result['event']['mrr_delta'] === -30.0, 'Negative MRR delta');
+    }
+
+    // ============================================================
+    // v1.5.0 (B): Deal-level forecast + Sales attribution
+    // ============================================================
+
+    private function testDealForecastBuckets(): void {
+        $this->startTest('Deal Forecast: buckets this month / this quarter / later');
+        $deals = [
+            ['status' => 'open', 'value' => 1000, 'probability' => 50, 'expected_close_date' => '2026-08-20'],
+            ['status' => 'open', 'value' => 2000, 'probability' => null, 'stage_win_probability' => 75, 'expected_close_date' => '2026-09-15'],
+            ['status' => 'open', 'value' => 3000, 'probability' => 100, 'expected_close_date' => '2027-01-01'],
+            ['status' => 'won', 'value' => 9999, 'probability' => 100, 'expected_close_date' => '2026-08-20'],
+        ];
+        $f = DealLevelForecastService::groupOpenDealsByCloseWindow($deals, '2026-08-16');
+        $this->assertTrue($f['has_data'] === true, 'Has open deals');
+        $this->assertTrue($f['buckets']['this_month']['weighted'] === 500.0, 'This month: 1000*50% = 500');
+        $this->assertTrue($f['buckets']['this_quarter']['weighted'] === 1500.0, 'This quarter: 2000*75% = 1500');
+        $this->assertTrue($f['buckets']['later']['weighted'] === 3000.0, 'Later: 3000*100%');
+        $this->assertTrue($f['buckets']['this_month']['count'] === 1, 'Only open deals bucketed');
+        $this->assertTrue($f['total_weighted'] === 5000.0, 'Total weighted = 500 + 1500 + 3000');
+    }
+
+    private function testDealForecastUndated(): void {
+        $this->startTest('Deal Forecast: undated deals excluded from time buckets, never invented');
+        $deals = [
+            ['status' => 'open', 'value' => 5000, 'probability' => 50, 'expected_close_date' => ''],
+            ['status' => 'open', 'value' => 700, 'probability' => 50, 'expected_close_date' => '2026-08-30'],
+        ];
+        $f = DealLevelForecastService::groupOpenDealsByCloseWindow($deals, '2026-08-16');
+        $this->assertTrue($f['buckets']['undated']['count'] === 1, 'Undated counted in undated bucket');
+        $this->assertTrue($f['buckets']['undated']['weighted'] === 2500.0, 'Undated weighted still surfaced transparently');
+        $this->assertTrue($f['total_weighted'] === 350.0, 'Total excludes undated (0.5*5000 + 0.5*700)');
+        $this->assertTrue(strpos($f['note'], 'Undated') !== false, 'Honest note about undated handling');
+    }
+
+    private function testDealForecastWeightedValue(): void {
+        $this->startTest('Deal Forecast: weightedDealValue uses probability then stage fallback');
+        $this->assertTrue(DealLevelForecastService::weightedDealValue(['value' => 1000, 'probability' => 40]) === 400.0, 'Value * probability');
+        $this->assertTrue(DealLevelForecastService::weightedDealValue(['value' => 1000, 'probability' => null, 'stage_win_probability' => 25]) === 250.0, 'Stage win_probability fallback');
+        $this->assertTrue(DealLevelForecastService::weightedDealValue(['value' => 1000, 'probability' => null]) === 0.0, 'No probability -> 0 (no hidden assumption)');
+    }
+
+    private function testSalesAttributionByRep(): void {
+        $this->startTest('Sales Attribution: aggregateByRep');
+        $deals = [
+            ['status' => 'open', 'value' => 1000, 'probability' => 50, 'assigned_rep_id' => 1, 'rep_name' => 'Alice', 'team_name' => 'SMB'],
+            ['status' => 'open', 'value' => 2000, 'probability' => 50, 'assigned_rep_id' => 1, 'rep_name' => 'Alice', 'team_name' => 'SMB'],
+            ['status' => 'won', 'value' => 5000, 'probability' => 100, 'assigned_rep_id' => 2, 'rep_name' => 'Bob', 'team_name' => 'Ent'],
+            ['status' => 'open', 'value' => 900, 'probability' => 100, 'assigned_rep_id' => 0, 'rep_name' => '', 'team_name' => ''],
+        ];
+        $a = DealLevelForecastService::aggregateByRep($deals);
+        $this->assertTrue($a['has_data'] === true, 'Has data');
+        $byName = [];
+        foreach ($a['reps'] as $r) {
+            $byName[$r['rep_name']] = $r;
+        }
+        $this->assertTrue($byName['Alice']['open_weighted'] === 1500.0, 'Alice: 1000*50% + 2000*50%');
+        $this->assertTrue($byName['Alice']['open_count'] === 2, 'Alice open count');
+        $this->assertTrue($byName['Bob']['won_value'] === 5000.0, 'Bob won revenue');
+        $this->assertTrue(isset($byName['Unassigned']) && $byName['Unassigned']['open_weighted'] === 900.0, 'Unassigned surfaced honestly');
+    }
+
+    private function testSalesAttributionByTeam(): void {
+        $this->startTest('Sales Attribution: aggregateByTeam');
+        $deals = [
+            ['status' => 'open', 'value' => 1000, 'probability' => 50, 'assigned_rep_id' => 1, 'rep_name' => 'Alice', 'team_id' => 1, 'team_name' => 'SMB'],
+            ['status' => 'won', 'value' => 5000, 'probability' => 100, 'assigned_rep_id' => 2, 'rep_name' => 'Bob', 'team_id' => 2, 'team_name' => 'Ent'],
+            ['status' => 'open', 'value' => 900, 'probability' => 100, 'assigned_rep_id' => 0, 'rep_name' => '', 'team_id' => 0, 'team_name' => ''],
+        ];
+        $a = DealLevelForecastService::aggregateByTeam($deals);
+        $byName = [];
+        foreach ($a['teams'] as $t) {
+            $byName[$t['team_name']] = $t;
+        }
+        $this->assertTrue($byName['SMB']['open_weighted'] === 500.0, 'SMB open weighted');
+        $this->assertTrue($byName['Ent']['won_value'] === 5000.0, 'Ent won value');
+        $this->assertTrue(isset($byName['Unassigned']) && $byName['Unassigned']['open_weighted'] === 900.0, 'Unassigned team surfaced');
+    }
+
+    // ============================================================
+    // v1.5.0 (C): Benchmarks + Churn analytics
+    // ============================================================
+
+    private function testBenchmarkClassifyChurnReason(): void {
+        $this->startTest('Benchmark: classifyChurnReason prioritizes real data');
+        $explicit = RevenueBenchmarkService::classifyChurnReason(['status' => 'lost', 'lost_reason' => 'Budget cut']);
+        $this->assertTrue($explicit['reason'] === 'explicit' && $explicit['label'] === 'Budget cut', 'Explicit lost_reason wins');
+        $fromEvent = RevenueBenchmarkService::classifyChurnReason(['status' => 'open', 'contact_id' => 7], [
+            ['event_type' => 'churn', 'contact_id' => 7, 'churn_reason' => 'Switched to competitor'],
+        ]);
+        $this->assertTrue($fromEvent['label'] === 'Switched to competitor', 'Event churn_reason matched by contact');
+        $implied = RevenueBenchmarkService::classifyChurnReason(['status' => 'cancelled']);
+        $this->assertTrue($implied['confidence'] === 'low', 'Implied status -> low confidence');
+        $unknown = RevenueBenchmarkService::classifyChurnReason(['status' => 'open']);
+        $this->assertTrue($unknown['label'] === 'Not enough data', 'No data -> honest unknown');
+    }
+
+    private function testBenchmarkAggregateChurnReasons(): void {
+        $this->startTest('Benchmark: aggregateChurnReasons groups real reasons');
+        $deals = [
+            ['status' => 'lost', 'lost_reason' => 'Budget'],
+            ['status' => 'lost', 'lost_reason' => 'Budget'],
+            ['status' => 'lost'],
+            ['status' => 'open'],
+        ];
+        $agg = RevenueBenchmarkService::aggregateChurnReasons($deals);
+        $this->assertTrue($agg['total_churned'] === 3, 'Counts only lost/cancelled');
+        $this->assertTrue($agg['by_reason'][0]['label'] === 'Budget' && $agg['by_reason'][0]['count'] === 2, 'Top reason sorted first');
+        $this->assertTrue($agg['top_reason'] === 'Budget', 'top_reason set');
+        $empty = RevenueBenchmarkService::aggregateChurnReasons([]);
+        $this->assertTrue($empty['has_data'] === false, 'No churn data -> has_data=false');
+    }
+
+    private function testBenchmarkServiceNotInstalled(): void {
+        $this->startTest('Benchmark: service discloses when table missing');
+        $service = new RevenueBenchmarkService(new class extends RevenueDataGateway {
+            public function hasBenchmarkTables(): bool { return false; }
+        });
+        $result = $service->getBenchmarks(42);
+        $this->assertTrue($result['has_data'] === false, 'has_data=false');
+        $this->assertTrue(strpos($result['reason'], 'not installed') !== false, 'Clear install disclosure');
+    }
+
+    private function testChurnAnalyticsNotEnoughData(): void {
+        $this->startTest('Churn: no data -> honest reason, no invented reasons');
+        $service = new RevenueChurnService(new class extends RevenueDataGateway {
+            public function getDealsWithRep(int $userId): array { return []; }
+            public function hasBizSubscriptionTables(): bool { return false; }
+        });
+        $result = $service->getChurnAnalytics(42);
+        $this->assertTrue($result['has_data'] === false, 'has_data=false');
+        $this->assertTrue(strpos($result['reason'], 'Not enough data') !== false, 'Exact honest message');
+    }
+
+    private function testChurnAnalyticsReasons(): void {
+        $this->startTest('Churn: aggregates real reasons from lost deals');
+        $service = new RevenueChurnService(new class extends RevenueDataGateway {
+            public function getDealsWithRep(int $userId): array {
+                return [
+                    ['status' => 'lost', 'lost_reason' => 'Price'],
+                    ['status' => 'lost', 'lost_reason' => 'Price'],
+                    ['status' => 'lost', 'lost_reason' => 'Timing'],
+                    ['status' => 'open', 'lost_reason' => ''],
+                ];
+            }
+            public function hasBizSubscriptionTables(): bool { return false; }
+        });
+        $result = $service->getChurnAnalytics(42);
+        $this->assertTrue($result['has_data'] === true, 'has_data=true');
+        $this->assertTrue($result['total_churned'] === 3, 'Total churned = 3');
+        $this->assertTrue($result['top_reason'] === 'Price', 'Top reason = Price');
+        $this->assertTrue(strpos($result['note'], 'inferred from real data') !== false, 'Honest provenance note');
+    }
+
+    // ============================================================
+    // v1.6.0: Dashboard Personalization (pure static functions)
+    // ============================================================
+
+    private function testDashboardPrefsDefaultLayout(): void
+    {
+        $this->startTest('Dashboard prefs: default layout shows all known widgets');
+        $layout = RevenueDashboardService::defaultLayout();
+        $this->assertTrue(count($layout['widgets']) === 8, 'Default layout has all 8 known widgets');
+        $this->assertTrue($layout['widgets'][0]['key'] === 'current_revenue', 'First widget is current_revenue');
+        $this->assertTrue($layout['widgets'][0]['visible'] === true, 'All widgets visible by default');
+        $this->assertTrue($layout['widgets'][7]['key'] === 'recommended_actions', 'Last widget is recommended_actions');
+    }
+
+    private function testDashboardPrefsNormalizeUnknownKeys(): void
+    {
+        $this->startTest('Dashboard prefs: normalizeLayout drops unknown/invented widget keys');
+        $layout = RevenueDashboardService::normalizeLayout([
+            'widgets' => [
+                ['key' => 'current_revenue', 'visible' => true, 'order' => 0],
+                ['key' => 'made_up_metric', 'visible' => true, 'order' => 1],
+                ['key' => 'invented_ai_metric', 'visible' => true, 'order' => 2],
+            ],
+        ]);
+        $keys = array_column($layout['widgets'], 'key');
+        $this->assertTrue(in_array('current_revenue', $keys, true), 'Keeps the known widget');
+        $this->assertTrue(!in_array('made_up_metric', $keys, true), 'Drops invented widget key');
+        $this->assertTrue(!in_array('invented_ai_metric', $keys, true), 'Drops second invented widget key');
+        $this->assertTrue(count($keys) === 8, 'Missing known keys are re-added to keep a complete layout');
+    }
+
+    private function testDashboardPrefsNormalizeMissingKeys(): void
+    {
+        $this->startTest('Dashboard prefs: normalizeLayout fills missing known widgets as visible');
+        $layout = RevenueDashboardService::normalizeLayout(['widgets' => [
+            ['key' => 'growth_percent', 'visible' => false, 'order' => 0],
+        ]]);
+        $byKey = [];
+        foreach ($layout['widgets'] as $w) {
+            $byKey[$w['key']] = $w;
+        }
+        $this->assertTrue($byKey['growth_percent']['visible'] === false, 'Respects explicit hidden flag');
+        $this->assertTrue($byKey['forecast']['visible'] === true, 'Unmentioned known widget defaults to visible');
+        $this->assertTrue(count($byKey) === 8, 'Exactly the 8 known keys survive normalization');
+    }
+
+    private function testDashboardPrefsApplyLayout(): void
+    {
+        $this->startTest('Dashboard prefs: applyLayoutToSummary filters and orders by saved layout');
+        $summary = [
+            'has_data' => true,
+            'current_revenue' => 10000,
+            'growth_percent' => 12,
+            'forecast' => ['expected_revenue' => 12000],
+            'top_opportunity' => ['title' => 'X'],
+            'top_risk' => ['title' => 'Y'],
+            'top_customer_segment' => ['segment' => 'VIP'],
+            'top_revenue_source' => ['source' => 'Subscriptions'],
+            'recommended_actions' => [['action' => 'A']],
+        ];
+        $layout = [
+            'widgets' => [
+                ['key' => 'forecast', 'visible' => true, 'order' => 0],
+                ['key' => 'current_revenue', 'visible' => false, 'order' => 1],
+                ['key' => 'growth_percent', 'visible' => true, 'order' => 2],
+            ],
+        ];
+        $out = RevenueDashboardService::applyLayoutToSummary($summary, $layout);
+        $this->assertTrue(!array_key_exists('current_revenue', $out), 'Hidden-in-layout widget is filtered out of the applied summary');
+        $this->assertTrue($out['forecast'] === ['expected_revenue' => 12000], 'Visible widget data is carried through');
+        $this->assertTrue($out['applied_layout'][0] === 'forecast', 'Applies widget order from layout');
+        $this->assertTrue(!in_array('current_revenue', $out['applied_layout'], true), 'Hidden widget excluded from applied_layout');
+        $this->assertTrue($out['has_data'] === true, 'Preserves has_data');
+    }
+
+    // ============================================================
+    // v1.6.0: Stripe Webhook Signature (pure function)
+    // ============================================================
+
+    private function testStripeWebhookVerifySignature(): void
+    {
+        $this->startTest('Stripe webhook: verifySignature accepts a valid HMAC signature');
+        $secret = 'whsec_test_secret_123456';
+        $timestamp = (string) time();
+        $payload = '{"id":"evt_1","type":"customer.subscription.created"}';
+        $signed = $timestamp . '.' . $payload;
+        $sig = hash_hmac('sha256', $signed, $secret);
+        $header = "t={$timestamp},v1={$sig}";
+        $this->assertTrue(StripeWebhookService::verifySignature($payload, $header, $secret) === true, 'Valid signature accepted');
+    }
+
+    private function testStripeWebhookVerifySignatureTampered(): void
+    {
+        $this->startTest('Stripe webhook: verifySignature rejects tampered payload/signature');
+        $secret = 'whsec_test_secret_123456';
+        $timestamp = (string) time();
+        $payload = '{"id":"evt_1","type":"customer.subscription.created"}';
+        $signed = $timestamp . '.' . $payload;
+        $sig = hash_hmac('sha256', $signed, $secret);
+        $header = "t={$timestamp},v1={$sig}";
+
+        $tampered = '{"id":"evt_1","type":"customer.subscription.deleted"}';
+        $this->assertTrue(StripeWebhookService::verifySignature($tampered, $header, $secret) === false, 'Tampered body rejected');
+        $this->assertTrue(StripeWebhookService::verifySignature($payload, "t={$timestamp},v1=deadbeef", $secret) === false, 'Wrong signature rejected');
+        $this->assertTrue(StripeWebhookService::verifySignature($payload, '', $secret) === false, 'Missing signature header rejected');
+        $this->assertTrue(StripeWebhookService::verifySignature($payload, $header, 'whsec_wrong') === false, 'Wrong secret rejected');
     }
 
     // ============================================================

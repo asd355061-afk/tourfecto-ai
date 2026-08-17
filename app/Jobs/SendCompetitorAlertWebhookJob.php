@@ -52,6 +52,7 @@ class SendCompetitorAlertWebhookJob implements QueueJobInterface
             CURLOPT_FOLLOWLOCATION => false, // مفيش داعي نتبع redirects لـ webhook إشعار بسيط
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+            CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4, // الاتصال الفعلي لازم يطابق فحص SSRF (نفس مبدئ WebsiteSnapshotFetcher)
         ]);
         curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);

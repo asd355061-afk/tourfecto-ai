@@ -55,6 +55,10 @@ class RevenueIntelligenceController extends Controller
             'sources' => $this->tr('revai.tab.sources'),
             'anomalies' => $this->tr('revai.tab.anomalies'),
             'retention' => $this->tr('revai.tab.retention'),
+            'subscriptions' => $this->tr('revai.tab.subscriptions'),
+            'attribution' => $this->tr('revai.tab.attribution'),
+            'benchmarks' => $this->tr('revai.tab.benchmarks'),
+            'churn' => $this->tr('revai.tab.churn'),
             'assistant' => $this->tr('revai.tab.assistant'),
             'reports' => $this->tr('revai.tab.reports'),
         ];
@@ -363,6 +367,225 @@ HTML;
     }
 
     /**
+     * GET /api/revenue-intelligence/subscriptions
+     * v1.5.0: MRR/ARR/NRR/GRR حرفية من جدول biz_subscriptions + events.
+     */
+    public function apiSubscriptionMetrics(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $metrics = (new BizSubscriptionService())->getSubscriptionMetrics((int) $this->user['id']);
+            ActivityLog::record('revenue_intelligence', 'subscriptions.metrics_viewed', ['user_id' => (int) $this->user['id']]);
+            return $this->success($metrics);
+        } catch (Throwable $e) {
+            return $this->serverError('subscriptions', $e);
+        }
+    }
+
+    /**
+     * GET /api/revenue-intelligence/forecast/deals
+     * v1.5.0: Deal-level forecast (this month/quarter/later/undated).
+     */
+    public function apiDealForecast(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $deals = (new RevenueDataGateway())->getDealsWithRep((int) $this->user['id']);
+            $forecast = DealLevelForecastService::groupOpenDealsByCloseWindow($deals);
+            return $this->success($forecast);
+        } catch (Throwable $e) {
+            return $this->serverError('forecast/deals', $e);
+        }
+    }
+
+    /**
+     * GET /api/revenue-intelligence/attribution
+     * v1.5.0: Sales attribution بالمناديب والفرق.
+     */
+    public function apiSalesAttribution(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $deals = (new RevenueDataGateway())->getDealsWithRep((int) $this->user['id']);
+            $attribution = [
+                'by_rep' => DealLevelForecastService::aggregateByRep($deals),
+                'by_team' => DealLevelForecastService::aggregateByTeam($deals),
+            ];
+            return $this->success($attribution);
+        } catch (Throwable $e) {
+            return $this->serverError('attribution', $e);
+        }
+    }
+
+    /**
+     * GET /api/revenue-intelligence/benchmarks
+     * v1.5.0: Benchmarks منصية حقيقية (أو يدوية مسجلة). لا أرقام مخترعة.
+     */
+    public function apiBenchmarks(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $benchmarks = (new RevenueBenchmarkService())->getBenchmarks((int) $this->user['id']);
+            return $this->success($benchmarks);
+        } catch (Throwable $e) {
+            return $this->serverError('benchmarks', $e);
+        }
+    }
+
+    /**
+     * GET /api/revenue-intelligence/churn
+     * v1.5.0: Churn analytics + أسباب التوقف من بيانات حقيقية فقط.
+     */
+    public function apiChurnAnalytics(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $churn = (new RevenueChurnService())->getChurnAnalytics((int) $this->user['id']);
+            return $this->success($churn);
+        } catch (Throwable $e) {
+            return $this->serverError('churn', $e);
+        }
+    }
+
+    /**
+     * GET /api/revenue-intelligence/dashboard-prefs
+     * v1.6.0: قراءة تخصيص الداشبورد الحالي (أو الافتراضي).
+     */
+    public function apiDashboardPrefsGet(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $prefs = (new RevenueDashboardService())->getLayout((int) $this->user['id']);
+            return $this->success($prefs);
+        } catch (Throwable $e) {
+            return $this->serverError('dashboard-prefs', $e);
+        }
+    }
+
+    /**
+     * POST /api/revenue-intelligence/dashboard-prefs { widgets: [...] }
+     * v1.6.0: حفظ تخصيص الداشبورد (يُطبَّع ضد القائمة المعروفة فقط).
+     */
+    public function apiDashboardPrefsSave(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $layout = (array) $this->get('layout', $this->get('widgets', []));
+            $saved = (new RevenueDashboardService())->saveLayout((int) $this->user['id'], $layout);
+            return $this->success($saved);
+        } catch (Throwable $e) {
+            return $this->serverError('dashboard-prefs', $e);
+        }
+    }
+
+    /**
+     * POST /api/revenue-intelligence/dashboard-prefs/reset
+     * v1.6.0: إعادة التخصيص للوضع الافتراضي.
+     */
+    public function apiDashboardPrefsReset(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $default = (new RevenueDashboardService())->resetLayout((int) $this->user['id']);
+            return $this->success($default);
+        } catch (Throwable $e) {
+            return $this->serverError('dashboard-prefs', $e);
+        }
+    }
+
+    /**
+     * GET /api/revenue-intelligence/stripe/settings
+     * v1.6.0: قراءة حالة اتصال Stripe (السر لا يُعاد أبدًا - فقط مؤشر مفعّل/لا).
+     */
+    public function apiStripeSettingsGet(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $settings = (new RevenueDataGateway())->getStripeSettings((int) $this->user['id']);
+            return $this->success([
+                'has_settings' => $settings !== null,
+                'is_enabled' => !empty($settings['is_enabled']),
+                'mode' => (string) ($settings['mode'] ?? 'test'),
+                'connected_account_id' => $settings['connected_account_id'] ?? null,
+                'has_webhook_secret' => !empty($settings['webhook_secret_enc']),
+                'last_event_at' => $settings['last_event_at'] ?? null,
+                'last_event_type' => $settings['last_event_type'] ?? null,
+                'webhook_url' => $this->buildStripeWebhookUrl((int) $this->user['id']),
+            ]);
+        } catch (Throwable $e) {
+            return $this->serverError('stripe-settings', $e);
+        }
+    }
+
+    /**
+     * POST /api/revenue-intelligence/stripe/settings
+     * { webhook_secret (نص صريح من المستخدم - يُشفَّر عند الحفظ),
+     *   connected_account_id?, mode? }
+     * v1.6.0: حفظ إعدادات Stripe. السر يُشفَّر عبر Encryption قبل التخزين.
+     */
+    public function apiStripeSettingsSave(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $secret = trim((string) $this->get('webhook_secret', ''));
+            $account = trim((string) $this->get('connected_account_id', ''));
+            $mode = (string) $this->get('mode', 'test');
+            $enabled = (bool) $this->get('is_enabled', $secret !== '');
+
+            $enc = $secret !== '' ? (new Encryption())->encrypt($secret, 'revai_stripe_' . $this->user['id']) : '';
+            (new RevenueDataGateway())->upsertStripeSettings((int) $this->user['id'], [
+                'webhook_secret_enc' => $enc,
+                'connected_account_id' => $account,
+                'mode' => $mode,
+                'is_enabled' => $enabled,
+            ]);
+            return $this->success(['saved' => true, 'has_webhook_secret' => $secret !== '', 'mode' => $mode, 'is_enabled' => $enabled]);
+        } catch (Throwable $e) {
+            return $this->serverError('stripe-settings', $e);
+        }
+    }
+
+    /**
+     * POST /api/revenue-intelligence/stripe/webhook/{user_id}
+     * v1.6.0: Webhook حقيقي من Stripe (public - بدون AuthMiddleware).
+     * التحقق: توقيع Stripe-Signature ضد السر المشفر للمستخدم المحدد.
+     * الفشل = 401؛ التكرار = duplicate (idempotent)؛ النجاح = processed.
+     */
+    public function apiStripeWebhook(array $params = []): array {
+        try {
+            $targetUserId = (int) ($params['user_id'] ?? 0);
+            if ($targetUserId <= 0) {
+                return $this->error('Missing user_id', 400);
+            }
+            $settings = (new RevenueDataGateway())->getStripeSettings($targetUserId);
+            if ($settings === null || empty($settings['webhook_secret_enc']) || empty($settings['is_enabled'])) {
+                return $this->error('Stripe integration not configured', 403);
+            }
+
+            $secret = (new Encryption())->decrypt((string) $settings['webhook_secret_enc'], 'revai_stripe_' . $targetUserId);
+            if ($secret === '') {
+                return $this->error('Stripe integration misconfigured', 403);
+            }
+
+            $rawBody = file_get_contents('php://input');
+            $signatureHeader = (string) ($_SERVER['HTTP_STRIPE_SIGNATURE'] ?? '');
+            if (!StripeWebhookService::verifySignature((string) $rawBody, $signatureHeader, $secret)) {
+                return $this->error('Invalid webhook signature', 401);
+            }
+
+            $payload = json_decode((string) $rawBody, true);
+            if (!is_array($payload) || empty($payload['type'])) {
+                return $this->error('Invalid Stripe payload', 422);
+            }
+
+            $result = (new StripeWebhookService())->handleEvent($targetUserId, $payload, $settings);
+            ActivityLog::record('revenue_intelligence', 'stripe.webhook.' . $result['status'], ['user_id' => $targetUserId, 'type' => $payload['type'] ?? '']);
+            return $this->success($result);
+        } catch (Throwable $e) {
+            return $this->serverError('stripe-webhook', $e);
+        }
+    }
+
+    /** بناء رابط الـ webhook الكامل (يُعرض للمستخدم ليلصقه في لوحة Stripe). */
+    private function buildStripeWebhookUrl(int $userId): string {
+        $base = env('APP_URL', '');
+        if ($base === '') {
+            $base = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+        }
+        return rtrim($base, '/') . '/api/revenue-intelligence/stripe/webhook/' . $userId;
+    }
+
+    /**
      * GET /api/revenue-intelligence/reports/export?type=overview|opportunities|risks|customers&format=csv
      * Section 13: REVENUE REPORTS (export). Section 17: يُسجَّل كـ Audit Log.
      * يدعم format=json (افتراضي) أو format=csv (ملف حقيقي قابل للتنزيل)،
@@ -594,26 +817,117 @@ HTML;
         </div>`;
     }
 
+    const execWidgetOrder = ['current_revenue', 'growth_percent', 'forecast', 'top_opportunity', 'top_risk', 'top_customer_segment', 'top_revenue_source', 'recommended_actions'];
+
+    function execWidgetHtml(key, d) {
+        const labels = {
+            current_revenue: I18N['revai.exec.current_revenue'],
+            growth_percent: I18N['revai.exec.growth'],
+            forecast: I18N['revai.exec.forecast'],
+            top_opportunity: I18N['revai.exec.top_opportunity'],
+            top_risk: I18N['revai.exec.top_risk'],
+            top_customer_segment: I18N['revai.exec.top_segment'],
+            top_revenue_source: I18N['revai.exec.top_source'],
+            recommended_actions: I18N['revai.exec.recommended_actions'],
+        };
+        switch (key) {
+            case 'current_revenue':
+                return `<div class="p-card stat-tile"><div class="stat-icon green">💰</div><div class="stat-info"><div class="stat-value">${fmt(d.current_revenue)}</div><div class="stat-label">${labels[key]}</div></div></div>`;
+            case 'growth_percent':
+                return `<div class="p-card stat-tile"><div class="stat-icon purple">📈</div><div class="stat-info"><div class="stat-value">${pct(d.growth_percent)}</div><div class="stat-label">${labels[key]}</div></div></div>`;
+            case 'forecast':
+                return `<div class="p-card stat-tile"><div class="stat-icon blue">🔮</div><div class="stat-info"><div class="stat-value">${d.forecast ? fmt(d.forecast.expected_revenue) : '-'}</div><div class="stat-label">${labels[key]}</div></div></div>`;
+            case 'top_opportunity':
+                return `<div class="p-card"><h4>${labels[key]}</h4><p>${d.top_opportunity ? esc(d.top_opportunity.title) + ' — ' + esc(d.top_opportunity.recommended_action) : I18N['common.no_records_yet']}</p></div>`;
+            case 'top_risk':
+                return `<div class="p-card"><h4>${labels[key]}</h4><p>${d.top_risk ? esc(d.top_risk.title) + ' — ' + esc(d.top_risk.recommended_action) : I18N['common.no_records_yet']}</p></div>`;
+            case 'top_customer_segment':
+                return `<div class="p-card"><h4>${labels[key]}</h4><p>${d.top_customer_segment ? esc(d.top_customer_segment.segment) + ' (' + d.top_customer_segment.customer_count + ')' : I18N['common.no_records_yet']}</p></div>`;
+            case 'top_revenue_source':
+                return `<div class="p-card"><h4>${labels[key]}</h4><p>${d.top_revenue_source ? esc(d.top_revenue_source.source) + ' — ' + fmt(d.top_revenue_source.revenue) : I18N['common.no_records_yet']}</p></div>`;
+            case 'recommended_actions':
+                return `<div class="p-card"><h4>${labels[key]}</h4>${(d.recommended_actions || []).map(a => `<div style="padding:8px 0;border-bottom:1px solid var(--border,#eee);"><b>${esc(a.action)}</b> — ${esc(a.reason)}</div>`).join('') || `<div class="p-empty">${I18N['common.no_records_yet']}</div>`}</div>`;
+        }
+        return '';
+    }
+
     async function renderExecutive() {
         panel.innerHTML = loadingHtml();
-        const res = await fetchJSON('/api/revenue-intelligence/executive-summary');
+        const [res, prefsRes] = await Promise.all([
+            fetchJSON('/api/revenue-intelligence/executive-summary'),
+            fetchJSON('/api/revenue-intelligence/dashboard-prefs')
+        ]);
         if (!res.success) { panel.innerHTML = emptyHtml(res.error); return; }
         const d = res.data;
-        panel.innerHTML = `
-            <div class="p-grid cols-3" style="margin-bottom:18px;">
-                <div class="p-card stat-tile"><div class="stat-icon green">💰</div><div class="stat-info"><div class="stat-value">${fmt(d.current_revenue)}</div><div class="stat-label">${I18N['revai.exec.current_revenue']}</div></div></div>
-                <div class="p-card stat-tile"><div class="stat-icon purple">📈</div><div class="stat-info"><div class="stat-value">${pct(d.growth_percent)}</div><div class="stat-label">${I18N['revai.exec.growth']}</div></div></div>
-                <div class="p-card stat-tile"><div class="stat-icon blue">🔮</div><div class="stat-info"><div class="stat-value">${d.forecast ? fmt(d.forecast.expected_revenue) : '-'}</div><div class="stat-label">${I18N['revai.exec.forecast']}</div></div></div>
-            </div>
-            <div class="p-grid cols-2">
-                <div class="p-card"><h4>${I18N['revai.exec.top_opportunity']}</h4><p>${d.top_opportunity ? esc(d.top_opportunity.title) + ' — ' + esc(d.top_opportunity.recommended_action) : I18N['common.no_records_yet']}</p></div>
-                <div class="p-card"><h4>${I18N['revai.exec.top_risk']}</h4><p>${d.top_risk ? esc(d.top_risk.title) + ' — ' + esc(d.top_risk.recommended_action) : I18N['common.no_records_yet']}</p></div>
-                <div class="p-card"><h4>${I18N['revai.exec.top_segment']}</h4><p>${d.top_customer_segment ? esc(d.top_customer_segment.segment) + ' (' + d.top_customer_segment.customer_count + ')' : I18N['common.no_records_yet']}</p></div>
-                <div class="p-card"><h4>${I18N['revai.exec.top_source']}</h4><p>${d.top_revenue_source ? esc(d.top_revenue_source.source) + ' — ' + fmt(d.top_revenue_source.revenue) : I18N['common.no_records_yet']}</p></div>
-            </div>
-            <div class="p-card" style="margin-top:18px;"><h4>${I18N['revai.exec.recommended_actions']}</h4>
-                ${(d.recommended_actions || []).map(a => `<div style="padding:8px 0;border-bottom:1px solid var(--border,#eee);"><b>${esc(a.action)}</b> — ${esc(a.reason)}</div>`).join('') || `<div class="p-empty">${I18N['common.no_records_yet']}</div>`}
+        let layout = prefsRes.success ? (prefsRes.data.widgets || []) : null;
+        let visible = execWidgetOrder;
+        if (layout && layout.length) {
+            visible = layout.filter(w => w.visible).map(w => w.key).filter(k => execWidgetOrder.indexOf(k) >= 0);
+        }
+        const statKeys = visible.filter(k => ['current_revenue', 'growth_percent', 'forecast'].indexOf(k) >= 0);
+        const cardKeys = visible.filter(k => ['top_opportunity', 'top_risk', 'top_customer_segment', 'top_revenue_source'].indexOf(k) >= 0);
+        const actionsShown = visible.indexOf('recommended_actions') >= 0;
+        const statGrid = statKeys.length > 1 ? `p-grid cols-${Math.min(4, statKeys.length)}` : 'p-grid';
+        const cardGrid = cardKeys.length > 1 ? 'p-grid cols-2' : 'p-grid';
+
+        const customizePanel = `
+            <div class="p-card" style="margin-bottom:18px;border:1px dashed var(--border,#ccc);">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                    <div><b>${I18N['revai.prefs.title']}</b><p style="margin:4px 0 0;font-size:12px;opacity:.75;">${I18N['revai.prefs.hint']}</p></div>
+                    <button class="p-btn" id="revaiPrefsToggle">${I18N['revai.prefs.customize']}</button>
+                </div>
+                <div id="revaiPrefsEditor" style="display:none;margin-top:12px;">
+                    ${execWidgetOrder.map((k, i) => `
+                        <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border,#eee);">
+                            <span style="opacity:.5;cursor:grab;">☰</span>
+                            <input type="checkbox" data-prefs-key="${k}" ${(() => { const w = layout && layout.find(x => x.key === k); return (!w || w.visible) ? 'checked' : ''; })()}>
+                            <label style="flex:1;margin:0;">${I18N['revai.prefs.w.' + k] || k}</label>
+                            <select data-prefs-order="${k}" style="width:60px;">
+                                ${execWidgetOrder.map((_, j) => `<option value="${j}" ${j === i ? 'selected' : ''}>${j + 1}</option>`).join('')}
+                            </select>
+                        </div>`).join('')}
+                    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="p-btn primary" id="revaiPrefsSave">${I18N['revai.prefs.save']}</button>
+                        <button class="p-btn" id="revaiPrefsReset">${I18N['revai.prefs.reset']}</button>
+                    </div>
+                </div>
             </div>`;
+
+        panel.innerHTML = customizePanel + `
+            <div class="${statGrid}" style="margin-bottom:18px;">
+                ${statKeys.map(k => execWidgetHtml(k, d)).join('')}
+            </div>
+            <div class="${cardGrid}">
+                ${cardKeys.map(k => execWidgetHtml(k, d)).join('')}
+            </div>
+            ${actionsShown ? `<div class="p-card" style="margin-top:18px;">${execWidgetHtml('recommended_actions', d)}</div>` : ''}`;
+
+        const toggleBtn = document.getElementById('revaiPrefsToggle');
+        const editor = document.getElementById('revaiPrefsEditor');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => { editor.style.display = editor.style.display === 'none' ? 'block' : 'none'; });
+        }
+        const saveBtn = document.getElementById('revaiPrefsSave');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                const widgets = execWidgetOrder.map((k, i) => ({
+                    key: k,
+                    visible: document.querySelector(`[data-prefs-key="${k}"]`).checked,
+                    order: parseInt(document.querySelector(`[data-prefs-order="${k}"]`).value, 10) || i
+                }));
+                const saved = await fetchJSON('/api/revenue-intelligence/dashboard-prefs', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ layout: { widgets } })
+                });
+                if (saved.success) { toast(I18N['revai.prefs.saved'], 'success'); renderExecutive(); } else { toast(saved.error, 'error'); }
+            });
+        }
+        const resetBtn = document.getElementById('revaiPrefsReset');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', async () => {
+                const done = await fetchJSON('/api/revenue-intelligence/dashboard-prefs/reset', { method: 'POST' });
+                if (done.success) { toast(I18N['revai.prefs.reset_done'], 'success'); renderExecutive(); } else { toast(done.error, 'error'); }
+            });
+        }
     }
 
     async function renderOverview() {
@@ -819,6 +1133,117 @@ HTML;
             <div class="p-card" style="margin-top:14px;font-size:13px;opacity:.85;">${esc(d.mrr_grr_note || '')}</div>`;
     }
 
+    async function renderSubscriptions() {
+        panel.innerHTML = loadingHtml();
+        const [res, stripeRes] = await Promise.all([
+            fetchJSON('/api/revenue-intelligence/subscriptions'),
+            fetchJSON('/api/revenue-intelligence/stripe/settings')
+        ]);
+        const d = res.success ? res.data : { has_data: false, reason: res.error };
+        const s = stripeRes.success ? stripeRes.data : {};
+        const nrr = d.nrr || {}, grr = d.grr || {}, brk = d.breakdown || {};
+        panel.innerHTML = `
+            <div class="p-card" style="margin-bottom:18px;border:1px dashed var(--border,#ccc);">
+                <h4 style="margin:0 0 8px;">${I18N['revai.stripe.title']}</h4>
+                <p style="font-size:13px;opacity:.8;margin:0 0 12px;">${I18N['revai.stripe.hint']}</p>
+                ${s.has_settings && s.has_webhook_secret ? `<p style="font-size:13px;margin:0 0 10px;">${s.is_enabled ? badge('● ' + I18N['revai.stripe.enable'], '#22C55E') : badge(I18N['revai.stripe.mode_test'] + '/' + I18N['revai.stripe.mode_live'], '#F59E0B')} <span style="opacity:.7;">(${esc(s.mode)})</span>${s.last_event_at ? ` · ${I18N['revai.stripe.last_event']}: ${esc(s.last_event_type || '')} @ ${esc(s.last_event_at)}` : ''}</p>` : ''}
+                <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end;">
+                    <div style="flex:2;min-width:220px;"><label class="form-label">${I18N['revai.stripe.webhook_secret']}</label>
+                        <input type="password" id="revaiStripeSecret" class="p-input" style="width:100%;" placeholder="whsec_...">
+                    </div>
+                    <div style="flex:1;min-width:140px;"><label class="form-label">${I18N['revai.stripe.account_id']}</label>
+                        <input type="text" id="revaiStripeAccount" class="p-input" style="width:100%;" value="${esc(s.connected_account_id || '')}">
+                    </div>
+                    <div><label class="form-label">${I18N['revai.stripe.mode']}</label>
+                        <select id="revaiStripeMode" class="p-select">
+                            <option value="test" ${(s.mode || 'test') === 'test' ? 'selected' : ''}>${I18N['revai.stripe.mode_test']}</option>
+                            <option value="live" ${s.mode === 'live' ? 'selected' : ''}>${I18N['revai.stripe.mode_live']}</option>
+                        </select>
+                    </div>
+                    <div><label class="form-label">&nbsp;</label><button class="p-btn primary" id="revaiStripeSave" style="width:100%;">${I18N['revai.stripe.connect']}</button></div>
+                </div>
+                ${s.webhook_url ? `<div style="margin-top:12px;"><label class="form-label">${I18N['revai.stripe.webhook_url']}</label>
+                    <code style="display:block;padding:8px 10px;background:#F3F4F6;border-radius:8px;font-size:12px;word-break:break-all;direction:ltr;text-align:left;">${esc(s.webhook_url)}</code></div>` : ''}
+                <p style="font-size:12px;opacity:.65;margin-top:10px;">${I18N['revai.stripe.disclosure']}</p>
+            </div>
+            ${d.has_data ? `
+            <div class="p-grid cols-4" style="margin-bottom:18px;">
+                <div class="p-card stat-tile"><div class="stat-info"><div class="stat-value">${fmt(d.mrr)}</div><div class="stat-label">MRR</div></div></div>
+                <div class="p-card stat-tile"><div class="stat-info"><div class="stat-value">${fmt(d.arr)}</div><div class="stat-label">ARR</div></div></div>
+                <div class="p-card stat-tile"><div class="stat-info"><div class="stat-value">${d.active_subscriptions}</div><div class="stat-label">${I18N['revai.subscriptions.active']}</div></div></div>
+                <div class="p-card stat-tile"><div class="stat-info"><div class="stat-value">${nrr.has_data ? nrr.nrr_percent + '%' : '-'}</div><div class="stat-label">NRR</div></div></div>
+            </div>
+            <div class="p-grid cols-2">
+                <div class="p-card"><h4>${I18N['revai.subscriptions.grr']}</h4>
+                    ${grr.has_data ? `<p style="font-size:26px;font-weight:700;">${grr.grr_percent}%</p><p style="font-size:13px;opacity:.8;">${esc(grr.note || '')}</p>` : `<div class="p-empty">${I18N['common.no_records_yet']}</div>`}
+                </div>
+                <div class="p-card"><h4>${I18N['revai.subscriptions.mrr_breakdown']}</h4>
+                    ${brk.has_data ? `<p>${I18N['revai.subscriptions.new']}: ${fmt(brk.new)}</p><p>${I18N['revai.subscriptions.expansion']}: ${fmt(brk.expansion)}</p><p>${I18N['revai.subscriptions.contraction']}: ${fmt(brk.contraction)}</p><p>${I18N['revai.subscriptions.churn']}: ${fmt(brk.churn)}</p><p style="font-weight:600;margin-top:8px;">${I18N['revai.subscriptions.net']}: ${fmt(brk.net)}</p>` : `<div class="p-empty">${I18N['common.no_records_yet']}</div>`}
+                </div>
+            </div>
+            ${d.by_cycle && d.by_cycle.has_data ? `<div class="p-card" style="margin-top:14px;"><h4>${I18N['revai.subscriptions.mrr_by_cycle']}</h4>
+                ${Object.entries(d.by_cycle.mrr_by_cycle || {}).map(([k,v]) => `<span style="display:inline-block;margin:4px;padding:4px 10px;border-radius:16px;background:#F3F4F6;font-size:12px;">${esc(k)} — ${fmt(v)}</span>`).join('')}</div>` : ''}
+            ` : `<div class="p-card"><div class="p-empty">${I18N['revai.stripe.not_configured']} ${esc(d.reason || '')}</div></div>`}`;
+
+        const saveBtn = document.getElementById('revaiStripeSave');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                const body = {
+                    webhook_secret: document.getElementById('revaiStripeSecret').value.trim(),
+                    connected_account_id: document.getElementById('revaiStripeAccount').value.trim(),
+                    mode: document.getElementById('revaiStripeMode').value,
+                    is_enabled: true
+                };
+                const saved = await fetchJSON('/api/revenue-intelligence/stripe/settings', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+                });
+                if (saved.success) { toast(I18N['revai.stripe.saved'], 'success'); renderSubscriptions(); } else { toast(saved.error, 'error'); }
+            });
+        }
+    }
+
+    async function renderAttribution() {
+        panel.innerHTML = loadingHtml();
+        const res = await fetchJSON('/api/revenue-intelligence/attribution');
+        if (!res.success) { panel.innerHTML = emptyHtml(res.error); return; }
+        const d = res.data;
+        if (!d.by_rep || !d.by_rep.has_data) { panel.innerHTML = emptyHtml(I18N['revai.no_revenue_data']); return; }
+        panel.innerHTML = `
+            <div class="p-card" style="margin-bottom:18px;"><h4>${I18N['revai.attribution.by_rep']}</h4>
+            <div class="p-table-scroll"><table class="p-table"><thead><tr><th>${I18N['revai.attribution.rep']}</th><th>${I18N['revai.attribution.team']}</th><th>${I18N['revai.attribution.open_weighted']}</th><th>${I18N['revai.attribution.won']}</th><th>#</th></tr></thead>
+            <tbody>${(d.by_rep.reps || []).map(r => `<tr><td>${esc(r.rep_name)}</td><td>${esc(r.team_name || '-')}</td><td>${fmt(r.open_weighted)}</td><td>${fmt(r.won_value)}</td><td>${r.open_count + r.won_count}</td></tr>`).join('')}</tbody></table></div></div>
+            <div class="p-card"><h4>${I18N['revai.attribution.by_team']}</h4>
+            <div class="p-table-scroll"><table class="p-table"><thead><tr><th>${I18N['revai.attribution.team']}</th><th>${I18N['revai.attribution.reps']}</th><th>${I18N['revai.attribution.open_weighted']}</th><th>${I18N['revai.attribution.won']}</th></tr></thead>
+            <tbody>${(d.by_team.teams || []).map(t => `<tr><td>${esc(t.team_name)}</td><td>${t.reps}</td><td>${fmt(t.open_weighted)}</td><td>${fmt(t.won_value)}</td></tr>`).join('')}</tbody></table></div></div>`;
+    }
+
+    async function renderBenchmarks() {
+        panel.innerHTML = loadingHtml();
+        const res = await fetchJSON('/api/revenue-intelligence/benchmarks');
+        if (!res.success) { panel.innerHTML = emptyHtml(res.error); return; }
+        const d = res.data;
+        if (!d.has_data) { panel.innerHTML = emptyHtml(d.reason || I18N['revai.no_revenue_data']); return; }
+        panel.innerHTML = `
+            <div class="p-card"><h4>${I18N['revai.benchmarks.title']}</h4>
+            <p style="font-size:13px;opacity:.8;">${I18N['revai.benchmarks.hint']} (${esc(d.source)}${d.rows && d.rows[0] ? ' · ' + esc(d.rows[0].as_of_date) : ''})</p>
+            <div class="p-table-scroll"><table class="p-table"><thead><tr><th>${I18N['revai.benchmarks.metric']}</th><th>P25</th><th>P50</th><th>P75</th><th>n</th></tr></thead>
+            <tbody>${(d.rows || []).map(r => `<tr><td>${esc(r.metric_label)}</td><td>${r.p25 !== null ? r.p25 : '-'}</td><td>${r.p50 !== null ? r.p50 : '-'}</td><td>${r.p75 !== null ? r.p75 : '-'}</td><td>${r.sample_size}</td></tr>`).join('')}</tbody></table></div></div>`;
+    }
+
+    async function renderChurn() {
+        panel.innerHTML = loadingHtml();
+        const res = await fetchJSON('/api/revenue-intelligence/churn');
+        if (!res.success) { panel.innerHTML = emptyHtml(res.error); return; }
+        const d = res.data;
+        if (!d.has_data) { panel.innerHTML = emptyHtml(d.reason || I18N['revai.no_revenue_data']); return; }
+        panel.innerHTML = `
+            <div class="p-card" style="margin-bottom:18px;"><h4>${I18N['revai.churn.title']} (${d.total_churned})</h4>
+            ${d.top_reason ? `<p style="font-size:14px;"><b>${I18N['revai.churn.top_reason']}:</b> ${esc(d.top_reason)}</p>` : ''}
+            <div class="p-table-scroll"><table class="p-table"><thead><tr><th>${I18N['revai.churn.reason']}</th><th>${I18N['revai.churn.count']}</th><th>${I18N['revai.churn.confidence']}</th></tr></thead>
+            <tbody>${(d.by_reason || []).map(r => `<tr><td>${esc(r.label)}</td><td>${r.count}</td><td>${esc(r.confidence)}</td></tr>`).join('')}</tbody></table></div>
+            ${d.note ? `<p style="margin-top:12px;font-size:13px;opacity:.8;">${esc(d.note)}</p>` : ''}</div>`;
+    }
+
     async function renderAssistant() {
         panel.innerHTML = `
             <div class="p-card">
@@ -921,6 +1346,10 @@ HTML;
         opportunities: renderOpportunities, risks: renderRisks, customers: renderCustomers,
         pipeline: renderPipeline, sources: renderSources, anomalies: renderAnomalies, assistant: renderAssistant,
         retention: renderRetention,
+        subscriptions: renderSubscriptions,
+        attribution: renderAttribution,
+        benchmarks: renderBenchmarks,
+        churn: renderChurn,
         reports: renderReports,
     };
 

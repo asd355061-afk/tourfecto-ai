@@ -142,6 +142,10 @@ $optionalNewClassFiles = [
     APP_PATH . '/Controllers/AiFollowupSettingsController.php',
     APP_PATH . '/Controllers/AiAnalyticsController.php',
     APP_PATH . '/Controllers/AiLearningController.php',
+    // In-Chat Quotes (2026-08-16): بيع داخل الشات - عروض أسعار تُبنى وتُرسل
+    // وتُتتبّع جوه المحادثة. بيحتاج AiQuoteModel اللي محمّل فوق كمان.
+    APP_PATH . '/Models/AiQuote.php',
+    APP_PATH . '/Controllers/AiQuoteController.php',
     // OTA Integration: نفس المشكلة بالظبط - الكنترولر ده مش مسجّل في
     // classmap القديم، فأي طلب لـ /api/ota/status كان بيرمي
     // "Controller OTAController not found" (2026-08-09).
@@ -185,6 +189,7 @@ $optionalNewClassFiles = [
     APP_PATH . '/Models/CiUserPreference.php',
     APP_PATH . '/Jobs/MonitorCompetitorJob.php',
     APP_PATH . '/Jobs/SendCompetitorAlertEmailJob.php',
+    APP_PATH . '/Jobs/SendOnboardingCompletionEmailJob.php',
     // Profile Center Phase 9 (2026-08-10): Data Export
     APP_PATH . '/Jobs/ExportUserDataJob.php',
     APP_PATH . '/Controllers/CompetitorIntelligenceController.php',
@@ -211,6 +216,19 @@ $optionalNewClassFiles = [
     // بيستخدم GeminiClient جوه RevenueAssistantService::askWithCopilot).
     APP_PATH . '/Services/RevenueIntelligence/RevenueRetentionService.php',
     APP_PATH . '/Services/RevenueIntelligence/RevenueCopilotService.php',
+    // v1.5.0 (2026-08-16): Subscriptions (MRR/ARR/NRR/GRR) + Deal-level
+    // forecast & attribution + Benchmarks & Churn + Stripe mapper - كلاسات
+    // جديدة مش في classmap composer (لا SSH)، تتحمّل يدويًا بنفس النمط.
+    // الترتيب مهم: Controller الجديد بيناديهم في الـ actions.
+    APP_PATH . '/Services/RevenueIntelligence/BizSubscriptionService.php',
+    APP_PATH . '/Services/RevenueIntelligence/DealLevelForecastService.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueBenchmarkService.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueChurnService.php',
+    APP_PATH . '/Services/RevenueIntelligence/StripeRevenueMapper.php',
+    // v1.6.0 (2026-08-17): Dashboard personalization + Stripe webhook live -
+    // كلاسات جديدة مش في classmap composer (لا SSH)، تتحمّل يدويًا بنفس النمط.
+    APP_PATH . '/Services/RevenueIntelligence/RevenueDashboardService.php',
+    APP_PATH . '/Services/RevenueIntelligence/StripeWebhookService.php',
     APP_PATH . '/Controllers/RevenueIntelligenceController.php',
     APP_PATH . '/Jobs/RecomputeRevenueInsightsJob.php',
     APP_PATH . '/Jobs/SendRevenueDigestJob.php',
@@ -306,6 +324,18 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/Crm/CrmChartService.php',
     APP_PATH . '/Services/Crm/CrmEmailTrackingService.php',
     APP_PATH . '/Services/Crm/CrmActivityService.php',
+    // CRM Upgrade Phase 15 (2026-08-16) - Web Forms (G11) / Sales Sequences
+    // (G12) / Report Builder (G13) / External CRM Import (G14). نفس السبب:
+    // مش مسجّلة في classmap القديم.
+    APP_PATH . '/Models/CrmWebForm.php',
+    APP_PATH . '/Models/CrmWebFormSubmission.php',
+    APP_PATH . '/Models/CrmSequence.php',
+    APP_PATH . '/Models/CrmSequenceEnrollment.php',
+    APP_PATH . '/Models/CrmSavedReport.php',
+    APP_PATH . '/Services/Crm/CrmWebFormService.php',
+    APP_PATH . '/Services/Crm/CrmSequenceService.php',
+    APP_PATH . '/Services/Crm/CrmReportBuilderService.php',
+    APP_PATH . '/Services/Crm/CrmExternalImportService.php',
     // GBP Module Upgrade (2026-08-09/10) - Setup Wizard/Connection Center/
     // Sync/Profile/Photos/Insights/AI/Attributes. نفس السبب زي كل
     // الكلاسات فوق: مش مسجّلة في classmap القديم بتاع composer.

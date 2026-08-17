@@ -36,9 +36,6 @@ class CrmApiController extends Controller
     private $leadRoutingService;
     private $lifecycleService;
     private $teamInviteService;
-    private $chartService;
-    private $emailTrackingService;
-    private $activityService;
 
     public function __construct()
     {
@@ -63,9 +60,6 @@ class CrmApiController extends Controller
         $this->leadRoutingService = new CrmLeadRoutingService();
         $this->lifecycleService = new CrmLifecycleService();
         $this->teamInviteService = new CrmTeamInviteService();
-        $this->chartService = new CrmChartService();
-        $this->emailTrackingService = new CrmEmailTrackingService();
-        $this->activityService = new CrmActivityService();
     }
 
     /** المستخدم المسجّل دخوله فعليًا (Actor الحقيقي - يُستخدم لحقول "مين اللي عمل ده") */
@@ -1995,6 +1989,7 @@ class CrmApiController extends Controller
             return $this->handleException($e, 'acceptTeamInvite');
         }
     }
+
     // المرحلة 14 (G7) - Charts & Visualizations
     // ============================================================
 
@@ -2214,6 +2209,338 @@ class CrmApiController extends Controller
             return $this->success([], 'تم حذف النشاط');
         } catch (Exception $e) {
             return $this->handleException($e, 'deleteActivity');
+        }
+    }
+
+    // ============================================================
+    // Web Forms - التقاط Leads (المرحلة 15 - G11)
+    // ============================================================
+
+    /** GET /api/crm/web-forms - قائمة نماذج الحساب */
+    public function listWebForms(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            return $this->success(['web_forms' => $this->webFormService->listForms($this->tenantId())]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'listWebForms');
+        }
+    }
+
+    /** POST /api/crm/web-forms {name, slug?, fields?, success_message?, redirect_url?, owner_user_id?, source?} */
+    public function createWebForm(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $form = $this->webFormService->saveForm($this->tenantId(), $this->data);
+            return $this->success(['web_form' => $form->toArray()], 'تم إنشاء النموذج', 201);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'createWebForm');
+        }
+    }
+
+    /** PUT /api/crm/web-forms/{id} */
+    public function updateWebForm(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $form = $this->webFormService->saveForm($this->tenantId(), $this->data, (int) ($params['id'] ?? 0));
+            return $this->success(['web_form' => $form->toArray()], 'تم تحديث النموذج');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'updateWebForm');
+        }
+    }
+
+    /** DELETE /api/crm/web-forms/{id} */
+    public function deleteWebForm(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('delete')) return $denied;
+        try {
+            $this->webFormService->deleteForm($this->tenantId(), (int) ($params['id'] ?? 0));
+            return $this->success([], 'تم حذف النموذج');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'deleteWebForm');
+        }
+    }
+
+    /** GET /api/crm/web-forms/submissions - إرسالات النماذج (اختياري ?form_id) */
+    public function webFormSubmissions(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $formId = $this->get('form_id') !== null ? (int) $this->get('form_id') : null;
+            return $this->success([
+                'submissions' => $this->webFormService->submissions($this->tenantId(), $formId, (int) $this->get('limit', 100)),
+            ]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'webFormSubmissions');
+        }
+    }
+
+    /** POST /api/crm/public/web-forms/{slug}/submit - إرسال عام (بلا جلسة) */
+    public function submitWebForm(array $params = []): array {
+        try {
+            $result = $this->webFormService->handleSubmission((string) ($params['slug'] ?? ''), $this->data);
+            if (!empty($result['ignored'])) {
+                return $this->success(['success' => true, 'ignored' => true]);
+            }
+            return $this->success([
+                'success' => true,
+                'message' => $result['success_message'],
+                'redirect_url' => $result['redirect_url'],
+            ]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'submitWebForm');
+        }
+    }
+
+    // ============================================================
+    // Sales Sequences (المرحلة 15 - G12)
+    // ============================================================
+
+    /** GET /api/crm/sequences/schema - أنواع الخطوات المدعومة */
+    public function sequenceSchema(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            return $this->success(['schema' => $this->sequenceService->schema()]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'sequenceSchema');
+        }
+    }
+
+    /** GET /api/crm/sequences - قائمة التسلسلات */
+    public function listSequences(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            return $this->success(['sequences' => $this->sequenceService->listForUser($this->tenantId())]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'listSequences');
+        }
+    }
+
+    /** POST /api/crm/sequences {name, description?, steps: [...]} */
+    public function createSequence(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $seq = $this->sequenceService->save($this->tenantId(), $this->data);
+            return $this->success(['sequence' => $seq->toArray()], 'تم إنشاء التسلسل', 201);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'createSequence');
+        }
+    }
+
+    /** PUT /api/crm/sequences/{id} */
+    public function updateSequence(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $seq = $this->sequenceService->save($this->tenantId(), $this->data, (int) ($params['id'] ?? 0));
+            return $this->success(['sequence' => $seq->toArray()], 'تم تحديث التسلسل');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'updateSequence');
+        }
+    }
+
+    /** DELETE /api/crm/sequences/{id} */
+    public function deleteSequence(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('delete')) return $denied;
+        try {
+            $this->sequenceService->delete($this->tenantId(), (int) ($params['id'] ?? 0));
+            return $this->success([], 'تم حذف التسلسل');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'deleteSequence');
+        }
+    }
+
+    /** POST /api/crm/sequences/{id}/enroll {related_type, related_id} */
+    public function enrollInSequence(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $data = $this->data;
+            $data['sequence_id'] = (int) ($params['id'] ?? 0);
+            $enrollment = $this->sequenceService->enroll($this->tenantId(), $data);
+            return $this->success(['enrollment' => $enrollment->toArray()], 'تم تسجيل الكيان في التسلسل', 201);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'enrollInSequence');
+        }
+    }
+
+    /** GET /api/crm/sequences/enrollments - قائمة التسجيلات (?status=active|completed) */
+    public function listSequenceEnrollments(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $status = (string) $this->get('status', 'active');
+            return $this->success([
+                'enrollments' => $this->sequenceService->enrollments($this->tenantId(), $status, (int) $this->get('limit', 100)),
+            ]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'listSequenceEnrollments');
+        }
+    }
+
+    /** POST /api/crm/sequences/enrollments/process-due - تنفيذ الخطوات المستحقة (Job دوري) */
+    public function processDueSequences(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $results = $this->sequenceService->processDue($this->tenantId(), (int) $this->get('limit', 50));
+            return $this->success(['processed' => $results]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'processDueSequences');
+        }
+    }
+
+    /** POST /api/crm/sequences/enrollments/{id}/pause */
+    public function pauseSequenceEnrollment(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $enrollment = $this->sequenceService->pause($this->tenantId(), (int) ($params['id'] ?? 0));
+            return $this->success(['enrollment' => $enrollment->toArray()], 'تم إيقاف التسجيل مؤقتًا');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'pauseSequenceEnrollment');
+        }
+    }
+
+    /** POST /api/crm/sequences/enrollments/{id}/resume */
+    public function resumeSequenceEnrollment(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $enrollment = $this->sequenceService->resume($this->tenantId(), (int) ($params['id'] ?? 0));
+            return $this->success(['enrollment' => $enrollment->toArray()], 'تم استئناف التسجيل');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'resumeSequenceEnrollment');
+        }
+    }
+
+    /** POST /api/crm/sequences/enrollments/{id}/cancel */
+    public function cancelSequenceEnrollment(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $enrollment = $this->sequenceService->cancel($this->tenantId(), (int) ($params['id'] ?? 0));
+            return $this->success(['enrollment' => $enrollment->toArray()], 'تم إلغاء التسجيل');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'cancelSequenceEnrollment');
+        }
+    }
+
+    // ============================================================
+    // Report Builder (المرحلة 15 - G13)
+    // ============================================================
+
+    /** GET /api/crm/reports/builder/schema - الكيانات والحقول المتاحة */
+    public function reportBuilderSchema(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            return $this->success(['schema' => $this->reportBuilderService->schema()]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'reportBuilderSchema');
+        }
+    }
+
+    /** GET /api/crm/reports/builder - قائمة التقارير المحفوظة */
+    public function listSavedReports(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            return $this->success(['reports' => $this->reportBuilderService->listForUser($this->tenantId())]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'listSavedReports');
+        }
+    }
+
+    /** POST /api/crm/reports/builder {name, entity, config} */
+    public function saveReport(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $report = $this->reportBuilderService->save($this->tenantId(), $this->data);
+            return $this->success(['report' => $report->toArray()], 'تم حفظ التقرير', 201);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'saveReport');
+        }
+    }
+
+    /** PUT /api/crm/reports/builder/{id} */
+    public function updateSavedReport(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            $report = $this->reportBuilderService->save($this->tenantId(), $this->data, (int) ($params['id'] ?? 0));
+            return $this->success(['report' => $report->toArray()], 'تم تحديث التقرير');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'updateSavedReport');
+        }
+    }
+
+    /** POST /api/crm/reports/builder/run - تنفيذ تقرير فوري {entity, config} */
+    public function runReport(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            return $this->success($this->reportBuilderService->execute(
+                $this->tenantId(),
+                (string) ($this->data['entity'] ?? ''),
+                $this->data['config'] ?? []
+            ));
+        } catch (Exception $e) {
+            return $this->handleException($e, 'runReport');
+        }
+    }
+
+    /** GET /api/crm/reports/builder/{id}/run - تنفيذ تقرير محفوظ */
+    public function runSavedReport(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            return $this->success($this->reportBuilderService->run($this->tenantId(), (int) ($params['id'] ?? 0)));
+        } catch (Exception $e) {
+            return $this->handleException($e, 'runSavedReport');
+        }
+    }
+
+    /** DELETE /api/crm/reports/builder/{id} */
+    public function deleteSavedReport(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('delete')) return $denied;
+        try {
+            $this->reportBuilderService->delete($this->tenantId(), (int) ($params['id'] ?? 0));
+            return $this->success([], 'تم حذف التقرير');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'deleteSavedReport');
+        }
+    }
+
+    // ============================================================
+    // Import from other CRMs (المرحلة 15 - G14)
+    // ============================================================
+
+    /** GET /api/crm/import/presets - قوالب الاستيراد من CRMs خارجية */
+    public function importPresets(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            return $this->success(['presets' => $this->externalImportService->presets()]);
+        } catch (Exception $e) {
+            return $this->handleException($e, 'importPresets');
+        }
+    }
+
+    /** POST /api/crm/import/preview-external {preset, csv_content} */
+    public function previewExternalImport(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            return $this->success($this->externalImportService->preview(
+                $this->tenantId(),
+                (string) ($this->data['preset'] ?? ''),
+                (string) ($this->data['csv_content'] ?? '')
+            ));
+        } catch (Exception $e) {
+            return $this->handleException($e, 'previewExternalImport');
+        }
+    }
+
+    /** POST /api/crm/import/commit-external {preset?, rows, skip_duplicates?} */
+    public function commitExternalImport(array $params = []): array {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($denied = $this->requirePermission('create')) return $denied;
+        try {
+            $result = $this->externalImportService->commit(
+                $this->tenantId(),
+                $this->data['rows'] ?? [],
+                !empty($this->data['skip_duplicates'])
+            );
+            return $this->success($result, 'تم استيراد جهات الاتصال');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'commitExternalImport');
         }
     }
 }

@@ -107,6 +107,15 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Services/RevenueIntelligence/RevenueInsightPersister.php',
     APP_PATH . '/Services/RevenueIntelligence/RevenueRetentionService.php',
     APP_PATH . '/Services/RevenueIntelligence/RevenueCopilotService.php',
+    // v1.5.0: Subscriptions (MRR/ARR/NRR/GRR) + Forecast/Attribution + Benchmarks/Churn + Stripe mapper
+    APP_PATH . '/Services/RevenueIntelligence/BizSubscriptionService.php',
+    APP_PATH . '/Services/RevenueIntelligence/DealLevelForecastService.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueBenchmarkService.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueChurnService.php',
+    APP_PATH . '/Services/RevenueIntelligence/StripeRevenueMapper.php',
+    // v1.6.0: Dashboard personalization + Stripe webhook
+    APP_PATH . '/Services/RevenueIntelligence/RevenueDashboardService.php',
+    APP_PATH . '/Services/RevenueIntelligence/StripeWebhookService.php',
     APP_PATH . '/Services/Mailer.php',
     APP_PATH . '/Models/User.php',
 ];

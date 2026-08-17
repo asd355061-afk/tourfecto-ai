@@ -32,7 +32,7 @@ class AlertService
         // لو فيه كلمة مفتاحية اتطابقت، التنبيه بيتولّد فورًا بغض النظر عن
         // الحد الأدنى المُعتاد للخطورة - المستخدم صراحة قال "نبّهني لو
         // ظهرت الكلمة دي" بغض النظر عن أي حاجة تانية.
-        if ($matchedKeyword === null && (self::SEVERITY_RANK[$severity] ?? 0) < (self::SEVERITY_RANK[$minSeverity] ?? 2)) {
+        if ($matchedKeyword === null && (CiConstants::SEVERITY_RANK[$severity] ?? 0) < (CiConstants::SEVERITY_RANK[$minSeverity] ?? 2)) {
             return; // أقل من الحد الأدنى اللي المستخدم اختاره، ومفيش كلمة مفتاحية اتطابقت
         }
 
