@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Structured Exception Handler
  * @version 1.0.0
@@ -15,11 +16,13 @@
  *
  * وهيشتغل جنب المعالجة الحالية، مش بدالها.
  */
-class AppExceptionHandler {
+class AppExceptionHandler
+{
     /** @var bool */
     private static $registered = false;
 
-    public static function register(): void {
+    public static function register(): void
+    {
         if (self::$registered) {
             return;
         }
@@ -30,12 +33,14 @@ class AppExceptionHandler {
         register_shutdown_function([self::class, 'handleShutdown']);
     }
 
-    public static function handleException(Throwable $e): void {
+    public static function handleException(Throwable $e): void
+    {
         self::logThrowable($e);
         self::respond($e);
     }
 
-    public static function handleError(int $severity, string $message, string $file = '', int $line = 0): bool {
+    public static function handleError(int $severity, string $message, string $file = '', int $line = 0): bool
+    {
         if (!(error_reporting() & $severity)) {
             return false; // مقموع بواسطة @ أو error_reporting الحالي
         }
@@ -53,7 +58,8 @@ class AppExceptionHandler {
         return false;
     }
 
-    public static function handleShutdown(): void {
+    public static function handleShutdown(): void
+    {
         $error = error_get_last();
         if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
             if (class_exists('Logger')) {
@@ -62,7 +68,8 @@ class AppExceptionHandler {
         }
     }
 
-    private static function logThrowable(Throwable $e): void {
+    private static function logThrowable(Throwable $e): void
+    {
         if (class_exists('Logger')) {
             Logger::error(get_class($e) . ': ' . $e->getMessage(), [
                 'file' => $e->getFile(),
@@ -72,7 +79,8 @@ class AppExceptionHandler {
         }
     }
 
-    private static function respond(Throwable $e): void {
+    private static function respond(Throwable $e): void
+    {
         if (headers_sent()) {
             return;
         }

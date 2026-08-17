@@ -1,15 +1,18 @@
 <?php
+
 /**
  * Tourfecto - Meta Ads Marketing API Client
  * سحب حسابات الإعلانات، الحملات، وبيانات الأداء الحقيقية (إنفاق،
  * ظهور، نقرات) من Meta Marketing API.
  * @version 1.0.0
  */
-class MetaAdsAPI {
+class MetaAdsAPI
+{
     private string $apiVersion;
     private string $accessToken;
 
-    public function __construct(string $accessToken) {
+    public function __construct(string $accessToken)
+    {
         $this->apiVersion = env('META_API_VERSION') ?: 'v25.0';
         $this->accessToken = $accessToken;
     }
@@ -18,7 +21,8 @@ class MetaAdsAPI {
      * قائمة حسابات الإعلانات المتاحة لصاحب التوكن.
      * @return array ['success'=>bool, 'accounts'=>[['id','name','currency']], 'error'=>?]
      */
-    public function listAdAccounts(): array {
+    public function listAdAccounts(): array
+    {
         $result = $this->get('me/adaccounts', [
             'fields' => 'id,name,account_status,currency,business_name',
         ]);
@@ -45,7 +49,8 @@ class MetaAdsAPI {
      * @param string $adAccountId مثال: 'act_1734399680615736'
      * @return array ['success'=>bool, 'campaigns'=>[], 'error'=>?]
      */
-    public function listCampaignsWithInsights(string $adAccountId): array {
+    public function listCampaignsWithInsights(string $adAccountId): array
+    {
         $campaignsResult = $this->get("{$adAccountId}/campaigns", [
             'fields' => 'id,name,objective,status,daily_budget,start_time,stop_time',
             'limit' => 100,
@@ -99,7 +104,8 @@ class MetaAdsAPI {
      * @param string $destinationUrl رابط موقع العميل اللي هيوصل له الزائر
      * @return array ['success'=>bool, 'external_campaign_id'=>?, 'ad_ids'=>[], 'error'=>?]
      */
-    public function createCampaign(string $adAccountId, string $pageId, array $campaign, array $audience, array $copies, string $destinationUrl, ?string $imageUrl = null): array {
+    public function createCampaign(string $adAccountId, string $pageId, array $campaign, array $audience, array $copies, string $destinationUrl, ?string $imageUrl = null): array
+    {
         $objectiveMap = [
             'traffic' => 'OUTCOME_TRAFFIC', 'leads' => 'OUTCOME_LEADS',
             'awareness' => 'OUTCOME_AWARENESS', 'engagement' => 'OUTCOME_ENGAGEMENT',
@@ -140,8 +146,12 @@ class MetaAdsAPI {
             'status' => 'PAUSED',
         ];
         // تواريخ البداية/النهاية اللي العميل حددها وقت الإنشاء (لو موجودة)
-        if (!empty($campaign['start_date'])) $adSetFields['start_time'] = date('c', strtotime($campaign['start_date']));
-        if (!empty($campaign['end_date'])) $adSetFields['end_time'] = date('c', strtotime($campaign['end_date']));
+        if (!empty($campaign['start_date'])) {
+            $adSetFields['start_time'] = date('c', strtotime($campaign['start_date']));
+        }
+        if (!empty($campaign['end_date'])) {
+            $adSetFields['end_time'] = date('c', strtotime($campaign['end_date']));
+        }
 
         $adSetResult = $this->post("{$adAccountId}/adsets", $adSetFields);
         if (!$adSetResult['success']) {
@@ -194,20 +204,23 @@ class MetaAdsAPI {
     }
 
     /** تعديل حالة حملة موجودة فعلاً (ACTIVE / PAUSED) */
-    public function updateCampaignStatus(string $campaignId, string $status): array {
+    public function updateCampaignStatus(string $campaignId, string $status): array
+    {
         $metaStatus = strtoupper($status) === 'ACTIVE' ? 'ACTIVE' : 'PAUSED';
         $result = $this->post($campaignId, ['status' => $metaStatus]);
         return $result['success'] ? ['success' => true] : ['success' => false, 'error' => $result['error'] ?? 'فشل تعديل حالة الحملة'];
     }
 
     /** إلغاء/أرشفة حملة نهائيًا */
-    public function deleteCampaign(string $campaignId): array {
+    public function deleteCampaign(string $campaignId): array
+    {
         $result = $this->post($campaignId, ['status' => 'ARCHIVED']);
         return $result['success'] ? ['success' => true] : ['success' => false, 'error' => $result['error'] ?? 'فشل إلغاء الحملة'];
     }
 
     /** تعديل الميزانية اليومية لمجموعة إعلانية موجودة (adset_id، مش campaign_id) */
-    public function updateAdSetBudget(string $adSetId, float $dailyBudgetUsd): array {
+    public function updateAdSetBudget(string $adSetId, float $dailyBudgetUsd): array
+    {
         $result = $this->post($adSetId, ['daily_budget' => (int) round($dailyBudgetUsd * 100)]);
         return $result['success'] ? ['success' => true] : ['success' => false, 'error' => $result['error'] ?? 'فشل تعديل الميزانية'];
     }
@@ -217,7 +230,8 @@ class MetaAdsAPI {
      * في إعلان Meta - لو معملتش، الإعلان بيتعمل من غير صورة (نص بس).
      * @return string|null
      */
-    public function fetchOgImageFromWebsite(string $url): ?string {
+    public function fetchOgImageFromWebsite(string $url): ?string
+    {
         try {
             $ch = curl_init($url);
             curl_setopt_array($ch, [
@@ -228,7 +242,9 @@ class MetaAdsAPI {
             $html = curl_exec($ch);
             curl_close($ch);
 
-            if (!$html) return null;
+            if (!$html) {
+                return null;
+            }
 
             if (preg_match('/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
                 return $m[1];
@@ -243,7 +259,8 @@ class MetaAdsAPI {
     }
 
     /** تحويل اسم CTA العربي المستخدم عندنا لأقرب قيمة معتمدة من Meta */
-    private function mapCta(string $cta): string {
+    private function mapCta(string $cta): string
+    {
         $map = [
             'احجز الآن' => 'BOOK_TRAVEL', 'اعرف المزيد' => 'LEARN_MORE', 'تواصل معنا' => 'CONTACT_US',
             'اشترك الآن' => 'SIGN_UP', 'تسوق الآن' => 'SHOP_NOW', 'قدّم الآن' => 'APPLY_NOW',
@@ -253,7 +270,8 @@ class MetaAdsAPI {
     }
 
     /** خريطة مبسّطة لأسماء دول عربي/انجليزي شائعة إلى أكواد ISO اللي Meta محتاجاها - بترجع مصر افتراضيًا لو الاسم مش معروف */
-    private function mapLocationsToCountryCodes(array $locations): array {
+    private function mapLocationsToCountryCodes(array $locations): array
+    {
         $map = [
             'مصر' => 'EG', 'egypt' => 'EG', 'السعودية' => 'SA', 'saudi arabia' => 'SA',
             'الإمارات' => 'AE', 'uae' => 'AE', 'الكويت' => 'KW', 'kuwait' => 'KW',
@@ -267,7 +285,9 @@ class MetaAdsAPI {
         $codes = [];
         foreach ($locations as $loc) {
             $key = mb_strtolower(trim((string) $loc));
-            if (isset($map[$key])) $codes[] = $map[$key];
+            if (isset($map[$key])) {
+                $codes[] = $map[$key];
+            }
         }
         return !empty($codes) ? array_unique($codes) : ['EG'];
     }
@@ -276,7 +296,8 @@ class MetaAdsAPI {
      * طلب POST عام لـ Graph Marketing API (إنشاء موارد).
      * @return array ['success'=>bool, 'data'=>array, 'error'=>?]
      */
-    private function post(string $path, array $fields = []): array {
+    private function post(string $path, array $fields = []): array
+    {
         try {
             $fields['access_token'] = $this->accessToken;
             $url = "https://graph.facebook.com/{$this->apiVersion}/{$path}";
@@ -318,7 +339,8 @@ class MetaAdsAPI {
      * طلب GET عام لـ Graph Marketing API.
      * @return array ['success'=>bool, 'data'=>array, 'error'=>?]
      */
-    private function get(string $path, array $query = []): array {
+    private function get(string $path, array $query = []): array
+    {
         try {
             $query['access_token'] = $this->accessToken;
             $url = "https://graph.facebook.com/{$this->apiVersion}/{$path}?" . http_build_query($query);

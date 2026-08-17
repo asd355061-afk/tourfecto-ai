@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - WhatsApp API Integration
  * تكامل مع WhatsApp Cloud API و Business API
@@ -7,54 +8,57 @@
  * @copyright 2026 Tourfecto
  */
 
-class WhatsAppAPI {
+class WhatsAppAPI
+{
     /**
      * @var string $accessToken - رمز الوصول
      */
     private $accessToken;
-    
+
     /**
      * @var string $phoneId - معرف رقم الهاتف
      */
     private $phoneId;
-    
+
     /**
      * @var string $baseUrl - رابط API الأساسي
      */
     private $baseUrl = 'https://graph.facebook.com/v18.0';
-    
+
     /**
      * @var int $timeout - مهلة الطلب
      */
     private $timeout = 30;
-    
+
     /**
      * @var string $webhookVerifyToken - رمز التحقق من Webhook
      */
     private $webhookVerifyToken;
-    
+
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         $this->accessToken = WHATSAPP_ACCESS_TOKEN;
         $this->phoneId = WHATSAPP_PHONE_ID;
         $this->webhookVerifyToken = WHATSAPP_WEBHOOK_VERIFY_TOKEN;
     }
-    
+
     /**
      * إرسال رسالة نصية
      * @param string $phoneNumber - رقم المستلم
      * @param string $message - نص الرسالة
      * @return bool
      */
-    public function sendMessage(string $phoneNumber, string $message): bool {
+    public function sendMessage(string $phoneNumber, string $message): bool
+    {
         try {
             $phoneNumber = $this->cleanPhoneNumber($phoneNumber);
-            
+
             $endpoint = "/{$this->phoneId}/messages";
             $url = $this->baseUrl . $endpoint;
-            
+
             $payload = [
                 'messaging_product' => 'whatsapp',
                 'recipient_type' => 'individual',
@@ -65,11 +69,11 @@ class WhatsAppAPI {
                     'preview_url' => false
                 ]
             ];
-            
+
             $response = $this->makeRequest('POST', $url, $payload);
-            
+
             return $response['success'];
-            
+
         } catch (Exception $e) {
             Logger::error('WhatsApp Send Message Error', [
                 'phone' => $phoneNumber,
@@ -78,7 +82,7 @@ class WhatsAppAPI {
             return false;
         }
     }
-    
+
     /**
      * إرسال رسالة قالب
      * @param string $phoneNumber
@@ -86,13 +90,14 @@ class WhatsAppAPI {
      * @param array $parameters
      * @return bool
      */
-    public function sendTemplate(string $phoneNumber, string $templateName, array $parameters = []): bool {
+    public function sendTemplate(string $phoneNumber, string $templateName, array $parameters = []): bool
+    {
         try {
             $phoneNumber = $this->cleanPhoneNumber($phoneNumber);
-            
+
             $endpoint = "/{$this->phoneId}/messages";
             $url = $this->baseUrl . $endpoint;
-            
+
             $payload = [
                 'messaging_product' => 'whatsapp',
                 'to' => $phoneNumber,
@@ -105,11 +110,11 @@ class WhatsAppAPI {
                     'components' => $this->buildTemplateComponents($parameters)
                 ]
             ];
-            
+
             $response = $this->makeRequest('POST', $url, $payload);
-            
+
             return $response['success'];
-            
+
         } catch (Exception $e) {
             Logger::error('WhatsApp Send Template Error', [
                 'phone' => $phoneNumber,
@@ -119,7 +124,7 @@ class WhatsAppAPI {
             return false;
         }
     }
-    
+
     /**
      * إرسال طلب إلى API
      * @param string $method
@@ -127,15 +132,16 @@ class WhatsAppAPI {
      * @param array $data
      * @return array
      */
-    private function makeRequest(string $method, string $url, array $data = []): array {
+    private function makeRequest(string $method, string $url, array $data = []): array
+    {
         $ch = curl_init($url);
-        
+
         $headers = [
             'Authorization: Bearer ' . $this->accessToken,
             'Content-Type: application/json',
             'Accept: application/json'
         ];
-        
+
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => $this->timeout,
@@ -143,74 +149,76 @@ class WhatsAppAPI {
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_USERAGENT => 'Tourfecto/1.0'
         ]);
-        
+
         if ($method === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
         }
-        
+
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = curl_error($ch);
         curl_close($ch);
-        
+
         if ($curlError) {
             return [
                 'success' => false,
                 'error' => 'cURL Error: ' . $curlError
             ];
         }
-        
+
         if ($httpCode < 200 || $httpCode >= 300) {
             $errorData = json_decode($response, true);
             $errorMessage = $errorData['error']['message'] ?? 'Unknown error';
-            
+
             return [
                 'success' => false,
                 'error' => "WhatsApp API Error ({$httpCode}): {$errorMessage}",
                 'http_code' => $httpCode
             ];
         }
-        
+
         return [
             'success' => true,
             'data' => json_decode($response, true),
             'http_code' => $httpCode
         ];
     }
-    
+
     /**
      * تنظيف رقم الهاتف
      * @param string $phoneNumber
      * @return string
      */
-    private function cleanPhoneNumber(string $phoneNumber): string {
+    private function cleanPhoneNumber(string $phoneNumber): string
+    {
         $cleaned = preg_replace('/[^0-9]/', '', $phoneNumber);
-        
+
         if (strlen($cleaned) < 10) {
             $cleaned = '20' . $cleaned;
         }
-        
+
         return $cleaned;
     }
-    
+
     /**
      * بناء مكونات القالب
      * @param array $parameters
      * @return array
      */
-    private function buildTemplateComponents(array $parameters): array {
+    private function buildTemplateComponents(array $parameters): array
+    {
         $components = [];
-        
+
         if (!empty($parameters)) {
             $components[] = [
                 'type' => 'body',
-                'parameters' => array_map(function($param) {
+                'parameters' => array_map(function ($param) {
                     return ['type' => 'text', 'text' => $param];
                 }, $parameters)
             ];
         }
-        
+
         return $components;
     }
 }

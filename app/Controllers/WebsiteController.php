@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Website Controller
  * إدارة مواقع المستخدم (CRUD) + التحقق الحقيقي من الملكية
@@ -13,9 +14,10 @@
  * migration على قاعدة بيانات حية معندناش وصول ليها مباشر.
  */
 
-class WebsiteController extends Controller {
-
-    private function userId(): ?int {
+class WebsiteController extends Controller
+{
+    private function userId(): ?int
+    {
         return $_SESSION['user_id'] ?? null;
     }
 
@@ -24,7 +26,8 @@ class WebsiteController extends Controller {
      * نفس فكرة AuthMiddleware::isWebPageRequest لكن هنا بنستخدمها عشان
      * index()/show() يقدروا يخدموا الاتنين (الصفحة و الـ API) من غير تكرار.
      */
-    private function isApiRequest(): bool {
+    private function isApiRequest(): bool
+    {
         $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
         return strpos($path, '/api/') === 0;
     }
@@ -33,22 +36,26 @@ class WebsiteController extends Controller {
     // توليد والتحقق من توكن الملكية
     // ============================================
 
-    private function verificationSecret(): string {
+    private function verificationSecret(): string
+    {
         return (defined('ENCRYPTION_KEY') && ENCRYPTION_KEY) ? ENCRYPTION_KEY : 'tourfecto-fallback-verification-secret';
     }
 
-    private function verificationToken(int $userId, int $websiteId): string {
+    private function verificationToken(int $userId, int $websiteId): string
+    {
         return substr(hash_hmac('sha256', 'tourfecto-site-verify:' . $userId . ':' . $websiteId, $this->verificationSecret()), 0, 32);
     }
 
-    private function normalizeUrl(string $url): string {
+    private function normalizeUrl(string $url): string
+    {
         if (!preg_match('#^https?://#i', $url)) {
             $url = 'https://' . ltrim($url, '/');
         }
         return $url;
     }
 
-    private function verificationInstructions(Website $website): array {
+    private function verificationInstructions(Website $website): array
+    {
         $userId = (int) $website->getAttribute('user_id');
         $id = (int) $website->getAttribute('id');
         $token = $this->verificationToken($userId, $id);
@@ -70,7 +77,8 @@ class WebsiteController extends Controller {
      * حماية SSRF: امنع الفحص على IP خاص/داخلي/loopback عشان محدش يستخدم
      * فورم "أضف موقع" عشان يخلي السيرفر يعمل طلبات لشبكته الداخلية.
      */
-    private function isPubliclyRoutableHost(string $host): bool {
+    private function isPubliclyRoutableHost(string $host): bool
+    {
         if (filter_var($host, FILTER_VALIDATE_IP)) {
             $ip = $host;
         } else {
@@ -85,7 +93,8 @@ class WebsiteController extends Controller {
         return (bool) filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
     }
 
-    private function checkMetaTag(string $url, string $token): bool {
+    private function checkMetaTag(string $url, string $token): bool
+    {
         $host = parse_url($url, PHP_URL_HOST);
         if (!$host || !$this->isPubliclyRoutableHost($host)) {
             return false;
@@ -125,7 +134,8 @@ class WebsiteController extends Controller {
         }
     }
 
-    private function checkDnsTxt(string $host, string $token): bool {
+    private function checkDnsTxt(string $host, string $token): bool
+    {
         if (!$this->isPubliclyRoutableHost($host)) {
             return false;
         }
@@ -160,7 +170,8 @@ class WebsiteController extends Controller {
     // GET /websites و GET /api/websites
     // ============================================
 
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $userId = $this->userId();
         if (!$userId) {
             if ($this->isApiRequest()) {
@@ -191,7 +202,8 @@ class WebsiteController extends Controller {
         exit;
     }
 
-    private function renderIndexPage(array $sites): void {
+    private function renderIndexPage(array $sites): void
+    {
         $tAddNew = $this->tr('websites.add_new');
         $tUrlLabel = $this->tr('websites.url_label');
         $tCompanyLabel = $this->tr('websites.company_label');
@@ -292,7 +304,8 @@ JS;
     }
 
     /** GET /websites/create -> بدل صفحة منفصلة، الفورم بقى جزء من /websites */
-    public function create(array $params = []): array {
+    public function create(array $params = []): array
+    {
         if ($this->isApiRequest()) {
             return $this->success(['form' => 'create_website']);
         }
@@ -301,7 +314,8 @@ JS;
     }
 
     /** POST /websites/store و POST /api/websites */
-    public function store(array $params = []): array {
+    public function store(array $params = []): array
+    {
         $userId = $this->userId();
         if (!$userId) {
             return $this->error('غير مسجل دخول', 401);
@@ -351,7 +365,8 @@ JS;
     // GET /websites/{id} و GET /api/websites/{id}
     // ============================================
 
-    public function show(array $params): array {
+    public function show(array $params): array
+    {
         $userId = $this->userId();
         if (!$userId) {
             if ($this->isApiRequest()) {
@@ -387,7 +402,8 @@ JS;
         exit;
     }
 
-    private function renderShowPage(Website $website): void {
+    private function renderShowPage(Website $website): void
+    {
         $id = (int) $website->getAttribute('id');
         $mainUrl = htmlspecialchars((string) $website->getAttribute('main_url'), ENT_QUOTES, 'UTF-8');
         $isVerified = (int) $website->getAttribute('is_verified') === 1;
@@ -605,12 +621,14 @@ JS;
     }
 
     /** GET /websites/{id}/edit */
-    public function edit(array $params): array {
+    public function edit(array $params): array
+    {
         return $this->show($params);
     }
 
     /** PUT /websites/{id} و PUT /api/websites/{id} */
-    public function update(array $params): array {
+    public function update(array $params): array
+    {
         $userId = $this->userId();
         if (!$userId) {
             return $this->error('غير مسجل دخول', 401);
@@ -646,7 +664,8 @@ JS;
     }
 
     /** DELETE /websites/{id} و DELETE /api/websites/{id} */
-    public function destroy(array $params): array {
+    public function destroy(array $params): array
+    {
         $userId = $this->userId();
         if (!$userId) {
             return $this->error('غير مسجل دخول', 401);
@@ -671,7 +690,8 @@ JS;
      * تحقق حقيقي من ملكية الموقع بطريقتين: meta tag أو DNS TXT.
      * محدش بيوافق تلقائيًا؛ لازم واحدة من الطريقتين تتحقق فعليًا.
      */
-    public function verify(array $params): array {
+    public function verify(array $params): array
+    {
         $userId = $this->userId();
         if (!$userId) {
             return $this->error('غير مسجل دخول', 401);
@@ -716,7 +736,8 @@ JS;
     }
 
     /** POST /api/websites/{id}/competitors */
-    public function updateCompetitors(array $params): array {
+    public function updateCompetitors(array $params): array
+    {
         $userId = $this->userId();
         if (!$userId) {
             return $this->error('غير مسجل دخول', 401);

@@ -1,24 +1,28 @@
 <?php
+
 /**
  * Tourfecto - Health Controller
  * فحص حالة الموقع وقاعدة البيانات (Health Check)
  * @version 1.0.0
  */
 
-class HealthController extends Controller {
-
+class HealthController extends Controller
+{
     /** GET /ping و GET /api/ping */
-    public function ping(array $params = []): array {
+    public function ping(array $params = []): array
+    {
         return $this->success(['pong' => true, 'time' => date('c')]);
     }
 
     /** GET /health */
-    public function webCheck(array $params = []): array {
+    public function webCheck(array $params = []): array
+    {
         return $this->check($params);
     }
 
     /** GET /api/health */
-    public function check(array $params = []): array {
+    public function check(array $params = []): array
+    {
         $dbOk = false;
         try {
             $dbOk = $this->db->isConnected();
@@ -41,7 +45,8 @@ class HealthController extends Controller {
     }
 
     /** GET /api/health/detailed (يتطلب تسجيل دخول) */
-    public function detailed(array $params = []): array {
+    public function detailed(array $params = []): array
+    {
         $dbOk = false;
         $dbStats = [];
         try {

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Website Optimizer Controller
  * تدقيق تقني حقيقي (مش نتائج وهمية) على مواقع المستخدم الموجودة فعليًا
@@ -11,8 +12,8 @@
  * snippets حقيقية جاهزة للنسخ واللصق) لكل مشكلة - مش مجرد تشخيص.
  * @version 2.0.0 - BATCH6 Pro (SEO + AEO + GEO engine + auto-fixes)
  */
-class WebsiteOptimizerController extends Controller {
-
+class WebsiteOptimizerController extends Controller
+{
     /** ترتيب عرض فئات الفحص في الواجهة */
     private const CATEGORY_ORDER = ['seo', 'aeo', 'geo', 'speed', 'security', 'mobile', 'accessibility', 'availability', 'broken_links'];
 
@@ -20,7 +21,8 @@ class WebsiteOptimizerController extends Controller {
     private const AI_CRAWLER_BOTS = ['GPTBot', 'ChatGPT-User', 'Google-Extended', 'PerplexityBot', 'ClaudeBot', 'anthropic-ai', 'CCBot', 'Applebot-Extended'];
 
     /** GET /website-optimizer */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $body = <<<HTML
         <style>
         .wo-hero { display: grid; grid-template-columns: 220px 1fr; gap: 22px; align-items: center; }
@@ -132,6 +134,33 @@ HTML;
             sel.innerHTML = `<option value="">${I18N['wo.no_websites']}</option>`;
         }
         sel.onchange = () => { currentWebsiteId = sel.value; if (currentWebsiteId) loadHistory(currentWebsiteId); };
+
+        // Deep-link (من quick-wins في الـOnboarding): ?website_id=X&category=Y
+        // بيختار الموقع ويحمّل سجلّه وبيحدّد فئة الملاحظات اللي المستخدم جي ليها.
+        const params = new URLSearchParams(window.location.search);
+        const deepId = params.get('website_id');
+        if (deepId && Array.from(sel.options).some(o => o.value === deepId)) {
+            sel.value = deepId;
+            currentWebsiteId = deepId;
+            loadHistory(deepId);
+            const cat = params.get('category');
+            if (cat) {
+                try {
+                    const ar = await fetchJSON('/api/website-optimizer/fixes?website_id=' + encodeURIComponent(deepId));
+                    const fixes = (ar.success && ar.data && ar.data.fixes) || [];
+                    const hit = fixes.find(f => f.category === cat);
+                    if (hit) {
+                        const rows = Array.from(document.querySelectorAll('.wo-fix-card'));
+                        const target = rows.find(r => r.dataset && r.dataset.category === cat);
+                        if (target) {
+                            rows.forEach(r => r.style.boxShadow = '');
+                            target.style.boxShadow = '0 0 0 2px var(--panel-accent)';
+                            setTimeout(function () { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 500);
+                        }
+                    }
+                } catch (e) { /* الـdeep-link اختياري */ }
+            }
+        }
     }
 
     window.woRunAudit = async function () {
@@ -219,7 +248,7 @@ HTML;
         const list = document.getElementById('woFixesList');
         if (!fixes.length) { list.innerHTML = ''; return; }
         list.innerHTML = fixes.map(fx => `
-            <div class="wo-fix-card" data-fix-id="${fx.id}">
+            <div class="wo-fix-card" data-fix-id="${fx.id}" data-category="${esc(fx.category)}">
                 <div class="wo-fix-head">
                     <div>
                         <span class="wo-cat-badge">${categoryLabel[fx.category] || esc(fx.category)}</span>
@@ -280,8 +309,11 @@ JS;
     }
 
     /** GET /api/website-optimizer/websites */
-    public function listWebsites(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listWebsites(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         try {
             $urlCol = Website::urlColumn();
@@ -297,15 +329,22 @@ JS;
     }
 
     /** GET /api/website-optimizer/history?website_id= */
-    public function history(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function history(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $websiteId = (int) $this->get('website_id');
-        if (!$websiteId) return $this->error('website_id مطلوب', 422);
+        if (!$websiteId) {
+            return $this->error('website_id مطلوب', 422);
+        }
 
         try {
             $owns = $this->db->query("SELECT id FROM websites WHERE id = ? AND user_id = ? LIMIT 1", [$websiteId, $this->user['id']]);
-            if (empty($owns)) return $this->error('الموقع غير موجود', 404);
+            if (empty($owns)) {
+                return $this->error('الموقع غير موجود', 404);
+            }
 
             $rows = $this->db->query(
                 "SELECT id, overall_score, status, started_at, completed_at
@@ -320,16 +359,23 @@ JS;
     }
 
     /** POST /api/website-optimizer/audit */
-    public function runAudit(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function runAudit(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $websiteId = (int) $this->get('website_id');
-        if (!$websiteId) return $this->error('website_id مطلوب', 422);
+        if (!$websiteId) {
+            return $this->error('website_id مطلوب', 422);
+        }
 
         try {
             $urlCol = Website::urlColumn();
             $rows = $this->db->query("SELECT id, {$urlCol} AS main_url FROM websites WHERE id = ? AND user_id = ? LIMIT 1", [$websiteId, $this->user['id']]);
-            if (empty($rows)) return $this->error('الموقع غير موجود', 404);
+            if (empty($rows)) {
+                return $this->error('الموقع غير موجود', 404);
+            }
 
             $url = $rows[0]['main_url'];
 
@@ -404,7 +450,9 @@ JS;
 
                 if (in_array($mode, ['balanced', 'aggressive'], true)) {
                     foreach ($savedFixes as &$fx) {
-                        if (empty($fx['suggested_value'])) continue;
+                        if (empty($fx['suggested_value'])) {
+                            continue;
+                        }
                         $fixForApply = ['id' => $fx['id'], 'check_key' => $fx['check_key'] ?? null, 'status' => 'pending', 'suggested_value' => $fx['suggested_value']];
                         $applyResult = $this->applyFixInternal($fixForApply, (int) $linkedGeneratedWebsite['id'], 'audit_auto_pilot');
                         if ($applyResult['success']) {
@@ -443,18 +491,42 @@ JS;
     }
 
     /** GET /api/website-optimizer/fixes?audit_id= */
-    public function listFixes(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listFixes(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $auditId = (int) $this->get('audit_id');
-        if (!$auditId) return $this->error('audit_id مطلوب', 422);
+        // Deep-link من الـOnboarding: لو جاله website_id بدون audit_id بيجيب
+        // آخر تدقيق مكتمل للموقع تلقائيًا (المستخدم بيوصل من quick-wins).
+        if (!$auditId && $this->get('website_id')) {
+            try {
+                $latest = $this->db->query(
+                    "SELECT id FROM wo_audits
+                     WHERE website_id = ? AND user_id = ? AND status = 'completed'
+                     ORDER BY id DESC LIMIT 1",
+                    [(int) $this->get('website_id'), (int) $this->user['id']]
+                );
+                if (!empty($latest)) {
+                    $auditId = (int) $latest[0]['id'];
+                }
+            } catch (Exception $e) {
+                $auditId = 0;
+            }
+        }
+        if (!$auditId) {
+            return $this->error('audit_id مطلوب', 422);
+        }
 
         try {
             $owns = $this->db->query(
                 "SELECT a.id FROM wo_audits a WHERE a.id = ? AND a.user_id = ? LIMIT 1",
                 [$auditId, $this->user['id']]
             );
-            if (empty($owns)) return $this->error('التدقيق غير موجود', 404);
+            if (empty($owns)) {
+                return $this->error('التدقيق غير موجود', 404);
+            }
 
             $fixes = $this->db->query(
                 "SELECT id, category, title, description, fix_type, code_snippet, target_file, status
@@ -469,8 +541,11 @@ JS;
     }
 
     /** POST /api/website-optimizer/fixes/{id}/status */
-    public function updateFixStatus(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function updateFixStatus(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $fixId = (int) ($params['id'] ?? 0);
         $status = (string) $this->get('status');
@@ -485,7 +560,9 @@ JS;
                  WHERE f.id = ? AND a.user_id = ? LIMIT 1",
                 [$fixId, $this->user['id']]
             );
-            if (empty($owns)) return $this->error('الإصلاح غير موجود', 404);
+            if (empty($owns)) {
+                return $this->error('الإصلاح غير موجود', 404);
+            }
 
             $appliedAt = $status === 'applied' ? date('Y-m-d H:i:s') : null;
             $this->db->exec(
@@ -511,11 +588,16 @@ JS;
      * أي إصلاح تاني (schema/OG/إلخ) لسه محتاج تطبيق يدوي زي ما هو دلوقتي -
      * مفيش أي وعد بتطبيق حاجة النظام مش قادر فعليًا يطبقها.
      */
-    public function applyFixAutomatically(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function applyFixAutomatically(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $fixId = (int) ($params['id'] ?? 0);
-        if (!$fixId) return $this->error('بيانات غير صالحة', 422);
+        if (!$fixId) {
+            return $this->error('بيانات غير صالحة', 422);
+        }
 
         try {
             $rows = $this->db->query(
@@ -525,7 +607,9 @@ JS;
                  WHERE f.id = ? AND a.user_id = ? LIMIT 1",
                 [$fixId, $this->user['id']]
             );
-            if (empty($rows)) return $this->error('الإصلاح غير موجود', 404);
+            if (empty($rows)) {
+                return $this->error('الإصلاح غير موجود', 404);
+            }
             $fix = $rows[0];
 
             if (empty($fix['generated_website_id'])) {
@@ -537,10 +621,14 @@ JS;
                 "SELECT id FROM generated_websites WHERE id = ? AND user_id = ? LIMIT 1",
                 [$fix['generated_website_id'], $this->user['id']]
             );
-            if (empty($owns)) return $this->error('الموقع غير موجود', 404);
+            if (empty($owns)) {
+                return $this->error('الموقع غير موجود', 404);
+            }
 
             $result = $this->applyFixInternal($fix, (int) $fix['generated_website_id'], 'manual_click');
-            if (!$result['success']) return $this->error($result['error'], 422);
+            if (!$result['success']) {
+                return $this->error($result['error'], 422);
+            }
 
             return $this->success([
                 'id' => $fixId,
@@ -564,7 +652,8 @@ JS;
      * @param array $fix لازم يحتوي: id, check_key, status, suggested_value
      * @return array{success:bool, new_value?:string, old_value?:string, error?:string}
      */
-    private function applyFixInternal(array $fix, int $generatedWebsiteId, string $trigger): array {
+    private function applyFixInternal(array $fix, int $generatedWebsiteId, string $trigger): array
+    {
         if (empty($fix['suggested_value'])) {
             return ['success' => false, 'error' => 'مفيش قيمة جاهزة للتطبيق التلقائي على الإصلاح ده'];
         }
@@ -599,8 +688,11 @@ JS;
     }
 
     /** POST /api/website-optimizer/auto-pilot-mode  { generated_website_id, mode } */
-    public function setAutoPilotMode(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function setAutoPilotMode(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $siteId = (int) $this->get('generated_website_id');
         $mode = (string) $this->get('mode', '');
@@ -609,7 +701,9 @@ JS;
         }
 
         $owns = $this->db->query("SELECT id FROM generated_websites WHERE id = ? AND user_id = ? LIMIT 1", [$siteId, $this->user['id']]);
-        if (empty($owns)) return $this->error('الموقع غير موجود', 404);
+        if (empty($owns)) {
+            return $this->error('الموقع غير موجود', 404);
+        }
 
         try {
             $this->db->exec("UPDATE generated_websites SET auto_pilot_mode = ? WHERE id = ?", [$mode, $siteId]);
@@ -622,14 +716,21 @@ JS;
     }
 
     /** GET /api/website-optimizer/auto-pilot-log?generated_website_id=X */
-    public function getAutoPilotLog(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getAutoPilotLog(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $siteId = (int) $this->get('generated_website_id');
-        if (!$siteId) return $this->error('generated_website_id مطلوب', 422);
+        if (!$siteId) {
+            return $this->error('generated_website_id مطلوب', 422);
+        }
 
         $owns = $this->db->query("SELECT id FROM generated_websites WHERE id = ? AND user_id = ? LIMIT 1", [$siteId, $this->user['id']]);
-        if (empty($owns)) return $this->error('الموقع غير موجود', 404);
+        if (empty($owns)) {
+            return $this->error('الموقع غير موجود', 404);
+        }
 
         try {
             $log = $this->db->query(
@@ -644,11 +745,16 @@ JS;
     }
 
     /** POST /api/website-optimizer/auto-pilot-log/{id}/rollback */
-    public function rollbackChange(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function rollbackChange(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $logId = (int) ($params['id'] ?? 0);
-        if (!$logId) return $this->error('بيانات غير صالحة', 422);
+        if (!$logId) {
+            return $this->error('بيانات غير صالحة', 422);
+        }
 
         try {
             $rows = $this->db->query(
@@ -657,11 +763,17 @@ JS;
                  WHERE l.id = ? LIMIT 1",
                 [$logId]
             );
-            if (empty($rows)) return $this->error('السجل غير موجود', 404);
+            if (empty($rows)) {
+                return $this->error('السجل غير موجود', 404);
+            }
             $log = $rows[0];
 
-            if ((int) $log['user_id'] !== (int) $this->user['id']) return $this->error('السجل غير موجود', 404);
-            if ($log['rolled_back_at'] !== null) return $this->error('اتعمله Rollback بالفعل', 422);
+            if ((int) $log['user_id'] !== (int) $this->user['id']) {
+                return $this->error('السجل غير موجود', 404);
+            }
+            if ($log['rolled_back_at'] !== null) {
+                return $this->error('اتعمله Rollback بالفعل', 422);
+            }
 
             $field = $log['field_name'];
             // whitelist صريحة لأسماء الأعمدة المسموح نكتب فيها SQL ديناميكي -
@@ -694,7 +806,8 @@ JS;
      * بيتحقق من نفس الـuser_id عشان محدش يقدر يطبّق تعديلات على موقع مش بتاعه.
      * @return array{id:int, content:array}|null
      */
-    private function detectLinkedGeneratedWebsite(string $url, int $userId): ?array {
+    private function detectLinkedGeneratedWebsite(string $url, int $userId): ?array
+    {
         if (!class_exists('GeneratedWebsite')) {
             return null;
         }
@@ -748,7 +861,8 @@ JS;
      * الصفحة الفعلية - مش نتائج ثابتة أو عشوائية.
      * @return array{findings: array, broken_links: array, context: array}
      */
-    private function performAudit(string $url): array {
+    private function performAudit(string $url): array
+    {
         $findings = [];
         $brokenLinks = [];
 
@@ -841,7 +955,9 @@ JS;
         $totalImages = count($imgTags[0]);
         $imagesWithoutAlt = 0;
         foreach ($imgTags[0] as $tag) {
-            if (!preg_match('/alt\s*=\s*["\'][^"\']+["\']/i', $tag)) $imagesWithoutAlt++;
+            if (!preg_match('/alt\s*=\s*["\'][^"\']+["\']/i', $tag)) {
+                $imagesWithoutAlt++;
+            }
         }
         if ($totalImages > 0) {
             $ratio = $imagesWithoutAlt / $totalImages;
@@ -913,7 +1029,9 @@ JS;
         preg_match_all('/<a\s+[^>]*href=["\']([^"\']+)["\']/i', $html, $linkMatches);
         $links = array_slice(array_unique($linkMatches[1]), 0, 10);
         foreach ($links as $link) {
-            if (stripos($link, 'mailto:') === 0 || stripos($link, 'tel:') === 0 || stripos($link, '#') === 0 || trim($link) === '') continue;
+            if (stripos($link, 'mailto:') === 0 || stripos($link, 'tel:') === 0 || stripos($link, '#') === 0 || trim($link) === '') {
+                continue;
+            }
             $target = $this->resolveUrl($url, $link);
             $linkType = stripos($target, $host) !== false ? 'internal' : 'external';
 
@@ -946,7 +1064,8 @@ JS;
     }
 
     /** طلب HTTP فعلي لصفحة، مع إمكانية إرجاع الـ headers ووقت الاستجابة */
-    private function httpGet(string $url, int $timeout = 15, bool $headOnly = false, bool $withHeaders = false): array {
+    private function httpGet(string $url, int $timeout = 15, bool $headOnly = false, bool $withHeaders = false): array
+    {
         $start = microtime(true);
         $ch = curl_init($url);
         curl_setopt_array($ch, [
@@ -986,14 +1105,16 @@ JS;
     }
 
     /** جلب ملف مساعد زي robots.txt أو llms.txt من جذر الدومين */
-    private function fetchAuxFile(string $origin, string $path): array {
+    private function fetchAuxFile(string $origin, string $path): array
+    {
         $res = $this->httpGet(rtrim($origin, '/') . $path, 6, false);
         $exists = $res['code'] >= 200 && $res['code'] < 400 && !empty($res['body']);
         return ['exists' => $exists, 'body' => $exists ? $res['body'] : ''];
     }
 
     /** فحص وجود sitemap: أولًا من robots.txt (Sitemap:)، ولو مش موجود يجرب /sitemap.xml مباشرة */
-    private function sitemapExists(string $origin, array $robots): bool {
+    private function sitemapExists(string $origin, array $robots): bool
+    {
         if ($robots['exists'] && stripos($robots['body'], 'Sitemap:') !== false) {
             return true;
         }
@@ -1002,7 +1123,8 @@ JS;
     }
 
     /** استخراج كل بلوكات JSON-LD من الصفحة وفكّها كمصفوفات */
-    private function extractJsonLd(string $html): array {
+    private function extractJsonLd(string $html): array
+    {
         $blocks = [];
         if (preg_match_all('/<script[^>]*type=["\']application\/ld\+json["\'][^>]*>(.*?)<\/script>/is', $html, $matches)) {
             foreach ($matches[1] as $raw) {
@@ -1016,24 +1138,33 @@ JS;
     }
 
     /** تجميع كل قيم @type من بلوك JSON-LD (بيدعم @graph وblocks متداخلة) */
-    private function collectSchemaTypes(array $block): array {
+    private function collectSchemaTypes(array $block): array
+    {
         $types = [];
         $walk = function ($node) use (&$walk, &$types) {
-            if (!is_array($node)) return;
+            if (!is_array($node)) {
+                return;
+            }
             if (isset($node['@type'])) {
                 $t = $node['@type'];
                 if (is_array($t)) {
-                    foreach ($t as $tt) $types[] = $tt;
+                    foreach ($t as $tt) {
+                        $types[] = $tt;
+                    }
                 } else {
                     $types[] = $t;
                 }
             }
             if (isset($node['@graph']) && is_array($node['@graph'])) {
-                foreach ($node['@graph'] as $child) $walk($child);
+                foreach ($node['@graph'] as $child) {
+                    $walk($child);
+                }
             }
             foreach ($node as $k => $v) {
                 if ($k !== '@graph' && is_array($v) && isset($v[0]) && is_array($v[0])) {
-                    foreach ($v as $child) $walk($child);
+                    foreach ($v as $child) {
+                        $walk($child);
+                    }
                 }
             }
         };
@@ -1041,12 +1172,16 @@ JS;
         return array_values(array_unique($types));
     }
 
-    private function finding(string $category, string $checkKey, string $title, string $status, string $severity, string $message): array {
+    private function finding(string $category, string $checkKey, string $title, string $status, string $severity, string $message): array
+    {
         return ['category' => $category, 'check_key' => $checkKey, 'title' => $title, 'status' => $status, 'severity' => $severity, 'message' => $message];
     }
 
-    private function resolveUrl(string $base, string $link): string {
-        if (preg_match('#^https?://#i', $link)) return $link;
+    private function resolveUrl(string $base, string $link): string
+    {
+        if (preg_match('#^https?://#i', $link)) {
+            return $link;
+        }
         $baseParts = parse_url($base);
         $scheme = $baseParts['scheme'] ?? 'https';
         $host = $baseParts['host'] ?? '';
@@ -1054,12 +1189,17 @@ JS;
         // staging أو تجريبي شغال على بورت مخصص كان بيطلع كل روابطه
         // الداخلية "مكسورة" غلط لإنه بيحاول يوصل لبورت 80 الافتراضي.
         $port = isset($baseParts['port']) ? ':' . $baseParts['port'] : '';
-        if (strpos($link, '/') === 0) return "{$scheme}://{$host}{$port}{$link}";
+        if (strpos($link, '/') === 0) {
+            return "{$scheme}://{$host}{$port}{$link}";
+        }
         return rtrim($base, '/') . '/' . ltrim($link, '/');
     }
 
-    private function calculateScore(array $findings): float {
-        if (empty($findings)) return 0;
+    private function calculateScore(array $findings): float
+    {
+        if (empty($findings)) {
+            return 0;
+        }
         $weights = ['pass' => 100, 'warn' => 60, 'fail' => 0, 'info' => 100];
         $total = 0;
         foreach ($findings as $f) {
@@ -1069,7 +1209,8 @@ JS;
     }
 
     /** حساب نتيجة منفصلة لكل فئة (SEO/AEO/GEO/سرعة/أمان..) عشان لوحة تحكم احترافية */
-    private function calculateCategoryScores(array $findings): array {
+    private function calculateCategoryScores(array $findings): array
+    {
         $weights = ['pass' => 100, 'warn' => 60, 'fail' => 0, 'info' => 100];
         $byCategory = [];
         foreach ($findings as $f) {
@@ -1077,7 +1218,9 @@ JS;
         }
         $scores = [];
         foreach (self::CATEGORY_ORDER as $cat) {
-            if (empty($byCategory[$cat])) continue;
+            if (empty($byCategory[$cat])) {
+                continue;
+            }
             $scores[$cat] = round(array_sum($byCategory[$cat]) / count($byCategory[$cat]), 1);
         }
         return $scores;
@@ -1091,10 +1234,13 @@ JS;
     // (اللي مش متاحة تقنيًا لموقع خارجي بنفحصه عبر HTTP بس).
     // =========================================================================
 
-    private function generateFixes(array $findings, array $context): array {
+    private function generateFixes(array $findings, array $context): array
+    {
         $fixes = [];
         foreach ($findings as $f) {
-            if (!in_array($f['status'], ['fail', 'warn'], true)) continue;
+            if (!in_array($f['status'], ['fail', 'warn'], true)) {
+                continue;
+            }
             $fix = $this->buildFix($f, $context);
             if ($fix !== null) {
                 // Phase 5 (Auto-Apply): wo_fixes الأصلي ماكانش بيخزّن check_key
@@ -1107,7 +1253,8 @@ JS;
         return $fixes;
     }
 
-    private function buildFix(array $f, array $context): ?array {
+    private function buildFix(array $f, array $context): ?array
+    {
         $host = parse_url($context['url'] ?? '', PHP_URL_HOST) ?? 'example.com';
         // Phase 5 (Auto-Apply): لو الموقع ده Website Builder بتاعنا، نحسب
         // suggested_value حقيقي من محتوى الموقع الفعلي (مش placeholder) -
@@ -1134,133 +1281,314 @@ JS;
 
         switch ($f['check_key']) {
             case 'title_tag':
-                $fix = $this->fix('seo', 'إصلاح وسم العنوان (Title)', 'اكتب عنوان فريد وواضح لكل صفحة بطول 50-60 حرف، يتضمن الكلمة المفتاحية الأساسية واسم البراند، بدون تكرار كلمات.', 'code_snippet',
-                    "<title>الكلمة المفتاحية الأساسية | اسم البراند</title>", '<head> في كل صفحة');
-                if ($suggestedTitle) { $fix['suggested_value'] = $suggestedTitle; }
+                $fix = $this->fix(
+                    'seo',
+                    'إصلاح وسم العنوان (Title)',
+                    'اكتب عنوان فريد وواضح لكل صفحة بطول 50-60 حرف، يتضمن الكلمة المفتاحية الأساسية واسم البراند، بدون تكرار كلمات.',
+                    'code_snippet',
+                    "<title>الكلمة المفتاحية الأساسية | اسم البراند</title>",
+                    '<head> في كل صفحة'
+                );
+                if ($suggestedTitle) {
+                    $fix['suggested_value'] = $suggestedTitle;
+                }
                 return $fix;
 
             case 'meta_description':
-                $fix = $this->fix('seo', 'إضافة/تحسين Meta Description', 'وصف تسويقي جذاب بطول 120-160 حرف يشجع المستخدم يضغط من نتائج البحث، ويحتوي الكلمة المفتاحية بشكل طبيعي.', 'code_snippet',
-                    "<meta name=\"description\" content=\"وصف مختصر وجذاب للصفحة (120-160 حرف) يوضح القيمة اللي هيلاقيها الزائر.\">", '<head> في كل صفحة');
-                if ($suggestedDescription) { $fix['suggested_value'] = $suggestedDescription; }
+                $fix = $this->fix(
+                    'seo',
+                    'إضافة/تحسين Meta Description',
+                    'وصف تسويقي جذاب بطول 120-160 حرف يشجع المستخدم يضغط من نتائج البحث، ويحتوي الكلمة المفتاحية بشكل طبيعي.',
+                    'code_snippet',
+                    "<meta name=\"description\" content=\"وصف مختصر وجذاب للصفحة (120-160 حرف) يوضح القيمة اللي هيلاقيها الزائر.\">",
+                    '<head> في كل صفحة'
+                );
+                if ($suggestedDescription) {
+                    $fix['suggested_value'] = $suggestedDescription;
+                }
                 return $fix;
 
             case 'canonical_tag':
-                return $this->fix('seo', 'إضافة Canonical Tag', 'يمنع مشاكل المحتوى المكرر ويوضح لجوجل النسخة الأساسية من الصفحة.', 'code_snippet',
-                    "<link rel=\"canonical\" href=\"https://{$host}" . (parse_url($context['url'] ?? '', PHP_URL_PATH) ?: '/') . "\">", '<head> في كل صفحة');
+                return $this->fix(
+                    'seo',
+                    'إضافة Canonical Tag',
+                    'يمنع مشاكل المحتوى المكرر ويوضح لجوجل النسخة الأساسية من الصفحة.',
+                    'code_snippet',
+                    "<link rel=\"canonical\" href=\"https://{$host}" . (parse_url($context['url'] ?? '', PHP_URL_PATH) ?: '/') . "\">",
+                    '<head> في كل صفحة'
+                );
 
             case 'robots_meta':
-                return $this->fix('seo', 'إزالة noindex عن الصفحة', 'الصفحة حاليًا فيها noindex فجوجل مش بيفهرسها. لو ده مقصود اسيبها، لو غلط شيل الوسم ده أو استبدله بده:', 'code_snippet',
-                    "<meta name=\"robots\" content=\"index, follow\">", '<head> في الصفحة المتأثرة');
+                return $this->fix(
+                    'seo',
+                    'إزالة noindex عن الصفحة',
+                    'الصفحة حاليًا فيها noindex فجوجل مش بيفهرسها. لو ده مقصود اسيبها، لو غلط شيل الوسم ده أو استبدله بده:',
+                    'code_snippet',
+                    "<meta name=\"robots\" content=\"index, follow\">",
+                    '<head> في الصفحة المتأثرة'
+                );
 
             case 'h1_tag':
-                return $this->fix('seo', 'ضبط وسم H1', 'لازم يكون في H1 واحد بالظبط في الصفحة، يوضح موضوعها الرئيسي (مش نفس الـ title بالحرف، لكن قريب منه في المعنى).', 'code_snippet',
-                    "<h1>العنوان الرئيسي الواضح للصفحة</h1>", 'أول عنصر في <body> غالبًا');
+                return $this->fix(
+                    'seo',
+                    'ضبط وسم H1',
+                    'لازم يكون في H1 واحد بالظبط في الصفحة، يوضح موضوعها الرئيسي (مش نفس الـ title بالحرف، لكن قريب منه في المعنى).',
+                    'code_snippet',
+                    "<h1>العنوان الرئيسي الواضح للصفحة</h1>",
+                    'أول عنصر في <body> غالبًا'
+                );
 
             case 'open_graph':
-                return $this->fix('seo', 'إضافة وسوم Open Graph كاملة', 'عشان الرابط يظهر بشكل احترافي (صورة + عنوان + وصف) لما يتشارك على فيسبوك/واتساب/لينكدإن.', 'code_snippet',
-                    "<meta property=\"og:title\" content=\"عنوان الصفحة\">\n<meta property=\"og:description\" content=\"وصف مختصر وجذاب\">\n<meta property=\"og:image\" content=\"https://{$host}/images/share-preview.jpg\">\n<meta property=\"og:url\" content=\"https://{$host}" . (parse_url($context['url'] ?? '', PHP_URL_PATH) ?: '/') . "\">\n<meta property=\"og:type\" content=\"website\">\n<meta name=\"twitter:card\" content=\"summary_large_image\">", '<head> في كل صفحة');
+                return $this->fix(
+                    'seo',
+                    'إضافة وسوم Open Graph كاملة',
+                    'عشان الرابط يظهر بشكل احترافي (صورة + عنوان + وصف) لما يتشارك على فيسبوك/واتساب/لينكدإن.',
+                    'code_snippet',
+                    "<meta property=\"og:title\" content=\"عنوان الصفحة\">\n<meta property=\"og:description\" content=\"وصف مختصر وجذاب\">\n<meta property=\"og:image\" content=\"https://{$host}/images/share-preview.jpg\">\n<meta property=\"og:url\" content=\"https://{$host}" . (parse_url($context['url'] ?? '', PHP_URL_PATH) ?: '/') . "\">\n<meta property=\"og:type\" content=\"website\">\n<meta name=\"twitter:card\" content=\"summary_large_image\">",
+                    '<head> في كل صفحة'
+                );
 
             case 'structured_data':
-                return $this->fix('seo', 'إضافة بيانات منظّمة أساسية (JSON-LD)', 'schema.org من نوع Organization بيوضح هوية صاحب الموقع لجوجل ولنماذج الذكاء الاصطناعي، وبيزود فرصة الظهور بشكل غني في نتائج البحث.', 'code_snippet',
-                    "<script type=\"application/ld+json\">\n{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"Organization\",\n  \"name\": \"اسم الشركة/البراند\",\n  \"url\": \"https://{$host}\",\n  \"logo\": \"https://{$host}/logo.png\",\n  \"sameAs\": [\n    \"https://facebook.com/yourpage\",\n    \"https://instagram.com/yourpage\"\n  ]\n}\n</script>", '<head> أو نهاية <body> في الصفحة الرئيسية');
+                return $this->fix(
+                    'seo',
+                    'إضافة بيانات منظّمة أساسية (JSON-LD)',
+                    'schema.org من نوع Organization بيوضح هوية صاحب الموقع لجوجل ولنماذج الذكاء الاصطناعي، وبيزود فرصة الظهور بشكل غني في نتائج البحث.',
+                    'code_snippet',
+                    "<script type=\"application/ld+json\">\n{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"Organization\",\n  \"name\": \"اسم الشركة/البراند\",\n  \"url\": \"https://{$host}\",\n  \"logo\": \"https://{$host}/logo.png\",\n  \"sameAs\": [\n    \"https://facebook.com/yourpage\",\n    \"https://instagram.com/yourpage\"\n  ]\n}\n</script>",
+                    '<head> أو نهاية <body> في الصفحة الرئيسية'
+                );
 
             case 'html_lang':
-                return $this->fix('seo', 'إضافة lang attribute', 'يوضح لغة الصفحة لمحركات البحث وقارئات الشاشة.', 'code_snippet',
-                    "<html lang=\"ar\" dir=\"rtl\">", 'وسم <html> الرئيسي');
+                return $this->fix(
+                    'seo',
+                    'إضافة lang attribute',
+                    'يوضح لغة الصفحة لمحركات البحث وقارئات الشاشة.',
+                    'code_snippet',
+                    "<html lang=\"ar\" dir=\"rtl\">",
+                    'وسم <html> الرئيسي'
+                );
 
             case 'sitemap':
-                return $this->fix('seo', 'إنشاء sitemap.xml وربطه بـ robots.txt', 'خريطة موقع بسيطة تسهّل على جوجل وروبوتات الذكاء الاصطناعي اكتشاف كل صفحاتك بسرعة.', 'code_snippet',
-                    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n  <url>\n    <loc>https://{$host}/</loc>\n    <changefreq>weekly</changefreq>\n    <priority>1.0</priority>\n  </url>\n  <!-- أضف باقي صفحاتك هنا -->\n</urlset>\n\n# ثم أضف السطر ده في robots.txt:\nSitemap: https://{$host}/sitemap.xml", '/sitemap.xml + /robots.txt');
+                return $this->fix(
+                    'seo',
+                    'إنشاء sitemap.xml وربطه بـ robots.txt',
+                    'خريطة موقع بسيطة تسهّل على جوجل وروبوتات الذكاء الاصطناعي اكتشاف كل صفحاتك بسرعة.',
+                    'code_snippet',
+                    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n  <url>\n    <loc>https://{$host}/</loc>\n    <changefreq>weekly</changefreq>\n    <priority>1.0</priority>\n  </url>\n  <!-- أضف باقي صفحاتك هنا -->\n</urlset>\n\n# ثم أضف السطر ده في robots.txt:\nSitemap: https://{$host}/sitemap.xml",
+                    '/sitemap.xml + /robots.txt'
+                );
 
             case 'viewport':
-                return $this->fix('mobile', 'إصلاح إعداد Viewport', 'بدون الإعداد ده صح، الموقع هيظهر مصغّر أو مقطوع على الموبايل.', 'code_snippet',
-                    "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">", '<head> في كل صفحة');
+                return $this->fix(
+                    'mobile',
+                    'إصلاح إعداد Viewport',
+                    'بدون الإعداد ده صح، الموقع هيظهر مصغّر أو مقطوع على الموبايل.',
+                    'code_snippet',
+                    "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">",
+                    '<head> في كل صفحة'
+                );
 
             case 'favicon':
-                return $this->fix('mobile', 'إضافة Favicon', 'أيقونة صغيرة بتظهر في تاب المتصفح وقائمة المفضلة، بتدي انطباع احترافي.', 'code_snippet',
-                    "<link rel=\"icon\" type=\"image/png\" href=\"/favicon.png\">\n<link rel=\"apple-touch-icon\" href=\"/apple-touch-icon.png\">", '<head> في كل صفحة');
+                return $this->fix(
+                    'mobile',
+                    'إضافة Favicon',
+                    'أيقونة صغيرة بتظهر في تاب المتصفح وقائمة المفضلة، بتدي انطباع احترافي.',
+                    'code_snippet',
+                    "<link rel=\"icon\" type=\"image/png\" href=\"/favicon.png\">\n<link rel=\"apple-touch-icon\" href=\"/apple-touch-icon.png\">",
+                    '<head> في كل صفحة'
+                );
 
             case 'https':
-                return $this->fix('security', 'تفعيل HTTPS على الموقع', 'الموقع حاليًا شغال من غير HTTPS، وده بيأثر على ثقة الزوار وترتيب الموقع في جوجل (وبيمنعه من الظهور كمصدر موثوق لنماذج الذكاء الاصطناعي). الخطوات:', 'config',
-                    "1) فعّل شهادة SSL مجانية (Let's Encrypt) من لوحة تحكم الاستضافة أو عبر السيرفر.\n2) بعد التفعيل، حوّل كل زيارات HTTP لـ HTTPS تلقائيًا:\n\n# Apache (.htaccess)\nRewriteEngine On\nRewriteCond %{HTTPS} off\nRewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]\n\n# Nginx\nserver {\n  listen 80;\n  return 301 https://\$host\$request_uri;\n}\n\n3) حدّث كل الروابط الداخلية والـ canonical وOpen Graph عشان تبقى https:// بدل http://.", '.htaccess/إعدادات Nginx + شهادة SSL من الاستضافة');
+                return $this->fix(
+                    'security',
+                    'تفعيل HTTPS على الموقع',
+                    'الموقع حاليًا شغال من غير HTTPS، وده بيأثر على ثقة الزوار وترتيب الموقع في جوجل (وبيمنعه من الظهور كمصدر موثوق لنماذج الذكاء الاصطناعي). الخطوات:',
+                    'config',
+                    "1) فعّل شهادة SSL مجانية (Let's Encrypt) من لوحة تحكم الاستضافة أو عبر السيرفر.\n2) بعد التفعيل، حوّل كل زيارات HTTP لـ HTTPS تلقائيًا:\n\n# Apache (.htaccess)\nRewriteEngine On\nRewriteCond %{HTTPS} off\nRewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]\n\n# Nginx\nserver {\n  listen 80;\n  return 301 https://\$host\$request_uri;\n}\n\n3) حدّث كل الروابط الداخلية والـ canonical وOpen Graph عشان تبقى https:// بدل http://.",
+                    '.htaccess/إعدادات Nginx + شهادة SSL من الاستضافة'
+                );
 
             case 'response_time':
-                return $this->fix('speed', 'تسريع زمن استجابة الصفحة', 'زمن الاستجابة الحالي بطيء وبيأثر على تجربة المستخدم وترتيب الموقع. أكتر أسباب شائعة وحلولها:', 'config',
-                    "1) فعّل الكاش على مستوى السيرفر أو استخدم CDN (Cloudflare مجانًا كخطوة أولى).\n2) فعّل ضغط الاستجابة (Gzip/Brotli):\n\n# Apache (.htaccess)\n<IfModule mod_deflate.c>\n  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json\n</IfModule>\n\n3) لو الموقع بيعتمد على قاعدة بيانات، فعّل كاش الاستعلامات المتكررة (object cache / query cache).\n4) راجع استضافتك - لو shared hosting بطيء، فكّر تنقل لـ VPS أو استضافة أسرع.", '.htaccess / إعدادات السيرفر / لوحة تحكم CDN');
+                return $this->fix(
+                    'speed',
+                    'تسريع زمن استجابة الصفحة',
+                    'زمن الاستجابة الحالي بطيء وبيأثر على تجربة المستخدم وترتيب الموقع. أكتر أسباب شائعة وحلولها:',
+                    'config',
+                    "1) فعّل الكاش على مستوى السيرفر أو استخدم CDN (Cloudflare مجانًا كخطوة أولى).\n2) فعّل ضغط الاستجابة (Gzip/Brotli):\n\n# Apache (.htaccess)\n<IfModule mod_deflate.c>\n  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json\n</IfModule>\n\n3) لو الموقع بيعتمد على قاعدة بيانات، فعّل كاش الاستعلامات المتكررة (object cache / query cache).\n4) راجع استضافتك - لو shared hosting بطيء، فكّر تنقل لـ VPS أو استضافة أسرع.",
+                    '.htaccess / إعدادات السيرفر / لوحة تحكم CDN'
+                );
 
             case 'heading_structure':
-                return $this->fix('seo', 'إضافة عناوين فرعية (H2) للصفحة', 'قسّم محتوى الصفحة لأقسام واضحة بعناوين H2 (وH3 لو محتاج تفريع أكتر) - ده بيسهّل على الزوار وعلى جوجل ونماذج الذكاء الاصطناعي فهم بنية المحتوى.', 'content',
-                    "مثال على بنية عناوين واضحة:\n\n<h1>العنوان الرئيسي للصفحة</h1>\n<h2>القسم الأول</h2>\n<p>محتوى القسم الأول...</p>\n<h2>القسم الثاني</h2>\n<h3>تفصيلة فرعية</h3>\n<p>محتوى...</p>", 'محتوى الصفحة - بعد H1 مباشرة');
+                return $this->fix(
+                    'seo',
+                    'إضافة عناوين فرعية (H2) للصفحة',
+                    'قسّم محتوى الصفحة لأقسام واضحة بعناوين H2 (وH3 لو محتاج تفريع أكتر) - ده بيسهّل على الزوار وعلى جوجل ونماذج الذكاء الاصطناعي فهم بنية المحتوى.',
+                    'content',
+                    "مثال على بنية عناوين واضحة:\n\n<h1>العنوان الرئيسي للصفحة</h1>\n<h2>القسم الأول</h2>\n<p>محتوى القسم الأول...</p>\n<h2>القسم الثاني</h2>\n<h3>تفصيلة فرعية</h3>\n<p>محتوى...</p>",
+                    'محتوى الصفحة - بعد H1 مباشرة'
+                );
 
             case 'link_check':
-                return $this->fix('broken_links', 'إصلاح الروابط المكسورة', 'راجع الروابط اللي ظهرت في نتيجة الفحص (قسم "الروابط المكسورة" بالأسفل) وطبّق واحد من الحلول دي لكل رابط:', 'content',
-                    "1) لو الصفحة الهدف اتنقلت لمكان تاني: حدّث الرابط للمسار الجديد.\n2) لو الصفحة اتشالت نهائيًا: اعمل 301 redirect للصفحة الأقرب في المعنى بدل حذفها بدون توجيه.\n3) لو رابط خارجي مبقاش موجود: شيل الرابط أو استبدله بمصدر بديل.\n\n# مثال 301 redirect في .htaccess\nRedirect 301 /old-page https://{$host}/new-page", 'الصفحات اللي فيها الروابط المكسورة (مذكورة في تفاصيل الفحص)');
+                return $this->fix(
+                    'broken_links',
+                    'إصلاح الروابط المكسورة',
+                    'راجع الروابط اللي ظهرت في نتيجة الفحص (قسم "الروابط المكسورة" بالأسفل) وطبّق واحد من الحلول دي لكل رابط:',
+                    'content',
+                    "1) لو الصفحة الهدف اتنقلت لمكان تاني: حدّث الرابط للمسار الجديد.\n2) لو الصفحة اتشالت نهائيًا: اعمل 301 redirect للصفحة الأقرب في المعنى بدل حذفها بدون توجيه.\n3) لو رابط خارجي مبقاش موجود: شيل الرابط أو استبدله بمصدر بديل.\n\n# مثال 301 redirect في .htaccess\nRedirect 301 /old-page https://{$host}/new-page",
+                    'الصفحات اللي فيها الروابط المكسورة (مذكورة في تفاصيل الفحص)'
+                );
 
             case 'hsts':
-                return $this->fix('security', 'تفعيل HSTS', 'بيجبر المتصفح يستخدم HTTPS دايمًا مع موقعك، حتى لو المستخدم كتب http:// بالغلط. أضف السطر ده على مستوى السيرفر:', 'config',
-                    "# Apache (.htaccess)\nHeader always set Strict-Transport-Security \"max-age=31536000; includeSubDomains\"\n\n# Nginx\nadd_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;", '.htaccess أو ملف إعدادات Nginx');
+                return $this->fix(
+                    'security',
+                    'تفعيل HSTS',
+                    'بيجبر المتصفح يستخدم HTTPS دايمًا مع موقعك، حتى لو المستخدم كتب http:// بالغلط. أضف السطر ده على مستوى السيرفر:',
+                    'config',
+                    "# Apache (.htaccess)\nHeader always set Strict-Transport-Security \"max-age=31536000; includeSubDomains\"\n\n# Nginx\nadd_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;",
+                    '.htaccess أو ملف إعدادات Nginx'
+                );
 
             case 'mixed_content':
-                return $this->fix('security', 'إصلاح المحتوى المختلط', 'استبدل أي رابط بيبدأ بـ http:// بروابط https://، أو استخدم روابط نسبية (بدون تحديد البروتوكول):', 'code_snippet',
-                    "<!-- بدل ده -->\n<img src=\"http://example.com/image.jpg\">\n\n<!-- استخدم ده -->\n<img src=\"https://example.com/image.jpg\">\n<!-- أو الأفضل: رابط نسبي -->\n<img src=\"//example.com/image.jpg\">", 'كل ملفات HTML/CSS اللي فيها روابط http://');
+                return $this->fix(
+                    'security',
+                    'إصلاح المحتوى المختلط',
+                    'استبدل أي رابط بيبدأ بـ http:// بروابط https://، أو استخدم روابط نسبية (بدون تحديد البروتوكول):',
+                    'code_snippet',
+                    "<!-- بدل ده -->\n<img src=\"http://example.com/image.jpg\">\n\n<!-- استخدم ده -->\n<img src=\"https://example.com/image.jpg\">\n<!-- أو الأفضل: رابط نسبي -->\n<img src=\"//example.com/image.jpg\">",
+                    'كل ملفات HTML/CSS اللي فيها روابط http://'
+                );
 
             case 'image_alt':
-                return $this->fix('accessibility', 'إضافة Alt Text للصور', 'نص بديل قصير وواضح يوصف الصورة - مهم لمحركات البحث ولقارئات الشاشة لذوي الإعاقة البصرية.', 'code_snippet',
-                    "<img src=\"tour-photo.jpg\" alt=\"وصف مختصر ودقيق للصورة، مثلاً: رحلة سفاري في الصحراء الغربية\">", 'كل وسوم <img> في الصفحة');
+                return $this->fix(
+                    'accessibility',
+                    'إضافة Alt Text للصور',
+                    'نص بديل قصير وواضح يوصف الصورة - مهم لمحركات البحث ولقارئات الشاشة لذوي الإعاقة البصرية.',
+                    'code_snippet',
+                    "<img src=\"tour-photo.jpg\" alt=\"وصف مختصر ودقيق للصورة، مثلاً: رحلة سفاري في الصحراء الغربية\">",
+                    'كل وسوم <img> في الصفحة'
+                );
 
             case 'faq_schema':
-                return $this->fix('aeo', 'إضافة FAQ Schema', 'لو عندك قسم أسئلة شائعة، البيانات المنظّمة دي بتزود فرصة ظهورك كإجابة مباشرة (Featured Snippet) في جوجل وفي المساعدات الصوتية.', 'code_snippet',
-                    "<script type=\"application/ld+json\">\n{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"FAQPage\",\n  \"mainEntity\": [\n    {\n      \"@type\": \"Question\",\n      \"name\": \"سؤال شائع هنا؟\",\n      \"acceptedAnswer\": {\n        \"@type\": \"Answer\",\n        \"text\": \"إجابة مختصرة وواضحة على السؤال.\"\n      }\n    }\n  ]\n}\n</script>", 'صفحة الأسئلة الشائعة');
+                return $this->fix(
+                    'aeo',
+                    'إضافة FAQ Schema',
+                    'لو عندك قسم أسئلة شائعة، البيانات المنظّمة دي بتزود فرصة ظهورك كإجابة مباشرة (Featured Snippet) في جوجل وفي المساعدات الصوتية.',
+                    'code_snippet',
+                    "<script type=\"application/ld+json\">\n{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"FAQPage\",\n  \"mainEntity\": [\n    {\n      \"@type\": \"Question\",\n      \"name\": \"سؤال شائع هنا؟\",\n      \"acceptedAnswer\": {\n        \"@type\": \"Answer\",\n        \"text\": \"إجابة مختصرة وواضحة على السؤال.\"\n      }\n    }\n  ]\n}\n</script>",
+                    'صفحة الأسئلة الشائعة'
+                );
 
             case 'question_headings':
-                return $this->fix('aeo', 'إعادة صياغة بعض العناوين كأسئلة', 'صياغة أقسام رئيسية كأسئلة (زي "إزاي تحجز الرحلة؟") بتخلّي المحتوى مرشّح أقوى للظهور كإجابة مباشرة في نتائج البحث والمساعدات الصوتية.', 'content',
-                    "أمثلة:\n<h2>إزاي تحجز رحلتك معانا؟</h2>\n<h2>إيه المستندات المطلوبة للسفر؟</h2>\n<h2>هل في إلغاء مجاني للحجز؟</h2>\n\nابدأ كل قسم بإجابة مباشرة ومختصرة في أول جملتين، بعدين وسّع في التفاصيل.", 'عناوين H2/H3 في الصفحة');
+                return $this->fix(
+                    'aeo',
+                    'إعادة صياغة بعض العناوين كأسئلة',
+                    'صياغة أقسام رئيسية كأسئلة (زي "إزاي تحجز الرحلة؟") بتخلّي المحتوى مرشّح أقوى للظهور كإجابة مباشرة في نتائج البحث والمساعدات الصوتية.',
+                    'content',
+                    "أمثلة:\n<h2>إزاي تحجز رحلتك معانا؟</h2>\n<h2>إيه المستندات المطلوبة للسفر؟</h2>\n<h2>هل في إلغاء مجاني للحجز؟</h2>\n\nابدأ كل قسم بإجابة مباشرة ومختصرة في أول جملتين، بعدين وسّع في التفاصيل.",
+                    'عناوين H2/H3 في الصفحة'
+                );
 
             case 'llms_txt':
-                return $this->fix('geo', 'إنشاء ملف llms.txt', 'معيار ناشئ بيوجّه نماذج الذكاء الاصطناعي التوليدي (ChatGPT, Claude, Perplexity..) لأهم صفحات موقعك وملخص واضح عن نشاطك، بشكل يسهّل عليها فهم واستشهاد الموقع.', 'content',
-                    "# " . ($context['title'] ?: 'اسم الموقع') . "\n\n> وصف مختصر وواضح لنشاط الشركة (سطر أو اتنين).\n\n## أهم الصفحات\n- [الصفحة الرئيسية](https://{$host}/): وصف مختصر\n- [عن الشركة](https://{$host}/about): وصف مختصر\n- [الخدمات](https://{$host}/services): وصف مختصر\n- [تواصل معنا](https://{$host}/contact): وصف مختصر", '/llms.txt (في جذر الدومين)');
+                return $this->fix(
+                    'geo',
+                    'إنشاء ملف llms.txt',
+                    'معيار ناشئ بيوجّه نماذج الذكاء الاصطناعي التوليدي (ChatGPT, Claude, Perplexity..) لأهم صفحات موقعك وملخص واضح عن نشاطك، بشكل يسهّل عليها فهم واستشهاد الموقع.',
+                    'content',
+                    "# " . ($context['title'] ?: 'اسم الموقع') . "\n\n> وصف مختصر وواضح لنشاط الشركة (سطر أو اتنين).\n\n## أهم الصفحات\n- [الصفحة الرئيسية](https://{$host}/): وصف مختصر\n- [عن الشركة](https://{$host}/about): وصف مختصر\n- [الخدمات](https://{$host}/services): وصف مختصر\n- [تواصل معنا](https://{$host}/contact): وصف مختصر",
+                    '/llms.txt (في جذر الدومين)'
+                );
 
             case 'ai_crawler_access':
-                if (empty($context['blocked_ai_bots'])) return null;
-                $allowLines = implode("\n\n", array_map(fn($b) => "User-agent: {$b}\nAllow: /", $context['blocked_ai_bots']));
-                return $this->fix('geo', 'السماح لروبوتات الذكاء الاصطناعي بالزحف', 'موقعك حاليًا بيمنع الروبوتات دي من قراءة محتواك، يعني مش هيظهر في إجابات ChatGPT أو Claude أو Perplexity. لو عايز تظهر فيهم، عدّل robots.txt:', 'config',
-                    $allowLines, '/robots.txt (في جذر الدومين)');
+                if (empty($context['blocked_ai_bots'])) {
+                    return null;
+                }
+                $allowLines = implode("\n\n", array_map(fn ($b) => "User-agent: {$b}\nAllow: /", $context['blocked_ai_bots']));
+                return $this->fix(
+                    'geo',
+                    'السماح لروبوتات الذكاء الاصطناعي بالزحف',
+                    'موقعك حاليًا بيمنع الروبوتات دي من قراءة محتواك، يعني مش هيظهر في إجابات ChatGPT أو Claude أو Perplexity. لو عايز تظهر فيهم، عدّل robots.txt:',
+                    'config',
+                    $allowLines,
+                    '/robots.txt (في جذر الدومين)'
+                );
 
             case 'entity_schema':
-                return $this->fix('geo', 'إضافة بيانات الكيان (Organization Schema)', 'أهم إشارة بتساعد نماذج الذكاء الاصطناعي تتعرف على هوية موقعك بدقة قبل ما تستشهد بيه في إجاباتها.', 'code_snippet',
-                    "<script type=\"application/ld+json\">\n{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"Organization\",\n  \"name\": \"اسم الشركة\",\n  \"url\": \"https://{$host}\",\n  \"logo\": \"https://{$host}/logo.png\",\n  \"description\": \"وصف مختصر لنشاط الشركة\",\n  \"contactPoint\": {\n    \"@type\": \"ContactPoint\",\n    \"telephone\": \"+20-XXX-XXX-XXXX\",\n    \"contactType\": \"customer service\"\n  }\n}\n</script>", '<head> أو نهاية <body> في الصفحة الرئيسية');
+                return $this->fix(
+                    'geo',
+                    'إضافة بيانات الكيان (Organization Schema)',
+                    'أهم إشارة بتساعد نماذج الذكاء الاصطناعي تتعرف على هوية موقعك بدقة قبل ما تستشهد بيه في إجاباتها.',
+                    'code_snippet',
+                    "<script type=\"application/ld+json\">\n{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"Organization\",\n  \"name\": \"اسم الشركة\",\n  \"url\": \"https://{$host}\",\n  \"logo\": \"https://{$host}/logo.png\",\n  \"description\": \"وصف مختصر لنشاط الشركة\",\n  \"contactPoint\": {\n    \"@type\": \"ContactPoint\",\n    \"telephone\": \"+20-XXX-XXX-XXXX\",\n    \"contactType\": \"customer service\"\n  }\n}\n</script>",
+                    '<head> أو نهاية <body> في الصفحة الرئيسية'
+                );
 
             case 'author_signal':
-                return $this->fix('geo', 'إضافة إشارات مصداقية (Author/E-E-A-T)', 'وضّح مين وراء المحتوى - ده بقى عامل مهم في اختيار جوجل ونماذج الذكاء الاصطناعي لمصادرها الموثوقة.', 'code_snippet',
-                    "<meta name=\"author\" content=\"اسم الكاتب أو الفريق\">\n\n<!-- أو schema كامل -->\n<script type=\"application/ld+json\">\n{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"Person\",\n  \"name\": \"اسم الكاتب\",\n  \"jobTitle\": \"المسمى الوظيفي\"\n}\n</script>", '<head> في صفحات المحتوى/المقالات');
+                return $this->fix(
+                    'geo',
+                    'إضافة إشارات مصداقية (Author/E-E-A-T)',
+                    'وضّح مين وراء المحتوى - ده بقى عامل مهم في اختيار جوجل ونماذج الذكاء الاصطناعي لمصادرها الموثوقة.',
+                    'code_snippet',
+                    "<meta name=\"author\" content=\"اسم الكاتب أو الفريق\">\n\n<!-- أو schema كامل -->\n<script type=\"application/ld+json\">\n{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"Person\",\n  \"name\": \"اسم الكاتب\",\n  \"jobTitle\": \"المسمى الوظيفي\"\n}\n</script>",
+                    '<head> في صفحات المحتوى/المقالات'
+                );
 
             case 'freshness_signal':
-                return $this->fix('geo', 'إضافة تاريخ آخر تحديث', 'محتوى مؤرَّخ بيتفضّل عند جوجل ونماذج الذكاء الاصطناعي، خصوصًا للمواضيع اللي بتتغير زي الأسعار والعروض.', 'code_snippet',
-                    "<meta property=\"article:modified_time\" content=\"" . date('c') . "\">\n\n<!-- أو ظاهر للزائر -->\n<time datetime=\"" . date('Y-m-d') . "\">آخر تحديث: " . date('Y-m-d') . "</time>", '<head> + مكان ظاهر في الصفحة');
+                return $this->fix(
+                    'geo',
+                    'إضافة تاريخ آخر تحديث',
+                    'محتوى مؤرَّخ بيتفضّل عند جوجل ونماذج الذكاء الاصطناعي، خصوصًا للمواضيع اللي بتتغير زي الأسعار والعروض.',
+                    'code_snippet',
+                    "<meta property=\"article:modified_time\" content=\"" . date('c') . "\">\n\n<!-- أو ظاهر للزائر -->\n<time datetime=\"" . date('Y-m-d') . "\">آخر تحديث: " . date('Y-m-d') . "</time>",
+                    '<head> + مكان ظاهر في الصفحة'
+                );
 
             case 'semantic_html':
-                return $this->fix('geo', 'استخدام وسوم HTML5 الدلالية', 'بنية واضحة بـ main/article/section/nav بتسهّل جدًا على أدوات الذكاء الاصطناعي تحليل المحتوى واستخلاص الأجزاء المهمة منه بدقة.', 'code_snippet',
-                    "<body>\n  <header>...</header>\n  <nav>...</nav>\n  <main>\n    <article>\n      <section>المحتوى الرئيسي هنا</section>\n    </article>\n  </main>\n  <footer>...</footer>\n</body>", 'هيكل <body> العام للصفحة');
+                return $this->fix(
+                    'geo',
+                    'استخدام وسوم HTML5 الدلالية',
+                    'بنية واضحة بـ main/article/section/nav بتسهّل جدًا على أدوات الذكاء الاصطناعي تحليل المحتوى واستخلاص الأجزاء المهمة منه بدقة.',
+                    'code_snippet',
+                    "<body>\n  <header>...</header>\n  <nav>...</nav>\n  <main>\n    <article>\n      <section>المحتوى الرئيسي هنا</section>\n    </article>\n  </main>\n  <footer>...</footer>\n</body>",
+                    'هيكل <body> العام للصفحة'
+                );
 
             case 'js_render_risk':
-                return $this->fix('geo', 'ضمان توفر محتوى نصي مباشر في HTML', 'لو موقعك SPA (React/Vue/Angular) والمحتوى بيتحمّل بجافاسكريبت بس، فعّل Server-Side Rendering أو Static Generation عشان المحتوى يبقى موجود في الـ HTML الخام من أول تحميل - ده بيفرق جدًا مع روبوتات AI اللي غالبًا مش بتنفذ JS.', 'config',
-                    "// Next.js مثال: استخدم getServerSideProps أو getStaticProps\n// بدل الاعتماد على useEffect لجلب المحتوى بعد التحميل\n\nexport async function getStaticProps() {\n  const data = await fetchContent();\n  return { props: { data } };\n}", 'إعدادات الفريمورك (Next.js/Nuxt/إلخ)');
+                return $this->fix(
+                    'geo',
+                    'ضمان توفر محتوى نصي مباشر في HTML',
+                    'لو موقعك SPA (React/Vue/Angular) والمحتوى بيتحمّل بجافاسكريبت بس، فعّل Server-Side Rendering أو Static Generation عشان المحتوى يبقى موجود في الـ HTML الخام من أول تحميل - ده بيفرق جدًا مع روبوتات AI اللي غالبًا مش بتنفذ JS.',
+                    'config',
+                    "// Next.js مثال: استخدم getServerSideProps أو getStaticProps\n// بدل الاعتماد على useEffect لجلب المحتوى بعد التحميل\n\nexport async function getStaticProps() {\n  const data = await fetchContent();\n  return { props: { data } };\n}",
+                    'إعدادات الفريمورك (Next.js/Nuxt/إلخ)'
+                );
 
             case 'html_size':
-                return $this->fix('speed', 'تقليل حجم HTML', 'ضغط الكود (minify) وإزالة الكومنتات والمسافات الزيادة، ونقل الأنماط المتكررة لملفات CSS خارجية بدل inline styles.', 'config',
-                    "# فعّل الضغط على مستوى السيرفر (Gzip/Brotli)\n# Apache (.htaccess)\n<IfModule mod_deflate.c>\n  AddOutputFilterByType DEFLATE text/html text/css application/javascript\n</IfModule>", '.htaccess أو إعدادات السيرفر');
+                return $this->fix(
+                    'speed',
+                    'تقليل حجم HTML',
+                    'ضغط الكود (minify) وإزالة الكومنتات والمسافات الزيادة، ونقل الأنماط المتكررة لملفات CSS خارجية بدل inline styles.',
+                    'config',
+                    "# فعّل الضغط على مستوى السيرفر (Gzip/Brotli)\n# Apache (.htaccess)\n<IfModule mod_deflate.c>\n  AddOutputFilterByType DEFLATE text/html text/css application/javascript\n</IfModule>",
+                    '.htaccess أو إعدادات السيرفر'
+                );
 
             case 'external_assets':
-                return $this->fix('speed', 'تقليل عدد ملفات JS/CSS الخارجية', 'ادمج ملفات CSS/JS المتشابهة في ملف واحد (bundling)، واستخدم defer/async للسكريبتات اللي مش لازمة فورًا.', 'code_snippet',
-                    "<!-- بدل تحميل عادي -->\n<script src=\"script.js\"></script>\n\n<!-- استخدم defer عشان ميعطلش عرض الصفحة -->\n<script src=\"script.js\" defer></script>", '<head>/<body> - وسوم <script>');
+                return $this->fix(
+                    'speed',
+                    'تقليل عدد ملفات JS/CSS الخارجية',
+                    'ادمج ملفات CSS/JS المتشابهة في ملف واحد (bundling)، واستخدم defer/async للسكريبتات اللي مش لازمة فورًا.',
+                    'code_snippet',
+                    "<!-- بدل تحميل عادي -->\n<script src=\"script.js\"></script>\n\n<!-- استخدم defer عشان ميعطلش عرض الصفحة -->\n<script src=\"script.js\" defer></script>",
+                    '<head>/<body> - وسوم <script>'
+                );
 
             default:
                 return null;
         }
     }
 
-    private function fix(string $category, string $title, string $description, string $fixType, ?string $codeSnippet, ?string $targetFile): array {
+    private function fix(string $category, string $title, string $description, string $fixType, ?string $codeSnippet, ?string $targetFile): array
+    {
         return [
             'category' => $category,
             'title' => $title,

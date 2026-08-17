@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Executive Extras Controller
  * جزء من ai-ceo-assistant (ملاحظات سياق + مخاطر + فرص نمو) + ترقية
@@ -7,11 +8,14 @@
  * تجنبًا لتكرار executive_reports/recommendations الموجودين أصلًا.
  * @version 1.0.0 - BATCH6
  */
-class ExecutiveExtrasController extends Controller {
-
+class ExecutiveExtrasController extends Controller
+{
     /** GET /api/executive/extras */
-    public function getExtras(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getExtras(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $userId = (int) $this->user['id'];
 
         try {
@@ -32,10 +36,15 @@ class ExecutiveExtrasController extends Controller {
     }
 
     /** POST /api/executive/notes */
-    public function addNote(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function addNote(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $note = trim((string) $this->get('note'));
-        if ($note === '') return $this->error('الملاحظة فاضية', 422);
+        if ($note === '') {
+            return $this->error('الملاحظة فاضية', 422);
+        }
 
         try {
             $this->db->exec("INSERT INTO ceo_business_context_notes (user_id, note) VALUES (?, ?)", [$this->user['id'], $note]);
@@ -47,8 +56,11 @@ class ExecutiveExtrasController extends Controller {
     }
 
     /** POST /api/executive/tasks/{id}/complete */
-    public function completeTask(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function completeTask(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $id = (int) ($params['id'] ?? 0);
 
         try {
@@ -61,8 +73,11 @@ class ExecutiveExtrasController extends Controller {
     }
 
     /** POST /api/executive/alerts/{id}/read */
-    public function markAlertRead(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function markAlertRead(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $id = (int) ($params['id'] ?? 0);
 
         try {
@@ -81,13 +96,20 @@ class ExecutiveExtrasController extends Controller {
      * حالة Outreach Pipeline، تكلفة AI، الملاحظات/المخاطر/الفرص اليدوية) -
      * مش إجابات عامة. راجع CeoAdvisorService::gatherAccountSnapshot() لمصدر كل رقم.
      */
-    public function askCeoAdvisor(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function askCeoAdvisor(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $question = trim((string) $this->get('question', ''));
-        if ($question === '') return $this->error('اكتب سؤالك الأول', 422);
+        if ($question === '') {
+            return $this->error('اكتب سؤالك الأول', 422);
+        }
 
-        if (!class_exists('CeoAdvisorService')) return $this->error('الخدمة غير متاحة', 500);
+        if (!class_exists('CeoAdvisorService')) {
+            return $this->error('الخدمة غير متاحة', 500);
+        }
 
         try {
             $service = new CeoAdvisorService();

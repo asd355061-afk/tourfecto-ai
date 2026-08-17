@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Partner Key Controller (Admin)
  * إدارة مفاتيح API الخاصة بالشركاء الخارجيين من لوحة الأدمن: إنشاء،
@@ -7,17 +8,18 @@
  * @version 1.0.0
  */
 
-class PartnerKeyController extends Controller {
-
+class PartnerKeyController extends Controller
+{
     /**
      * قائمة كل مفاتيح الشركاء (بدون كشف أي جزء من المفتاح الفعلي)
      * GET /api/admin/partner-keys
      */
-    public function list(array $params = []): array {
+    public function list(array $params = []): array
+    {
         try {
             $keys = (new PartnerApiKey())->all(['created_at' => 'DESC']);
             return $this->success([
-                'keys' => array_map(fn(PartnerApiKey $k) => $k->toPublicArray(), $keys),
+                'keys' => array_map(fn (PartnerApiKey $k) => $k->toPublicArray(), $keys),
             ]);
         } catch (Throwable $e) {
             if (class_exists('Logger')) {
@@ -34,7 +36,8 @@ class PartnerKeyController extends Controller {
      * POST /api/admin/partner-keys
      * body: { partner_name, contact_email?, scopes: string[], rate_limit_per_minute? }
      */
-    public function create(array $params = []): array {
+    public function create(array $params = []): array
+    {
         $partnerName = trim((string) $this->get('partner_name', ''));
         $scopes = $this->get('scopes', []);
         $contactEmail = $this->get('contact_email');
@@ -69,7 +72,8 @@ class PartnerKeyController extends Controller {
      * إلغاء مفتاح فورًا - أي طلب جاي بيه بعد كده هيترفض بـ 401
      * DELETE /api/admin/partner-keys/{id}
      */
-    public function revoke(array $params): array {
+    public function revoke(array $params): array
+    {
         $id = (int) ($params['id'] ?? 0);
         if ($id <= 0) {
             return $this->error('Invalid id', 400);

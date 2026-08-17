@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - SEO Strategy Service
  * أول Agent في الجلسة دي بيربط كل الـAgents التانية في خطة تنفيذ واحدة:
@@ -8,18 +9,21 @@
  * على البيانات دي فعليًا، مش خطة عامة قياسية.
  * @version 1.0.0
  */
-class SeoStrategyService {
+class SeoStrategyService
+{
     /** @var mixed أي كائن عنده generateContent($prompt,$options):array - عادة AIOrchestrator */
     private $ai;
 
-    public function __construct($ai = null) {
+    public function __construct($ai = null)
+    {
         $this->ai = $ai ?? (class_exists('AIOrchestrator') ? new AIOrchestrator() : new GeminiClient());
     }
 
     /**
      * تجميع بيانات حقيقية عن موقع معيّن من كل الـAgents ذات الصلة.
      */
-    public function gatherWebsiteContext(Database $db, int $userId, int $websiteId): array {
+    public function gatherWebsiteContext(Database $db, int $userId, int $websiteId): array
+    {
         $context = [
             'seo_score' => null,
             'top_findings' => [],
@@ -41,28 +45,34 @@ class SeoStrategyService {
                 );
                 $context['top_findings'] = $findings;
             }
-        } catch (Exception $e) {}
+        } catch (Exception $e) {
+        }
 
         try {
             $context['competitor_comparisons'] = $db->query(
                 "SELECT competitor_name, competitor_domain, my_score, competitor_score FROM competitors WHERE website_id = ? AND user_id = ? AND last_analyzed_at IS NOT NULL ORDER BY last_analyzed_at DESC LIMIT 3",
                 [$websiteId, $userId]
             );
-        } catch (Exception $e) {}
+        } catch (Exception $e) {
+        }
 
         try {
             $context['keyword_opportunities'] = $db->query(
                 "SELECT keyword, priority, opportunity_score, target_page FROM tracked_keywords WHERE website_id = ? AND user_id = ? AND priority = 'high' ORDER BY opportunity_score DESC LIMIT 8",
                 [$websiteId, $userId]
             );
-        } catch (Exception $e) {}
+        } catch (Exception $e) {
+        }
 
         try {
             $rows = $db->query("SELECT status, COUNT(*) AS c FROM outreach_prospects WHERE website_id = ? AND user_id = ? GROUP BY status", [$websiteId, $userId]);
             foreach ($rows as $r) {
-                if (isset($context['outreach_summary'][$r['status']])) $context['outreach_summary'][$r['status']] = (int) $r['c'];
+                if (isset($context['outreach_summary'][$r['status']])) {
+                    $context['outreach_summary'][$r['status']] = (int) $r['c'];
+                }
             }
-        } catch (Exception $e) {}
+        } catch (Exception $e) {
+        }
 
         return $context;
     }
@@ -70,7 +80,8 @@ class SeoStrategyService {
     /**
      * @return array ['success'=>bool, 'summary'=>?string, 'tasks'=>?array, 'error'=>?string]
      */
-    public function generatePlan(Database $db, int $userId, int $websiteId): array {
+    public function generatePlan(Database $db, int $userId, int $websiteId): array
+    {
         $context = $this->gatherWebsiteContext($db, $userId, $websiteId);
 
         if ($context['seo_score'] === null) {
@@ -97,7 +108,9 @@ class SeoStrategyService {
 
         $tasks = [];
         foreach ($parsed['tasks'] as $t) {
-            if (empty($t['title']) || empty($t['phase']) || !in_array($t['phase'], ['30_days', '60_days', '90_days'], true)) continue;
+            if (empty($t['title']) || empty($t['phase']) || !in_array($t['phase'], ['30_days', '60_days', '90_days'], true)) {
+                continue;
+            }
             $tasks[] = [
                 'phase' => $t['phase'],
                 'week_label' => isset($t['week_label']) ? (string) $t['week_label'] : null,
@@ -122,18 +135,19 @@ class SeoStrategyService {
         ];
     }
 
-    private function buildPrompt(array $context): string {
+    private function buildPrompt(array $context): string
+    {
         $findingsLines = empty($context['top_findings'])
             ? '- لا توجد مشاكل مسجّلة (SEO Score مرتفع بالفعل).'
-            : implode("\n", array_map(fn($f) => "- [{$f['severity']}] {$f['title']}: {$f['message']}", $context['top_findings']));
+            : implode("\n", array_map(fn ($f) => "- [{$f['severity']}] {$f['title']}: {$f['message']}", $context['top_findings']));
 
         $compLines = empty($context['competitor_comparisons'])
             ? '- لا يوجد تحليل منافسين حتى الآن.'
-            : implode("\n", array_map(fn($c) => "- {$c['competitor_name']}: أنا {$c['my_score']}/100 مقابل {$c['competitor_score']}/100", $context['competitor_comparisons']));
+            : implode("\n", array_map(fn ($c) => "- {$c['competitor_name']}: أنا {$c['my_score']}/100 مقابل {$c['competitor_score']}/100", $context['competitor_comparisons']));
 
         $kwLines = empty($context['keyword_opportunities'])
             ? '- لا توجد كلمات مفتاحية عالية الأولوية مسجّلة.'
-            : implode("\n", array_map(fn($k) => "- \"{$k['keyword']}\" (فرصة: {$k['opportunity_score']}/100, الصفحة المستهدفة: " . ($k['target_page'] ?: 'غير محددة') . ")", $context['keyword_opportunities']));
+            : implode("\n", array_map(fn ($k) => "- \"{$k['keyword']}\" (فرصة: {$k['opportunity_score']}/100, الصفحة المستهدفة: " . ($k['target_page'] ?: 'غير محددة') . ")", $context['keyword_opportunities']));
 
         $outreach = $context['outreach_summary'];
 
@@ -179,7 +193,8 @@ class SeoStrategyService {
 PROMPT;
     }
 
-    private function extractJson(string $text): ?array {
+    private function extractJson(string $text): ?array
+    {
         if (preg_match('/\{[\s\S]*\}/', $text, $m)) {
             $data = json_decode($m[0], true);
             return json_last_error() === JSON_ERROR_NONE ? $data : null;

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Usage Stats Service
  * بيجاوب على السؤال الأساسي المطلوب في السبيك: "أعرف بالظبط العميل كلفني كام".
@@ -11,12 +12,13 @@
  * @copyright 2026 Tourfecto
  */
 
-class AIUsageStatsService {
-
+class AIUsageStatsService
+{
     /** @var Database */
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
@@ -29,7 +31,8 @@ class AIUsageStatsService {
      * @param string|null $to تاريخ النهاية (Y-m-d)، افتراضيًا النهاردة
      * @return array
      */
-    public function costByProvider(?string $from = null, ?string $to = null): array {
+    public function costByProvider(?string $from = null, ?string $to = null): array
+    {
         [$from, $to] = $this->normalizeRange($from, $to);
         $sql = "SELECT api_type AS provider,
                        COUNT(*) AS requests,
@@ -48,7 +51,8 @@ class AIUsageStatsService {
      * نفس الفكرة بس مقسّمة حسب الـModel المحدد (يحتاج عمود model من Migration
      * Phase 4 - الصفوف القديمة قبل الـMigration هتظهر بـmodel = NULL).
      */
-    public function costByModel(?string $from = null, ?string $to = null): array {
+    public function costByModel(?string $from = null, ?string $to = null): array
+    {
         [$from, $to] = $this->normalizeRange($from, $to);
         $sql = "SELECT api_type AS provider,
                        COALESCE(model, endpoint, 'unknown') AS model,
@@ -67,7 +71,8 @@ class AIUsageStatsService {
      * التكلفة حسب الـFeature (seo_analysis, chat, review_reply...) - يحتاج
      * عمود feature من Migration Phase 4.
      */
-    public function costByFeature(?string $from = null, ?string $to = null): array {
+    public function costByFeature(?string $from = null, ?string $to = null): array
+    {
         [$from, $to] = $this->normalizeRange($from, $to);
         $sql = "SELECT COALESCE(feature, 'unclassified') AS feature,
                        COUNT(*) AS requests,
@@ -86,7 +91,8 @@ class AIUsageStatsService {
      * الصفوف اللي user_id فيها NULL (نداءات مستوى-نظام قديمة قبل ما نبدأ
      * نسجّل user_id) بتتجمع تحت "system/unattributed" بدل ما تتجاهل بصمت.
      */
-    public function mostExpensiveCustomers(?string $from = null, ?string $to = null, int $limit = 20): array {
+    public function mostExpensiveCustomers(?string $from = null, ?string $to = null, int $limit = 20): array
+    {
         [$from, $to] = $this->normalizeRange($from, $to);
         $sql = "SELECT COALESCE(l.user_id, 0) AS user_id,
                        u.email AS user_email,
@@ -107,7 +113,8 @@ class AIUsageStatsService {
     /**
      * طلبات + توكنات يوميًا (للرسم البياني - Requests per Day / Tokens per Day)
      */
-    public function dailyUsage(?string $from = null, ?string $to = null): array {
+    public function dailyUsage(?string $from = null, ?string $to = null): array
+    {
         [$from, $to] = $this->normalizeRange($from, $to);
         $sql = "SELECT DATE(created_at) AS day,
                        COUNT(*) AS requests,
@@ -125,7 +132,8 @@ class AIUsageStatsService {
     /**
      * إجمالي عام (ملخص أعلى الصفحة في لوحة الأدمن)
      */
-    public function summary(?string $from = null, ?string $to = null): array {
+    public function summary(?string $from = null, ?string $to = null): array
+    {
         [$from, $to] = $this->normalizeRange($from, $to);
         $sql = "SELECT COUNT(*) AS total_requests,
                        SUM(tokens_used) AS total_tokens,
@@ -142,11 +150,16 @@ class AIUsageStatsService {
         ];
     }
 
-    private function normalizeRange(?string $from, ?string $to): array {
+    private function normalizeRange(?string $from, ?string $to): array
+    {
         $to = $to ?: date('Y-m-d 23:59:59');
         $from = $from ?: date('Y-m-d 00:00:00', strtotime('-30 days'));
-        if (strlen($from) === 10) { $from .= ' 00:00:00'; }
-        if (strlen($to) === 10) { $to .= ' 23:59:59'; }
+        if (strlen($from) === 10) {
+            $from .= ' 00:00:00';
+        }
+        if (strlen($to) === 10) {
+            $to .= ' 23:59:59';
+        }
         return [$from, $to];
     }
 }

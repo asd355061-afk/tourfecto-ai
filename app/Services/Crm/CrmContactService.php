@@ -1,10 +1,13 @@
 <?php
+
 /**
  * Tourfecto - CRM Contact Service
  * @version 1.0.0
  */
-class CrmContactService {
-    public function create(int $userId, array $data): CrmContact {
+class CrmContactService
+{
+    public function create(int $userId, array $data): CrmContact
+    {
         if (empty($data['name'])) {
             throw new Exception('اسم جهة الاتصال مطلوب');
         }
@@ -30,7 +33,8 @@ class CrmContactService {
         return $contact;
     }
 
-    public function update(int $userId, int $contactId, array $data): CrmContact {
+    public function update(int $userId, int $contactId, array $data): CrmContact
+    {
         $contact = $this->findOwned($userId, $contactId);
         $before = $contact->toArray();
 
@@ -52,7 +56,8 @@ class CrmContactService {
         return $contact;
     }
 
-    public function findOwned(int $userId, int $contactId): CrmContact {
+    public function findOwned(int $userId, int $contactId): CrmContact
+    {
         $contact = (new CrmContact())->find($contactId);
         if (!$contact || (int) $contact->getAttribute('user_id') !== $userId) {
             throw new Exception('جهة الاتصال غير موجودة', 404);
@@ -60,7 +65,8 @@ class CrmContactService {
         return $contact;
     }
 
-    public function listForUser(int $userId, int $limit = 200): array {
+    public function listForUser(int $userId, int $limit = 200): array
+    {
         return (new CrmContact())->allForUser($userId, $limit);
     }
 
@@ -74,7 +80,8 @@ class CrmContactService {
      * لازم)، search (على name/email/phone)، created_from/created_to
      * (YYYY-MM-DD)، last_activity_before (أيام - لقطاع "Inactive").
      */
-    public function search(int $userId, array $filters = [], int $page = 1, int $perPage = 25): array {
+    public function search(int $userId, array $filters = [], int $page = 1, int $perPage = 25): array
+    {
         $page = max(1, $page);
         $perPage = max(1, min(100, $perPage));
         $offset = ($page - 1) * $perPage;
@@ -82,13 +89,34 @@ class CrmContactService {
         $where = ['user_id = ?'];
         $params = [$userId];
 
-        if (!empty($filters['status'])) { $where[] = 'status = ?'; $params[] = $filters['status']; }
-        if (!empty($filters['source'])) { $where[] = 'source = ?'; $params[] = $filters['source']; }
-        if (!empty($filters['country'])) { $where[] = 'country = ?'; $params[] = $filters['country']; }
-        if (!empty($filters['company_id'])) { $where[] = 'company_id = ?'; $params[] = (int) $filters['company_id']; }
-        if (!empty($filters['tag'])) { $where[] = 'tags LIKE ?'; $params[] = '%"' . $filters['tag'] . '"%'; }
-        if (!empty($filters['created_from'])) { $where[] = 'created_at >= ?'; $params[] = $filters['created_from'] . ' 00:00:00'; }
-        if (!empty($filters['created_to'])) { $where[] = 'created_at <= ?'; $params[] = $filters['created_to'] . ' 23:59:59'; }
+        if (!empty($filters['status'])) {
+            $where[] = 'status = ?';
+            $params[] = $filters['status'];
+        }
+        if (!empty($filters['source'])) {
+            $where[] = 'source = ?';
+            $params[] = $filters['source'];
+        }
+        if (!empty($filters['country'])) {
+            $where[] = 'country = ?';
+            $params[] = $filters['country'];
+        }
+        if (!empty($filters['company_id'])) {
+            $where[] = 'company_id = ?';
+            $params[] = (int) $filters['company_id'];
+        }
+        if (!empty($filters['tag'])) {
+            $where[] = 'tags LIKE ?';
+            $params[] = '%"' . $filters['tag'] . '"%';
+        }
+        if (!empty($filters['created_from'])) {
+            $where[] = 'created_at >= ?';
+            $params[] = $filters['created_from'] . ' 00:00:00';
+        }
+        if (!empty($filters['created_to'])) {
+            $where[] = 'created_at <= ?';
+            $params[] = $filters['created_to'] . ' 23:59:59';
+        }
         if (!empty($filters['last_activity_before_days'])) {
             $where[] = 'id NOT IN (
                 SELECT DISTINCT subject_id FROM activity_logs
@@ -140,7 +168,8 @@ class CrmContactService {
     }
 
     /** بند 21: اكتشاف تكرار */
-    public function duplicateCandidates(int $userId, ?string $email, ?string $phone, ?int $excludeId = null): array {
+    public function duplicateCandidates(int $userId, ?string $email, ?string $phone, ?int $excludeId = null): array
+    {
         return (new CrmContact())->findDuplicateCandidates($userId, $email, $phone, $excludeId);
     }
 
@@ -148,7 +177,8 @@ class CrmContactService {
      * بند 22: دمج جهتَي اتصال - ينقل كل الـLeads/Deals/Tasks/Notes/Meetings
      * من $duplicateId إلى $primaryId قبل حذف السجل المكرر، بدون فقد بيانات.
      */
-    public function merge(int $userId, int $primaryId, int $duplicateId): CrmContact {
+    public function merge(int $userId, int $primaryId, int $duplicateId): CrmContact
+    {
         if ($primaryId === $duplicateId) {
             throw new Exception('لا يمكن دمج جهة الاتصال في نفسها');
         }

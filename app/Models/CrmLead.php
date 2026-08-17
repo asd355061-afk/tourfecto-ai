@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Lead Model
  * @version 1.1.0
@@ -7,7 +8,8 @@
  * من AI Lead Scoring في مرحلة تالية (خارج نطاق هذه المرحلة الحالية -
  * راجع CHANGELOG). لا تُملأ تلقائيًا بأي قيمة وهمية هنا.
  */
-class CrmLead extends Model {
+class CrmLead extends Model
+{
     protected $table = 'crm_leads';
     protected $fillable = [
         'contact_id', 'owner_user_id', 'source', 'interest', 'value', 'currency',
@@ -15,7 +17,8 @@ class CrmLead extends Model {
     ];
 
     /** كل الـLeads الخاصة بحساب معيّن (Tenant) عبر جهة الاتصال المالكة */
-    public function allForUser(int $userId, int $limit = 200): array {
+    public function allForUser(int $userId, int $limit = 200): array
+    {
         return $this->db->query(
             "SELECT l.*, c.name AS contact_name, c.email AS contact_email, c.phone AS contact_phone, c.user_id AS tenant_user_id
              FROM `crm_leads` l
@@ -28,7 +31,8 @@ class CrmLead extends Model {
     }
 
     /** Leads بدون Follow-up قادم محدد أو تاريخه فات (لتنبيهات المتابعة المتأخرة - بند 11) */
-    public function overdueFollowUps(int $userId): array {
+    public function overdueFollowUps(int $userId): array
+    {
         return $this->db->query(
             "SELECT l.*, c.name AS contact_name, c.user_id AS tenant_user_id
              FROM `crm_leads` l

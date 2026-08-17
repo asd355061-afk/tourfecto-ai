@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Bot Settings Model
  * نموذج إعدادات البوت الذكي
@@ -7,12 +8,13 @@
  * @copyright 2026 Tourfecto
  */
 
-class BotSetting extends Model {
+class BotSetting extends Model
+{
     /**
      * @var string $table - اسم الجدول
      */
     protected $table = 'bot_settings';
-    
+
     /**
      * @var array $fillable - الحقول القابلة للتعبئة
      */
@@ -39,7 +41,7 @@ class BotSetting extends Model {
         'business_hours_end',
         'timezone'
     ];
-    
+
     /**
      * @var array $casts - تحويل البيانات
      */
@@ -47,13 +49,14 @@ class BotSetting extends Model {
         'allowed_domains' => 'array',
         'blocked_keywords' => 'array'
     ];
-    
+
     /**
      * Constructor - معالجة تحويل JSON
      */
-    public function __construct(array $attributes = []) {
+    public function __construct(array $attributes = [])
+    {
         parent::__construct($attributes);
-        
+
         // تحويل JSON إلى مصفوفات
         foreach ($this->casts as $field => $type) {
             if (isset($this->attributes[$field]) && is_string($this->attributes[$field])) {
@@ -61,7 +64,7 @@ class BotSetting extends Model {
             }
         }
     }
-    
+
     /**
      * إنشاء إعدادات بوت افتراضية
      * @param int $userId
@@ -69,7 +72,8 @@ class BotSetting extends Model {
      * @param string $platform
      * @return BotSetting
      */
-    public static function createDefault(int $userId, int $websiteId, string $platform = 'all'): BotSetting {
+    public static function createDefault(int $userId, int $websiteId, string $platform = 'all'): BotSetting
+    {
         $data = [
             'user_id' => $userId,
             'website_id' => $websiteId,
@@ -85,13 +89,13 @@ class BotSetting extends Model {
             'farewell_message' => 'شكراً لتواصلك معنا. نتمنى لك يوماً سعيداً!',
             'fallback_message' => 'شكراً لتواصلك معنا. أحد ممثلي خدمة العملاء سيتواصل معك قريباً.'
         ];
-        
+
         $settings = new static($data);
         $settings->save();
-        
+
         return $settings;
     }
-    
+
     /**
      * الحصول على إعدادات البوت للمستخدم والموقع
      * @param int $userId
@@ -99,32 +103,34 @@ class BotSetting extends Model {
      * @param string $platform
      * @return BotSetting|null
      */
-    public static function getSettings(int $userId, int $websiteId, string $platform = 'all'): ?BotSetting {
+    public static function getSettings(int $userId, int $websiteId, string $platform = 'all'): ?BotSetting
+    {
         $db = Database::getInstance();
-        
+
         $sql = "SELECT * FROM bot_settings 
                 WHERE user_id = ? 
                 AND website_id = ? 
                 AND (platform = ? OR platform = 'all')
                 ORDER BY platform DESC 
                 LIMIT 1";
-        
+
         $result = $db->query($sql, [$userId, $websiteId, $platform]);
-        
+
         if (empty($result)) {
             // إنشاء إعدادات افتراضية إذا لم تكن موجودة
             return self::createDefault($userId, $websiteId, $platform);
         }
-        
+
         return new static($result[0]);
     }
-    
+
     /**
      * تحديث إعدادات البوت
      * @param array $settings
      * @return bool
      */
-    public function updateSettings(array $settings): bool {
+    public function updateSettings(array $settings): bool
+    {
         foreach ($settings as $key => $value) {
             if (in_array($key, $this->fillable)) {
                 // تحويل المصفوفات إلى JSON
@@ -134,107 +140,116 @@ class BotSetting extends Model {
                 $this->attributes[$key] = $value;
             }
         }
-        
+
         return $this->save() !== false;
     }
-    
+
     /**
      * التحقق من صلاحية البوت
      * @return bool
      */
-    public function isEnabled(): bool {
+    public function isEnabled(): bool
+    {
         return (bool) ($this->attributes['is_enabled'] ?? false);
     }
-    
+
     /**
      * التحقق من وضع الطيار الآلي
      * @return bool
      */
-    public function isAutoPilot(): bool {
+    public function isAutoPilot(): bool
+    {
         return (bool) ($this->attributes['auto_pilot'] ?? false);
     }
-    
+
     /**
      * التحقق من طلب الموافقة
      * @return bool
      */
-    public function requiresApproval(): bool {
+    public function requiresApproval(): bool
+    {
         return (bool) ($this->attributes['requires_approval'] ?? true);
     }
-    
+
     /**
      * التحقق من أوقات العمل
      * @return bool
      */
-    public function isBusinessHours(): bool {
+    public function isBusinessHours(): bool
+    {
         $start = $this->attributes['business_hours_start'] ?? '09:00:00';
         $end = $this->attributes['business_hours_end'] ?? '18:00:00';
-        
+
         $currentTime = date('H:i:s');
         $timezone = $this->attributes['timezone'] ?? 'UTC';
-        
+
         // تحويل الوقت إلى المنطقة الزمنية المحددة
         $date = new DateTime('now', new DateTimeZone($timezone));
         $currentTime = $date->format('H:i:s');
-        
+
         return $currentTime >= $start && $currentTime <= $end;
     }
-    
+
     /**
      * الحصول على رسالة الترحيب
      * @return string
      */
-    public function getGreeting(): string {
+    public function getGreeting(): string
+    {
         return $this->attributes['greeting_message'] ?? 'مرحباً بك! كيف يمكننا مساعدتك اليوم؟';
     }
-    
+
     /**
      * الحصول على رسالة الوداع
      * @return string
      */
-    public function getFarewell(): string {
+    public function getFarewell(): string
+    {
         return $this->attributes['farewell_message'] ?? 'شكراً لتواصلك معنا. نتمنى لك يوماً سعيداً!';
     }
-    
+
     /**
      * الحصول على رسالة الاحتياط
      * @return string
      */
-    public function getFallback(): string {
+    public function getFallback(): string
+    {
         return $this->attributes['fallback_message'] ?? 'شكراً لتواصلك معنا. أحد ممثلي خدمة العملاء سيتواصل معك قريباً.';
     }
-    
+
     /**
      * التحقق من أن النطاق مسموح
      * @param string $domain
      * @return bool
      */
-    public function isDomainAllowed(string $domain): bool {
+    public function isDomainAllowed(string $domain): bool
+    {
         $allowed = $this->attributes['allowed_domains'] ?? [];
         if (empty($allowed)) {
             return true; // السماح بجميع النطاقات إذا لم يتم تحديدها
         }
-        
+
         return in_array($domain, $allowed);
     }
-    
+
     /**
      * التحقق من أن الكلمة غير محظورة
      * @param string $text
      * @return bool
      */
-    public function hasBlockedKeyword(string $text): bool {
+    public function hasBlockedKeyword(string $text): bool
+    {
         $blocked = $this->attributes['blocked_keywords'] ?? [];
         if (empty($blocked)) {
             return false;
         }
-        
+
         foreach ($blocked as $keyword) {
             if (stripos($text, $keyword) !== false) {
                 return true;
             }
         }
-        
+
         return false;
     }
 }

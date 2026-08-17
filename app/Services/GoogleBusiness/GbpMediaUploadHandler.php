@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - GBP Media Upload Handler
  * نفس نمط AvatarUploadHandler.php بالظبط (رفع لـ public_html/uploads عشان
@@ -7,7 +8,8 @@
  * @version 1.0.0
  * @since 2026-08-09 (GBP Module Upgrade)
  */
-class GbpMediaUploadHandler {
+class GbpMediaUploadHandler
+{
     private array $allowedTypes = [
         'jpg' => 'image/jpeg',
         'jpeg' => 'image/jpeg',
@@ -21,7 +23,8 @@ class GbpMediaUploadHandler {
      * @param int $userId
      * @return array ['success'=>bool, 'public_url'=>?string, 'error'=>?string]
      */
-    public function upload(array $file, int $userId): array {
+    public function upload(array $file, int $userId): array
+    {
         if (!isset($file['tmp_name']) || $file['error'] !== UPLOAD_ERR_OK) {
             $messages = [
                 UPLOAD_ERR_INI_SIZE => 'الصورة أكبر من الحد المسموح به في إعدادات السيرفر',
@@ -84,7 +87,8 @@ class GbpMediaUploadHandler {
      * بنحصر الإصلاح في مجلد الموديول ده بس (gbp_photos) - مش بنلمس بقية
      * public_html/uploads/ (خارج نطاق موديول GBP).
      */
-    private function ensureHtaccessProtection(string $publicDir): void {
+    private function ensureHtaccessProtection(string $publicDir): void
+    {
         $htaccessPath = $publicDir . '/.htaccess';
         if (file_exists($htaccessPath)) {
             return;

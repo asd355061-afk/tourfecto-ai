@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Base OAuth Integration
  * @version 1.0.0
@@ -8,31 +9,36 @@
  * خاص بكل عميل، بيجيلك في $context['access_token'] من platform_connections
  * (اللي هتجيبه في الـ Controller قبل ما تنادي request()).
  */
-abstract class BaseOAuthIntegration implements IntegrationInterface {
-
+abstract class BaseOAuthIntegration implements IntegrationInterface
+{
     abstract protected function authUrl(): string;
     abstract protected function tokenUrl(): string;
     abstract protected function scope(): string;
     abstract protected function apiBaseUrl(): string;
 
-    public function authType(): string {
+    public function authType(): string
+    {
         return 'oauth';
     }
 
-    protected function clientId(): string {
+    protected function clientId(): string
+    {
         return defined('GOOGLE_CLIENT_ID') ? GOOGLE_CLIENT_ID : (getenv('GOOGLE_CLIENT_ID') ?: '');
     }
 
-    protected function clientSecret(): string {
+    protected function clientSecret(): string
+    {
         return defined('GOOGLE_CLIENT_SECRET') ? GOOGLE_CLIENT_SECRET : (getenv('GOOGLE_CLIENT_SECRET') ?: '');
     }
 
-    protected function redirectUri(): string {
+    protected function redirectUri(): string
+    {
         return defined('GOOGLE_OAUTH_REDIRECT_URI') ? GOOGLE_OAUTH_REDIRECT_URI : (getenv('GOOGLE_OAUTH_REDIRECT_URI') ?: '');
     }
 
     /** رابط "موافقة" العميل اللي هنوجّهه ليه */
-    public function buildAuthUrl(string $state): string {
+    public function buildAuthUrl(string $state): string
+    {
         return $this->authUrl() . '?' . http_build_query([
             'client_id'     => $this->clientId(),
             'redirect_uri'  => $this->redirectUri(),
@@ -45,7 +51,8 @@ abstract class BaseOAuthIntegration implements IntegrationInterface {
     }
 
     /** تبديل authorization code بتوكنات حقيقية - نفس منطق GoogleOAuthClient */
-    public function exchangeCodeForTokens(string $code): array {
+    public function exchangeCodeForTokens(string $code): array
+    {
         return $this->postToken([
             'code'          => $code,
             'client_id'     => $this->clientId(),
@@ -55,7 +62,8 @@ abstract class BaseOAuthIntegration implements IntegrationInterface {
         ]);
     }
 
-    public function refreshAccessToken(string $refreshToken): array {
+    public function refreshAccessToken(string $refreshToken): array
+    {
         return $this->postToken([
             'refresh_token' => $refreshToken,
             'client_id'     => $this->clientId(),
@@ -64,7 +72,8 @@ abstract class BaseOAuthIntegration implements IntegrationInterface {
         ]);
     }
 
-    private function postToken(array $fields): array {
+    private function postToken(array $fields): array
+    {
         $ch = curl_init($this->tokenUrl());
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
@@ -88,7 +97,8 @@ abstract class BaseOAuthIntegration implements IntegrationInterface {
     }
 
     /** طلب فعلي على الـ API باستخدام access_token العميل من $context */
-    protected function authorizedRequest(string $method, string $path, array $context, array $body = []): array {
+    protected function authorizedRequest(string $method, string $path, array $context, array $body = []): array
+    {
         $token = $context['access_token'] ?? null;
         if (!$token) {
             return ['success' => false, 'data' => null, 'error' => 'access_token مفقود في $context'];

@@ -1,17 +1,26 @@
 <?php
+
 /**
  * Tourfecto - Site Dashboard Controller (v2.0.0)
  * لوحة تحكم مستقلة لكل موقع منشأ: نظرة عامة، التصميم، SEO، التقييمات،
  * طلبات التواصل/الحجز. منفصلة عن شات الإنشاء - العميل بيدير موقعه منها
  * مباشرة بعد ما يتولّد، زي أي website builder احترافي.
  */
-class SiteDashboardController extends Controller {
-
+class SiteDashboardController extends Controller
+{
     /** GET /dashboard/sites/{id} - صفحة لوحة تحكم الموقع */
-    public function index(array $params = []): array {
-        if (!$this->isAuthenticated()) { header('Location: /login'); exit; }
+    public function index(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            header('Location: /login');
+            exit;
+        }
         $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
-        if (!$website) { header('HTTP/1.1 404 Not Found'); echo 'الموقع ده مش موجود'; exit; }
+        if (!$website) {
+            header('HTTP/1.1 404 Not Found');
+            echo 'الموقع ده مش موجود';
+            exit;
+        }
 
         $id = (int) $website->getAttribute('id');
         $c = $website->getContent();
@@ -237,10 +246,15 @@ JS;
     }
 
     /** GET /api/site-dashboard/{id}/overview */
-    public function overview(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function overview(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
-        if (!$website) return $this->error('غير موجود', 404);
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
 
         $averageRating = (new WebsiteReview())->averageRating((int) $website->getAttribute('id'));
         $newLeads = (new WebsiteLead())->newCountFor((int) $website->getAttribute('id'));
@@ -259,14 +273,19 @@ JS;
     }
 
     /** GET /api/site-dashboard/{id}/templates */
-    public function templates(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function templates(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
-        if (!$website) return $this->error('غير موجود', 404);
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
 
         $niche = $website->resolveNicheKey();
         $rows = (new WebsiteTemplate())->forNiche($niche);
-        $templates = array_map(fn($t) => [
+        $templates = array_map(fn ($t) => [
             'id' => (int) $t->getAttribute('id'),
             'name_ar' => $t->getAttribute('name_ar'),
             'preview_image' => $t->getAttribute('preview_image'),
@@ -281,10 +300,15 @@ JS;
     }
 
     /** PUT /api/site-dashboard/{id}/design */
-    public function updateDesign(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function updateDesign(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
-        if (!$website) return $this->error('غير موجود', 404);
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
 
         $themeColors = ['gold' => 1, 'blue' => 1, 'green' => 1, 'red' => 1, 'purple' => 1];
         if ($this->get('theme_color') !== null && isset($themeColors[(string) $this->get('theme_color')])) {
@@ -305,10 +329,15 @@ JS;
     }
 
     /** PUT /api/site-dashboard/{id}/seo */
-    public function updateSeo(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function updateSeo(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
-        if (!$website) return $this->error('غير موجود', 404);
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
 
         foreach (['seo_title', 'seo_description', 'custom_domain'] as $field) {
             if ($this->get($field) !== null) {
@@ -320,13 +349,18 @@ JS;
     }
 
     /** GET /api/site-dashboard/{id}/reviews */
-    public function reviews(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function reviews(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
-        if (!$website) return $this->error('غير موجود', 404);
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
 
         $rows = (new WebsiteReview())->allFor((int) $website->getAttribute('id'));
-        $reviews = array_map(fn($r) => [
+        $reviews = array_map(fn ($r) => [
             'id' => (int) $r->getAttribute('id'),
             'visitor_name' => $r->getAttribute('visitor_name'),
             'rating' => (int) $r->getAttribute('rating'),
@@ -338,10 +372,15 @@ JS;
     }
 
     /** PUT /api/site-dashboard/{id}/reviews/{reviewId} - اعتماد أو رفض تقييم */
-    public function updateReview(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function updateReview(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
-        if (!$website) return $this->error('غير موجود', 404);
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
 
         $review = (new WebsiteReview())->find((int) ($params['reviewId'] ?? 0));
         if (!$review || (int) $review->getAttribute('website_id') !== (int) $website->getAttribute('id')) {
@@ -357,13 +396,18 @@ JS;
     }
 
     /** GET /api/site-dashboard/{id}/leads */
-    public function leads(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function leads(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
-        if (!$website) return $this->error('غير موجود', 404);
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
 
         $rows = (new WebsiteLead())->allFor((int) $website->getAttribute('id'));
-        $leads = array_map(fn($l) => [
+        $leads = array_map(fn ($l) => [
             'id' => (int) $l->getAttribute('id'),
             'visitor_name' => $l->getAttribute('visitor_name'),
             'phone' => $l->getAttribute('phone'),
@@ -376,10 +420,15 @@ JS;
     }
 
     /** PUT /api/site-dashboard/{id}/leads/{leadId} */
-    public function updateLead(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function updateLead(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
-        if (!$website) return $this->error('غير موجود', 404);
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
 
         $lead = (new WebsiteLead())->find((int) ($params['leadId'] ?? 0));
         if (!$lead || (int) $lead->getAttribute('website_id') !== (int) $website->getAttribute('id')) {
@@ -394,8 +443,11 @@ JS;
         return $this->success([], 'تم التحديث');
     }
 
-    private function ownedWebsite(int $id): ?GeneratedWebsite {
-        if (!$id) return null;
+    private function ownedWebsite(int $id): ?GeneratedWebsite
+    {
+        if (!$id) {
+            return null;
+        }
         $website = (new GeneratedWebsite())->find($id);
         if (!$website || (int) $website->getAttribute('user_id') !== (int) $this->user['id']) {
             return null;

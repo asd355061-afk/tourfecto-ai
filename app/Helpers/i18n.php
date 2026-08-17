@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - i18n / Translation Helper
  * نظام ترجمة بسيط وسريع: ملفات لغة PHP (مش JSON، أسرع في التحميل)،
@@ -30,7 +31,8 @@ if (!function_exists('current_lang')) {
      * المحفوظة من زيارة سابقة، أو الإنجليزي كافتراضي.
      * @return string
      */
-    function current_lang(): string {
+    function current_lang(): string
+    {
         static $lang = null;
         if ($lang !== null) {
             return $lang;
@@ -61,7 +63,8 @@ if (!function_exists('current_dir')) {
      * اتجاه الصفحة (rtl/ltr) حسب اللغة الحالية.
      * @return string
      */
-    function current_dir(): string {
+    function current_dir(): string
+    {
         return in_array(current_lang(), UI_RTL_LANGUAGES, true) ? 'rtl' : 'ltr';
     }
 }
@@ -72,7 +75,8 @@ if (!function_exists('load_translations')) {
      * @param string $lang
      * @return array
      */
-    function load_translations(string $lang): array {
+    function load_translations(string $lang): array
+    {
         static $cache = [];
         if (isset($cache[$lang])) {
             return $cache[$lang];
@@ -99,7 +103,8 @@ if (!function_exists('t')) {
      * @param string|null $langOverride
      * @return string
      */
-    function t(string $key, array $vars = [], ?string $langOverride = null): string {
+    function t(string $key, array $vars = [], ?string $langOverride = null): string
+    {
         $lang = $langOverride ?? current_lang();
         $dict = load_translations($lang);
 
@@ -130,7 +135,8 @@ if (!function_exists('language_switcher_links')) {
      * الحالي + ?lang= جديد، لاستخدامها في قائمة تبديل اللغة.
      * @return array
      */
-    function language_switcher_links(): array {
+    function language_switcher_links(): array
+    {
         $labels = ['en' => 'English', 'ar' => 'العربية', 'fr' => 'Français', 'de' => 'Deutsch'];
         $current = current_lang();
         $path = strtok($_SERVER['REQUEST_URI'] ?? '/', '?');
@@ -154,7 +160,8 @@ if (!function_exists('language_switcher_links')) {
      * التخزين المؤقت الطويل (30 يوم) اللي ضفناه في .htaccess.
      * @param string $relativePath زي '/assets/css/panel.css'
      */
-    function asset_v(string $relativePath): string {
+    function asset_v(string $relativePath): string
+    {
         $fullPath = defined('ROOT_PATH') ? ROOT_PATH . '/public_html' . $relativePath : (__DIR__ . '/../../public_html' . $relativePath);
         $version = @filemtime($fullPath);
         return $relativePath . ($version ? '?v=' . $version : '');
@@ -164,7 +171,8 @@ if (!function_exists('language_switcher_links')) {
      * رقم واتساب الدعم/الاشتراكات - بيقرا من إعدادات النظام القابلة
      * للتعديل من لوحة الأدمن الأول، ويرجع لـ .env كاحتياط آمن.
      */
-    function support_whatsapp_number(): string {
+    function support_whatsapp_number(): string
+    {
         $default = defined('SUPPORT_WHATSAPP_NUMBER') ? SUPPORT_WHATSAPP_NUMBER : '';
         if (!class_exists('SystemSettingsService')) {
             return $default;
@@ -180,7 +188,8 @@ if (!function_exists('language_switcher_links')) {
      * اسم الموقع - بيقرا من إعدادات النظام القابلة للتعديل من لوحة
      * الأدمن الأول، ويرجع لـ APP_NAME كاحتياط آمن.
      */
-    function site_name(): string {
+    function site_name(): string
+    {
         $default = defined('APP_NAME') ? APP_NAME : 'Tourfecto';
         if (!class_exists('SystemSettingsService')) {
             return $default;
@@ -197,7 +206,8 @@ if (!function_exists('language_switcher_links')) {
      * المحدّد من الأدمن، وإلا بيرجع الاسم بس (بدون أيقونة إيموجي ثابتة).
      * @param bool $withEmoji لو true وملقاش لوجو، يحط 🌍 قبل الاسم (زي الشكل الأصلي)
      */
-    function site_brand_html(bool $withEmoji = true): string {
+    function site_brand_html(bool $withEmoji = true): string
+    {
         $name = htmlspecialchars(site_name(), ENT_QUOTES, 'UTF-8');
         if (!class_exists('SystemSettingsService')) {
             return $withEmoji ? "🌍 {$name}" : $name;
@@ -221,7 +231,8 @@ if (!function_exists('language_switcher_links')) {
      * مرفوعة من لوحة الأدمن بيستخدمها، وإلا بيرجع الملفات الثابتة
      * الافتراضية (نفس الموجودة في public_html/assets/icons).
      */
-    function site_favicon_html(): string {
+    function site_favicon_html(): string
+    {
         $default = '<link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png">' . "\n"
             . '    <link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/favicon-16.png">' . "\n"
             . '    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">';

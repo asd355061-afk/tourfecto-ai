@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Publish Google Business Profile Post Job
  * @version 2.0.0
@@ -7,8 +8,10 @@
  * (Local Posts API الرسمي)، فالـ Job ده بقى بينفّذ النشر الحقيقي بدل ما
  * يقف عند حالة "processing" بس.
  */
-class PublishGbpPostJob implements QueueJobInterface {
-    public function handle(array $payload): void {
+class PublishGbpPostJob implements QueueJobInterface
+{
+    public function handle(array $payload): void
+    {
         $id = (int) ($payload['gbp_scheduled_post_id'] ?? 0);
         $scheduled = (new GbpScheduledPost())->find($id);
 

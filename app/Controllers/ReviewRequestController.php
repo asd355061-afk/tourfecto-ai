@@ -1,20 +1,24 @@
 <?php
+
 /**
  * Tourfecto - Review Request Controller
  * طلب مراجعات تلقائي بعد انتهاء الخدمة عن طريق واتساب
  * @version 1.0.0
  */
-class ReviewRequestController extends Controller {
+class ReviewRequestController extends Controller
+{
     /** @var ReviewRequestService */
     private $service;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->service = new ReviewRequestService();
     }
 
     /** GET /review-requests */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $tAddGuest = $this->tr('rr.add_guest');
         $tSettings = $this->tr('rr.settings');
         $tScheduled = $this->tr('rr.stat.scheduled');
@@ -725,10 +729,15 @@ JS;
     }
 
     /** GET /api/review-requests - يدعم فلاتر (status, channel, search, date_from, date_to) وصفحات (page, per_page) */
-    public function listRequests(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listRequests(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $websiteId = (int) $this->get('website_id', 0);
-        if (!$this->ownsWebsite($websiteId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         try {
             $filters = [
@@ -744,7 +753,7 @@ JS;
             $result = $this->service->getRequestsFiltered($websiteId, array_filter($filters), $page, $perPage);
 
             return $this->success([
-                'requests' => array_map(fn($r) => $r->toArray(), $result['items']),
+                'requests' => array_map(fn ($r) => $r->toArray(), $result['items']),
                 'total' => $result['total'],
                 'page' => $result['page'],
                 'per_page' => $result['per_page'],
@@ -756,10 +765,15 @@ JS;
     }
 
     /** GET /api/review-requests/{id} - تفاصيل طلب واحد + Timeline حقيقي */
-    public function getRequest(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getRequest(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $websiteId = (int) $this->get('website_id', 0);
-        if (!$this->ownsWebsite($websiteId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         try {
             $request = $this->service->getRequest((int) ($params['id'] ?? 0), $websiteId);
@@ -777,10 +791,15 @@ JS;
     }
 
     /** GET /api/review-requests/stats */
-    public function getStats(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getStats(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $websiteId = (int) $this->get('website_id', 0);
-        if (!$this->ownsWebsite($websiteId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         try {
             return $this->success(['stats' => $this->service->getStats($websiteId)]);
@@ -790,10 +809,15 @@ JS;
     }
 
     /** GET /api/review-requests/analytics - Section 21، بيرجع not_enough_data:true لو العينة صغيرة */
-    public function getAnalytics(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getAnalytics(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $websiteId = (int) $this->get('website_id', 0);
-        if (!$this->ownsWebsite($websiteId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         try {
             return $this->success(['analytics' => $this->service->getAnalytics($websiteId)]);
@@ -804,26 +828,39 @@ JS;
     }
 
     /** GET /api/review-requests/channel-status - حالة قنوات الإرسال الفعلية (واتساب/إيميل) */
-    public function getChannelStatus(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getChannelStatus(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $websiteId = (int) $this->get('website_id', 0);
-        if (!$this->ownsWebsite($websiteId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         return $this->success(['channels' => $this->service->getChannelStatus($websiteId)]);
     }
 
     /** GET /api/review-requests/destinations - حالة اتصال Google Business/TripAdvisor الفعلية */
-    public function getDestinations(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getDestinations(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $websiteId = (int) $this->get('website_id', 0);
-        if (!$this->ownsWebsite($websiteId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         return $this->success(['destinations' => $this->service->getDestinationStatus($websiteId)]);
     }
 
     /** GET /api/review-requests/crm-contacts?search= - Customer Selection من CRM الموجود فعليًا (Section 5) */
-    public function getCrmContacts(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getCrmContacts(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         try {
             $contacts = $this->service->searchCrmContacts(
@@ -839,19 +876,29 @@ JS;
     }
 
     /** GET /api/review-requests/smart-timing - اقتراح استرشادي لأفضل توقيت بناءً على بيانات حقيقية (Section 11) */
-    public function getSmartTiming(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getSmartTiming(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $websiteId = (int) $this->get('website_id', 0);
-        if (!$this->ownsWebsite($websiteId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         return $this->success(['timing' => $this->service->getSmartTimingSuggestion($websiteId)]);
     }
 
     /** GET /api/review-requests/templates - قوالب رسائل جاهزة (Section 9) */
-    public function getTemplates(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getTemplates(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $websiteId = (int) $this->get('website_id', 0);
-        if (!$this->ownsWebsite($websiteId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         try {
             return $this->success(['templates' => $this->service->getTemplates($websiteId)]);
@@ -862,10 +909,15 @@ JS;
     }
 
     /** POST /api/review-requests/templates - إضافة قالب مخصص جديد */
-    public function createTemplate(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function createTemplate(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $websiteId = (int) $this->get('website_id', 0);
-        if (!$this->ownsWebsite($websiteId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         try {
             $template = $this->service->createTemplate(
@@ -881,10 +933,15 @@ JS;
     }
 
     /** DELETE /api/review-requests/templates/{id} */
-    public function deleteTemplate(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function deleteTemplate(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $websiteId = (int) $this->get('website_id', 0);
-        if (!$this->ownsWebsite($websiteId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         try {
             $this->service->deleteTemplate((int) ($params['id'] ?? 0), $websiteId);
@@ -895,14 +952,19 @@ JS;
     }
 
     /** POST /api/review-requests */
-    public function createRequest(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function createRequest(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         if (!$this->validate(['website_id' => 'required', 'guest_name' => 'required', 'service_end_date' => 'required'])) {
             return $this->error('بيانات ناقصة', 422);
         }
 
         $websiteId = (int) $this->get('website_id');
-        if (!$this->ownsWebsite($websiteId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         $channel = (string) $this->get('channel', 'whatsapp');
         $guestPhone = $this->get('guest_phone') !== null ? (string) $this->get('guest_phone') : null;
@@ -928,8 +990,11 @@ JS;
     }
 
     /** POST /api/review-requests/{id}/opt-out */
-    public function optOut(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function optOut(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         try {
             $requestId = (int) ($params['id'] ?? 0);
@@ -949,10 +1014,15 @@ JS;
     }
 
     /** POST /api/review-requests/{id}/retry - إعادة محاولة فورية لطلب فشل (Section 19)، بحد أقصى محاولات */
-    public function retryRequest(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function retryRequest(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $websiteId = (int) $this->get('website_id', 0);
-        if (!$this->ownsWebsite($websiteId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         try {
             $request = $this->service->retryRequest((int) ($params['id'] ?? 0), $websiteId);
@@ -963,10 +1033,15 @@ JS;
     }
 
     /** PUT /api/review-requests/{id} - تعديل طلب لسه ما اتبعتش (Section 6) */
-    public function updateRequest(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function updateRequest(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $websiteId = (int) $this->get('website_id', 0);
-        if (!$this->ownsWebsite($websiteId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         try {
             $data = array_filter([
@@ -976,7 +1051,7 @@ JS;
                 'guest_email' => $this->get('guest_email'),
                 'service_end_date' => $this->get('service_end_date'),
                 'destination_platform' => $this->get('destination_platform'),
-            ], fn($v) => $v !== null);
+            ], fn ($v) => $v !== null);
 
             $request = $this->service->updateRequest((int) ($params['id'] ?? 0), $websiteId, $data);
             return $this->success(['request' => $request->toArray()], 'تم التعديل');
@@ -986,8 +1061,11 @@ JS;
     }
 
     /** POST /api/review-requests/ai-assist - مساعد AI لصياغة الرسالة (Section 10) */
-    public function aiAssist(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function aiAssist(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         if (!$this->validate(['action' => 'required'])) {
             return $this->error('بيانات ناقصة', 422);
         }
@@ -1011,7 +1089,8 @@ JS;
     }
 
     /** GET /api/review-requests/export - CSV Export بنفس فلاتر القائمة (Section 23) */
-    public function exportCsv(array $params = []): array {
+    public function exportCsv(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             http_response_code(401);
             exit;
@@ -1060,19 +1139,29 @@ JS;
     }
 
     /** GET /api/review-requests/settings */
-    public function getSettings(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getSettings(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $websiteId = (int) $this->get('website_id', 0);
-        if (!$this->ownsWebsite($websiteId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         return $this->success(['settings' => $this->service->getSettings($websiteId)]);
     }
 
     /** PUT /api/review-requests/settings */
-    public function saveSettings(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function saveSettings(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $websiteId = (int) $this->get('website_id', 0);
-        if (!$this->ownsWebsite($websiteId)) return $this->error('غير مصرح', 403);
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('غير مصرح', 403);
+        }
 
         try {
             $this->service->saveSettings($websiteId, [
@@ -1096,8 +1185,11 @@ JS;
     }
 
     /** يتأكد إن الموقع ده فعلاً ملك المستخدم الحالي */
-    private function ownsWebsite(int $websiteId): bool {
-        if (!$websiteId) return false;
+    private function ownsWebsite(int $websiteId): bool
+    {
+        if (!$websiteId) {
+            return false;
+        }
         $website = (new Website())->find($websiteId);
         return $website && (int) $website->getAttribute('user_id') === (int) $this->user['id'];
     }

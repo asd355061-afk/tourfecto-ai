@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * AI Reply Suggestions (بند 12): حتى بعد تحويل المحادثة لموظف، الـAI
@@ -8,9 +9,9 @@
  * @version 1.0.0
  */
 
-class AiReplySuggestionsService {
-
-    const HISTORY_LIMIT = 10;
+class AiReplySuggestionsService
+{
+    public const HISTORY_LIMIT = 10;
 
     /** @var KnowledgeBaseService */
     private $knowledgeBase;
@@ -24,7 +25,8 @@ class AiReplySuggestionsService {
     /** @var Database */
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->knowledgeBase = new KnowledgeBaseService();
         $this->providerManager = new AIProviderManager();
         $this->conversationModel = new AiChatConversation();
@@ -37,13 +39,14 @@ class AiReplySuggestionsService {
      * @param int $conversationId
      * @return array ['suggestions' => string[], 'error' => string|null]
      */
-    public function suggestFor(int $websiteId, int $userId, int $conversationId): array {
+    public function suggestFor(int $websiteId, int $userId, int $conversationId): array
+    {
         $conversation = $this->conversationModel->find($conversationId);
         if (!$conversation || (int) $conversation->getAttribute('website_id') !== $websiteId) {
             return ['suggestions' => [], 'error' => 'Conversation not found'];
         }
 
-        $language = $conversation->getAttribute('language') ?: 'ar';
+        $language = $conversation->getAttribute('language') ?: 'en';
         $knowledgeContext = $this->knowledgeBase->buildContextForPrompt($websiteId, $language);
         $brandVoice = $this->knowledgeBase->getBrandVoice($websiteId);
         $history = $this->loadHistory($conversationId);
@@ -69,7 +72,8 @@ class AiReplySuggestionsService {
         return ['suggestions' => $this->parseSuggestions((string) $result['content']), 'error' => null];
     }
 
-    private function buildSystemPrompt(string $knowledgeContext, array $brandVoice, string $language): string {
+    private function buildSystemPrompt(string $knowledgeContext, array $brandVoice, string $language): string
+    {
         $toneInstruction = "Tone: {$brandVoice['tone']}.";
         if (!empty($brandVoice['custom_instructions'])) {
             $toneInstruction .= " Additional company instructions: " . $brandVoice['custom_instructions'];
@@ -98,7 +102,8 @@ PROMPT;
      * @param string $rawContent
      * @return string[]
      */
-    private function parseSuggestions(string $rawContent): array {
+    private function parseSuggestions(string $rawContent): array
+    {
         $cleaned = trim($rawContent);
         $cleaned = preg_replace('/^```json\s*|\s*```$/i', '', $cleaned);
         $cleaned = preg_replace('/^```\s*|\s*```$/', '', $cleaned);
@@ -116,7 +121,8 @@ PROMPT;
      * @param int $conversationId
      * @return array
      */
-    private function loadHistory(int $conversationId): array {
+    private function loadHistory(int $conversationId): array
+    {
         $rows = $this->db->query(
             "SELECT message_direction, message_text, ai_reply_generated FROM chat_messages
              WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?",

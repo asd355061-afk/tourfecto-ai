@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - تكوين التطبيق الأساسي
  * @version 1.0.0
@@ -123,8 +124,8 @@ define('CORS_ALLOWED_METHODS', [
 ]);
 
 define('CORS_ALLOWED_HEADERS', [
-    'Content-Type', 
-    'Authorization', 
+    'Content-Type',
+    'Authorization',
     'X-Requested-With',
     'Accept',
     'Origin',

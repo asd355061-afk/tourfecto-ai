@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Controller
  * متحكم الذكاء الاصطناعي لتحليل SEO/AEO/GEO
@@ -7,12 +8,13 @@
  * @copyright 2026 Tourfecto
  */
 
-class AIController extends Controller {
+class AIController extends Controller
+{
     /**
      * @var TourfectoAIEngine $aiEngine - محرك الذكاء الاصطناعي
      */
     private $aiEngine;
-    
+
     /**
      * @var SubscriptionValidator $subscription - مدقق الاشتراكات
      */
@@ -22,29 +24,31 @@ class AIController extends Controller {
      * @var ArticleGenerator $articleGenerator - مولّد المقالات التسويقية
      */
     private $articleGenerator;
-    
+
     /**
      * @var array $user - بيانات المستخدم الحالي (تم إضافة التعريف)
      */
     protected $user = [];
-    
+
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->aiEngine = new TourfectoAIEngine();
         $this->subscription = new SubscriptionValidator();
         $this->articleGenerator = new ArticleGenerator();
-        
+
         // ✅ تعريف المتغير $user من الجلسة
         $this->loadUser();
     }
-    
+
     /**
      * تحميل بيانات المستخدم الحالي
      */
-    private function loadUser(): void {
+    private function loadUser(): void
+    {
         // محاولة الحصول على المستخدم من الجلسة
         if (isset($_SESSION['user_id'])) {
             try {
@@ -60,7 +64,7 @@ class AIController extends Controller {
                 ]);
             }
         }
-        
+
         // محاولة الحصول على المستخدم من التوكن
         if (empty($this->user) && isset($_SERVER['HTTP_AUTHORIZATION'])) {
             $token = str_replace('Bearer ', '', $_SERVER['HTTP_AUTHORIZATION']);
@@ -79,42 +83,45 @@ class AIController extends Controller {
             }
         }
     }
-    
+
     /**
      * التحقق من المصادقة
      * @return bool
      */
-    protected function isAuthenticated(): bool {
+    protected function isAuthenticated(): bool
+    {
         return !empty($this->user) && isset($this->user['id']);
     }
-    
+
     /**
      * الحصول على معرف المستخدم
      * @return int|null
      */
-    protected function getUserId(): ?int {
+    protected function getUserId(): ?int
+    {
         return $this->user['id'] ?? null;
     }
-    
+
     /**
      * تحليل موقع جديد
      * POST /api/ai/analyze
      * @param array $params
      * @return array
      */
-    public function analyze(array $params = []): array {
+    public function analyze(array $params = []): array
+    {
         try {
             // ✅ التحقق من المصادقة مع رسالة واضحة
             if (!$this->isAuthenticated()) {
                 return $this->error('يجب تسجيل الدخول أولاً', 401);
             }
-            
+
             // ✅ التأكد من وجود معرف المستخدم
             $userId = $this->getUserId();
             if (!$userId) {
                 return $this->error('معرف المستخدم غير موجود', 401);
             }
-            
+
             // التحقق من البيانات
             $required = ['target_url', 'competitor_urls'];
             foreach ($required as $field) {
@@ -122,20 +129,20 @@ class AIController extends Controller {
                     return $this->error("الحقل '{$field}' مطلوب", 400);
                 }
             }
-            
+
             // التحقق من عدد المنافسين
             $competitorUrls = $this->get('competitor_urls');
             if (!is_array($competitorUrls) || count($competitorUrls) !== 3) {
                 return $this->error('يجب إدخال 3 روابط للمنافسين بالضبط', 400);
             }
-            
+
             // التحقق من صحة الروابط
             foreach (array_merge([$this->get('target_url')], $competitorUrls) as $url) {
                 if (!filter_var($url, FILTER_VALIDATE_URL)) {
                     return $this->error("الرابط غير صحيح: {$url}", 400);
                 }
             }
-            
+
             // الحصول على معرف الموقع
             $websiteId = $this->get('website_id');
             if (!$websiteId) {
@@ -147,7 +154,7 @@ class AIController extends Controller {
                     $this->get('target_language', 'ar')
                 );
             }
-            
+
             // تنفيذ التحليل
             $result = $this->aiEngine->analyzeWebsite(
                 $userId,
@@ -156,23 +163,23 @@ class AIController extends Controller {
                 $competitorUrls,
                 $this->get('target_language', 'ar')
             );
-            
+
             if (!$result['success']) {
                 return $this->error($result['error'], $result['code'] ?? 500);
             }
-            
+
             // تسجيل النشاط
             $this->log('AI Analysis', [
                 'website_id' => $websiteId,
                 'from_cache' => $result['from_cache'] ?? false
             ]);
-            
+
             return $this->success([
                 'report_id' => $result['report_id'] ?? null,
                 'from_cache' => $result['from_cache'] ?? false,
                 'data' => $result['data']
             ], 'تم التحليل بنجاح');
-            
+
         } catch (Exception $e) {
             Logger::error('AI Analysis Error', [
                 'message' => $e->getMessage(),
@@ -181,47 +188,48 @@ class AIController extends Controller {
             return $this->error('فشل التحليل: ' . $e->getMessage(), 500);
         }
     }
-    
+
     /**
      * الحصول على تقرير محدد
      * GET /api/ai/report/{id}
      * @param array $params
      * @return array
      */
-    public function getReport(array $params): array {
+    public function getReport(array $params): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('يجب تسجيل الدخول أولاً', 401);
             }
-            
+
             $userId = $this->getUserId();
             if (!$userId) {
                 return $this->error('معرف المستخدم غير موجود', 401);
             }
-            
+
             $reportId = $params['id'] ?? 0;
             if (!$reportId) {
                 return $this->error('معرف التقرير مطلوب', 400);
             }
-            
+
             // جلب التقرير
             $report = new AIReport();
             $reportData = $report->find($reportId);
-            
+
             if (!$reportData) {
                 return $this->error('التقرير غير موجود', 404);
             }
-            
+
             // ✅ التحقق من صلاحية المستخدم
             if ($reportData->getAttribute('user_id') != $userId) {
                 return $this->error('غير مصرح بالوصول إلى هذا التقرير', 403);
             }
-            
+
             return $this->success([
                 'report' => $reportData->toArray(),
                 'full_data' => $reportData->getFullReport()
             ]);
-            
+
         } catch (Exception $e) {
             Logger::error('Get Report Error', [
                 'message' => $e->getMessage()
@@ -229,45 +237,46 @@ class AIController extends Controller {
             return $this->error('فشل في جلب التقرير', 500);
         }
     }
-    
+
     /**
      * الحصول على جميع تقارير المستخدم
      * GET /api/ai/reports
      * @param array $params
      * @return array
      */
-    public function getReports(array $params = []): array {
+    public function getReports(array $params = []): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('يجب تسجيل الدخول أولاً', 401);
             }
-            
+
             $userId = $this->getUserId();
             if (!$userId) {
                 return $this->error('معرف المستخدم غير موجود', 401);
             }
-            
+
             $page = (int) ($this->get('page', 1));
             $limit = (int) ($this->get('limit', 20));
             $offset = ($page - 1) * $limit;
-            
+
             // جلب التقارير
             $sql = "SELECT * FROM ai_reports 
                     WHERE user_id = ? 
                     ORDER BY created_at DESC 
                     LIMIT ? OFFSET ?";
-            
+
             $reports = $this->db->query($sql, [
                 $userId,
                 $limit,
                 $offset
             ]);
-            
+
             // جلب العدد الإجمالي
             $sqlCount = "SELECT COUNT(*) as total FROM ai_reports WHERE user_id = ?";
             $countResult = $this->db->query($sqlCount, [$userId]);
             $total = (int) ($countResult[0]['total'] ?? 0);
-            
+
             return $this->success([
                 'reports' => $reports,
                 'pagination' => [
@@ -277,7 +286,7 @@ class AIController extends Controller {
                     'pages' => ceil($total / $limit)
                 ]
             ]);
-            
+
         } catch (Exception $e) {
             Logger::error('Get Reports Error', [
                 'message' => $e->getMessage()
@@ -285,14 +294,15 @@ class AIController extends Controller {
             return $this->error('فشل في جلب التقارير', 500);
         }
     }
-    
+
     /**
      * تصدير تقرير بصيغة محددة
      * GET /api/ai/report/{id}/export
      * @param array $params
      * @return array
      */
-    public function exportReport(array $params): array {
+    public function exportReport(array $params): array
+    {
         if (!$this->isAuthenticated()) {
             header('Location: /login');
             exit;
@@ -337,7 +347,7 @@ class AIController extends Controller {
         echo $csv;
         exit;
     }
-    
+
     /**
      * البحث عن موقع أو إنشاؤه
      * @param int $userId
@@ -346,16 +356,17 @@ class AIController extends Controller {
      * @param string $language
      * @return int
      */
-    private function findOrCreateWebsite(int $userId, string $url, ?string $companyName, string $language): int {
+    private function findOrCreateWebsite(int $userId, string $url, ?string $companyName, string $language): int
+    {
         try {
             $urlCol = Website::urlColumn();
             $sql = "SELECT id FROM websites WHERE user_id = ? AND {$urlCol} = ? LIMIT 1";
             $result = $this->db->query($sql, [$userId, $url]);
-            
+
             if (!empty($result)) {
                 return (int) $result[0]['id'];
             }
-            
+
             // إنشاء موقع جديد
             $website = new Website([
                 'user_id' => $userId,
@@ -364,9 +375,9 @@ class AIController extends Controller {
                 'target_language' => $language,
                 'is_verified' => 0
             ]);
-            
+
             $id = $website->save();
-            
+
             if ($id) {
                 Logger::info('Website created', [
                     'user_id' => $userId,
@@ -374,9 +385,9 @@ class AIController extends Controller {
                     'website_id' => $id
                 ]);
             }
-            
+
             return (int) $id;
-            
+
         } catch (Exception $e) {
             Logger::error('Find or Create Website Error', [
                 'user_id' => $userId,
@@ -386,21 +397,22 @@ class AIController extends Controller {
             throw $e;
         }
     }
-    
+
     /**
      * تسجيل النشاط
      * @param string $action
      * @param array $data
      */
-    protected function log(string $action, array $data = []): void {
+    protected function log(string $action, array $data = []): void
+    {
         try {
             $logData = array_merge([
                 'user_id' => $this->getUserId(),
                 'ip' => $_SERVER['REMOTE_ADDR'] ?? null
             ], $data);
-            
+
             Logger::info('AI Action: ' . $action, $logData);
-            
+
         } catch (Exception $e) {
             // تجاهل أخطاء التسجيل
         }
@@ -411,7 +423,8 @@ class AIController extends Controller {
     // ============================================
 
     /** GET /ai/analyze */
-    public function showAnalyze(array $params = []): array {
+    public function showAnalyze(array $params = []): array
+    {
         $tNewAnalysis = $this->tr('ai.analyze.new_title');
         $tCompareSub = $this->tr('ai.analyze.compare_sub');
         $tYourUrl = $this->tr('ai.analyze.your_url');
@@ -823,7 +836,8 @@ JS;
     }
 
     /** GET /ai/reports */
-    public function showReports(array $params = []): array {
+    public function showReports(array $params = []): array
+    {
         $tReportsTitle = $this->tr('ai.reports.title');
         $tNewAnalysis = $this->tr('ai.reports.new_analysis');
         $tColSite = $this->tr('ai.reports.col.site');
@@ -910,7 +924,8 @@ JS;
     }
 
     /** GET /ai/report/{id} */
-    public function showReport(array $params): array {
+    public function showReport(array $params): array
+    {
         $reportId = (int) ($params['id'] ?? 0);
         $tLoadingReport = $this->tr('ai.report.loading');
 
@@ -1020,7 +1035,8 @@ JS;
     }
 
     /** GET /ai/competitors */
-    public function showCompetitors(array $params = []): array {
+    public function showCompetitors(array $params = []): array
+    {
         $tAddCompetitor = $this->tr('ai.competitors.add');
         $tLoading = $this->tr('common.loading');
         $tNewCompetitor = $this->tr('ai.competitors.new');
@@ -1129,15 +1145,21 @@ JS;
     }
 
     /** GET /api/ai/competitors */
-    public function listCompetitors(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listCompetitors(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $items = (new Competitor())->where(['user_id' => $this->user['id']], ['created_at' => 'DESC']);
-        return $this->success(['competitors' => array_map(fn($c) => $c->toArray(), $items)]);
+        return $this->success(['competitors' => array_map(fn ($c) => $c->toArray(), $items)]);
     }
 
     /** POST /api/ai/competitors */
-    public function createCompetitor(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function createCompetitor(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         if (!$this->validate(['website_id' => 'required', 'name' => 'required', 'url' => 'required'])) {
             return $this->error('بيانات ناقصة', 422);
         }
@@ -1145,8 +1167,11 @@ JS;
         try {
             $service = new CompetitorAnalysisService();
             $competitor = $service->addCompetitor(
-                (int) $this->user['id'], (int) $this->get('website_id'),
-                (string) $this->get('name'), (string) $this->get('url'), (string) $this->get('notes', '')
+                (int) $this->user['id'],
+                (int) $this->get('website_id'),
+                (string) $this->get('name'),
+                (string) $this->get('url'),
+                (string) $this->get('notes', '')
             );
             return $this->success(['competitor' => $competitor->toArray()], 'تم الإضافة', 201);
         } catch (Exception $e) {
@@ -1156,8 +1181,11 @@ JS;
     }
 
     /** POST /api/ai/competitors/{id}/analyze */
-    public function analyzeCompetitor(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function analyzeCompetitor(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         try {
             $competitor = (new Competitor())->find((int) ($params['id'] ?? 0));
@@ -1174,7 +1202,7 @@ JS;
             // Phase 7: analyze() بقى بيرجّع array أغنى (توصيات + الدرجتين +
             // ملخص الـcrawl) بدل مجرد مصفوفة توصيات - نعرض كل حاجة للواجهة.
             return $this->success([
-                'recommendations' => array_map(fn($r) => $r->toArray(), $result['recommendations']),
+                'recommendations' => array_map(fn ($r) => $r->toArray(), $result['recommendations']),
                 'my_score' => $result['my_score'],
                 'competitor_score' => $result['competitor_score'],
                 'my_summary' => $result['my_summary'],
@@ -1187,7 +1215,8 @@ JS;
     }
 
     /** GET /ai/keywords */
-    public function showKeywords(array $params = []): array {
+    public function showKeywords(array $params = []): array
+    {
         $body = <<<'HTML'
         <style>
             .kw-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;}
@@ -1488,8 +1517,11 @@ JS;
     }
 
     /** GET /api/ai/keywords?website_id= */
-    public function listKeywords(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listKeywords(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $conditions = ['user_id' => $this->user['id']];
         $websiteId = (int) $this->get('website_id', 0);
@@ -1498,12 +1530,15 @@ JS;
         }
 
         $items = (new TrackedKeyword())->where($conditions, ['current_position' => 'ASC']);
-        return $this->success(['keywords' => array_map(fn($k) => $k->toArray(), $items)]);
+        return $this->success(['keywords' => array_map(fn ($k) => $k->toArray(), $items)]);
     }
 
     /** POST /api/ai/keywords */
-    public function createKeyword(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function createKeyword(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         if (!$this->validate(['website_id' => 'required', 'keyword' => 'required'])) {
             return $this->error('بيانات ناقصة', 422);
         }
@@ -1523,8 +1558,11 @@ JS;
     }
 
     /** DELETE /api/ai/keywords/{id} */
-    public function deleteKeyword(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function deleteKeyword(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         try {
             $keyword = (new TrackedKeyword())->find((int) ($params['id'] ?? 0));
@@ -1540,8 +1578,11 @@ JS;
     }
 
     /** POST /api/ai/keywords/bulk-add  { website_id, keywords: ["k1","k2",...] } */
-    public function bulkAddKeywords(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function bulkAddKeywords(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $websiteId = (int) $this->get('website_id');
         $keywords = $this->get('keywords', []);
@@ -1555,13 +1596,15 @@ JS;
         }
 
         $existing = (new TrackedKeyword())->where(['user_id' => $this->user['id'], 'website_id' => $websiteId]);
-        $existingNorm = array_map(fn($k) => $this->normalizeKeywordText((string) $k->getAttribute('keyword')), $existing);
+        $existingNorm = array_map(fn ($k) => $this->normalizeKeywordText((string) $k->getAttribute('keyword')), $existing);
 
         $added = 0;
         $skipped = 0;
         foreach ($keywords as $raw) {
             $text = trim((string) $raw);
-            if ($text === '') { continue; }
+            if ($text === '') {
+                continue;
+            }
             if (in_array($this->normalizeKeywordText($text), $existingNorm, true)) {
                 $skipped++;
                 continue;
@@ -1583,7 +1626,8 @@ JS;
         return $this->success(['added' => $added, 'skipped' => $skipped], "تم إضافة {$added} كلمة" . ($skipped ? " (اتجاهل {$skipped} مكررة)" : ''));
     }
 
-    private function normalizeKeywordText(string $text): string {
+    private function normalizeKeywordText(string $text): string
+    {
         return mb_strtolower(trim($text));
     }
 
@@ -1597,11 +1641,16 @@ JS;
      * من غير keyword_ids: بياخد أول 20 كلمة لسه ماتعملهاش Enrichment لنفس
      * الموقع (batch محدود عشان الـprompt يفضل معقول وسريع).
      */
-    public function enrichKeywords(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function enrichKeywords(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $websiteId = (int) $this->get('website_id');
-        if (!$websiteId) return $this->error('اختر الموقع الأول', 422);
+        if (!$websiteId) {
+            return $this->error('اختر الموقع الأول', 422);
+        }
 
         $website = (new Website())->find($websiteId);
         if (!$website || (int) $website->getAttribute('user_id') !== (int) $this->user['id']) {
@@ -1634,7 +1683,7 @@ JS;
 
         $businessType = (string) ($website->getAttribute('industry') ?: 'tourism business');
         $country = (string) ($website->getAttribute('target_country') ?: '');
-        $keywordList = array_map(fn($r) => $r['keyword'], $rows);
+        $keywordList = array_map(fn ($r) => $r['keyword'], $rows);
 
         $prompt = $this->buildKeywordIntelligencePrompt($keywordList, $businessType, $country);
 
@@ -1659,13 +1708,17 @@ JS;
         // مطابقة نتيجة الـAI بالـid الصحيح حسب نص الكلمة (case-insensitive) -
         // مش بنعتمد على ترتيب الرد لأن الـAI ممكن يرجّعه بترتيب مختلف.
         $byNormalizedText = [];
-        foreach ($rows as $r) { $byNormalizedText[$this->normalizeKeywordText($r['keyword'])] = $r['id']; }
+        foreach ($rows as $r) {
+            $byNormalizedText[$this->normalizeKeywordText($r['keyword'])] = $r['id'];
+        }
 
         $updated = 0;
         foreach ($parsed as $item) {
             $norm = $this->normalizeKeywordText((string) ($item['keyword'] ?? ''));
             $id = $byNormalizedText[$norm] ?? null;
-            if (!$id) continue;
+            if (!$id) {
+                continue;
+            }
 
             $this->db->exec(
                 "UPDATE tracked_keywords SET search_intent = ?, commercial_intent = ?, difficulty = ?, opportunity_score = ?, target_page = ?, priority = ?, enriched_at = NOW() WHERE id = ?",
@@ -1688,13 +1741,15 @@ JS;
         return $this->success(['updated' => $updated, 'requested' => count($rows)], "اتحلل {$updated} كلمة");
     }
 
-    private function sanitizeEnum($value, array $allowed): ?string {
+    private function sanitizeEnum($value, array $allowed): ?string
+    {
         $value = is_string($value) ? mb_strtolower(trim($value)) : null;
         return in_array($value, $allowed, true) ? $value : null;
     }
 
-    private function buildKeywordIntelligencePrompt(array $keywords, string $businessType, string $country): string {
-        $list = implode("\n", array_map(fn($k) => "- {$k}", $keywords));
+    private function buildKeywordIntelligencePrompt(array $keywords, string $businessType, string $country): string
+    {
+        $list = implode("\n", array_map(fn ($k) => "- {$k}", $keywords));
         $countryLine = $country !== '' ? "السوق المستهدف: {$country}.\n" : '';
         return <<<PROMPT
 أنت خبير SEO متخصص في قطاع السياحة. النشاط: {$businessType}.
@@ -1714,11 +1769,14 @@ PROMPT;
      * الـAI ممكن يرجّع الـJSON ملفوف في ```json fences رغم التعليمات - بنشيلها
      * دفاعيًا قبل الـdecode، ونتحقق إن الناتج array فعلًا.
      */
-    private function parseKeywordIntelligenceResponse(string $raw): array {
+    private function parseKeywordIntelligenceResponse(string $raw): array
+    {
         $clean = trim($raw);
         $clean = preg_replace('/^```(?:json)?\s*|\s*```$/i', '', $clean);
         $decoded = json_decode($clean, true);
-        if (!is_array($decoded)) return [];
+        if (!is_array($decoded)) {
+            return [];
+        }
         // لو الـAI لف الـarray جوه object زي {"keywords": [...]}
         if (isset($decoded['keywords']) && is_array($decoded['keywords'])) {
             $decoded = $decoded['keywords'];
@@ -1732,14 +1790,21 @@ PROMPT;
      * لموقع Website Builder بتاع نفس المستخدم. الناتج بيترجع للواجهة عشان
      * العميل يراجعه، وبعدين يستخدم applyTourPage() لو عايز يضيفه فعليًا.
      */
-    public function generateTourPageDraft(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function generateTourPageDraft(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $generatedWebsiteId = (int) $this->get('generated_website_id');
         $topic = trim((string) $this->get('topic', ''));
-        if (!$generatedWebsiteId || $topic === '') return $this->error('بيانات ناقصة', 422);
+        if (!$generatedWebsiteId || $topic === '') {
+            return $this->error('بيانات ناقصة', 422);
+        }
 
-        if (!class_exists('GeneratedWebsite')) return $this->error('الخدمة غير متاحة', 500);
+        if (!class_exists('GeneratedWebsite')) {
+            return $this->error('الخدمة غير متاحة', 500);
+        }
         $site = (new GeneratedWebsite())->find($generatedWebsiteId);
         if (!$site || (int) $site->getAttribute('user_id') !== (int) $this->user['id']) {
             return $this->error('الموقع غير موجود', 404);
@@ -1753,7 +1818,7 @@ PROMPT;
         $language = (string) $this->get('language', 'ar');
         $content = $site->getContent();
         $companyName = $content['business_name'] ?? null;
-        $existingSlugs = array_map(fn($t) => $t['slug'] ?? '', $content['tours'] ?? []);
+        $existingSlugs = array_map(fn ($t) => $t['slug'] ?? '', $content['tours'] ?? []);
 
         $result = $this->articleGenerator->generateTourPage($topic, $language, $companyName, $existingSlugs);
         if (!$result['success']) {
@@ -1772,8 +1837,11 @@ PROMPT;
      * لموقع Website Builder - عندنا صلاحية كتابة حقيقية عليه (عكس أي موقع
      * خارجي). بيتحقق من الحقول الأساسية المطلوبة قبل الإضافة.
      */
-    public function applyTourPage(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function applyTourPage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $generatedWebsiteId = (int) $this->get('generated_website_id');
         $tour = $this->get('tour');
@@ -1781,7 +1849,9 @@ PROMPT;
             return $this->error('بيانات الرحلة ناقصة', 422);
         }
 
-        if (!class_exists('GeneratedWebsite')) return $this->error('الخدمة غير متاحة', 500);
+        if (!class_exists('GeneratedWebsite')) {
+            return $this->error('الخدمة غير متاحة', 500);
+        }
         $site = (new GeneratedWebsite())->find($generatedWebsiteId);
         if (!$site || (int) $site->getAttribute('user_id') !== (int) $this->user['id']) {
             return $this->error('الموقع غير موجود', 404);
@@ -1827,11 +1897,16 @@ PROMPT;
      * (competitor_1_url/2/3). بيستهلك نفس رصيد تحليلات الذكاء الاصطناعي
      * المستخدم في صفحة "تحليل AI" - مفيش تحليل مجاني منفصل.
      */
-    public function discoverKeywords(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('يجب تسجيل الدخول أولاً', 401);
+    public function discoverKeywords(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('يجب تسجيل الدخول أولاً', 401);
+        }
 
         $websiteId = (int) $this->get('website_id');
-        if (!$websiteId) return $this->error('اختر الموقع الأول', 422);
+        if (!$websiteId) {
+            return $this->error('اختر الموقع الأول', 422);
+        }
 
         $website = (new Website())->find($websiteId);
         if (!$website || (int) $website->getAttribute('user_id') !== (int) $this->user['id']) {
@@ -1840,7 +1915,7 @@ PROMPT;
 
         $targetUrl = $this->normalizeUrlForAnalysis((string) $website->getAttribute('main_url'));
         $competitorUrls = array_filter(array_map(
-            fn($f) => $this->normalizeUrlForAnalysis((string) $website->getAttribute($f)),
+            fn ($f) => $this->normalizeUrlForAnalysis((string) $website->getAttribute($f)),
             ['competitor_1_url', 'competitor_2_url', 'competitor_3_url']
         ));
 
@@ -1888,8 +1963,8 @@ PROMPT;
         // نستثني الكلمات المتابَعة أصلاً عشان قسم "اكتشافات جديدة" في
         // الواجهة يعرض بس الجديد الفعلي، مش تكرار لحاجة العميل شايفها بالفعل.
         $existing = (new TrackedKeyword())->where(['user_id' => $this->user['id'], 'website_id' => $websiteId]);
-        $existingNorm = array_map(fn($k) => $this->normalizeKeywordText((string) $k->getAttribute('keyword')), $existing);
-        $newDiscoveries = array_values(array_filter($discoveredKeywords, fn($k) => !in_array($this->normalizeKeywordText($k), $existingNorm, true)));
+        $existingNorm = array_map(fn ($k) => $this->normalizeKeywordText((string) $k->getAttribute('keyword')), $existing);
+        $newDiscoveries = array_values(array_filter($discoveredKeywords, fn ($k) => !in_array($this->normalizeKeywordText($k), $existingNorm, true)));
 
         $this->log('AI Keyword Discovery', ['website_id' => $websiteId, 'discovered' => count($discoveredKeywords)]);
 
@@ -1905,9 +1980,12 @@ PROMPT;
         ], 'تم التحليل بنجاح');
     }
 
-    private function normalizeUrlForAnalysis(string $url): ?string {
+    private function normalizeUrlForAnalysis(string $url): ?string
+    {
         $url = trim($url);
-        if ($url === '') return null;
+        if ($url === '') {
+            return null;
+        }
         if (!preg_match('#^https?://#i', $url)) {
             $url = 'https://' . $url;
         }
@@ -1922,11 +2000,16 @@ PROMPT;
      * "الربط والتكاملات". نفس منطق SearchConsoleController::stats بالظبط
      * (تجديد التوكن لو قرب ينتهي) عشان نفس السلوك في كل الصفحة.
      */
-    public function syncSearchConsoleKeywords(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('يجب تسجيل الدخول أولاً', 401);
+    public function syncSearchConsoleKeywords(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('يجب تسجيل الدخول أولاً', 401);
+        }
 
         $websiteId = (int) $this->get('website_id');
-        if (!$websiteId) return $this->error('اختر الموقع الأول', 422);
+        if (!$websiteId) {
+            return $this->error('اختر الموقع الأول', 422);
+        }
 
         $website = (new Website())->find($websiteId);
         if (!$website || (int) $website->getAttribute('user_id') !== (int) $this->user['id']) {
@@ -1985,7 +2068,9 @@ PROMPT;
             $opportunities = [];
             foreach ($result['rows'] as $row) {
                 $query = trim((string) ($row['query'] ?? ''));
-                if ($query === '') continue;
+                if ($query === '') {
+                    continue;
+                }
                 $norm = $this->normalizeKeywordText($query);
 
                 if (isset($trackedByNorm[$norm])) {
@@ -2006,7 +2091,7 @@ PROMPT;
             }
 
             // أعلى الفرص فقط (أكتر ظهور في نتائج البحث) عشان الواجهة متتغرقش
-            usort($opportunities, fn($a, $b) => $b['impressions'] <=> $a['impressions']);
+            usort($opportunities, fn ($a, $b) => $b['impressions'] <=> $a['impressions']);
             $opportunities = array_slice($opportunities, 0, 15);
 
             $connection->setAttribute('last_synced_at', date('Y-m-d H:i:s'));
@@ -2025,9 +2110,10 @@ PROMPT;
         }
     }
 
-    
-/** DELETE /api/ai/report/{id} */
-    public function deleteReport(array $params): array {
+
+    /** DELETE /api/ai/report/{id} */
+    public function deleteReport(array $params): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -2047,19 +2133,23 @@ PROMPT;
      * الإعدادات موجودة في app/Config/gemini.php و.env (GEMINI_API_KEY) لكن لا يوجد
      * كود فعلي هنا ينفذ هذه التحليلات المحددة، لذا نُعيد استجابة صريحة بدل تلفيق نتائج.
      */
-    public function analyzeKeywords(array $params = []): array {
+    public function analyzeKeywords(array $params = []): array
+    {
         return $this->error('تحليل الكلمات المفتاحية غير مفعّل بعد في هذه النسخة', 501);
     }
 
-    public function analyzeCompetitors(array $params = []): array {
+    public function analyzeCompetitors(array $params = []): array
+    {
         return $this->error('تحليل المنافسين المخصص غير مفعّل بعد (استخدم /api/ai/analyze العام)', 501);
     }
 
-    public function analyzeSentiment(array $params = []): array {
+    public function analyzeSentiment(array $params = []): array
+    {
         return $this->error('تحليل المشاعر غير مفعّل بعد في هذه النسخة', 501);
     }
 
-    public function translate(array $params = []): array {
+    public function translate(array $params = []): array
+    {
         return $this->error('خدمة الترجمة غير مفعّلة بعد في هذه النسخة', 501);
     }
 
@@ -2071,7 +2161,8 @@ PROMPT;
     // جاهز، والعميل يحمّله/ينسخه وينشره بنفسه أو مع مطوّر موقعه.
 
     /** GET /ai/articles */
-    public function showArticles(array $params = []): array {
+    public function showArticles(array $params = []): array
+    {
         $tGenerateNew = $this->tr('ai.articles.generate_new');
         $tReadySeconds = $this->tr('ai.articles.ready_seconds');
         $tTopicLabel = $this->tr('ai.articles.topic_label');
@@ -2258,7 +2349,8 @@ JS;
     }
 
     /** GET /ai/article/{id} */
-    public function showArticle(array $params): array {
+    public function showArticle(array $params): array
+    {
         $articleId = (int) ($params['id'] ?? 0);
         $tLoadingArticle = $this->tr('ai.article.loading');
         $tPublishTitle = $this->tr('ai.article.publish_title');
@@ -2683,7 +2775,8 @@ JS;
     }
 
     /** POST /api/ai/article */
-    public function generateArticle(array $params = []): array {
+    public function generateArticle(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -2793,7 +2886,8 @@ JS;
     }
 
     /** GET /api/ai/articles */
-    public function getArticles(array $params = []): array {
+    public function getArticles(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -2817,7 +2911,8 @@ JS;
     }
 
     /** GET /api/ai/article/{id} */
-    public function getArticle(array $params): array {
+    public function getArticle(array $params): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -2834,7 +2929,8 @@ JS;
     }
 
     /** DELETE /api/ai/article/{id} */
-    public function deleteArticle(array $params): array {
+    public function deleteArticle(array $params): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -2859,7 +2955,8 @@ JS;
     // ============================================
 
     /** GET /api/publishing/status/{website_id} - بيرجع نوع الاتصال الحالي لو موجود (أي منهم) */
-    public function publishingStatus(array $params = []): array {
+    public function publishingStatus(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -2885,7 +2982,8 @@ JS;
     }
 
     /** بحث موحّد عن أي اتصال نشر (ووردبريس أو API مخصص) لموقع معيّن */
-    private function findPublishingConnection(int $websiteId): ?PlatformConnection {
+    private function findPublishingConnection(int $websiteId): ?PlatformConnection
+    {
         foreach (['wordpress', 'custom_api'] as $platform) {
             $connections = (new PlatformConnection())->where([
                 'website_id' => $websiteId,
@@ -2905,7 +3003,8 @@ JS;
      * بنجرّب الاتصال فعليًا الأول (users/me) قبل ما نحفظ أي حاجة، عشان
      * منخزّنش بيانات غلط ونكتشف بس وقت النشر.
      */
-    public function connectWordPress(array $params = []): array {
+    public function connectWordPress(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -2980,7 +3079,8 @@ JS;
      * بنبعت طلب اختباري (is_test=true) الأول عشان نتأكد إن الـ endpoint
      * شغّال قبل ما نحفظ الاتصال.
      */
-    public function connectCustomApi(array $params = []): array {
+    public function connectCustomApi(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -3056,7 +3156,8 @@ JS;
     }
 
     /** POST /api/publishing/disconnect/{website_id} - بيفصل أي نوع اتصال نشر متفعّل لهذا الموقع */
-    public function disconnectPublishing(array $params = []): array {
+    public function disconnectPublishing(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -3087,7 +3188,8 @@ JS;
      * (WP أو Custom API حسب platform) في نفس الطلب فنربط وننشر مرة واحدة.
      * لو متربط بالفعل، يكفي إرسال website_id.
      */
-    public function publishArticle(array $params = []): array {
+    public function publishArticle(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -3248,7 +3350,8 @@ JS;
      * POST /api/ai/article/{id}/schedule
      * body: { scheduled_at: 'YYYY-MM-DD HH:MM:SS' (توقيت السيرفر), website_id, draft? }
      */
-    public function scheduleArticle(array $params = []): array {
+    public function scheduleArticle(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -3330,7 +3433,8 @@ JS;
      * بيلغي الجدولة لو لسه معلقة (pending) وميتنفذتش، ويرجّع المقال
      * لحالة "جاهز" عادي عشان تقدر تنشره فورًا أو تجدوله تاني بوقت مختلف.
      */
-    public function cancelScheduledArticle(array $params = []): array {
+    public function cancelScheduledArticle(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -3368,7 +3472,8 @@ JS;
     }
 
     /** GET /api/ai/article/{id}/export */
-    public function exportArticle(array $params): array {
+    public function exportArticle(array $params): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }

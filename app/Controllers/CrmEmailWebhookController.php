@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Email Inbound Webhook Controller (بند 17)
  * @version 1.0.0
@@ -13,9 +14,11 @@
  * الـWebhook نفسه (Query String) والتحقق منه هنا. لازم الرابط المُسجَّل في
  * إعدادات SendGrid يكون فيه ?token=<crm_email_inbound_secret>.
  */
-class CrmEmailWebhookController extends Controller {
+class CrmEmailWebhookController extends Controller
+{
     /** POST /webhooks/crm/email-inbound?token=... */
-    public function receive(array $params = []): array {
+    public function receive(array $params = []): array
+    {
         $settings = new SystemSettingsService();
         $expectedToken = $settings->get('crm_email_inbound_secret', '');
         $providedToken = $_GET['token'] ?? '';
@@ -46,7 +49,8 @@ class CrmEmailWebhookController extends Controller {
     }
 
     /** SendGrid بيبعت "From" بصيغة "الاسم <email@x.com>" أحيانًا - نستخرج الإيميل بس */
-    private function extractEmailAddress(string $raw): ?string {
+    private function extractEmailAddress(string $raw): ?string
+    {
         if (preg_match('/<([^>]+)>/', $raw, $m)) {
             return trim($m[1]);
         }
@@ -54,7 +58,8 @@ class CrmEmailWebhookController extends Controller {
         return filter_var($raw, FILTER_VALIDATE_EMAIL) ? $raw : null;
     }
 
-    private function handleIncomingEmail(string $fromEmail, string $subject, string $body): void {
+    private function handleIncomingEmail(string $fromEmail, string $subject, string $body): void
+    {
         $contactRows = $this->db->query("SELECT * FROM crm_contacts WHERE email = ? LIMIT 1", [$fromEmail]);
         if (empty($contactRows)) {
             Logger::info('CrmEmailWebhookController: إيميل وارد من عنوان غير مسجّل', ['email' => $fromEmail]);

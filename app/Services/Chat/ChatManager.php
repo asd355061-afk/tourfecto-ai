@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Chat Manager
  * مدير الشات الرئيسي لإدارة المحادثات والرسائل
@@ -7,47 +8,48 @@
  * @copyright 2026 Tourfecto
  */
 
-class ChatManager {
+class ChatManager
+{
     /**
      * @var Database $db - اتصال قاعدة البيانات
      */
     private $db;
-    
+
     /**
      * @var MessageProcessor $messageProcessor - معالج الرسائل
      */
     private $messageProcessor;
-    
+
     /**
      * @var AutoReplyEngine $autoReplyEngine - محرك الردود التلقائية
      */
     private $autoReplyEngine;
-    
+
     /**
      * @var ApprovalSystem $approvalSystem - نظام الموافقات
      */
     private $approvalSystem;
-    
+
     /**
      * @var WhatsAppAPI $whatsAppAPI - تكامل WhatsApp
      */
     private $whatsAppAPI;
-    
+
     /**
      * @var UltraMsgAPI $ultraMsgAPI - تكامل UltraMsg
      */
     private $ultraMsgAPI;
-    
+
     /**
      * @var Encryption $encryption - نظام التشفير
      */
     private $encryption;
-    
+
     /**
      * @var SubscriptionValidator $subscription - نظام الاشتراكات
      */
     private $subscription;
-    
+
     /**
      * @var UnifiedInboxService $unifiedInbox - Unified Inbox (AI Chat Platform)
      */
@@ -61,7 +63,8 @@ class ChatManager {
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
         $this->messageProcessor = new MessageProcessor();
         $this->autoReplyEngine = new AutoReplyEngine();
@@ -73,13 +76,14 @@ class ChatManager {
         $this->unifiedInbox = new UnifiedInboxService();
         $this->rateLimiter = new RateLimiter();
     }
-    
+
     /**
      * معالجة رسالة واردة
      * @param array $webhookData - بيانات Webhook
      * @return array
      */
-    public function processIncomingMessage(array $webhookData): array {
+    public function processIncomingMessage(array $webhookData): array
+    {
         try {
             // 1. التحقق من البيانات الأساسية
             if (!isset($webhookData['message']) || !isset($webhookData['phone_number'])) {
@@ -88,18 +92,18 @@ class ChatManager {
                     'error' => 'Missing required fields: message, phone_number'
                 ];
             }
-            
+
             // 2. تحديد المستخدم والموقع
             $userId = $this->resolveUserId($webhookData);
             $websiteId = $this->resolveWebsiteId($webhookData);
-            
+
             if (!$userId || !$websiteId) {
                 return [
                     'success' => false,
                     'error' => 'Unable to resolve user or website.'
                 ];
             }
-            
+
             // 3. التحقق من صلاحية الاشتراك
             $subscriptionCheck = $this->subscription->validateSubscription($userId);
             $viaWallet = false;
@@ -118,7 +122,7 @@ class ChatManager {
                 }
                 $viaWallet = true;
             }
-            
+
             // 4. جلب إعدادات البوت
             $botSettings = $this->subscription->getBotSettings($userId, $websiteId);
             if (!$botSettings['is_enabled']) {
@@ -127,7 +131,7 @@ class ChatManager {
                     'error' => 'Bot is disabled for this website.'
                 ];
             }
-            
+
             // 5. معالجة الرسالة
             $processedMessage = $this->messageProcessor->process(
                 $webhookData,
@@ -135,11 +139,11 @@ class ChatManager {
                 $websiteId,
                 $botSettings
             );
-            
+
             if (!$processedMessage['success']) {
                 return $processedMessage;
             }
-            
+
             // 6. حفظ الرسالة الواردة
             $messageId = $this->saveIncomingMessage(
                 $userId,
@@ -147,7 +151,7 @@ class ChatManager {
                 $webhookData,
                 $processedMessage
             );
-            
+
             if (!$messageId) {
                 return [
                     'success' => false,
@@ -180,7 +184,7 @@ class ChatManager {
                     'error' => $syncError->getMessage(),
                 ]);
             }
-            
+
             // 7. توليد رد ذكي - مع حماية Rate Limiting (بند 22): حد أقصى
             // لعدد الردود الآلية لكل موقع خلال دقيقة، لمنع الإغراق أو أي
             // حلقة لا نهائية ناتجة عن خطأ في تكامل خارجي (Webhook مكرر مثلاً).
@@ -206,22 +210,22 @@ class ChatManager {
             if ($viaWallet && $reply) {
                 (new WalletService())->chargeForUsage($userId, 'chat_message', 'رد شات تلقائي');
             }
-            
+
             // 8. حفظ الرد المُولَّد
             $botStatus = $botSettings['auto_pilot'] ? 'sent' : 'pending_approval';
-            
+
             $this->saveReply(
                 $messageId,
                 $reply,
                 $botStatus,
                 $botSettings['auto_pilot']
             );
-            
+
             // 9. معالجة نظام الموافقات
             if (!$botSettings['auto_pilot']) {
                 $this->approvalSystem->addPendingApproval($messageId, $userId);
             }
-            
+
             // 10. إرسال الرد إذا كان Auto Pilot مفعلاً - عبر القناة الصحيحة
             // لهذا الموقع تحديدًا (multi-tenant + multi-channel حقيقي).
             // ملاحظة: sendMessage() القديمة (أسفل) ما زالت موجودة ومتاحة
@@ -237,12 +241,12 @@ class ChatManager {
                     : $webhookData['phone_number'];
 
                 $sent = $this->sendMessageForWebsite($websiteId, $recipientForSend, $reply, $channelForSend);
-                
+
                 if ($sent) {
                     $this->markMessageAsSent($messageId);
                 }
             }
-            
+
             // 11. تسجيل النشاط
             Logger::info('Chat message processed', [
                 'message_id' => $messageId,
@@ -251,7 +255,7 @@ class ChatManager {
                 'auto_pilot' => $botSettings['auto_pilot'],
                 'bot_status' => $botStatus
             ]);
-            
+
             return [
                 'success' => true,
                 'message_id' => $messageId,
@@ -260,20 +264,20 @@ class ChatManager {
                 'reply_generated' => !empty($reply),
                 'message' => 'Message processed successfully.'
             ];
-            
+
         } catch (Exception $e) {
             Logger::error('Chat Processing Error', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             return [
                 'success' => false,
                 'error' => $e->getMessage()
             ];
         }
     }
-    
+
     /**
      * الموافقة على رد البوت أو رفضه - wrapper بينادي ApprovalSystem الحقيقي.
      * ملحوظة: الدالة دي كانت بتتنادى من ChatController::approveReply() من
@@ -286,7 +290,8 @@ class ChatManager {
      * @param string $reason سبب الرفض (اختياري)
      * @return array
      */
-    public function approveBotReply(int $messageId, int $userId, string $action = 'approve', string $reason = ''): array {
+    public function approveBotReply(int $messageId, int $userId, string $action = 'approve', string $reason = ''): array
+    {
         if ($action === 'reject') {
             return $this->approvalSystem->reject($messageId, $userId, $reason);
         }
@@ -300,20 +305,21 @@ class ChatManager {
      * @param string $platform - المنصة
      * @return bool
      */
-    public function sendMessage(string $phoneNumber, string $message, string $platform = 'whatsapp'): bool {
+    public function sendMessage(string $phoneNumber, string $message, string $platform = 'whatsapp'): bool
+    {
         try {
             switch ($platform) {
                 case 'whatsapp':
                     return $this->whatsAppAPI->sendMessage($phoneNumber, $message);
-                    
+
                 case 'ultramsg':
                     return $this->ultraMsgAPI->sendMessage($phoneNumber, $message);
-                    
+
                 default:
                     Logger::warning('Unsupported platform for sending', ['platform' => $platform]);
                     return false;
             }
-            
+
         } catch (Exception $e) {
             Logger::error('Send Message Error', [
                 'phone' => $phoneNumber,
@@ -335,7 +341,8 @@ class ChatManager {
      * @param string $channel whatsapp|website_chat|messenger|instagram|email (افتراضيًا whatsapp للتوافق مع الكود القديم)
      * @return bool
      */
-    public function sendMessageForWebsite(int $websiteId, string $recipient, string $message, string $channel = 'whatsapp'): bool {
+    public function sendMessageForWebsite(int $websiteId, string $recipient, string $message, string $channel = 'whatsapp'): bool
+    {
         try {
             switch ($channel) {
                 case 'messenger':
@@ -375,7 +382,8 @@ class ChatManager {
      * @param string $message
      * @return bool
      */
-    private function sendViaUltraMsg(int $websiteId, string $phoneNumber, string $message): bool {
+    private function sendViaUltraMsg(int $websiteId, string $phoneNumber, string $message): bool
+    {
         $connection = (new PlatformConnection())->where([
             'website_id' => $websiteId,
             'platform' => 'ultramsg',
@@ -403,7 +411,8 @@ class ChatManager {
      * @param callable $sendCallback function(string $decryptedToken): bool
      * @return bool
      */
-    private function sendViaPlatformConnection(int $websiteId, string $platform, callable $sendCallback): bool {
+    private function sendViaPlatformConnection(int $websiteId, string $platform, callable $sendCallback): bool
+    {
         $connection = (new PlatformConnection())->where([
             'website_id' => $websiteId,
             'platform' => $platform,
@@ -420,7 +429,7 @@ class ChatManager {
 
         return $sendCallback($token);
     }
-    
+
     /**
      * الحصول على محادثة
      * @param string $sessionId - معرف الجلسة
@@ -428,51 +437,53 @@ class ChatManager {
      * @param int $limit - عدد الرسائل
      * @return array
      */
-    public function getConversation(string $sessionId, int $userId, int $limit = 50): array {
+    public function getConversation(string $sessionId, int $userId, int $limit = 50): array
+    {
         try {
             $sql = "SELECT * FROM chat_messages 
                     WHERE session_id = :session_id 
                     AND user_id = :user_id
                     ORDER BY created_at DESC 
                     LIMIT :limit";
-            
+
             $messages = $this->db->query($sql, [
                 ':session_id' => $sessionId,
                 ':user_id' => $userId,
                 ':limit' => $limit
             ]);
-            
+
             // فك تشفير البيانات الحساسة
             foreach ($messages as &$message) {
                 $message = $this->decryptMessageData($message);
             }
-            
+
             return [
                 'success' => true,
                 'messages' => array_reverse($messages),
                 'count' => count($messages)
             ];
-            
+
         } catch (Exception $e) {
             Logger::error('Get Conversation Error', [
                 'session_id' => $sessionId,
                 'error' => $e->getMessage()
             ]);
-            
+
             return [
                 'success' => false,
                 'error' => $e->getMessage()
             ];
         }
     }
-    
+
     /**
      * الحصول على إحصائيات الشات
      * @param int $userId - معرف المستخدم
      * @param int|null $websiteId - معرف الموقع
      * @return array
      */
-    public function getChatStats(int $userId, ?int $websiteId = null): array {
+    public function getChatStats(int $userId, ?int $websiteId = null): array
+    {
         try {
             $params = [$userId];
             $sql = "SELECT 
@@ -486,14 +497,14 @@ class ChatManager {
                         COUNT(DISTINCT session_id) as total_conversations
                     FROM chat_messages 
                     WHERE user_id = ?";
-            
+
             if ($websiteId) {
                 $sql .= " AND website_id = ?";
                 $params[] = $websiteId;
             }
-            
+
             $result = $this->db->query($sql, $params);
-            
+
             if (empty($result)) {
                 return [
                     'total_messages' => 0,
@@ -506,7 +517,7 @@ class ChatManager {
                     'total_conversations' => 0
                 ];
             }
-            
+
             return [
                 'total_messages' => (int) $result[0]['total_messages'],
                 'incoming' => (int) $result[0]['incoming'],
@@ -517,13 +528,13 @@ class ChatManager {
                 'rejected' => (int) $result[0]['rejected'],
                 'total_conversations' => (int) $result[0]['total_conversations']
             ];
-            
+
         } catch (Exception $e) {
             Logger::error('Get Chat Stats Error', [
                 'user_id' => $userId,
                 'error' => $e->getMessage()
             ]);
-            
+
             return [
                 'total_messages' => 0,
                 'incoming' => 0,
@@ -537,7 +548,7 @@ class ChatManager {
             ];
         }
     }
-    
+
     /**
      * حفظ رسالة واردة
      * @param int $userId
@@ -555,7 +566,7 @@ class ChatManager {
         try {
             $phoneNumber = $webhookData['phone_number'];
             $encryptedPhone = $this->encryption->encryptCustomerData($phoneNumber, $phoneNumber);
-            
+
             $sql = "INSERT INTO chat_messages (
                         website_id, user_id, session_id, platform, platform_message_id,
                         customer_name, customer_phone, encrypted_phone,
@@ -571,7 +582,7 @@ class ChatManager {
                         :ip_address, :user_agent, 'pending_approval', :is_auto_pilot,
                         NOW()
                     )";
-            
+
             $params = [
                 ':website_id' => $websiteId,
                 ':user_id' => $userId,
@@ -582,7 +593,7 @@ class ChatManager {
                 ':customer_phone' => $phoneNumber,
                 ':encrypted_phone' => $encryptedPhone,
                 ':customer_email' => $webhookData['email'] ?? null,
-                ':encrypted_email' => !empty($webhookData['email']) 
+                ':encrypted_email' => !empty($webhookData['email'])
                     ? $this->encryption->encryptCustomerData($webhookData['email'], $phoneNumber)
                     : null,
                 ':message_text' => $webhookData['message'],
@@ -592,9 +603,9 @@ class ChatManager {
                 ':user_agent' => $webhookData['user_agent'] ?? $_SERVER['HTTP_USER_AGENT'] ?? null,
                 ':is_auto_pilot' => $processedMessage['auto_pilot'] ? 1 : 0
             ];
-            
+
             return (int) $this->db->query($sql, $params);
-            
+
         } catch (Exception $e) {
             Logger::error('Save Incoming Message Error', [
                 'error' => $e->getMessage()
@@ -602,7 +613,7 @@ class ChatManager {
             throw $e;
         }
     }
-    
+
     /**
      * حفظ الرد المُولَّد
      * @param int $messageId
@@ -610,7 +621,8 @@ class ChatManager {
      * @param string $botStatus
      * @param bool $isAutoPilot
      */
-    private function saveReply(int $messageId, ?string $reply, string $botStatus, bool $isAutoPilot): void {
+    private function saveReply(int $messageId, ?string $reply, string $botStatus, bool $isAutoPilot): void
+    {
         try {
             $sql = "UPDATE chat_messages 
                     SET ai_reply_generated = :reply,
@@ -619,14 +631,14 @@ class ChatManager {
                         is_auto_pilot = :is_auto_pilot,
                         updated_at = NOW()
                     WHERE id = :message_id";
-            
+
             $this->db->query($sql, [
                 ':message_id' => $messageId,
                 ':reply' => $reply,
                 ':bot_status' => $botStatus,
                 ':is_auto_pilot' => $isAutoPilot ? 1 : 0
             ]);
-            
+
         } catch (Exception $e) {
             Logger::error('Save Reply Error', [
                 'message_id' => $messageId,
@@ -634,21 +646,22 @@ class ChatManager {
             ]);
         }
     }
-    
+
     /**
      * تحديث حالة الرسالة إلى مرسلة
      * @param int $messageId
      */
-    private function markMessageAsSent(int $messageId): void {
+    private function markMessageAsSent(int $messageId): void
+    {
         try {
             $sql = "UPDATE chat_messages 
                     SET bot_status = 'sent',
                         sent_at = NOW(),
                         updated_at = NOW()
                     WHERE id = :message_id";
-            
+
             $this->db->query($sql, [':message_id' => $messageId]);
-            
+
         } catch (Exception $e) {
             Logger::error('Mark Message As Sent Error', [
                 'message_id' => $messageId,
@@ -656,90 +669,94 @@ class ChatManager {
             ]);
         }
     }
-    
+
     /**
      * تحديد معرف المستخدم من بيانات Webhook
      * @param array $data
      * @return int|null
      */
-    private function resolveUserId(array $data): ?int {
+    private function resolveUserId(array $data): ?int
+    {
         if (isset($data['user_id'])) {
             return (int) $data['user_id'];
         }
-        
+
         if (isset($data['api_key'])) {
             $sql = "SELECT id FROM users WHERE api_key = :api_key LIMIT 1";
             $result = $this->db->query($sql, [':api_key' => $data['api_key']]);
             return !empty($result) ? (int) $result[0]['id'] : null;
         }
-        
+
         if (isset($data['whatsapp_phone'])) {
             $sql = "SELECT user_id FROM bot_settings WHERE whatsapp_phone_number = :phone LIMIT 1";
             $result = $this->db->query($sql, [':phone' => $data['whatsapp_phone']]);
             return !empty($result) ? (int) $result[0]['user_id'] : null;
         }
-        
+
         return null;
     }
-    
+
     /**
      * تحديد معرف الموقع من بيانات Webhook
      * @param array $data
      * @return int|null
      */
-    private function resolveWebsiteId(array $data): ?int {
+    private function resolveWebsiteId(array $data): ?int
+    {
         if (isset($data['website_id'])) {
             return (int) $data['website_id'];
         }
-        
+
         if (isset($data['website_url'])) {
             $urlCol = Website::urlColumn();
             $sql = "SELECT id FROM websites WHERE {$urlCol} = :url LIMIT 1";
             $result = $this->db->query($sql, [':url' => $data['website_url']]);
             return !empty($result) ? (int) $result[0]['id'] : null;
         }
-        
+
         if (isset($data['whatsapp_phone'])) {
             $sql = "SELECT website_id FROM bot_settings WHERE whatsapp_phone_number = :phone LIMIT 1";
             $result = $this->db->query($sql, [':phone' => $data['whatsapp_phone']]);
             return !empty($result) ? (int) $result[0]['website_id'] : null;
         }
-        
+
         return null;
     }
-    
+
     /**
      * توليد معرف جلسة
      * @param string $phoneNumber
      * @return string
      */
-    private function generateSessionId(string $phoneNumber): string {
+    private function generateSessionId(string $phoneNumber): string
+    {
         return 'session_' . md5($phoneNumber . '_' . date('Y-m-d'));
     }
-    
+
     /**
      * فك تشفير بيانات الرسالة
      * @param array $message
      * @return array
      */
-    private function decryptMessageData(array $message): array {
+    private function decryptMessageData(array $message): array
+    {
         if (!empty($message['encrypted_phone'])) {
             $message['customer_phone'] = $this->encryption->decryptCustomerData(
                 $message['encrypted_phone'],
                 $message['customer_phone'] ?? ''
             );
         }
-        
+
         if (!empty($message['encrypted_email'])) {
             $message['customer_email'] = $this->encryption->decryptCustomerData(
                 $message['encrypted_email'],
                 $message['customer_phone'] ?? ''
             );
         }
-        
+
         unset($message['encrypted_phone']);
         unset($message['encrypted_email']);
-        
+
         return $message;
     }
 }

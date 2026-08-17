@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM SMS Integration via Twilio (بند 15)
  * @version 1.0.0
@@ -12,25 +13,29 @@
  * لم يُختبر على حساب Twilio حقيقي في بيئة التنفيذ هذه (لا اتصال شبكة متاح) -
  * راجع "Tests Requiring Credentials" في CHANGELOG.
  */
-class CrmSmsService {
+class CrmSmsService
+{
     private $settings;
     private $accountSid;
     private $authToken;
     private $fromNumber;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->settings = new SystemSettingsService();
         $this->accountSid = $this->settings->get('crm_sms_account_sid', '');
         $this->authToken = $this->settings->get('crm_sms_auth_token', '');
         $this->fromNumber = $this->settings->get('crm_sms_from_number', '');
     }
 
-    public function isConfigured(): bool {
+    public function isConfigured(): bool
+    {
         return $this->accountSid !== '' && $this->authToken !== '' && $this->fromNumber !== '';
     }
 
     /** إرسال SMS فعلي عبر Twilio REST API */
-    public function sendTextMessage(string $toPhoneE164, string $text): array {
+    public function sendTextMessage(string $toPhoneE164, string $text): array
+    {
         if (!$this->isConfigured()) {
             return [
                 'success' => false,
@@ -75,7 +80,8 @@ class CrmSmsService {
     }
 
     /** إرسال SMS لجهة اتصال CRM، ويسجّله في محادثة (نفس منطق CrmWhatsAppService::sendToContact) */
-    public function sendToContact(int $userId, int $contactId, string $text): array {
+    public function sendToContact(int $userId, int $contactId, string $text): array
+    {
         $contact = (new CrmContact())->find($contactId);
         if (!$contact || (int) $contact->getAttribute('user_id') !== $userId) {
             return ['success' => false, 'error' => 'جهة الاتصال غير موجودة'];
@@ -118,7 +124,8 @@ class CrmSmsService {
      * التحقق الرسمية: HMAC-SHA1 لـ(الرابط الكامل + كل قيم الـPOST مرتّبة
      * أبجديًا ومُلحَقة بأسماء الحقول) باستخدام Auth Token كمفتاح.
      */
-    public function verifyWebhookSignature(string $fullUrl, array $postParams, string $signatureHeader): bool {
+    public function verifyWebhookSignature(string $fullUrl, array $postParams, string $signatureHeader): bool
+    {
         if ($this->authToken === '') {
             return false;
         }

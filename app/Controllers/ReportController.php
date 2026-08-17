@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Report Controller
  * عرض وتصدير التقارير
@@ -9,10 +10,11 @@
  * صريحة بأن الميزة غير مفعّلة بدلاً من التظاهر بأنها تعمل.
  */
 
-class ReportController extends Controller {
-
+class ReportController extends Controller
+{
     /** GET /reports */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $userId = $_SESSION['user_id'] ?? null;
         if (!$userId) {
             return $this->error('غير مسجل دخول', 401);
@@ -29,27 +31,32 @@ class ReportController extends Controller {
     }
 
     /** GET /reports/export و GET /api/reports/export */
-    public function export(array $params = []): array {
+    public function export(array $params = []): array
+    {
         return $this->error('ميزة تصدير التقارير (PDF/Excel) غير مفعّلة بعد في هذه النسخة', 501);
     }
 
     /** GET /reports/scheduled */
-    public function scheduled(array $params = []): array {
+    public function scheduled(array $params = []): array
+    {
         return $this->getScheduled($params);
     }
 
     /** GET /api/reports/scheduled */
-    public function getScheduled(array $params = []): array {
+    public function getScheduled(array $params = []): array
+    {
         return $this->success(['scheduled_reports' => []], 'لا توجد ميزة جدولة تقارير في قاعدة البيانات الحالية بعد');
     }
 
     /** POST /api/reports/schedule */
-    public function schedule(array $params = []): array {
+    public function schedule(array $params = []): array
+    {
         return $this->error('ميزة جدولة التقارير غير مفعّلة بعد؛ يتطلب إضافة جدول scheduled_reports لقاعدة البيانات', 501);
     }
 
     /** DELETE /api/reports/schedule/{id} */
-    public function deleteSchedule(array $params = []): array {
+    public function deleteSchedule(array $params = []): array
+    {
         return $this->error('ميزة جدولة التقارير غير مفعّلة بعد', 501);
     }
 }

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * Follow-up Automation Service (بند 7): لو العميل سأل ثم اختفى، ينشئ
@@ -14,8 +15,8 @@
  * @version 1.0.0
  */
 
-class FollowUpAutomationService {
-
+class FollowUpAutomationService
+{
     /** @var Database */
     private $db;
 
@@ -31,7 +32,8 @@ class FollowUpAutomationService {
     /** @var AiLead */
     private $leadModel;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
         $this->inbox = new UnifiedInboxService();
         $this->chatManager = new ChatManager();
@@ -44,7 +46,8 @@ class FollowUpAutomationService {
      * المستحقة الآن. يُستدعى مرة كل تشغيلة Cron.
      * @return array ['scheduled' => int, 'sent' => int, 'cancelled' => int, 'failed' => int]
      */
-    public function processDueFollowUps(): array {
+    public function processDueFollowUps(): array
+    {
         $stats = ['scheduled' => 0, 'sent' => 0, 'cancelled' => 0, 'failed' => 0];
 
         $this->discoverAndScheduleNewFollowUps($stats);
@@ -64,7 +67,8 @@ class FollowUpAutomationService {
      *
      * @param array $stats مرجع - يُحدَّث مباشرة
      */
-    private function discoverAndScheduleNewFollowUps(array &$stats): void {
+    private function discoverAndScheduleNewFollowUps(array &$stats): void
+    {
         $candidates = $this->db->query(
             "SELECT c.id AS conversation_id, c.website_id, c.last_customer_message_at,
                     r.steps, r.max_followups
@@ -150,7 +154,8 @@ class FollowUpAutomationService {
      * وقت الجدولة لحد الآن).
      * @param array $stats مرجع - يُحدَّث مباشرة
      */
-    private function sendDueFollowUps(array &$stats): void {
+    private function sendDueFollowUps(array &$stats): void
+    {
         $due = $this->db->query(
             "SELECT f.*, c.customer_phone, c.customer_email, c.customer_name, c.do_not_contact, c.ai_status,
                     c.status AS conversation_status, c.user_id, c.channel
@@ -252,7 +257,8 @@ class FollowUpAutomationService {
      * @param int $followupId
      * @param string $reason
      */
-    private function cancelFollowUp(int $followupId, string $reason): void {
+    private function cancelFollowUp(int $followupId, string $reason): void
+    {
         $this->db->query(
             "UPDATE ai_followups SET status = 'cancelled', stop_reason = ? WHERE id = ?",
             [$reason, $followupId]
@@ -307,7 +313,8 @@ class FollowUpAutomationService {
      * @param string $customerName
      * @return string
      */
-    private function renderTemplate(string $template, string $customerName): string {
+    private function renderTemplate(string $template, string $customerName): string
+    {
         $template = trim($template);
         if ($template === '') {
             return '';
@@ -321,7 +328,8 @@ class FollowUpAutomationService {
      * @param int $websiteId
      * @return array
      */
-    public function getRules(int $websiteId): array {
+    public function getRules(int $websiteId): array
+    {
         $rule = $this->ruleModel->forWebsite($websiteId);
         if (!$rule) {
             return [
@@ -350,7 +358,8 @@ class FollowUpAutomationService {
      * @param array $data ['is_enabled','steps','max_followups','stop_conditions']
      * @return bool
      */
-    public function updateRules(int $websiteId, array $data): bool {
+    public function updateRules(int $websiteId, array $data): bool
+    {
         $rule = $this->ruleModel->forWebsite($websiteId) ?: new AiFollowupRule();
 
         $rule->fill([

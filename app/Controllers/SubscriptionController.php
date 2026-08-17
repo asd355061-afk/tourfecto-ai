@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Subscription Controller
  * متحكم إدارة الاشتراكات والفوترة
@@ -7,36 +8,39 @@
  * @copyright 2026 Tourfecto
  */
 
-class SubscriptionController extends Controller {
+class SubscriptionController extends Controller
+{
     /**
      * @var SubscriptionValidator $subscription - مدقق الاشتراكات
      */
     private $subscription;
-    
+
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->subscription = new SubscriptionValidator();
     }
-    
+
     /**
      * التحقق من صلاحية الاشتراك
      * POST /api/subscription/validate
      * @param array $params
      * @return array
      */
-    public function validateSubscriptionStatus(array $params = []): array {
+    public function validateSubscriptionStatus(array $params = []): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('Unauthorized', 401);
             }
-            
+
             $result = $this->subscription->validateSubscription($this->user['id']);
-            
+
             return $this->success($result);
-            
+
         } catch (Exception $e) {
             Logger::error('Validate Subscription Error', [
                 'message' => $e->getMessage()
@@ -44,36 +48,37 @@ class SubscriptionController extends Controller {
             return $this->error('Validation failed', 500);
         }
     }
-    
+
     /**
      * الحصول على تفاصيل الاشتراك الحالي
      * GET /api/subscription/current
      * @param array $params
      * @return array
      */
-    public function current(array $params = []): array {
+    public function current(array $params = []): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('Unauthorized', 401);
             }
-            
+
             $subscription = Subscription::activeSubscriptionRow($this->user['id']);
-            
+
             if (!$subscription) {
                 return $this->success([
                     'has_subscription' => false
                 ]);
             }
-            
+
             $usage = $this->getUsageStats($this->user['id']);
-            
+
             return $this->success([
                 'has_subscription' => true,
                 'subscription' => $subscription,
                 'usage' => $usage,
                 'features' => $this->getPlanFeatures($subscription['plan_name'])
             ]);
-            
+
         } catch (Exception $e) {
             Logger::error('Get Current Subscription Error', [
                 'message' => $e->getMessage()
@@ -81,26 +86,27 @@ class SubscriptionController extends Controller {
             return $this->error('Failed to get subscription', 500);
         }
     }
-    
+
     /**
      * إنشاء اشتراك جديد
      * POST /api/subscription/create
      * @param array $params
      * @return array
      */
-    public function create(array $params = []): array {
+    public function create(array $params = []): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('Unauthorized', 401);
             }
-            
+
             $planName = $this->get('plan_name');
             $planType = $this->get('plan_type', 'monthly');
-            
+
             if (!$planName) {
                 return $this->error('Plan name is required', 400);
             }
-            
+
             // التحقق من وجود اشتراك نشط
             // تصحيح: expiry_date مش اسم العمود الحقيقي في القاعدة المنشورة
             $expiryCol = Subscription::expiryColumn();
@@ -110,33 +116,33 @@ class SubscriptionController extends Controller {
                     AND status = 'active' 
                     {$expiryClause}
                     LIMIT 1";
-            
+
             $existing = $this->db->query($sql, [$this->user['id']]);
-            
+
             if (!empty($existing)) {
                 return $this->error('You already have an active subscription', 400);
             }
-            
+
             // إنشاء الاشتراك
             $subscription = Subscription::createSubscription(
                 $this->user['id'],
                 $planName,
                 $planType
             );
-            
+
             if (!$subscription) {
                 return $this->error('Failed to create subscription', 500);
             }
-            
+
             $this->log('Subscription Created', [
                 'plan' => $planName,
                 'type' => $planType
             ]);
-            
+
             return $this->success([
                 'subscription' => $subscription->toArray()
             ], 'Subscription created successfully');
-            
+
         } catch (Exception $e) {
             Logger::error('Create Subscription Error', [
                 'message' => $e->getMessage()
@@ -147,46 +153,59 @@ class SubscriptionController extends Controller {
             return $this->error($debugMsg, 500);
         }
     }
-    
+
     /**
      * تجديد الاشتراك
      * POST /api/subscription/renew
      * @param array $params
      * @return array
      */
-    public function renew(array $params = []): array {
+    public function renew(array $params = []): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('Unauthorized', 401);
             }
-            
+
             // جلب الاشتراك الحالي
             $sql = "SELECT * FROM subscriptions 
                     WHERE user_id = ? 
                     AND status = 'active' 
                     ORDER BY id DESC LIMIT 1";
-            
+
             $result = $this->db->query($sql, [$this->user['id']]);
-            
+
             if (empty($result)) {
                 return $this->error('No active subscription found', 404);
             }
-            
+
             $subscription = new Subscription($result[0]);
             $renewed = $subscription->renew();
-            
+
             if (!$renewed) {
                 return $this->error('Failed to renew subscription', 500);
             }
-            
+
             $this->log('Subscription Renewed', [
                 'subscription_id' => $subscription->getAttribute('id')
             ]);
-            
+
+            // Section 13: كانت مفيش أي إشعار عند التجديد خالص - إضافة
+            // بس، مفيش تعديل على منطق renew() نفسه.
+            if (class_exists('Notification')) {
+                Notification::notify(
+                    (int) $this->user['id'],
+                    'subscription_renewed',
+                    'تم تجديد اشتراكك',
+                    'تم تجديد باقتك بنجاح.',
+                    '/subscription'
+                );
+            }
+
             return $this->success([
                 'subscription' => $subscription->toArray()
             ], 'Subscription renewed successfully');
-            
+
         } catch (Exception $e) {
             Logger::error('Renew Subscription Error', [
                 'message' => $e->getMessage()
@@ -194,38 +213,39 @@ class SubscriptionController extends Controller {
             return $this->error('Failed to renew subscription', 500);
         }
     }
-    
+
     /**
      * إلغاء الاشتراك
      * POST /api/subscription/cancel
      * @param array $params
      * @return array
      */
-    public function cancel(array $params = []): array {
+    public function cancel(array $params = []): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('Unauthorized', 401);
             }
-            
+
             // جلب الاشتراك الحالي
             $sql = "SELECT * FROM subscriptions 
                     WHERE user_id = ? 
                     AND status = 'active' 
                     ORDER BY id DESC LIMIT 1";
-            
+
             $result = $this->db->query($sql, [$this->user['id']]);
-            
+
             if (empty($result)) {
                 return $this->error('No active subscription found', 404);
             }
-            
+
             $subscription = new Subscription($result[0]);
             $cancelled = $subscription->cancel();
-            
+
             if (!$cancelled) {
                 return $this->error('Failed to cancel subscription', 500);
             }
-            
+
             $this->log('Subscription Cancelled', [
                 'subscription_id' => $subscription->getAttribute('id')
             ]);
@@ -240,9 +260,9 @@ class SubscriptionController extends Controller {
                 'subject_type' => 'subscriptions',
                 'subject_id' => (int) $subscription->getAttribute('id'),
             ]);
-            
+
             return $this->success([], 'Subscription cancelled successfully');
-            
+
         } catch (Exception $e) {
             Logger::error('Cancel Subscription Error', [
                 'message' => $e->getMessage()
@@ -250,14 +270,15 @@ class SubscriptionController extends Controller {
             return $this->error('Failed to cancel subscription', 500);
         }
     }
-    
+
     /**
      * ترقية الباقة
      * POST /api/subscription/upgrade
      * @param array $params
      * @return array
      */
-    public function upgrade(array $params = []): array {
+    public function upgrade(array $params = []): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('Unauthorized', 401);
@@ -316,21 +337,22 @@ class SubscriptionController extends Controller {
             return $this->error('Failed to upgrade subscription', 500);
         }
     }
-    
+
     /**
      * الحصول على خطط الاشتراك المتاحة
      * GET /api/subscription/plans
      * @param array $params
      * @return array
      */
-    public function getPlans(array $params = []): array {
+    public function getPlans(array $params = []): array
+    {
         try {
             $plans = Subscription::getAvailablePlans();
-            
+
             return $this->success([
                 'plans' => $plans
             ]);
-            
+
         } catch (Exception $e) {
             Logger::error('Get Plans Error', [
                 'message' => $e->getMessage()
@@ -338,19 +360,20 @@ class SubscriptionController extends Controller {
             return $this->error('Failed to get plans', 500);
         }
     }
-    
+
     /**
      * الحصول على إحصائيات الاستخدام
      * @param int $userId
      * @return array
      */
-    private function getUsageStats(int $userId): array {
+    private function getUsageStats(int $userId): array
+    {
         $data = Subscription::activeSubscriptionRow($userId);
-        
+
         if (!$data) {
             return [];
         }
-        
+
         $usage = [
             'ai' => [
                 'total' => (int) $data['ai_credits'],
@@ -384,13 +407,14 @@ class SubscriptionController extends Controller {
 
         return $usage;
     }
-    
+
     /**
      * الحصول على ميزات الباقة
      * @param string $planName
      * @return array
      */
-    private function getPlanFeatures(string $planName): array {
+    private function getPlanFeatures(string $planName): array
+    {
         $plans = Subscription::getAvailablePlans();
         return $plans[$planName]['features'] ?? [];
     }
@@ -406,7 +430,8 @@ class SubscriptionController extends Controller {
      * بيانات الفوترة الرسمية للعميل الحالي (اسم قانوني، عنوان، رقم ضريبي).
      * Phase 4 - جدول جديد بالكامل، مفيش أي تعديل على منطق الفوترة الأساسي.
      */
-    public function getBillingProfile(array $params = []): array {
+    public function getBillingProfile(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -421,7 +446,8 @@ class SubscriptionController extends Controller {
     }
 
     /** PUT /api/subscription/billing-profile */
-    public function updateBillingProfile(array $params = []): array {
+    public function updateBillingProfile(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -460,12 +486,14 @@ class SubscriptionController extends Controller {
     }
 
     /** GET /pricing (عام - بدون تسجيل دخول) */
-    public function showPricing(array $params = []): array {
+    public function showPricing(array $params = []): array
+    {
         return $this->renderPlansPage();
     }
 
     /** GET /subscription */
-    public function showSubscription(array $params = []): array {
+    public function showSubscription(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             header('Location: /login?redirect=' . urlencode('/subscription'));
             exit;
@@ -491,7 +519,31 @@ class SubscriptionController extends Controller {
         $planInfo = $plansData[$sub['plan_name']] ?? null;
         $planLabel = htmlspecialchars($planInfo['name'] ?? $sub['plan_name'], ENT_QUOTES, 'UTF-8');
         $status = htmlspecialchars((string) $sub['status'], ENT_QUOTES, 'UTF-8');
-        $statusLabel = $status === 'active' ? $this->tr('subscription.status.active') : $status;
+        // Section 7: خرائط كل حالات دورة الحياة الحقيقية (مؤكدة من الـ
+        // ENUM الفعلي: active/trialing/past_due/cancelled/paused) - قبل
+        // كده أي حالة غير 'active' كانت بتظهر بالكلمة الإنجليزية الخام
+        // جوه Pill أخضر ثابت (✔) - مضلّل جدًا لعميل past_due (المفروض
+        // يشوف تحذير مش علامة "تمام").
+        $statusMeta = [
+            'active' => ['label' => $this->tr('subscription.status.active'), 'pill' => 'green', 'icon' => '✔'],
+            'trialing' => ['label' => 'فترة تجربة مجانية', 'pill' => 'blue', 'icon' => '🎁'],
+            'past_due' => ['label' => 'متأخر - محتاج تجديد', 'pill' => 'orange', 'icon' => '⚠️'],
+            'cancelled' => ['label' => 'ملغى', 'pill' => 'red', 'icon' => '✖'],
+            'paused' => ['label' => 'موقوف مؤقتًا', 'pill' => 'gray', 'icon' => '⏸'],
+        ];
+        $meta = $statusMeta[$status] ?? ['label' => $status, 'pill' => 'gray', 'icon' => '•'];
+        $statusLabel = $meta['label'];
+        $statusPillColor = $meta['pill'];
+        $statusIcon = $meta['icon'];
+
+        // بانر تحذيري إضافي واضح لو الاشتراك في فترة سماح (past_due) -
+        // عشان العميل يعرف بالظبط إيه اللي محتاج يعمله.
+        $lifecycleBanner = '';
+        if ($status === 'past_due') {
+            $lifecycleBanner = '<div class="alert alert-warning" style="margin-bottom:14px;">⚠️ اشتراكك متأخر عن التجديد - عندك فترة سماح محدودة قبل ما يتوقف تلقائيًا. جدّد دلوقتي من رصيد محفظتك عشان تفادي انقطاع الخدمة.</div>';
+        } elseif ($status === 'trialing') {
+            $lifecycleBanner = '<div class="alert alert-info" style="margin-bottom:14px;">🎁 انت لسه في فترة التجربة المجانية - تقدر تشترك فعليًا في أي وقت قبل ما التجربة تخلص.</div>';
+        }
         $price = htmlspecialchars((string) $sub['price'], ENT_QUOTES, 'UTF-8');
         // تصحيح جذري: بدل ما نثق في $sub['currency'] المخزّنة (ممكن تكون
         // قديمة أو اتسجّلت غلط وقت الإنشاء زي "EGP" لسعر بالدولار فعليًا)،
@@ -552,12 +604,13 @@ HTML;
         $tLoading = $this->tr('common.loading');
 
         $body = <<<HTML
+        {$lifecycleBanner}
         <div class="p-card sub-plan-card">
             <div class="p-card-head">
                 <h3>{$planLabel}</h3>
                 <span class="p-card-sub">{$planType} · {$currencySymbol}{$price}</span>
             </div>
-            <div class="p-kv"><span class="k">{$tStatus}</span><span class="v"><span class="pill green">✔ {$statusLabel}</span></span></div>
+            <div class="p-kv"><span class="k">{$tStatus}</span><span class="v"><span class="pill {$statusPillColor}">{$statusIcon} {$statusLabel}</span></span></div>
             <div class="p-kv"><span class="k">{$tNextRenewal}</span><span class="v">{$expiryLabel}{$daysLeftBadge}</span></div>
             <div style="display:flex;gap:10px;margin-top:16px;">
                 <a href="/plans" class="p-btn outline">⬆️ {$tUpgrade}</a>
@@ -858,11 +911,13 @@ JS;
     }
 
     /** GET /plans (عام - بدون تسجيل دخول) */
-    public function showPlans(array $params = []): array {
+    public function showPlans(array $params = []): array
+    {
         return $this->renderPlansPage();
     }
 
-    private function renderPlansPage(): array {
+    private function renderPlansPage(): array
+    {
         // تصحيح: بقت الباقات قابلة للتعديل من لوحة الأدمن بدل الثابت الجامد.
         $plans = SubscriptionPlan::allAsLegacyArray();
         $cardsHtml = '';
@@ -888,7 +943,7 @@ JS;
                 $f['auto_pilot'] ? "✔ إرسال تلقائي بدون مراجعة" : "○ يتطلب موافقتك على الردود",
                 $f['advanced_analytics'] ? "✔ تحليلات متقدمة" : "○ تحليلات أساسية",
             ];
-            $featuresHtml = implode('', array_map(fn($i) => '<li>' . htmlspecialchars($i, ENT_QUOTES, 'UTF-8') . '</li>', $featureItems));
+            $featuresHtml = implode('', array_map(fn ($i) => '<li>' . htmlspecialchars($i, ENT_QUOTES, 'UTF-8') . '</li>', $featureItems));
 
             $whatsappMonthly = $this->buildWhatsAppSubscribeLink($plan['name'], $priceMonthly, 'شهري', $currencySymbol);
             $whatsappYearly = $this->buildWhatsAppSubscribeLink($plan['name'], $priceYearly, 'سنوي', $currencySymbol);
@@ -1027,7 +1082,8 @@ JS;
      * له من لوحة الأدمن (/admin/subscriptions).
      */
     /** كارت المحفظة الكامل (رصيد + إيداع + شحن كرت) - متاح للعميل بغض النظر عن حالة اشتراكه */
-    private function renderWalletCardHtml(): string {
+    private function renderWalletCardHtml(): string
+    {
         return <<<HTML
         <div class="p-card wallet-card" style="margin-top:16px;">
             <div class="p-card-head">
@@ -1079,7 +1135,8 @@ HTML;
     }
 
     /** سكريبت المحفظة بس (من غير باقي منطق صفحة الاشتراك) - للعميل اللي معندوش اشتراك نشط */
-    private function buildWalletOnlyScript(): string {
+    private function buildWalletOnlyScript(): string
+    {
         return <<<'JS'
 (function () {
     const P = window.Panel;
@@ -1200,7 +1257,8 @@ HTML;
 JS;
     }
 
-    private function buildWhatsAppSubscribeLink(string $planLabel, string $price, string $cycle, string $currencySymbol = '$'): string {
+    private function buildWhatsAppSubscribeLink(string $planLabel, string $price, string $cycle, string $currencySymbol = '$'): string
+    {
         if (!support_whatsapp_number()) {
             return '#';
         }
@@ -1217,7 +1275,8 @@ JS;
      * صفحة أسعار عامة (بدون تسجيل دخول) - نفس نظام تصميم الصفحة الرئيسية
      * (مش panel layout لأن الزائر لسه معندوش حساب).
      */
-    private function renderPublicPlansPage(string $body, string $script): string {
+    private function renderPublicPlansPage(string $body, string $script): string
+    {
         $appName = defined('APP_NAME') ? APP_NAME : 'Tourfecto';
         // تصحيح باغ فادح: {asset_v(...)} جوه heredoc مبيتفسّرش من PHP.
         $styleCssUrl = asset_v('/assets/css/style.css');
@@ -1319,7 +1378,8 @@ HTML;
     }
 
     /** GET /invoice/{id} و GET /api/subscription/invoice/{id} */
-    public function showInvoice(array $params): array {
+    public function showInvoice(array $params): array
+    {
         if (!$this->isAuthenticated()) {
             header('Location: /login?redirect=' . urlencode('/invoice/' . ($params['id'] ?? '')));
             exit;
@@ -1339,8 +1399,14 @@ HTML;
         $amount = (float) ($inv['amount'] ?? 0);
         $currency = htmlspecialchars((string) ($inv['currency'] ?? 'USD'), ENT_QUOTES, 'UTF-8');
         $status = (string) ($inv['status'] ?? '-');
-        $statusPillClass = ['paid' => 'green', 'pending' => 'orange', 'failed' => 'red', 'cancelled' => 'red'][$status] ?? 'gray';
-        $statusLabelsAr = ['paid' => 'مدفوعة', 'pending' => 'قيد الانتظار', 'failed' => 'فشلت', 'cancelled' => 'ملغاة'];
+        $statusPillClass = [
+            'paid' => 'green', 'pending' => 'orange', 'failed' => 'red', 'cancelled' => 'red',
+            'draft' => 'gray', 'issued' => 'blue', 'partially_paid' => 'orange', 'overdue' => 'red', 'refunded' => 'purple',
+        ][$status] ?? 'gray';
+        $statusLabelsAr = [
+            'paid' => 'مدفوعة', 'pending' => 'قيد الانتظار', 'failed' => 'فشلت', 'cancelled' => 'ملغاة',
+            'draft' => 'مسودة', 'issued' => 'صادرة', 'partially_paid' => 'مدفوعة جزئيًا', 'overdue' => 'متأخرة السداد', 'refunded' => 'مستردة',
+        ];
         $statusLabel = htmlspecialchars($statusLabelsAr[$status] ?? $status, ENT_QUOTES, 'UTF-8');
         $createdDate = !empty($inv['created_at']) ? date('Y-m-d', strtotime($inv['created_at'])) : '-';
         $dueDate = !empty($inv['due_date']) ? date('Y-m-d', strtotime($inv['due_date'])) : '-';
@@ -1358,6 +1424,15 @@ HTML;
         }
 
         $paidRow = $paidDate ? "<div class=\"p-kv\"><span class=\"k\">تاريخ الدفع</span><span class=\"v\">{$paidDate}</span></div>" : '';
+
+        // Section 12: صف ضريبة اختياري - يظهر بس لو فعليًا محسوب ومسجّل
+        // (subtotal معبّى)، مش أي قيمة افتراضية أو "0%" مخترعة.
+        $taxRow = '';
+        if (!empty($inv['tax_amount']) && !empty($inv['tax_type'])) {
+            $taxTypeSafe = htmlspecialchars((string) $inv['tax_type'], ENT_QUOTES, 'UTF-8');
+            $taxAmountSafe = htmlspecialchars((string) $inv['tax_amount'], ENT_QUOTES, 'UTF-8');
+            $taxRow = "<tr><td>{$taxTypeSafe}</td><td class=\"text-end\" dir=\"ltr\">{$taxAmountSafe} {$currency}</td></tr>";
+        }
 
         $body = <<<HTML
         <div class="p-card invoice-detail-card" id="invoicePrintArea">
@@ -1377,7 +1452,7 @@ HTML;
 
             <div class="p-table-scroll" style="margin-top:16px;"><table class="p-table">
                 <thead><tr><th>البند</th><th class="text-end">المبلغ</th></tr></thead>
-                <tbody>{$itemsRows}</tbody>
+                <tbody>{$itemsRows}{$taxRow}</tbody>
                 <tfoot><tr><td style="font-weight:700;">الإجمالي</td><td class="text-end" style="font-weight:700;" dir="ltr">{$amount} {$currency}</td></tr></tfoot>
             </table></div>
 
@@ -1405,7 +1480,8 @@ CSS;
     }
 
     /** GET /api/subscription/invoices */
-    public function getInvoices(array $params = []): array {
+    public function getInvoices(array $params = []): array
+    {
         try {
             $sql = "SELECT * FROM invoices WHERE user_id = ? ORDER BY created_at DESC LIMIT 100";
             $invoices = $this->db->query($sql, [$this->user['id'] ?? ($_SESSION['user_id'] ?? 0)]);
@@ -1417,7 +1493,8 @@ CSS;
     }
 
     /** GET /api/subscription/invoice/{id} */
-    public function getInvoice(array $params): array {
+    public function getInvoice(array $params): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('Unauthorized', 401);
@@ -1476,7 +1553,8 @@ CSS;
     }
 
     /** POST /api/subscription/payment */
-    public function processPayment(array $params = []): array {
+    public function processPayment(array $params = []): array
+    {
         // ملاحظة: لا توجد بوابة دفع (Stripe/PayPal) مفعّلة فعليًا بالكود حاليًا
         // رغم وجود مفاتيحها في .env، لذا هذه الدالة لا تخترع منطق دفع وهمي.
         return $this->error('بوابة الدفع غير مفعّلة بعد في هذه النسخة', 501);

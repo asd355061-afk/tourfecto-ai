@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Veo Video Generation Client
  * توليد فيديوهات قصيرة حقيقية (Veo 3.1 Fast) بنفس GEMINI_API_KEY
@@ -11,7 +12,8 @@
  * استضافة مشتركة عادةً.
  * @version 1.0.0
  */
-class VeoClient {
+class VeoClient
+{
     /** @var string */
     private $apiKey;
 
@@ -21,7 +23,8 @@ class VeoClient {
     /** @var string */
     private $baseUrl;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->apiKey = class_exists('SystemSettingsService')
             ? (new SystemSettingsService())->get('gemini_api_key', GEMINI_API_KEY)
             : GEMINI_API_KEY;
@@ -36,7 +39,8 @@ class VeoClient {
      * @param int    $durationSeconds 4 | 6 | 8
      * @return array ['success'=>bool, 'operation_name'=>?string, 'error'=>?string]
      */
-    public function startGeneration(string $prompt, string $aspectRatio = '16:9', int $durationSeconds = 8): array {
+    public function startGeneration(string $prompt, string $aspectRatio = '16:9', int $durationSeconds = 8): array
+    {
         $url = $this->baseUrl . '/models/' . $this->model . ':predictLongRunning';
 
         $payload = [
@@ -69,7 +73,8 @@ class VeoClient {
      * @param string $operationName الاسم اللي رجع من startGeneration()
      * @return array ['success'=>bool, 'done'=>bool, 'video_uri'=>?string, 'error'=>?string]
      */
-    public function checkOperation(string $operationName): array {
+    public function checkOperation(string $operationName): array
+    {
         // operationName بييجي بالشكل "models/xxx/operations/yyy" - كامل المسار
         $url = $this->baseUrl . '/' . ltrim($operationName, '/');
 
@@ -110,7 +115,8 @@ class VeoClient {
      * checkOperation() بعد الاكتمال.
      * @return array ['success'=>bool, 'data'=>?string binary, 'error'=>?string]
      */
-    public function downloadVideo(string $videoUri): array {
+    public function downloadVideo(string $videoUri): array
+    {
         try {
             $ch = curl_init($videoUri);
             curl_setopt_array($ch, [
@@ -142,7 +148,8 @@ class VeoClient {
     }
 
     /** @return array ['success'=>bool, 'data'=>?array, 'error'=>?string] */
-    private function request(string $method, string $url, ?array $payload): array {
+    private function request(string $method, string $url, ?array $payload): array
+    {
         try {
             $ch = curl_init($url);
             $headers = ['x-goog-api-key: ' . $this->apiKey, 'Content-Type: application/json'];

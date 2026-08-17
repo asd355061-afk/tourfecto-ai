@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM WhatsApp Webhook Controller (بند 16)
  * @version 1.0.0
@@ -16,9 +17,11 @@
  * (نظام ربط رقم WhatsApp Business منفصل لكل Tenant يحتاج تصميم OAuth
  * إضافي خارج نطاق هذه المرحلة).
  */
-class CrmWhatsAppWebhookController extends Controller {
+class CrmWhatsAppWebhookController extends Controller
+{
     /** GET /webhooks/crm/whatsapp - Verification Handshake الرسمي من Meta */
-    public function verify(array $params = []): array {
+    public function verify(array $params = []): array
+    {
         $mode = $_GET['hub_mode'] ?? null;
         $token = $_GET['hub_verify_token'] ?? null;
         $challenge = $_GET['hub_challenge'] ?? null;
@@ -36,7 +39,8 @@ class CrmWhatsAppWebhookController extends Controller {
     }
 
     /** POST /webhooks/crm/whatsapp - رسائل واردة فعلية */
-    public function receive(array $params = []): array {
+    public function receive(array $params = []): array
+    {
         $raw = file_get_contents('php://input');
         $payload = json_decode($raw, true) ?: [];
 
@@ -57,7 +61,8 @@ class CrmWhatsAppWebhookController extends Controller {
         exit;
     }
 
-    private function handleIncomingMessage(array $msg): void {
+    private function handleIncomingMessage(array $msg): void
+    {
         $phone = preg_replace('/[^0-9]/', '', $msg['from'] ?? '');
         if (empty($phone)) {
             return;

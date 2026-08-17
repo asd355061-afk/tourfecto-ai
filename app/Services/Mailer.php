@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Mailer (SMTP خالص بـ PHP، من غير أي مكتبة خارجية زي
  * PHPMailer). السبب: السيرفر ده مفيهوش Terminal/SSH لتشغيل composer
@@ -7,7 +8,8 @@
  * بيدعم STARTTLS وAUTH LOGIN (كافي لأي مزوّد شائع زي Gmail/Hostinger).
  * @version 1.0.0
  */
-class Mailer {
+class Mailer
+{
     private string $host;
     private int $port;
     private string $username;
@@ -17,7 +19,8 @@ class Mailer {
     private string $fromName;
     private int $timeout = 15;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->host = defined('MAIL_HOST') ? MAIL_HOST : '';
         $this->port = defined('MAIL_PORT') ? (int) MAIL_PORT : 587;
         $this->username = defined('MAIL_USERNAME') ? MAIL_USERNAME : '';
@@ -28,7 +31,8 @@ class Mailer {
     }
 
     /** هل الإيميل متظبط أصلاً؟ (يوزر/باسورد حقيقيين مش placeholders) */
-    public function isConfigured(): bool {
+    public function isConfigured(): bool
+    {
         return $this->host !== '' && $this->username !== '' && $this->password !== ''
             && strpos($this->username, 'your-email') === false
             && strpos($this->password, 'your-app-password') === false;
@@ -37,7 +41,8 @@ class Mailer {
     /**
      * @return array ['success'=>bool, 'error'=>?string]
      */
-    public function send(string $toEmail, string $toName, string $subject, string $htmlBody): array {
+    public function send(string $toEmail, string $toName, string $subject, string $htmlBody): array
+    {
         if (!$this->isConfigured()) {
             return ['success' => false, 'error' => 'إعدادات البريد (MAIL_USERNAME/MAIL_PASSWORD في .env) لسه مش متظبطة'];
         }
@@ -101,16 +106,19 @@ class Mailer {
         }
     }
 
-    private function rawWrite($socket, string $data): void {
+    private function rawWrite($socket, string $data): void
+    {
         fwrite($socket, $data);
     }
 
-    private function command($socket, string $cmd, string $expectedCode): string {
+    private function command($socket, string $cmd, string $expectedCode): string
+    {
         fwrite($socket, $cmd . "\r\n");
         return $this->expect($socket, $expectedCode);
     }
 
-    private function expect($socket, string $expectedCode): string {
+    private function expect($socket, string $expectedCode): string
+    {
         $response = '';
         while ($line = fgets($socket, 512)) {
             $response .= $line;

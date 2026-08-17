@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Dashboard Controller
  * متحكم لوحة التحكم والإحصائيات
@@ -7,16 +8,18 @@
  * @copyright 2026 Tourfecto
  */
 
-class DashboardController extends Controller {
+class DashboardController extends Controller
+{
     /**
      * @var SubscriptionValidator $subscription - مدقق الاشتراكات
      */
     private $subscription;
-    
+
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->subscription = new SubscriptionValidator();
     }
@@ -26,8 +29,11 @@ class DashboardController extends Controller {
      * كذا نظام مختلف (شات، محفظة، مواقع مولّدة، سمعة، اشتراك) في قائمة
      * أولويات واحدة، بدل ما تكون كل ميزة منفصلة عن التانية.
      */
-    public function smartInsights(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function smartInsights(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $userId = (int) $this->user['id'];
         $insights = [];
 
@@ -42,7 +48,8 @@ class DashboardController extends Controller {
                     'action_url' => '/chat', 'action_label' => 'روح للشات',
                 ];
             }
-        } catch (Exception $e) { }
+        } catch (Exception $e) {
+        }
 
         // 2) رصيد محفظة منخفض
         try {
@@ -56,7 +63,8 @@ class DashboardController extends Controller {
                     ];
                 }
             }
-        } catch (Exception $e) { }
+        } catch (Exception $e) {
+        }
 
         // 3) مواقع مولّدة لسه مسوّدة (مش منشورة)
         try {
@@ -70,7 +78,8 @@ class DashboardController extends Controller {
                     ];
                 }
             }
-        } catch (Exception $e) { }
+        } catch (Exception $e) {
+        }
 
         // 4) اشتراك قرّب ينتهي
         try {
@@ -91,10 +100,11 @@ class DashboardController extends Controller {
                     'action_url' => '/plans', 'action_label' => 'شوف الباقات',
                 ];
             }
-        } catch (Exception $e) { }
+        } catch (Exception $e) {
+        }
 
         // ترتيب حسب الأولوية (1 = الأهم)
-        usort($insights, fn($a, $b) => $a['priority'] <=> $b['priority']);
+        usort($insights, fn ($a, $b) => $a['priority'] <=> $b['priority']);
 
         return $this->success(['insights' => array_slice($insights, 0, 4)]);
     }
@@ -114,7 +124,8 @@ class DashboardController extends Controller {
      * ما نخليها تكسر إحصائيات الداشبورد بالكامل.
      * @return string
      */
-    private function sentimentColumn(): string {
+    private function sentimentColumn(): string
+    {
         if (self::$sentimentColumnCache !== null) {
             return self::$sentimentColumnCache;
         }
@@ -143,29 +154,30 @@ class DashboardController extends Controller {
         return '';
     }
 
-    public function getStats(array $params = []): array {
+    public function getStats(array $params = []): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('Unauthorized', 401);
             }
-            
+
             // إحصائيات المستخدم
             $user = new User();
             $userData = $user->find($this->user['id']);
             $userStats = $userData ? $userData->getStats() : [];
-            
+
             // إحصائيات الاشتراك
             $subscription = $this->subscription->validateSubscription($this->user['id']);
-            
+
             // إحصائيات المراجعات
             $reviewStats = $this->getReviewStats();
-            
+
             // إحصائيات الشات
             $chatStats = $this->getChatStats();
-            
+
             // إحصائيات التقارير
             $reportStats = $this->getReportStats();
-            
+
             // إحصائيات الـ API
             $apiStats = ApiUsageLog::getTodayUsage($this->user['id']);
 
@@ -182,7 +194,7 @@ class DashboardController extends Controller {
                 'modules' => $modulesStats,
                 'timestamp' => date('Y-m-d H:i:s')
             ]);
-            
+
         } catch (Exception $e) {
             Logger::error('Dashboard Stats Error', [
                 'message' => $e->getMessage()
@@ -190,12 +202,13 @@ class DashboardController extends Controller {
             return $this->error('Failed to get dashboard stats', 500);
         }
     }
-    
+
     /**
      * الحصول على إحصائيات المراجعات
      * @return array
      */
-    private function getReviewStats(): array {
+    private function getReviewStats(): array
+    {
         $sentimentCol = $this->sentimentColumn();
         $sentimentSelect = $sentimentCol
             ? "SUM(CASE WHEN `{$sentimentCol}` = 'positive' THEN 1 ELSE 0 END) as positive,
@@ -211,9 +224,9 @@ class DashboardController extends Controller {
                 FROM reviews 
                 WHERE user_id = ? 
                 AND created_at > DATE_SUB(NOW(), INTERVAL 30 DAY)";
-        
+
         $result = $this->db->query($sql, [$this->user['id']]);
-        
+
         if (empty($result)) {
             return [
                 'total' => 0,
@@ -224,7 +237,7 @@ class DashboardController extends Controller {
                 'pending_replies' => 0
             ];
         }
-        
+
         return [
             'total' => (int) ($result[0]['total'] ?? 0),
             'positive' => (int) ($result[0]['positive'] ?? 0),
@@ -234,12 +247,13 @@ class DashboardController extends Controller {
             'pending_replies' => (int) ($result[0]['pending_replies'] ?? 0)
         ];
     }
-    
+
     /**
      * الحصول على إحصائيات الشات
      * @return array
      */
-    private function getChatStats(): array {
+    private function getChatStats(): array
+    {
         $sql = "SELECT 
                     COUNT(*) as total_messages,
                     SUM(CASE WHEN message_direction = 'incoming' THEN 1 ELSE 0 END) as incoming,
@@ -249,9 +263,9 @@ class DashboardController extends Controller {
                 FROM chat_messages 
                 WHERE user_id = ? 
                 AND created_at > DATE_SUB(NOW(), INTERVAL 30 DAY)";
-        
+
         $result = $this->db->query($sql, [$this->user['id']]);
-        
+
         if (empty($result)) {
             return [
                 'total_messages' => 0,
@@ -261,7 +275,7 @@ class DashboardController extends Controller {
                 'sent' => 0
             ];
         }
-        
+
         return [
             'total_messages' => (int) ($result[0]['total_messages'] ?? 0),
             'incoming' => (int) ($result[0]['incoming'] ?? 0),
@@ -270,12 +284,13 @@ class DashboardController extends Controller {
             'sent' => (int) ($result[0]['sent'] ?? 0)
         ];
     }
-    
+
     /**
      * الحصول على إحصائيات التقارير
      * @return array
      */
-    private function getReportStats(): array {
+    private function getReportStats(): array
+    {
         $sql = "SELECT 
                     COUNT(*) as total,
                     SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
@@ -285,9 +300,9 @@ class DashboardController extends Controller {
                 FROM ai_reports 
                 WHERE user_id = ? 
                 AND created_at > DATE_SUB(NOW(), INTERVAL 30 DAY)";
-        
+
         $result = $this->db->query($sql, [$this->user['id']]);
-        
+
         if (empty($result)) {
             return [
                 'total' => 0,
@@ -297,7 +312,7 @@ class DashboardController extends Controller {
                 'cached' => 0
             ];
         }
-        
+
         return [
             'total' => (int) ($result[0]['total'] ?? 0),
             'completed' => (int) ($result[0]['completed'] ?? 0),
@@ -311,24 +326,30 @@ class DashboardController extends Controller {
      * إحصائيات سريعة لكل الموديولات المدمجة (2026-07-14) للوحة العامة.
      * كل عداد بسيط وسريع قصدًا - مش تجميع (aggregation) ثقيل لأن الهدف هنا نظرة سريعة فقط.
      */
-    private function getModulesStats(): array {
+    private function getModulesStats(): array
+    {
         $userId = $this->user['id'];
 
         try {
             $socialPosts = (int) $this->db->query(
-                "SELECT COUNT(*) as c FROM social_posts WHERE user_id = ?", [$userId]
+                "SELECT COUNT(*) as c FROM social_posts WHERE user_id = ?",
+                [$userId]
             )[0]['c'];
             $mediaItems = (int) $this->db->query(
-                "SELECT COUNT(*) as c FROM media_items WHERE user_id = ?", [$userId]
+                "SELECT COUNT(*) as c FROM media_items WHERE user_id = ?",
+                [$userId]
             )[0]['c'];
             $adCampaigns = (int) $this->db->query(
-                "SELECT COUNT(*) as c FROM ad_campaigns WHERE user_id = ?", [$userId]
+                "SELECT COUNT(*) as c FROM ad_campaigns WHERE user_id = ?",
+                [$userId]
             )[0]['c'];
             $agencies = (int) $this->db->query(
-                "SELECT COUNT(*) as c FROM agencies WHERE owner_user_id = ?", [$userId]
+                "SELECT COUNT(*) as c FROM agencies WHERE owner_user_id = ?",
+                [$userId]
             )[0]['c'];
             $assistantRuns = (int) $this->db->query(
-                "SELECT COUNT(*) as c FROM ai_assistant_interactions WHERE user_id = ?", [$userId]
+                "SELECT COUNT(*) as c FROM ai_assistant_interactions WHERE user_id = ?",
+                [$userId]
             )[0]['c'];
 
             return [
@@ -346,26 +367,27 @@ class DashboardController extends Controller {
             ];
         }
     }
-    
+
     /**
      * الحصول على بيانات الرسم البياني للمراجعات
      * GET /api/dashboard/chart/reviews
      * @param array $params
      * @return array
      */
-    public function getReviewChart(array $params = []): array {
+    public function getReviewChart(array $params = []): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('Unauthorized', 401);
             }
-            
+
             $days = (int) ($this->get('days', 30));
             $sentimentCol = $this->sentimentColumn();
             $sentimentSelect = $sentimentCol
                 ? "SUM(CASE WHEN `{$sentimentCol}` = 'positive' THEN 1 ELSE 0 END) as positive,
                         SUM(CASE WHEN `{$sentimentCol}` = 'negative' THEN 1 ELSE 0 END) as negative"
                 : "0 as positive, 0 as negative";
-            
+
             $sql = "SELECT 
                         DATE(created_at) as date,
                         COUNT(*) as total,
@@ -376,14 +398,14 @@ class DashboardController extends Controller {
                     AND created_at > DATE_SUB(NOW(), INTERVAL ? DAY)
                     GROUP BY DATE(created_at)
                     ORDER BY date ASC";
-            
+
             $result = $this->db->query($sql, [$this->user['id'], $days]);
-            
+
             return $this->success([
                 'data' => $result,
                 'days' => $days
             ]);
-            
+
         } catch (Exception $e) {
             Logger::error('Review Chart Error', [
                 'message' => $e->getMessage()
@@ -391,21 +413,22 @@ class DashboardController extends Controller {
             return $this->error('Failed to get review chart data', 500);
         }
     }
-    
+
     /**
      * الحصول على بيانات الرسم البياني للشات
      * GET /api/dashboard/chart/chat
      * @param array $params
      * @return array
      */
-    public function getChatChart(array $params = []): array {
+    public function getChatChart(array $params = []): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('Unauthorized', 401);
             }
-            
+
             $days = (int) ($this->get('days', 30));
-            
+
             $sql = "SELECT 
                         DATE(created_at) as date,
                         COUNT(*) as total,
@@ -416,14 +439,14 @@ class DashboardController extends Controller {
                     AND created_at > DATE_SUB(NOW(), INTERVAL ? DAY)
                     GROUP BY DATE(created_at)
                     ORDER BY date ASC";
-            
+
             $result = $this->db->query($sql, [$this->user['id'], $days]);
-            
+
             return $this->success([
                 'data' => $result,
                 'days' => $days
             ]);
-            
+
         } catch (Exception $e) {
             Logger::error('Chat Chart Error', [
                 'message' => $e->getMessage()
@@ -431,21 +454,22 @@ class DashboardController extends Controller {
             return $this->error('Failed to get chat chart data', 500);
         }
     }
-    
+
     /**
      * الحصول على بيانات الرسم البياني للـ API
      * GET /api/dashboard/chart/api
      * @param array $params
      * @return array
      */
-    public function getApiChart(array $params = []): array {
+    public function getApiChart(array $params = []): array
+    {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->error('Unauthorized', 401);
             }
-            
+
             $days = (int) ($this->get('days', 30));
-            
+
             $sql = "SELECT 
                         DATE(created_at) as date,
                         COUNT(*) as total_requests,
@@ -457,20 +481,20 @@ class DashboardController extends Controller {
                     AND created_at > DATE_SUB(NOW(), INTERVAL ? DAY)
                     GROUP BY DATE(created_at)
                     ORDER BY date ASC";
-            
+
             $result = $this->db->query($sql, [$this->user['id'], $days]);
-            
+
             // تنسيق البيانات
-            $data = array_map(function($row) {
+            $data = array_map(function ($row) {
                 $row['total_cost'] = round((float) $row['total_cost'], 6);
                 return $row;
             }, $result);
-            
+
             return $this->success([
                 'data' => $data,
                 'days' => $days
             ]);
-            
+
         } catch (Exception $e) {
             Logger::error('API Chart Error', [
                 'message' => $e->getMessage()
@@ -485,49 +509,56 @@ class DashboardController extends Controller {
     // ============================================
 
     /** GET /dashboard */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderDashboardPage('overview');
         exit;
     }
 
     /** GET /dashboard/overview */
-    public function overview(array $params = []): array {
+    public function overview(array $params = []): array
+    {
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderDashboardPage('overview');
         exit;
     }
 
     /** GET /dashboard/analytics */
-    public function analytics(array $params = []): array {
+    public function analytics(array $params = []): array
+    {
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderDashboardPage('analytics');
         exit;
     }
 
     /** GET /dashboard/activity */
-    public function activity(array $params = []): array {
+    public function activity(array $params = []): array
+    {
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderDashboardPage('activity');
         exit;
     }
 
     /** GET /dashboard/executive */
-    public function executive(array $params = []): array {
+    public function executive(array $params = []): array
+    {
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderDashboardPage('executive');
         exit;
     }
 
     /** GET /dashboard/growth - Phase 17 (Dashboard UX): تاب جديد بيعرض Phase 12/14/15/16 */
-    public function growth(array $params = []): array {
+    public function growth(array $params = []): array
+    {
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderDashboardPage('growth');
         exit;
     }
 
     /** GET /api/dashboard/chart/ai */
-    public function getAIChart(array $params = []): array {
+    public function getAIChart(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -548,7 +579,8 @@ class DashboardController extends Controller {
     }
 
     /** GET /api/dashboard/activity */
-    public function getRecentActivity(array $params = []): array {
+    public function getRecentActivity(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -564,7 +596,8 @@ class DashboardController extends Controller {
     }
 
     /** GET /api/dashboard/notifications */
-    public function getNotifications(array $params = []): array {
+    public function getNotifications(array $params = []): array
+    {
         // تم إضافة جدول notifications بتاريخ 2026-07-14 (لم يكن موجودًا من
         // قبل - شوف database/migrations/2026_07_14_000006_create_notifications_table.sql)
         // الفرونت إند (renderDashboardPage) كان بالفعل يتوقع notifications[].title
@@ -589,7 +622,8 @@ class DashboardController extends Controller {
     }
 
     /** POST /api/dashboard/notifications/{id}/read */
-    public function markNotificationRead(array $params = []): array {
+    public function markNotificationRead(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -613,7 +647,8 @@ class DashboardController extends Controller {
     }
 
     /** GET /api/dashboard/login-history — سجل دخول العميل الحالي فقط */
-    public function getLoginHistory(array $params = []): array {
+    public function getLoginHistory(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
@@ -642,13 +677,8 @@ class DashboardController extends Controller {
      * @param string $tab 'overview' | 'analytics' | 'activity'
      * @return string
      */
-    private function renderDashboardPage(string $tab): string {
-        $appName = defined('APP_NAME') ? APP_NAME : 'Tourfecto';
-        $panelBrandHtml = site_brand_html();
-        $companyName = htmlspecialchars($this->user['company_name'] ?? $this->tr('dashboard.my_account'), ENT_QUOTES, 'UTF-8');
-        $userEmail = htmlspecialchars($this->user['email'] ?? '', ENT_QUOTES, 'UTF-8');
-        $userInitial = htmlspecialchars(mb_substr($companyName, 0, 1), ENT_QUOTES, 'UTF-8');
-        $isAdmin = in_array($this->user['role'] ?? 'user', ['admin', 'super_admin'], true);
+    private function renderDashboardPage(string $tab): string
+    {
         $isImpersonating = !empty($_SESSION['impersonator_admin_id']);
 
         $titles = [
@@ -661,7 +691,6 @@ class DashboardController extends Controller {
         $pageTitle = $titles[$tab][0] ?? $this->tr('sidebar.dashboard');
         $pageSubtitle = $titles[$tab][1] ?? '';
 
-        $navHtml = $this->renderDashboardSidebar($tab, $isAdmin);
         $panelBody = $this->renderDashboardPanelBody($tab);
 
         $tImpersonationMsg = $this->tr('dashboard.impersonation_msg');
@@ -1113,85 +1142,16 @@ JS;
 
         $onboardingScript = $tab === 'overview' ? $this->buildOnboardingScript() : '';
 
-        // تصحيح باغ فادح: {asset_v(...)} جوه heredoc مبيتفسّرش من PHP.
-        $styleCssUrl = asset_v('/assets/css/style.css');
-        $panelCssUrl = asset_v('/assets/css/panel.css');
-        $panelJsUrl = asset_v('/assets/js/panel.js');
+        // توحيد: بنمرر كل حاجة لـ renderPanelPage() المشترك في
+        // app/Core/Controller.php عشان شِل اللوحة يفضل مصدرًا وحيدًا
+        // عبر كل الأقسام (سايد بار موحد + شريط علوي بكرات/إشعارات/لغات).
+        $bodyHtml = $impersonationBanner
+            . '<div id="loadingMsg" class="p-empty"><div class="p-empty-icon">⏳</div>جارِ تحميل البيانات...</div>'
+            . '<div id="dashboardContent" style="display:none;">' . $panelBody . '</div>';
 
-        return <<<HTML
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{$pageTitle} | {$appName}</title>
-    <link rel="stylesheet" href="{$styleCssUrl}">
-    <link rel="stylesheet" href="{$panelCssUrl}">
-</head>
-<body>
-    <div class="panel-shell">
-        <div class="panel-overlay-bg"></div>
-        <aside class="panel-sidebar">
-            <div class="panel-brand">
-                <span class="brand-emoji">{$panelBrandHtml}</span>
-            </div>
-            <div class="panel-user-mini">
-                <div class="avatar">{$userInitial}</div>
-                <div class="info">
-                    <div class="name">{$companyName}</div>
-                    <div class="role">{$userEmail}</div>
-                </div>
-            </div>
-            <nav class="panel-nav">{$navHtml}</nav>
-            <div class="panel-sidebar-footer">
-                <a href="/logout">🚪 تسجيل الخروج</a>
-            </div>
-        </aside>
-
-        <div class="panel-main">
-            {$impersonationBanner}
-            <header class="panel-topbar">
-                <button class="panel-menu-toggle" id="panelMenuToggle">☰</button>
-                <div>
-                    <h1>{$pageTitle}</h1>
-                    <div class="subtitle">{$pageSubtitle}</div>
-                </div>
-                <div class="panel-topbar-spacer"></div>
-                <div class="panel-topbar-actions">
-                    <a href="/ai/analyze" class="icon-btn" title="تحليل SEO جديد">✨</a>
-                    <a href="/profile" class="icon-btn" title="ملفي الشخصي">👤</a>
-                </div>
-            </header>
-
-            <div class="panel-content">
-                <div id="loadingMsg" class="p-empty">
-                    <div class="p-empty-icon">⏳</div>
-                    جارِ تحميل البيانات...
-                </div>
-                <div id="dashboardContent" style="display:none;">
-                    {$panelBody}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="toastStack"></div>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-    <script src="{$panelJsUrl}"></script>
-    <script>{$script}</script>
-    <script>{$onboardingScript}</script>
-</body>
-</html>
-HTML;
+        return $this->renderPanelPage($tab, $pageTitle, $pageSubtitle, $bodyHtml, $script . "\n" . $onboardingScript);
     }
 
-    /**
-     * سايد بار لوحة العميل
-     * @param string $activeTab
-     * @param bool $isAdmin
-     * @return string
-     */
     /**
      * دليل ترحيبي للعميل الجديد - شريط خطوات فوق الداشبورد الرئيسية،
      * بيختفي تلقائيًا لما العميل يخلّص كل الخطوات الأساسية. الحالة
@@ -1199,7 +1159,8 @@ HTML;
      * السكريبت ده معزول تمامًا عن السكريبت الضخم في renderDashboardPage()
      * عشان نتجنب مخاطرة تعديل الملف الحساس ده.
      */
-    private function buildOnboardingScript(): string {
+    private function buildOnboardingScript(): string
+    {
         try {
             $userId = (int) $this->user['id'];
 
@@ -1209,6 +1170,13 @@ HTML;
             $integrationCount = (int) ($this->db->query("SELECT COUNT(*) AS c FROM platform_connections WHERE user_id = ? AND status = 'connected'", [$userId])[0]['c'] ?? 0);
             $articleCount = (int) ($this->db->query("SELECT COUNT(*) AS c FROM ai_articles WHERE user_id = ?", [$userId])[0]['c'] ?? 0);
 
+            // Phase 19: هل خلّص المستخدم معالج الإعداد السريع (7 خطوات) قبل كده؟
+            // لو لأ - نعرضله زرار يفتح الـWizard في نفس شريط الترحيب ده.
+            $wizardDone = (int) ($this->db->query(
+                "SELECT COUNT(*) AS c FROM websites WHERE user_id = ? AND onboarding_completed_at IS NOT NULL",
+                [$userId]
+            )[0]['c'] ?? 0) > 0;
+
             $steps = [
                 ['done' => $websiteCount > 0, 'icon' => '🌐', 'label' => $this->tr('onboarding.step.add_website'), 'link' => '/websites'],
                 ['done' => $verifiedCount > 0, 'icon' => '✅', 'label' => $this->tr('onboarding.step.verify_website'), 'link' => '/websites'],
@@ -1217,7 +1185,7 @@ HTML;
                 ['done' => $articleCount > 0, 'icon' => '✍️', 'label' => $this->tr('onboarding.step.first_article'), 'link' => '/ai/articles'],
             ];
 
-            $doneCount = count(array_filter($steps, fn($s) => $s['done']));
+            $doneCount = count(array_filter($steps, fn ($s) => $s['done']));
             if ($doneCount >= count($steps)) {
                 return ''; // خلّص كل الخطوات - مفيش داعي نعرض حاجة
             }
@@ -1231,6 +1199,12 @@ HTML;
                 $doneClass = $step['done'] ? ' onboarding-done' : '';
                 $checkIcon = $step['done'] ? '✔' : $step['icon'];
                 $itemsHtml .= '<a href="' . htmlspecialchars($step['link'], ENT_QUOTES, 'UTF-8') . '" class="onboarding-step' . $doneClass . '"><span class="oi">' . $checkIcon . '</span>' . htmlspecialchars($step['label'], ENT_QUOTES, 'UTF-8') . '</a>';
+            }
+
+            // Phase 19: زرار "الإعداد السريع" لو المستخدم لسه مكمّلش الـWizard (7 خطوات)
+            $wizardCta = '';
+            if (!$wizardDone) {
+                $wizardCta = '<a href="/onboarding" class="onboarding-wizard-cta">' . htmlspecialchars($this->tr('onboarding.wizard_cta'), ENT_QUOTES, 'UTF-8') . '</a>';
             }
 
             $titleEsc = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
@@ -1251,12 +1225,15 @@ HTML;
                 <div style="height:100%;width:{$progressPct}%;background:var(--panel-accent);"></div>
             </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">{$itemsHtml}</div>
+            {$wizardCta}
         </div>
         <style>
             .onboarding-step { display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:20px;background:var(--panel-card-bg-2);color:var(--panel-text);text-decoration:none;font-size:12.5px;border:1px solid var(--panel-border); }
             .onboarding-step:hover { border-color:var(--panel-accent); }
             .onboarding-step.onboarding-done { opacity:.55;text-decoration:line-through; }
             .onboarding-step .oi { font-size:14px; }
+            .onboarding-wizard-cta { display:inline-block;margin-top:14px;padding:10px 18px;border-radius:22px;background:linear-gradient(135deg,var(--panel-accent),var(--panel-accent-2));color:var(--panel-bg);font-weight:700;text-decoration:none;font-size:13px; }
+            .onboarding-wizard-cta:hover { filter:brightness(1.1); }
         </style>`;
 })();
 JS;
@@ -1266,83 +1243,13 @@ JS;
         }
     }
 
-    private function renderDashboardSidebar(string $activeTab, bool $isAdmin): string {
-        $groups = [
-            $this->tr('sidebar.group.assistant') => [
-                '_ai_assistant' => [$this->tr('sidebar.ai_assistant'), '✨', '/ai-assistant'],
-                '_website_builder' => [$this->tr('sidebar.website_builder'), '🏗️', '/website-builder'],
-            ],
-            $this->tr('sidebar.group.main') => [
-                'overview' => [$this->tr('sidebar.overview'), '📊', '/dashboard'],
-                'executive' => [$this->tr('sidebar.executive'), '🧭', '/dashboard/executive'],
-                'growth' => [$this->tr('sidebar.growth'), '🚀', '/dashboard/growth'],
-                'analytics' => [$this->tr('sidebar.analytics'), '📈', '/dashboard/analytics'],
-                'activity' => [$this->tr('sidebar.activity'), '🕓', '/dashboard/activity'],
-            ],
-            $this->tr('sidebar.group.business_intelligence') => [
-                '_revenue' => [$this->tr('sidebar.revenue'), '💰', '/revenue'],
-                '_website_optimizer' => [$this->tr('sidebar.website_optimizer'), '🛠️', '/website-optimizer'],
-                '_competitor_monitoring' => [$this->tr('sidebar.competitor_monitoring'), '🕵️', '/competitor-monitoring'],
-            ],
-            $this->tr('sidebar.group.ai_content') => [
-                '_ai' => [$this->tr('sidebar.seo_analysis'), '🤖', '/ai/analyze'],
-                '_reports' => [$this->tr('sidebar.ai_reports'), '🗂️', '/ai/reports'],
-                '_ai_articles' => [$this->tr('sidebar.ai_articles'), '✍️', '/ai/articles'],
-                '_ai_competitors' => [$this->tr('sidebar.ai_competitors'), '🏁', '/ai/competitors'],
-                '_ai_keywords' => [$this->tr('sidebar.ai_keywords'), '🔑', '/ai/keywords'],
-            ],
-            $this->tr('sidebar.group.distribution') => [
-                '_social' => [$this->tr('sidebar.social'), '📱', '/social'],
-                '_ads' => [$this->tr('sidebar.ads'), '📣', '/ads'],
-                '_marketing_assistant' => [$this->tr('sidebar.marketing_assistant'), '💡', '/marketing-assistant'],
-                '_creative_studio' => [$this->tr('sidebar.creative_studio'), '🎨', '/creative-studio'],
-            ],
-            $this->tr('sidebar.group.customers') => [
-                '_crm' => [$this->tr('sidebar.crm'), '🧾', '/crm'],
-                '_chat' => [$this->tr('sidebar.chat'), '💬', '/chat'],
-            ],
-            $this->tr('sidebar.group.reputation') => [
-                '_reputation' => [$this->tr('sidebar.reputation'), '⭐', '/reputation/reviews'],
-                '_reputation_overview' => [$this->tr('sidebar.reputation_overview'), '📊', '/reputation/overview'],
-                '_reputation_stats' => [$this->tr('sidebar.reputation_stats'), '📈', '/reputation/stats'],
-                '_gbp_content' => [$this->tr('sidebar.gbp_content'), '📍', '/gbp-content'],
-                '_review_requests' => [$this->tr('sidebar.review_requests'), '📨', '/review-requests'],
-            ],
-            $this->tr('sidebar.group.agency') => [
-                '_agency' => [$this->tr('sidebar.agency'), '🏢', '/agency'],
-            ],
-            $this->tr('sidebar.group.account') => [
-                '_websites' => [$this->tr('sidebar.websites'), '🌐', '/websites'],
-                '_integrations' => [$this->tr('sidebar.integrations'), '🔗', '/integrations'],
-                '_subscription' => [$this->tr('sidebar.subscription'), '💳', '/subscription'],
-                '_profile' => [$this->tr('sidebar.profile'), '👤', '/profile/settings'],
-            ],
-        ];
-
-        if ($isAdmin) {
-            $groups[$this->tr('sidebar.group.account')]['_admin'] = [$this->tr('sidebar.admin'), '🛠️', '/admin'];
-        }
-
-        $html = '';
-        foreach ($groups as $groupTitle => $items) {
-            $html .= '<div class="panel-nav-group"><div class="panel-nav-group-title">' . htmlspecialchars($groupTitle, ENT_QUOTES, 'UTF-8') . '</div>';
-            foreach ($items as $key => $item) {
-                [$label, $icon, $href] = $item;
-                $active = $key === $activeTab ? ' active' : '';
-                $html .= "<a href=\"{$href}\" class=\"panel-nav-link{$active}\"><span class=\"ic\">{$icon}</span>{$label}</a>";
-            }
-            $html .= '</div>';
-        }
-
-        return $html;
-    }
-
     /**
      * جسم اللوحة حسب التبويب المختار
      * @param string $tab
      * @return string
      */
-    private function renderDashboardPanelBody(string $tab): string {
+    private function renderDashboardPanelBody(string $tab): string
+    {
         switch ($tab) {
             case 'analytics':
                 return <<<HTML

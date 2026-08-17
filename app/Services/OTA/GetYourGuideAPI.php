@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - GetYourGuide Partner API Client
  * ربط حساب الشريك (Partner) في GetYourGuide - يستخدم مفتاح وصول واحد
@@ -7,13 +8,14 @@
  * لشركاء API - التوثيق الرسمي: https://github.com/getyourguide/partner-api-spec
  * @version 1.0.0
  */
-class GetYourGuideAPI {
-
+class GetYourGuideAPI
+{
     private const BASE_URL = 'https://api.getyourguide.com/1';
 
     private string $accessToken;
 
-    public function __construct(string $accessToken) {
+    public function __construct(string $accessToken)
+    {
         $this->accessToken = $accessToken;
     }
 
@@ -21,7 +23,8 @@ class GetYourGuideAPI {
      * تحقق إن المفتاح صحيح فعلاً قبل ما نحفظه - بنستخدم endpoint خفيف
      * (بحث بحد أقصى نتيجة واحدة) بدل ما نصدّق المفتاح من غير اختبار.
      */
-    public function verifyToken(): array {
+    public function verifyToken(): array
+    {
         $result = $this->request('GET', '/tours', ['cnt_language' => 'en', 'currency' => 'USD', 'limit' => 1]);
         if (!$result['success'] && $result['http_code'] === 401) {
             return ['success' => false, 'error' => 'مفتاح GetYourGuide غير صحيح أو منتهي'];
@@ -35,7 +38,8 @@ class GetYourGuideAPI {
     }
 
     /** جلب منتجات (جولات/أنشطة) الشريك - لعرضها/مزامنتها مع الموقع */
-    public function getTours(int $page = 1, int $limit = 50): array {
+    public function getTours(int $page = 1, int $limit = 50): array
+    {
         return $this->request('GET', '/tours', [
             'cnt_language' => 'en',
             'currency' => 'USD',
@@ -45,11 +49,13 @@ class GetYourGuideAPI {
     }
 
     /** جلب حجز واحد بالتفصيل */
-    public function getBooking(string $bookingHash): array {
+    public function getBooking(string $bookingHash): array
+    {
         return $this->request('GET', '/bookings/' . rawurlencode($bookingHash));
     }
 
-    private function request(string $method, string $path, array $query = [], array $body = []): array {
+    private function request(string $method, string $path, array $query = [], array $body = []): array
+    {
         $url = self::BASE_URL . $path;
         if (!empty($query)) {
             $url .= '?' . http_build_query($query);
@@ -88,7 +94,8 @@ class GetYourGuideAPI {
         return ['success' => true, 'data' => $decoded, 'error' => null, 'http_code' => $httpCode];
     }
 
-    private function log(string $level, string $message, array $context = []): void {
+    private function log(string $level, string $message, array $context = []): void
+    {
         if (function_exists('app_log')) {
             app_log($level, $message, $context);
         }

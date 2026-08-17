@@ -1,9 +1,11 @@
 <?php
+
 /**
  * Tourfecto - Workspace Invite Model
  * @version 1.0.0
  */
-class WorkspaceInvite extends Model {
+class WorkspaceInvite extends Model
+{
     protected $table = 'workspace_invites';
 
     protected $fillable = [
@@ -17,7 +19,8 @@ class WorkspaceInvite extends Model {
         'expires_at',
     ];
 
-    public static function createFor(int $ownerUserId, int $invitedBy, string $email, string $role): array {
+    public static function createFor(int $ownerUserId, int $invitedBy, string $email, string $role): array
+    {
         $token = bin2hex(random_bytes(24));
 
         $invite = new self([
@@ -36,22 +39,26 @@ class WorkspaceInvite extends Model {
         return ['model' => $invite, 'token' => $token];
     }
 
-    public function isExpired(): bool {
+    public function isExpired(): bool
+    {
         return strtotime((string) $this->getAttribute('expires_at')) < time();
     }
 
-    public function revoke(): bool {
+    public function revoke(): bool
+    {
         $this->setAttribute('status', 'revoked');
         return (bool) $this->save();
     }
 
-    public function markAccepted(): bool {
+    public function markAccepted(): bool
+    {
         $this->setAttribute('status', 'accepted');
         $this->setAttribute('accepted_at', date('Y-m-d H:i:s'));
         return (bool) $this->save();
     }
 
-    public function toSafeArray(): array {
+    public function toSafeArray(): array
+    {
         return [
             'id' => (int) $this->getAttribute('id'),
             'email' => $this->getAttribute('email'),

@@ -1,14 +1,16 @@
 <?php
+
 /**
  * Tourfecto - Services Landing Pages Controller
  * صفحات هبوط تسويقية احترافية لكل خدمة من خدمات المنصة - قالب واحد
  * متسق، بيانات منفصلة لكل خدمة.
  * @version 1.0.0
  */
-class ServicesController extends Controller {
-
+class ServicesController extends Controller
+{
     /** كل خدمات المنصة - المصدر الوحيد للحقيقة لصفحات الهبوط والصفحة الرئيسية */
-    public static function getServicesData(): array {
+    public static function getServicesData(): array
+    {
         return [
             'ai-seo-analysis' => [
                 'icon' => '🤖', 'category' => 'الذكاء الاصطناعي',
@@ -185,7 +187,8 @@ class ServicesController extends Controller {
     }
 
     /** GET /services/{slug} */
-    public function show(array $params = []): array {
+    public function show(array $params = []): array
+    {
         $slug = (string) ($params['slug'] ?? '');
         $services = self::getServicesData();
 
@@ -201,7 +204,8 @@ class ServicesController extends Controller {
         exit;
     }
 
-    private function renderNotFoundPage(): string {
+    private function renderNotFoundPage(): string
+    {
         $appName = defined('APP_NAME') ? APP_NAME : 'Tourfecto';
         return <<<HTML
 <!DOCTYPE html>
@@ -224,9 +228,10 @@ class ServicesController extends Controller {
 HTML;
     }
 
-    private function renderServicePage(string $slug, array $s, array $allServices): string {
+    private function renderServicePage(string $slug, array $s, array $allServices): string
+    {
         $appName = defined('APP_NAME') ? APP_NAME : 'Tourfecto';
-        $esc = fn($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
+        $esc = fn ($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 
         $benefitsHtml = '';
         foreach ($s['benefits'] as $b) {
@@ -246,7 +251,9 @@ HTML;
         $relatedHtml = '';
         $relatedCount = 0;
         foreach ($allServices as $otherSlug => $other) {
-            if ($otherSlug === $slug || $other['category'] !== $s['category'] || $relatedCount >= 3) continue;
+            if ($otherSlug === $slug || $other['category'] !== $s['category'] || $relatedCount >= 3) {
+                continue;
+            }
             $relatedHtml .= '<a href="/services/' . $esc($otherSlug) . '" class="svc-related-card"><span>' . $other['icon'] . '</span><strong>' . $esc($other['title']) . '</strong></a>';
             $relatedCount++;
         }

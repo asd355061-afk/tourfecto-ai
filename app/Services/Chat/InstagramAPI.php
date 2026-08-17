@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * تكامل Instagram Messaging (بند 1: Integration Architecture كاملة بدون
@@ -9,8 +10,8 @@
  * @version 1.0.0
  */
 
-class InstagramAPI {
-
+class InstagramAPI
+{
     /** @var string */
     private $igAccessToken;
 
@@ -20,14 +21,16 @@ class InstagramAPI {
     /**
      * @param string $igAccessToken Access Token الخاص بحساب انستجرام التجاري للشركة
      */
-    public function __construct(string $igAccessToken) {
+    public function __construct(string $igAccessToken)
+    {
         $this->igAccessToken = $igAccessToken;
     }
 
     /**
      * @return bool
      */
-    public function isConfigured(): bool {
+    public function isConfigured(): bool
+    {
         return !empty($this->igAccessToken);
     }
 
@@ -37,7 +40,8 @@ class InstagramAPI {
      * @param string $message
      * @return bool
      */
-    public function sendMessage(string $recipientIgsid, string $message): bool {
+    public function sendMessage(string $recipientIgsid, string $message): bool
+    {
         if (!$this->isConfigured()) {
             Logger::warning('InstagramAPI: not configured, skipping send');
             return false;

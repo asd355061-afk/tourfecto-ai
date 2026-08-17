@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: CiPermissions Test
  * @version 1.0.0
@@ -8,11 +9,13 @@
  */
 require_once dirname(__DIR__, 3) . '/app/Services/CompetitorIntelligence/CiPermissions.php';
 
-class CiPermissionsTest {
+class CiPermissionsTest
+{
     private $passed = 0;
     private $failed = 0;
 
-    public function runAll(): void {
+    public function runAll(): void
+    {
         echo "\n✅ CiPermissions Tests\n======================\n\n";
 
         $this->testAdminHasFullAccess();
@@ -24,7 +27,8 @@ class CiPermissionsTest {
         $this->printSummary();
     }
 
-    private function testAdminHasFullAccess(): void {
+    private function testAdminHasFullAccess(): void
+    {
         $this->startTest('admin role has full CI permissions');
         $user = ['role' => 'admin'];
         foreach ([CiPermissions::PERM_VIEW, CiPermissions::PERM_ADD, CiPermissions::PERM_EDIT, CiPermissions::PERM_DELETE, CiPermissions::PERM_MANAGE_SETTINGS] as $perm) {
@@ -32,7 +36,8 @@ class CiPermissionsTest {
         }
     }
 
-    private function testAccountOwnerHasFullAccessToOwnData(): void {
+    private function testAccountOwnerHasFullAccessToOwnData(): void
+    {
         $this->startTest('account owner (role=user) has admin-level CI access');
         $user = ['role' => 'user'];
         CiPermissions::can($user, CiPermissions::PERM_DELETE)
@@ -40,7 +45,8 @@ class CiPermissionsTest {
             : $this->fail('account owner CANNOT delete their own competitors');
     }
 
-    private function testAnalystCannotDelete(): void {
+    private function testAnalystCannotDelete(): void
+    {
         $this->startTest('analyst (role=agent) cannot delete or manage settings');
         $user = ['role' => 'agent'];
         !CiPermissions::can($user, CiPermissions::PERM_DELETE)
@@ -51,7 +57,8 @@ class CiPermissionsTest {
             : $this->fail('analyst cannot view (too restrictive)');
     }
 
-    private function testViewerCannotAdd(): void {
+    private function testViewerCannotAdd(): void
+    {
         $this->startTest('unrecognized role falls back to viewer (read-only)');
         $user = ['role' => 'guest'];
         !CiPermissions::can($user, CiPermissions::PERM_ADD)
@@ -59,7 +66,8 @@ class CiPermissionsTest {
             : $this->fail('viewer was allowed to add');
     }
 
-    private function testUnknownRoleDefaultsToViewer(): void {
+    private function testUnknownRoleDefaultsToViewer(): void
+    {
         $this->startTest('missing role key defaults safely to viewer');
         $user = [];
         CiPermissions::ciRole($user) === 'viewer'
@@ -67,11 +75,23 @@ class CiPermissionsTest {
             : $this->fail('missing role did not default to viewer');
     }
 
-    private function startTest(string $name): void { echo "\n  ▶ {$name}\n"; }
-    private function pass(string $message): void { echo "    ✅ {$message}\n"; $this->passed++; }
-    private function fail(string $message): void { echo "    ❌ {$message}\n"; $this->failed++; }
+    private function startTest(string $name): void
+    {
+        echo "\n  ▶ {$name}\n";
+    }
+    private function pass(string $message): void
+    {
+        echo "    ✅ {$message}\n";
+        $this->passed++;
+    }
+    private function fail(string $message): void
+    {
+        echo "    ❌ {$message}\n";
+        $this->failed++;
+    }
 
-    private function printSummary(): void {
+    private function printSummary(): void
+    {
         $total = $this->passed + $this->failed;
         $percentage = $total > 0 ? round(($this->passed / $total) * 100, 2) : 0;
         echo "\n" . str_repeat('=', 50) . "\n";

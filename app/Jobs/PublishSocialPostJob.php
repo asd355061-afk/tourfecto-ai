@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Publish Social Post Job
  * تنفيذ فعلي لنشر هدف واحد (social_post_targets) على منصته عبر
@@ -12,11 +13,13 @@
  * "ابدأ + أعد الجدولة للفحص" المستخدمة في GenerateVideoJob، عن طريق
  * provider_ref/poll_attempts على social_post_targets.
  */
-class PublishSocialPostJob implements QueueJobInterface {
+class PublishSocialPostJob implements QueueJobInterface
+{
     private const MAX_POLL_ATTEMPTS = 30;
     private const POLL_DELAY_SECONDS = 15;
 
-    public function handle(array $payload): void {
+    public function handle(array $payload): void
+    {
         $targetId = (int) ($payload['social_post_target_id'] ?? 0);
         if (!$targetId) {
             throw new Exception('social_post_target_id مفقود في payload');
@@ -108,7 +111,8 @@ class PublishSocialPostJob implements QueueJobInterface {
      * مرة، وبعدين فحص حالته كل ~15 ثانية لحد ما يخلص معالجة، وبعدين
      * النشر الفعلي - بإعادة جدولة نفس المهمة زي GenerateVideoJob.
      */
-    private function handleInstagramVideo(SocialPostTarget $target, SocialPost $post, MetaSocialAPI $api, string $igUserId, string $pageAccessToken, string $videoUrl, string $caption): void {
+    private function handleInstagramVideo(SocialPostTarget $target, SocialPost $post, MetaSocialAPI $api, string $igUserId, string $pageAccessToken, string $videoUrl, string $caption): void
+    {
         $containerId = (string) ($target->getAttribute('provider_ref') ?: '');
 
         if ($containerId === '') {
@@ -154,7 +158,8 @@ class PublishSocialPostJob implements QueueJobInterface {
         $this->finishOrFail($target, $post, 'instagram', ['success' => $publishResult['success'], 'post_id' => $publishResult['post_id'] ?? null, 'error' => $publishResult['error'] ?? null]);
     }
 
-    private function finishOrFail(SocialPostTarget $target, SocialPost $post, string $platform, array $result): void {
+    private function finishOrFail(SocialPostTarget $target, SocialPost $post, string $platform, array $result): void
+    {
         $targetId = (int) $target->getAttribute('id');
 
         if (!$result['success']) {
@@ -183,18 +188,21 @@ class PublishSocialPostJob implements QueueJobInterface {
         Logger::info('Social Post Published', ['target_id' => $targetId, 'platform' => $platform, 'post_id' => $result['post_id'] ?? null]);
     }
 
-    private function fail(SocialPostTarget $target, string $message): void {
+    private function fail(SocialPostTarget $target, string $message): void
+    {
         $target->setAttribute('status', 'failed');
         $target->setAttribute('last_error', $message);
         $target->save();
     }
 
-    private function requeue(int $targetId): void {
+    private function requeue(int $targetId): void
+    {
         $queue = Container::getInstance()->make(QueueManager::class);
         $queue->push(PublishSocialPostJob::class, ['social_post_target_id' => $targetId], 'social', self::POLL_DELAY_SECONDS);
     }
 
-    private function resolveMedia(int $mediaItemId): ?MediaItem {
+    private function resolveMedia(int $mediaItemId): ?MediaItem
+    {
         if (!$mediaItemId) {
             return null;
         }
@@ -209,7 +217,8 @@ class PublishSocialPostJob implements QueueJobInterface {
      * فيسبوك وانستجرام بيطلبوا رابط عام (يقدروا يجيبوه هم بنفسهم من
      * الإنترنت)، مش مسار ملف محلي على السيرفر.
      */
-    private function toPublicUrl(string $filePath): ?string {
+    private function toPublicUrl(string $filePath): ?string
+    {
         if (!$filePath) {
             return null;
         }

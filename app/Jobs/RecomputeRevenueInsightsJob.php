@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Recompute Revenue Insights Job
  * @version 1.0.0
@@ -19,8 +20,10 @@
  * المخاطر بنفسه كل يوم عشان يكتشف مشكلة. اتحمى من التكرار (24 ساعة لكل
  * فئة خطر) عن طريق RevenueCacheService::shouldNotify().
  */
-class RecomputeRevenueInsightsJob implements QueueJobInterface {
-    public function handle(array $payload): void {
+class RecomputeRevenueInsightsJob implements QueueJobInterface
+{
+    public function handle(array $payload): void
+    {
         $userId = (int) ($payload['user_id'] ?? 0);
         if ($userId <= 0) {
             throw new Exception('RecomputeRevenueInsightsJob: missing/invalid user_id in payload');
@@ -58,7 +61,8 @@ class RecomputeRevenueInsightsJob implements QueueJobInterface {
     }
 
     /** يبعت Notification حقيقي بس للمخاطر/الشذوذ عالية الخطورة - مش كل حاجة، عشان الجرس متبقاش مليانة ضوضاء. */
-    private function notifyHighSeverity(int $userId, array $risks, array $anomalies, RevenueCacheService $cache): void {
+    private function notifyHighSeverity(int $userId, array $risks, array $anomalies, RevenueCacheService $cache): void
+    {
         if (!class_exists('Notification')) {
             return; // موديول الإشعارات مش متاح في هذه النشرة - لا نكسر الـ Job لأجله
         }
