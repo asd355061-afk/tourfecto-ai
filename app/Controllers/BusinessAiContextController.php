@@ -1,14 +1,12 @@
 <?php
-
 /**
  * Tourfecto - Business AI Context Controller
  * Business Control Center - Phase 6
  * @version 1.0.0
  */
-class BusinessAiContextController extends Controller
-{
-    private function currentUser(): ?User
-    {
+class BusinessAiContextController extends Controller {
+
+    private function currentUser(): ?User {
         $id = $_SESSION['user_id'] ?? null;
         if (!$id) {
             return null;
@@ -17,19 +15,12 @@ class BusinessAiContextController extends Controller
         return $model->find($id);
     }
 
-    private function loadOwnedBusiness(int $businessId, int $userId): ?Business
-    {
-        $model = new Business();
-        $business = $model->find($businessId);
-        if (!$business || !$business->isOwnedBy($userId)) {
-            return null;
-        }
-        return $business;
+    private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
+        return (new BusinessAccessService())->getAccessibleBusiness($businessId, $userId);
     }
 
     /** GET /api/business/{businessId}/ai-context */
-    public function show(array $params = []): array
-    {
+    public function show(array $params = []): array {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -54,8 +45,7 @@ class BusinessAiContextController extends Controller
      * + AI Context) عبر BusinessContextService - نفس البيانات اللي أي
      * AI Module في المنصة هيستخدمها فعليًا، مش نسخة تانية.
      */
-    public function full(array $params = []): array
-    {
+    public function full(array $params = []): array {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -73,8 +63,7 @@ class BusinessAiContextController extends Controller
     }
 
     /** PUT /api/business/{businessId}/ai-context */
-    public function upsert(array $params = []): array
-    {
+    public function upsert(array $params = []): array {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -84,6 +73,9 @@ class BusinessAiContextController extends Controller
         $business = $this->loadOwnedBusiness($businessId, (int) $user->getAttribute('id'));
         if (!$business) {
             return $this->error('Business Profile غير موجود', 404);
+        }
+        if (!(new BusinessAccessService())->canEdit($businessId, (int) $user->getAttribute('id'))) {
+            return $this->error('ليست لديك صلاحية تعديل البيانات', 403);
         }
 
         if (!$this->validate([
@@ -118,8 +110,15 @@ class BusinessAiContextController extends Controller
         // بسيطة زي باقي الحقول - نتحقق من الشكل قبل التخزين.
         if ($this->has('competitors')) {
             foreach ($this->get('competitors') as $competitor) {
-                if (!is_array($competitor) || !isset($competitor['name'])) {
-                    return $this->error('بيانات المنافسين غير صحيحة', 422, ['competitors' => ['كل عنصر لازم يحتوي على الأقل name']]);
+                if (!is_array($competitor) || !isset($competitor['name']) || !is_string($competitor['name']) || trim($competitor['name']) === '') {
+                    return $this->error('بيانات المنافسين غير صحيحة', 422, ['competitors' => ['كل عنصر لازم يحتوي على name غير فارغ']]);
+                }
+                if (isset($competitor['url']) && $competitor['url'] !== '') {
+                    $raw = (string) $competitor['url'];
+                    $candidate = preg_match('#^https?://#i', $raw) ? $raw : 'https://' . $raw;
+                    if (filter_var($candidate, FILTER_VALIDATE_URL) === false) {
+                        return $this->error('رابط منافس غير صحيح', 422, ['competitors' => ['الـurl لازم يكون رابطًا صحيحًا']]);
+                    }
                 }
             }
         }
@@ -148,6 +147,8 @@ class BusinessAiContextController extends Controller
         // أهم سطر في الدالة دي: بدون invalidate() هنا، أي AI Module هيفضل
         // شايف نسخة قديمة من الـContext لحد ما ينتهي الـCache TTL (ساعة).
         (new BusinessContextService())->invalidate($businessId);
+
+        BusinessAuditLog::record($businessId, (int) $user->getAttribute('id'), 'ai_context_updated', 'success', 'business', (string) $businessId);
 
         return $this->success(['ai_context' => $record->toArray()], 'تم حفظ الـAI Business Context');
     }

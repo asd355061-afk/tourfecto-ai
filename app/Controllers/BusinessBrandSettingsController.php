@@ -1,14 +1,12 @@
 <?php
-
 /**
  * Tourfecto - Business Brand Settings Controller
  * Business Control Center - Phase 7
  * @version 1.0.0
  */
-class BusinessBrandSettingsController extends Controller
-{
-    private function currentUser(): ?User
-    {
+class BusinessBrandSettingsController extends Controller {
+
+    private function currentUser(): ?User {
         $id = $_SESSION['user_id'] ?? null;
         if (!$id) {
             return null;
@@ -17,19 +15,12 @@ class BusinessBrandSettingsController extends Controller
         return $model->find($id);
     }
 
-    private function loadOwnedBusiness(int $businessId, int $userId): ?Business
-    {
-        $model = new Business();
-        $business = $model->find($businessId);
-        if (!$business || !$business->isOwnedBy($userId)) {
-            return null;
-        }
-        return $business;
+    private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
+        return (new BusinessAccessService())->getAccessibleBusiness($businessId, $userId);
     }
 
     /** GET /api/business/{businessId}/brand */
-    public function show(array $params = []): array
-    {
+    public function show(array $params = []): array {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -49,8 +40,7 @@ class BusinessBrandSettingsController extends Controller
     }
 
     /** PUT /api/business/{businessId}/brand */
-    public function upsert(array $params = []): array
-    {
+    public function upsert(array $params = []): array {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -60,6 +50,9 @@ class BusinessBrandSettingsController extends Controller
         $business = $this->loadOwnedBusiness($businessId, (int) $user->getAttribute('id'));
         if (!$business) {
             return $this->error('Business Profile غير موجود', 404);
+        }
+        if (!(new BusinessAccessService())->canEdit($businessId, (int) $user->getAttribute('id'))) {
+            return $this->error('ليست لديك صلاحية تعديل البيانات', 403);
         }
 
         if (!$this->validate([
@@ -93,6 +86,28 @@ class BusinessBrandSettingsController extends Controller
             if ($this->has($field) && !is_array($this->get($field))) {
                 return $this->error('بيانات غير صحيحة', 422, [$field => ['يجب أن تكون قائمة (Array)']]);
             }
+            // كل عنصر لازم يكون نص (مصطلح) أو Object {term, use_instead} -
+            // مش قيمة scalar غير مفهومة بيتم تخزينها بصمت.
+            if ($this->has($field) && is_array($this->get($field))) {
+                foreach ($this->get($field) as $entry) {
+                    if (is_array($entry)) {
+                        if (!isset($entry['term']) || !is_string($entry['term']) || trim($entry['term']) === '') {
+                            return $this->error('شكل مصطلح غير صحيح', 422, [$field => ['كل Object لازم يحتوي على term نصي غير فارغ']]);
+                        }
+                    } elseif (!is_string($entry) || trim($entry) === '') {
+                        return $this->error('شكل مصطلح غير صحيح', 422, [$field => ['كل عنصر لازم يكون نصًا أو Object {term, use_instead}']]);
+                    }
+                }
+            }
+        }
+
+        // favicon_url: رابط - نفس معالجة website_url/logo_url في BusinessController
+        if ($this->has('favicon_url') && $this->get('favicon_url') !== '') {
+            $raw = (string) $this->get('favicon_url');
+            $candidate = preg_match('#^https?://#i', $raw) ? $raw : 'https://' . $raw;
+            if (filter_var($candidate, FILTER_VALIDATE_URL) === false) {
+                return $this->error('رابط الأيقونة غير صحيح', 422, ['favicon_url' => ['يجب أن يكون رابطًا صحيحًا']]);
+            }
         }
 
         $existing = (new BusinessBrandSettings())->where(['business_id' => $businessId], [], 1);
@@ -124,6 +139,8 @@ class BusinessBrandSettingsController extends Controller
         // Services/BusinessContextService.php. Invalidate هنا زي أي
         // تعديل تاني على بيانات الـBusiness.
         (new BusinessContextService())->invalidate($businessId);
+
+        BusinessAuditLog::record($businessId, (int) $user->getAttribute('id'), 'brand_settings_updated', 'success', 'business', (string) $businessId);
 
         return $this->success(['brand_settings' => $record->toArray()], 'تم حفظ إعدادات العلامة التجارية');
     }
