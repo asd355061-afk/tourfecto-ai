@@ -961,3 +961,27 @@ CREATE TABLE IF NOT EXISTS `onboarding_drafts` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `uniq_draft_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='مسودات Onboarding على السيرفر + تتبع أقصى خطوة (فونيل)';
+
+-- ============================================================
+-- Tourfecto - تفعيل موديول الشات (chat) في القائمة الجانبية للكل
+-- @version 1.0.0  @date 2026-08-18
+--
+-- موديول الشات متاح افتراضيًا من الكود ومن مهاجرة feature flags
+-- (2026_07_26_000031)، والـ FeatureFlagService بيرجع "متاحة" افتراضيًا
+-- لأي ميزة غير مسجلة. السطر ده ضمانة صريحة: يشغّل مفتاح chat حتى لو
+-- المهاجرة القديمة دي متشغّلتش على السيرفر، أو حد أطفاه من لوحة
+-- الأدمن (Admin > Features) بالغلط. Idempotent - آمن يتنفذ أكتر من مرة.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS `feature_flags` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `feature_key` VARCHAR(50) NOT NULL COMMENT 'نفس مفتاح القائمة الجانبية (ai_analyze, chat, crm...)',
+    `label` VARCHAR(150) NOT NULL,
+    `is_enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'مفعّلة للكل بشكل افتراضي',
+    `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `idx_feature_key` (`feature_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='تفعيل/تعطيل الميزات للموقع كله - قابل للتعديل من لوحة الأدمن';
+
+INSERT INTO `feature_flags` (`feature_key`, `label`, `is_enabled`) VALUES ('chat', 'الشات', 1)
+ON DUPLICATE KEY UPDATE `is_enabled` = 1;
