@@ -188,7 +188,9 @@ class ChatManager
             // 7. توليد رد ذكي - مع حماية Rate Limiting (بند 22): حد أقصى
             // لعدد الردود الآلية لكل موقع خلال دقيقة، لمنع الإغراق أو أي
             // حلقة لا نهائية ناتجة عن خطأ في تكامل خارجي (Webhook مكرر مثلاً).
-            $rateLimitOk = $this->rateLimiter->check('ai_chat_website_' . $websiteId, 'ai_chat_reply', 20, 60);
+            $rateLimitMax = defined('AI_CHAT_RATE_LIMIT_MAX') ? AI_CHAT_RATE_LIMIT_MAX : 20;
+            $rateLimitWindow = defined('AI_CHAT_RATE_LIMIT_WINDOW_SECONDS') ? AI_CHAT_RATE_LIMIT_WINDOW_SECONDS : 60;
+            $rateLimitOk = $this->rateLimiter->check('ai_chat_website_' . $websiteId, 'ai_chat_reply', $rateLimitMax, $rateLimitWindow);
             if (!$rateLimitOk) {
                 Logger::warning('ChatManager: AI Chat rate limit exceeded, skipping AI reply', ['website_id' => $websiteId]);
                 $reply = null;

@@ -495,6 +495,14 @@ abstract class Controller
         $styleCssUrl = asset_v('/assets/css/style.css');
         $panelCssUrl = asset_v('/assets/css/panel.css');
         $panelJsUrl = asset_v('/assets/js/panel.js');
+        // وحدة الشات: طبقة مكوّنات احترافية (chat.css + chat-panel.js)
+        // بتتحقن بس لما الصفحة بتاعة الشات - باقي اللوحة مبيتأثرش بيها.
+        $chatAssetsHead = '';
+        $chatAssetsFoot = '';
+        if ($activeTab === 'chat') {
+            $chatAssetsHead = '    <link rel="stylesheet" href="' . asset_v('/assets/css/chat.css') . '">' . "\n";
+            $chatAssetsFoot = '    <script src="' . asset_v('/assets/js/chat-panel.js') . '"></script>' . "\n";
+        }
         // نفس باغ asset_v بالظبط - site_brand_html() لازم يتحسب في متغير
         $brandHtml = site_brand_html();
 
@@ -515,7 +523,7 @@ abstract class Controller
     <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
     <link rel="stylesheet" href="{$styleCssUrl}">
     <link rel="stylesheet" href="{$panelCssUrl}">
-</head>
+{$chatAssetsHead}</head>
 <body>
     <div class="panel-shell">
         <div class="panel-overlay-bg"></div>
@@ -580,7 +588,7 @@ abstract class Controller
     <script>window.I18N = {$this->i18nJson()};</script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
     <script src="{$panelJsUrl}"></script>
-    <script>{$scriptJs}</script>
+{$chatAssetsFoot}    <script>{$scriptJs}</script>
 <button id="pwaInstallBtn" class="pwa-install-fab" type="button" aria-label="تثبيت التطبيق" title="تثبيت التطبيق">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <span>تثبيت التطبيق</span>

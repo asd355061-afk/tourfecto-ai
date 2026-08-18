@@ -1008,6 +1008,48 @@ $router->post('/webhooks/crm/sms', 'CrmSmsWebhookController', 'receive', []);
 $router->post('/webhooks/crm/email-inbound', 'CrmEmailWebhookController', 'receive', []);
 
 // ============================================
+// AI Chat Platform - Knowledge Base (بند 4 + 13 Brand Voice)
+// Phase 1: يدير صاحب الشركة معلومات شركته/خدماته/أسعاره/سياساته التي
+// يعتمد عليها AI Conversation Engine حصريًا (بدون اختلاق معلومات).
+// ============================================
+$router->get('/api/ai-chat/websites/{id}/knowledge-base', 'AiKnowledgeBaseController', 'index', ['AuthMiddleware']);
+$router->post('/api/ai-chat/websites/{id}/knowledge-base', 'AiKnowledgeBaseController', 'store', ['AuthMiddleware']);
+$router->put('/api/ai-chat/websites/{id}/knowledge-base/{entryId}', 'AiKnowledgeBaseController', 'update', ['AuthMiddleware']);
+$router->delete('/api/ai-chat/websites/{id}/knowledge-base/{entryId}', 'AiKnowledgeBaseController', 'destroy', ['AuthMiddleware']);
+$router->get('/api/ai-chat/websites/{id}/knowledge-base/preview', 'AiKnowledgeBaseController', 'preview', ['AuthMiddleware']);
+
+// ============================================
+// AI Chat Platform - Custom Tags (بند 11: صاحب الشركة ينشئ Tags إضافية)
+// ============================================
+$router->get('/api/ai-chat/websites/{id}/custom-tags', 'AiCustomTagController', 'index', ['AuthMiddleware']);
+$router->post('/api/ai-chat/websites/{id}/custom-tags', 'AiCustomTagController', 'store', ['AuthMiddleware']);
+$router->delete('/api/ai-chat/websites/{id}/custom-tags/{tagId}', 'AiCustomTagController', 'destroy', ['AuthMiddleware']);
+
+// ============================================
+// AI Chat Platform - Leads & Follow-up Automation (بند 5، 6، 7)
+// Phase 3: AI Sales Agent (Lead Scoring) + Follow-up Automation settings.
+// ============================================
+$router->get('/api/ai-chat/websites/{id}/leads', 'AiLeadController', 'index', ['AuthMiddleware']);
+$router->get('/api/ai-chat/websites/{id}/leads/{leadId}', 'AiLeadController', 'show', ['AuthMiddleware']);
+$router->put('/api/ai-chat/websites/{id}/leads/{leadId}', 'AiLeadController', 'update', ['AuthMiddleware']);
+
+$router->get('/api/ai-chat/websites/{id}/followup-settings', 'AiFollowupSettingsController', 'show', ['AuthMiddleware']);
+$router->put('/api/ai-chat/websites/{id}/followup-settings', 'AiFollowupSettingsController', 'update', ['AuthMiddleware']);
+
+// ============================================
+// AI Chat Platform - Analytics & Reply Suggestions (بند 12، 18)
+// Phase 4: AI Analytics Dashboard + AI Reply Suggestions للموظف.
+// ============================================
+$router->get('/api/ai-chat/websites/{id}/analytics', 'AiAnalyticsController', 'index', ['AuthMiddleware']);
+$router->get('/api/ai-chat/websites/{id}/conversations', 'ChatInboxController', 'index', ['AuthMiddleware']);
+$router->get('/api/ai-chat/websites/{id}/conversations/{conversationId}', 'ChatInboxController', 'show', ['AuthMiddleware']);
+$router->put('/api/ai-chat/websites/{id}/conversations/{conversationId}', 'ChatInboxController', 'update', ['AuthMiddleware']);
+$router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/reply', 'ChatInboxController', 'reply', ['AuthMiddleware']);
+$router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/handoff', 'ChatInboxController', 'handoff', ['AuthMiddleware']);
+$router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/resume-ai', 'ChatInboxController', 'resumeAI', ['AuthMiddleware']);
+$router->get('/api/ai-chat/websites/{id}/conversations/{conversationId}/reply-suggestions', 'ChatInboxController', 'suggestReplies', ['AuthMiddleware']);
+
+// ============================================
 // Consolidated Multi-Phase Module (2026-08-08) - إضافات جديدة فقط
 // ============================================
 // Phase 5 (Auto-Apply)

@@ -108,17 +108,12 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/Chat/MessengerAPI.php',
     APP_PATH . '/Services/Chat/InstagramAPI.php',
     APP_PATH . '/Services/Chat/EmailChannelAPI.php',
-    // AI Chat Platform: Providers + Services + Models + Controllers
-    // (2026-08-08) - نفس المبدأ: كلاسات جديدة مش في classmap قديم بتاع
-    // composer، فلازم تتحمّل يدويًا. الترتيب مهم: الـ Interface أولًا،
-    // وبعده OpenAICompatibleProvider (abstract)، وبعده المزودين اللي
-    // بيمدّوه، وبعدين AIProviderManager اللي بيعمل `new` عليهم.
     APP_PATH . '/Services/AI/Providers/AIProviderInterface.php',
     APP_PATH . '/Services/AI/Providers/OpenAICompatibleProvider.php',
+    APP_PATH . '/Services/AI/Providers/GeminiProvider.php',
     APP_PATH . '/Services/AI/Providers/OpenAIProvider.php',
     APP_PATH . '/Services/AI/Providers/DeepSeekProvider.php',
     APP_PATH . '/Services/AI/Providers/KimiProvider.php',
-    APP_PATH . '/Services/AI/Providers/GeminiProvider.php',
     APP_PATH . '/Services/AI/Providers/AIProviderManager.php',
     APP_PATH . '/Services/AI/KnowledgeBaseService.php',
     APP_PATH . '/Services/AI/AIConversationEngine.php',
@@ -126,8 +121,6 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/AI/FollowUpAutomationService.php',
     APP_PATH . '/Services/AI/AiAnalyticsService.php',
     APP_PATH . '/Services/AI/AiReplySuggestionsService.php',
-    // Learning Loop (2026-08-16): Resolution Learning + Knowledge Gaps.
-    // لازم يتحمّل قبل AiLearningController وأي Controller بيستخدمه.
     APP_PATH . '/Services/AI/LearningLoopService.php',
     APP_PATH . '/Models/AiUsageLog.php',
     APP_PATH . '/Models/AiKnowledgeBase.php',
@@ -136,14 +129,20 @@ $optionalNewClassFiles = [
     APP_PATH . '/Models/AiFollowup.php',
     APP_PATH . '/Models/AiFollowupRule.php',
     APP_PATH . '/Models/AiCustomTag.php',
-    APP_PATH . '/Controllers/ChatInboxController.php',
+    APP_PATH . '/Services/AI/KnowledgeBaseService.php',
+    APP_PATH . '/Services/AI/AIConversationEngine.php',
+    APP_PATH . '/Services/AI/LeadScoringService.php',
+    APP_PATH . '/Services/AI/BusinessHoursService.php',
+    APP_PATH . '/Services/AI/FollowUpAutomationService.php',
+    APP_PATH . '/Services/AI/AiAnalyticsService.php',
+    APP_PATH . '/Services/AI/AiReplySuggestionsService.php',
     APP_PATH . '/Controllers/AiKnowledgeBaseController.php',
+    APP_PATH . '/Controllers/ChatInboxController.php',
     APP_PATH . '/Controllers/AiLeadController.php',
     APP_PATH . '/Controllers/AiFollowupSettingsController.php',
     APP_PATH . '/Controllers/AiAnalyticsController.php',
+    APP_PATH . '/Controllers/AiCustomTagController.php',
     APP_PATH . '/Controllers/AiLearningController.php',
-    // In-Chat Quotes (2026-08-16): بيع داخل الشات - عروض أسعار تُبنى وتُرسل
-    // وتُتتبّع جوه المحادثة. بيحتاج AiQuoteModel اللي محمّل فوق كمان.
     APP_PATH . '/Models/AiQuote.php',
     APP_PATH . '/Controllers/AiQuoteController.php',
     // OTA Integration: نفس المشكلة بالظبط - الكنترولر ده مش مسجّل في
