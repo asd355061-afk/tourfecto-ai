@@ -454,6 +454,8 @@ return [
     'onboarding.api.invalid_url' => 'رابط غير صالح - تأكد إنه دومين صحيح',
     'onboarding.api.create_failed' => 'تعذر إنشاء الموقع',
     'onboarding.api.started' => 'بدأنا التحليل في الخلفية',
+    'onboarding.api.complete_failed' => 'تعذر إكمال الإعداد',
+    'onboarding.api.status_failed' => 'تعذر جلب حالة الإعداد',
     'credits.tooltip' => 'رصيد الذكاء الاصطناعي المتبقي هذا الشهر - دوس للتفاصيل',
     'wallet.tooltip' => 'رصيد محفظتك - دوس للتفاصيل',
     'website_context.tooltip' => 'الموقع الحالي - بيتزامن تلقائيًا مع باقي الصفحات',

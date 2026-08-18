@@ -445,6 +445,8 @@ return [
     'onboarding.api.invalid_url' => 'Ungültige URL - stellen Sie sicher, dass es eine gültige Domain ist',
     'onboarding.api.create_failed' => 'Website konnte nicht erstellt werden',
     'onboarding.api.started' => 'Analyse im Hintergrund gestartet',
+    'onboarding.api.complete_failed' => 'Einrichtung konnte nicht abgeschlossen werden',
+    'onboarding.api.status_failed' => 'Status der Einrichtung konnte nicht abgerufen werden',
     'credits.tooltip' => 'Verbleibende KI-Credits diesen Monat - klicken für Details',
     'wallet.tooltip' => 'Ihr Wallet-Guthaben - klicken für Details',
     'website_context.tooltip' => 'Aktuelle Website - synchronisiert sich automatisch mit anderen Seiten',

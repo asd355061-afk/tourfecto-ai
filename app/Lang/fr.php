@@ -445,6 +445,8 @@ return [
     'onboarding.api.invalid_url' => 'URL invalide - assurez-vous qu\'il s\'agit d\'un domaine valide',
     'onboarding.api.create_failed' => 'Impossible de créer le site web',
     'onboarding.api.started' => 'Analyse démarrée en arrière-plan',
+    'onboarding.api.complete_failed' => 'Échec de la configuration',
+    'onboarding.api.status_failed' => 'Impossible de récupérer le statut de la configuration',
     'credits.tooltip' => 'Crédits IA restants ce mois - cliquez pour les détails',
     'wallet.tooltip' => 'Solde de votre portefeuille - cliquez pour les détails',
     'website_context.tooltip' => 'Site actuel - se synchronise automatiquement avec les autres pages',

@@ -174,7 +174,7 @@ class OnboardingController extends Controller
 
         } catch (Exception $e) {
             Logger::error('Onboarding Complete Error', ['message' => $e->getMessage()]);
-            $debugMsg = (defined('APP_DEBUG') && APP_DEBUG) ? 'تعذر إكمال الإعداد: ' . $e->getMessage() : 'تعذر إكمال الإعداد';
+            $debugMsg = (defined('APP_DEBUG') && APP_DEBUG) ? $this->tr('onboarding.api.complete_failed') . ': ' . $e->getMessage() : $this->tr('onboarding.api.complete_failed');
             return $this->error($debugMsg, 500);
         }
     }
@@ -1575,7 +1575,7 @@ HTML;
             ]);
         } catch (Exception $e) {
             Logger::error('Onboarding Status Error', ['message' => $e->getMessage()]);
-            return $this->error('تعذر جلب حالة الإعداد', 500);
+            return $this->error($this->tr('onboarding.api.status_failed'), 500);
         }
     }
 

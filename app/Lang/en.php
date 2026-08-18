@@ -465,6 +465,8 @@ return [
     'onboarding.api.invalid_url' => 'Invalid URL - please make sure it is a valid domain',
     'onboarding.api.create_failed' => 'Could not create the website',
     'onboarding.api.started' => 'Analysis started in the background',
+    'onboarding.api.complete_failed' => 'Could not complete the setup',
+    'onboarding.api.status_failed' => 'Could not fetch the setup status',
     'credits.tooltip' => 'Remaining AI credits this month - click for details',
     'wallet.tooltip' => 'Your wallet balance - click for details',
     'website_context.tooltip' => 'Current website - syncs automatically across other pages',
