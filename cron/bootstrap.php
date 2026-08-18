@@ -88,6 +88,18 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Models/AiCustomerMemory.php',
     APP_PATH . '/Models/AiKnowledgeBase.php',
     APP_PATH . '/Models/AiUsageLog.php',
+    // Billing Phase 19/21: run_billing_lifecycle.php بينادي WalletService
+    // (renewSubscriptionFromBalance) اللي بيستخدم SubscriptionPeriod +
+    // BillingRules مباشرة - لازم يتحمّلوا قبل الـ Services عشان ميفشلش
+    // "Class not found" في سياق الـ Cron/Worker.
+    APP_PATH . '/Services/Subscription/SubscriptionPeriod.php',
+    APP_PATH . '/Services/Subscription/BillingRules.php',
+    APP_PATH . '/Services/Subscription/SubscriptionLifecycleService.php',
+    APP_PATH . '/Services/Subscription/WalletService.php',
+    APP_PATH . '/Services/Payment/InvoiceLifecycleService.php',
+    APP_PATH . '/Services/Payment/TaxService.php',
+    APP_PATH . '/Services/Payment/RefundService.php',
+    APP_PATH . '/Services/Payment/WalletGatewayAdapter.php',
     // AI Revenue Intelligence (2026-08-15): SendRevenueDigestJob +
     // RecomputeRevenueInsightsJob بيتنفذوا من process_queue.php (الـ queue
     // worker) فمحتاجين كل خدمات الموديول متحمّلة في سياق الـ Cron/Worker -
