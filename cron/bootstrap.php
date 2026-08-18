@@ -118,6 +118,40 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Services/RevenueIntelligence/StripeWebhookService.php',
     APP_PATH . '/Services/Mailer.php',
     APP_PATH . '/Models/User.php',
+    // Competitor Intelligence (2026-08-16) - MonitorCompetitorJob + SendCompetitorAlertEmailJob
+    // بينتعاملوا من process_queue.php (الـ queue worker) ومحتاجين موديول CI كامل
+    // متحمّل في سياق الـ Cron/Worker - مختلف عن public_html/index.php اللي بيخدم
+    // الـ web. الترتيب نفس index.php: الـ Interface الأول، وبعده الخدمات اللي
+    // بتدور على بعضها، وبعده الـ Models.
+    APP_PATH . '/Core/Contracts/CompetitorDiscoverySourceInterface.php',
+    APP_PATH . '/Services/CompetitorIntelligence/SsrfGuard.php',
+    APP_PATH . '/Services/CompetitorIntelligence/WebsiteSnapshotFetcher.php',
+    APP_PATH . '/Services/CompetitorIntelligence/ChangeDetectionService.php',
+    APP_PATH . '/Services/CompetitorIntelligence/MonitoringEngine.php',
+    APP_PATH . '/Services/CompetitorIntelligence/SitemapMonitor.php',
+    APP_PATH . '/Services/CompetitorIntelligence/NullDiscoverySource.php',
+    APP_PATH . '/Services/CompetitorIntelligence/WebsiteOnboardingDiscoverySource.php',
+    APP_PATH . '/Services/CompetitorIntelligence/GooglePlacesDiscoverySource.php',
+    APP_PATH . '/Services/CompetitorIntelligence/CompetitorDiscoveryService.php',
+    APP_PATH . '/Services/CompetitorIntelligence/CompetitorTrackingService.php',
+    APP_PATH . '/Services/CompetitorIntelligence/BenchmarkingService.php',
+    APP_PATH . '/Services/CompetitorIntelligence/ThreatOpportunityService.php',
+    APP_PATH . '/Services/CompetitorIntelligence/AlertService.php',
+    APP_PATH . '/Services/CompetitorIntelligence/AICompetitiveAnalyst.php',
+    APP_PATH . '/Services/CompetitorIntelligence/ReportService.php',
+    APP_PATH . '/Services/CompetitorIntelligence/CiPermissions.php',
+    APP_PATH . '/Services/CompetitorIntelligence/CompetitorAnalysisService.php',
+    APP_PATH . '/Models/CiDiscoveryCandidate.php',
+    APP_PATH . '/Models/CiSnapshot.php',
+    APP_PATH . '/Models/CiChange.php',
+    APP_PATH . '/Models/CiWatchlistItem.php',
+    APP_PATH . '/Models/CiAlert.php',
+    APP_PATH . '/Models/CiScorecard.php',
+    APP_PATH . '/Models/CiInsight.php',
+    APP_PATH . '/Models/CiReport.php',
+    APP_PATH . '/Models/CiUserPreference.php',
+    APP_PATH . '/Models/Competitor.php',
+    APP_PATH . '/Models/CompetitorRecommendation.php',
 ];
 foreach ($optionalJobDependencyFiles as $depFile) {
     if (file_exists($depFile)) {

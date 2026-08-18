@@ -693,3 +693,26 @@ pre, code { white-space: pre-wrap; word-break: break-word; overflow-wrap: break-
 .p-badge.status-pending { background: var(--panel-warning-light); color: var(--panel-warning); }
 .p-badge.status-suspended,
 .p-badge.status-cancelled { background: var(--panel-danger-light); color: var(--panel-danger); }
+
+/* ============ Business Center (Phase 23) ============ */
+.bc-ring {
+    --bc-p: 0;
+    width: 96px; height: 96px; border-radius: 50%; flex-shrink: 0;
+    background: conic-gradient(var(--panel-accent, #3FA796) calc(var(--bc-p) * 1%), var(--panel-border, #eee) 0);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative;
+}
+.bc-ring::before {
+    content: ''; position: absolute; inset: 9px; border-radius: 50%;
+    background: var(--panel-card-bg, #fff);
+}
+.bc-ring span, .bc-ring b { position: relative; z-index: 1; }
+.bc-ring span { font-size: 18px; font-weight: 700; color: var(--panel-text, #111); }
+.bc-ring b { font-size: 11px; color: var(--panel-text-muted, #8996AC); }
+.bc-cat { display: flex; align-items: center; gap: 10px; }
+.bc-cat-label { width: 130px; font-size: 12px; color: var(--panel-text, #111); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bc-cat-track { flex: 1; height: 7px; border-radius: 99px; background: var(--panel-border, #eee); overflow: hidden; }
+.bc-cat-track i { display: block; height: 100%; border-radius: 99px; background: var(--panel-accent, #3FA796); }
+.bc-cat-score { width: 34px; text-align: end; font-size: 11px; color: var(--panel-text-muted, #8996AC); }
+.p-alert { border-radius: 10px; padding: 12px 14px; font-size: 12.5px; background: var(--panel-success-light, #E7F6EF); color: var(--panel-success, #1B8A5A); }
+.p-alert code { background: rgba(0,0,0,.06); padding: 2px 6px; border-radius: 6px; font-size: 11.5px; word-break: break-all; }
