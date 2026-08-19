@@ -395,6 +395,94 @@ Feature موجودة يمكن إعادة استخدامها، استخدمها �
 
 ---
 
+## تفعيل موديول الشات في القائمة الجانبية للكل (feature/ai-chat-improvements — 2026-08-18)
+
+- **`database/migrations/_PENDING_TO_RUN_ON_SERVER.sql`**: إلحاق بيان
+  Idempotent يضمن `chat` مفعّل (is_enabled = 1) في جدول `feature_flags`
+  — حتى لو مهاجرة 2026-07-26 الأصلية لم تُشغَّل على السيرفر أو عُطّل
+  المفتاح من لوحة الأدمن. يُنفَّذ مرة على السيرفر ثم يصبح `/chat`
+  ظاهرًا في القائمة الجانبية للجميع.
+
+## إعادة تصميم واجهة `/chat` الأمامية (feature/ai-chat-improvements — 2026-08-17)
+
+طبقة مكوّنات احترافية جديدة فوق Compass Design System (نفس الرموز
+اللونية `--panel-*` تمامًا، بدون لوحة ألوان جديدة):
+
+- **`public_html/assets/css/chat.css`**: طبقة مكوّنات `/chat` (~840
+  سطر) — شريط أدوات وبحث، فلترة سريعة (ch-chip)، بطاقات إحصاءات
+  (ch-stats)، أفاتار+شارة قناة، كروت المحادثات (شريط أولوية/غير مقروءة/
+  Scorebar)، فقاعات الشات (وارد/صادر/AI)، بطاقات اقتراح AI، مربع
+  الرد (composer)، لوحة الـLead (hero + kv-grid)، خطوات المتابعة
+  (ch-step)، أشرطة المزوّدين والترتيب، التبديلات (toggle)، كروت ربط
+  القنوات (WhatsApp/Messenger/Instagram/Email)، تبويبات، وتحسينات
+  Responsive.
+- **`public_html/assets/js/chat-panel.js`**: مكتبة `window.ChatUI` —
+  ~70 أيقونة SVG مدمجة + `initials()` / `avatar()` / `channelBadge()` /
+  `scoreBar()` / `rankBar()` / `pill()`. مسماة `chat-panel.js` (وليس
+  `chat.js`) عمدًا كي لا تطغى على ودجت العميل الموجود.
+- **`app/Core/Controller.php`**: حقن `chat.css` + `chat-panel.js` في
+  `renderPanelPage()` فقط عندما يكون `$activeTab === 'chat'`.
+- **`app/Controllers/ChatController.php`**: إعادة تصميم صفحات `/chat`
+  التسع بالكامل (الإنبوكس الموحّد، المحادثة، المعلّقة، الإعدادات،
+  قاعدة المعرفة، المتابعة التلقائية، التحليلات، الـLeads) مع الحفاظ
+  على كل الخطافات/الاستدعاءات الموجودة (فلترة سريعة، Pagination،
+  Handoff، Custom Tags، اقتراحات الرد، إلخ) — بدون أي تغيير في
+  الـBackend أو الـAPIs.
+
+## ما تم إضافته في هذا الدمج (feature/ai-chat-improvements — 2026-08-15)
+
+هذا الدمج يضيف فوق المراحل 1-5 التكميلات النهائية المطابقة لحالة
+`/chat` الكاملة (Unified Inbox) كما صارت فعليًا، مع الحفاظ الكامل على
+كل مسارات وميزات المشروع الأخرى الموجودة في `main`:
+
+- **Business Hours (إدراك ساعات العمل في الأتمتة)**: `BusinessHoursService`
+  جديد + ربطه بـ`FollowUpAutomationService` — أي لحظة استحقاق لمتابعة
+  خارج ساعات عمل الشركة تُرجَع لأقرب لحظة فتح فعلية، ولو حان وقت
+  الإرسال خارج ساعات العمل يُؤجَّل تلقائيًا. بدون قسم `business_hours`
+  في Knowledge Base يبقى السلوك 24/7 كما هو تمامًا.
+- **`next_recommended_action`**: عمود جديد على `ai_conversations` عبر
+  migration منفصل (`2026_08_15_000002_...`)، يطلبه المحرك من الـAI ويحفظه
+  ويعرضه في لوحة المحادثة والـLead.
+- **Quick Filter Buttons (بند 16)**: 9 أزرار فلترة سريعة (الكل، غير
+  المقروءة، AI، موظف، Leads ساخنة، متابعة، مغلقة، VIP، شكاوى) + دعم
+  Backend لفلتر "غير المقروءة" (`unread_only`) + Pagination لقائمة
+  المحادثات.
+- **Knowledge Base Edit**: تعديل مباشر لعناصر القاعدة من صفحة
+  `/chat/knowledge-base` + معاينة.
+- **Custom Tags (بند 11)**: `AiCustomTagController` كامل + واجهة
+  إضافة/حذف من صفحة المحادثة.
+- **إصلاح مسار الرد التلقائي** في `ChatManager`: استخدم `sendMessageForWebsite()`
+  (Multi-tenant) بدل دالة WhatsApp-only القديمة — ليدعم كل القنوات.
+- **Rate Limit قابل للتعديل**: `ChatManager` يقرأ `AI_CHAT_RATE_LIMIT_MAX`
+  و`AI_CHAT_RATE_LIMIT_WINDOW_SECONDS` (المُعرَّفة في `constants.php`)
+  بدل القيم الثابتة 20/60.
+- **مسارات `/api/ai-chat/*` الغائبة** أُضيفت في `app/routes/api.php`
+  (المحادثات، الرد، Handoff، استرجاع AI، Reply Suggestions، Custom
+  Tags، Analytics، Leads، Follow-up Settings) — مع الإبقاء على كل
+  مسارات المشروع الأخرى.
+- **تسجيل الكلاسات يدويًا**: استكمال `$optionalNewClassFiles` في
+  `public_html/index.php` وكود `cron/bootstrap.php` بكل كلاسات AI Chat
+  (Models → Providers → Services → Controllers) ليعمل `cron/
+  process_ai_followups.php` وصفحات `/chat` دون `composer dump-autoload`.
+
+### الالتزامات المحفوظة (بند "استخدم المكونات الموجودة")
+- لم يُلمَس أي Module آخر: `TourfectoAIEngine`، SEO/CRM/Ads/Analytics،
+  Competitor Intelligence، Revenue Intelligence، OTA، حساب 2FA، Billing،
+  بيانات التصدير — كلها كما هي في `main`.
+- لم تُستبدل أي ملفات مشتركة بالكامل؛ تم إضافة الدلتا فقط (routes،
+  loader entries، ترجمات، إصلاحات موضعية).
+
+### سدّ ثغرات تكاملية بعد الدمج (2026-08-15)
+- `.env.example`: أُضيفت متغيرات الموديول الغائبة (`AI_PROVIDER_PRIORITY`،
+  `AI_CHAT_RATE_LIMIT_MAX`، `AI_CHAT_RATE_LIMIT_WINDOW_SECONDS`).
+- `database/migrations/_PENDING_TO_RUN_ON_SERVER.sql`: أُضيف عمود
+  `next_recommended_action` + الفهرس (نفس محتوى migration 000002) حتى
+  السيرفر اللي بيشتغل من الملف الموحّد يطبّق التغيير.
+- `public_html/system_check.php`: قسم جديد (6) يفحص وجود كل ملفات AI Chat
+  الـ27 + تحميل كلاساتها + وجود جداول الموديول الثمانية + عمود
+  `next_recommended_action` — فيكشف أي ملف/جدول ناقص على السيرفر فورًا.
+
+
 # AI Revenue Assistant — الترقية التنافسية v1.2.0 — 2026-08-15
 
 ## 1) الخلفية (تحليل تنافسي)

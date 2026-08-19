@@ -23,19 +23,19 @@
 class SubscriptionLifecycleService
 {
     /** فترة السماح بعد انتهاء current_period_end قبل ما الاشتراك يتلغي نهائيًا */
-    private const GRACE_PERIOD_DAYS = 7;
+    public const GRACE_PERIOD_DAYS = BillingRules::GRACE_PERIOD_DAYS;
 
     /** كام يوم قبل التجديد نبعت تذكير "Renewal Upcoming" */
-    private const RENEWAL_REMINDER_DAYS = 3;
+    public const RENEWAL_REMINDER_DAYS = BillingRules::RENEWAL_REMINDER_DAYS;
 
     /** تحليل تنافسي (Stripe/Chargebee): تذكير أبكر كمان - بنبعت تحذير مبكر
      *  قبل RENEWAL_REMINDER_DAYS بيوم (7 أيام) للي لسه محتاج يشحن رصيد.
      *  الاتنين بيشتغلوا بتدرج: 7 أيام → 3 أيام، كل واحد Dedup لوحده. */
-    private const RENEWAL_REMINDER_EARLY_DAYS = 7;
+    public const RENEWAL_REMINDER_EARLY_DAYS = BillingRules::RENEWAL_REMINDER_EARLY_DAYS;
 
     /** كام يوم متبقي في فترة السماح قبل الإلغاء النهائي بنبعت إنذار أخير
      *  (dunning-style final notice) - متدرج مع تذكير التجديد العادي. */
-    private const DUNNING_FINAL_NOTICE_DAYS = 2;
+    public const DUNNING_FINAL_NOTICE_DAYS = BillingRules::DUNNING_FINAL_NOTICE_DAYS;
 
     /** @var Database */
     private $db;

@@ -23,6 +23,15 @@ require_once dirname(__DIR__, 2) . '/app/Core/Controller.php';
 require_once dirname(__DIR__, 2) . '/app/Controllers/OnboardingController.php';
 require_once dirname(__DIR__, 2) . '/app/Services/CompetitorIntelligence/SsrfGuard.php';
 
+// Polyfill بسيط لـ mb_strlen لما الـ mbstring extension مش متاحة في بيئة
+// التطوير المحلية (مطلوبة في composer.json وهتكون موجودة على السيرفر).
+if (!function_exists('mb_strlen')) {
+    function mb_strlen(string $s, ?string $enc = null): int
+    {
+        return strlen($s);
+    }
+}
+
 class OnboardingWizardLogicTest
 {
     private $passed = 0;
@@ -53,6 +62,12 @@ class OnboardingWizardLogicTest
         $this->testSsrfBlocksInternalUrls();
         $this->testSsrfAllowsPublicUrls();
         $this->testJobIdRegexpBoundaries();
+        $this->testDetectBusinessNameSimple();
+        $this->testDetectBusinessNameSplitsOnSeparators();
+        $this->testDetectBusinessNameRejectsTooLongOrEmpty();
+        $this->testDeriveQuickWinsSkipsNoSuccess();
+        $this->testDeriveQuickWinsSortsBySeverity();
+        $this->testDeriveQuickWinsLimitsToThree();
 
         $this->printSummary();
     }
@@ -191,6 +206,76 @@ class OnboardingWizardLogicTest
     {
         echo "    ❌ {$message}\n";
         $this->failed++;
+    }
+
+    private function testDetectBusinessNameSimple(): void
+    {
+        $this->startTest('detectBusinessName - عنوان عادي');
+        $r = $this->invokePrivate('detectBusinessName', ['شركة الأهرام للرحلات']);
+        $r === 'شركة الأهرام للرحلات'
+            ? $this->pass('الاسم رجع كما هو')
+            : $this->fail('متوقع الاسم نفسه لكن حصل: ' . var_export($r, true));
+    }
+
+    private function testDetectBusinessNameSplitsOnSeparators(): void
+    {
+        $this->startTest('detectBusinessName - بياخد أول جزء قبل الفاصل');
+        $r = $this->invokePrivate('detectBusinessName', ['Nile Tours | Best Egypt Agency']);
+        $r === 'Nile Tours'
+            ? $this->pass("'|' → Nile Tours")
+            : $this->fail('متوقع Nile Tours لكن حصل: ' . var_export($r, true));
+    }
+
+    private function testDetectBusinessNameRejectsTooLongOrEmpty(): void
+    {
+        $this->startTest('detectBusinessName - بيرفض الفاضي والأطول من 60 حرف');
+        $r1 = $this->invokePrivate('detectBusinessName', [null]);
+        $r2 = $this->invokePrivate('detectBusinessName', ['']);
+        $r3 = $this->invokePrivate('detectBusinessName', [str_repeat('A', 61)]);
+        ($r1 === null && $r2 === null && $r3 === null)
+            ? $this->pass('null / فارغ / 61 حرف كلهم رجّعوا null')
+            : $this->fail('متوقع null لكن حصل: ' . var_export([$r1, $r2, $r3], true));
+    }
+
+    private function testDeriveQuickWinsSkipsNoSuccess(): void
+    {
+        $this->startTest('deriveQuickWins - بيرجع فاضي لو الـaudit فشل');
+        $r = $this->invokePrivate('deriveQuickWins', [['success' => false]]);
+        $r === [] ? $this->pass('فشل الـaudit → []') : $this->fail('متوقع [] لكن حصل: ' . var_export($r, true));
+    }
+
+    private function testDeriveQuickWinsSortsBySeverity(): void
+    {
+        $this->startTest('deriveQuickWins - بيرتب حسب الخطورة critical أولًا');
+        $audit = [
+            'success' => true,
+            'data' => ['findings' => [
+                ['status' => 'fail', 'severity' => 'medium', 'title' => 'M1', 'category' => 'seo'],
+                ['status' => 'fail', 'severity' => 'critical', 'title' => 'C1', 'category' => 'security'],
+                ['status' => 'fail', 'severity' => 'low', 'title' => 'L1', 'category' => 'speed'],
+                ['status' => 'pass', 'severity' => 'critical', 'title' => 'ignored-pass', 'category' => 'seo'],
+                ['status' => 'warn', 'severity' => 'critical', 'title' => 'ignored-warn', 'category' => 'seo'],
+            ]],
+        ];
+        $r = $this->invokePrivate('deriveQuickWins', [$audit]);
+        $titles = array_column($r, 'title');
+        $expected = ['C1', 'M1', 'L1'];
+        ($titles === $expected)
+            ? $this->pass('ترتيب الخطورة صحيح: ' . implode(',', $titles))
+            : $this->fail('متوقع ' . implode(',', $expected) . ' لكن حصل: ' . implode(',', $titles));
+    }
+
+    private function testDeriveQuickWinsLimitsToThree(): void
+    {
+        $this->startTest('deriveQuickWins - أقصى 3 نتائج');
+        $findings = [];
+        for ($i = 0; $i < 5; $i++) {
+            $findings[] = ['status' => 'fail', 'severity' => 'high', 'title' => 'F' . $i, 'category' => 'seo'];
+        }
+        $r = $this->invokePrivate('deriveQuickWins', [['success' => true, 'data' => ['findings' => $findings]]]);
+        count($r) === 3
+            ? $this->pass('5 فشل → 3 فقط')
+            : $this->fail('متوقع 3 لكن حصل: ' . count($r));
     }
 
     private function printSummary(): void

@@ -1,10 +1,11 @@
 # Tourfecto — Business Control Center — Changelog
 
-**Date:** 2026-08-14 (initial), 2026-08-15 (scope update + competitive phase)
+**Date:** 2026-08-14 (initial), 2026-08-15 (scope update + competitive phase + Team Management/RBAC)
 **Scope of this delivery:** Phases 1–7 (Audit, User/Business Profile separation, Locations,
-Services, Target Markets, AI Business Context, Brand Settings) of a 30-phase request, followed
-by a competitive phase (AI Audit readiness scoring + business overview dashboard + an atomicity
-fix). See "Not done yet" at the bottom for the remaining scope.
+Services, Target Markets, AI Business Context, Brand Settings) + competitive phase (AI Audit
+readiness scoring, business overview dashboard, atomicity fix) + **Phase 10–11 (Team
+Management + RBAC)** of a 30-phase request. See "Not done yet" at the bottom for the remaining
+scope.
 
 ---
 
@@ -386,8 +387,6 @@ None run (no PHP runtime, consistent with every phase).
 
 - **Phase 8–9**: Integrations Center (unifying scattered existing OAuth flows into one view) +
   Google integrations security review
-- **Phase 10–11**: Team Management + real RBAC (the biggest remaining architectural gap — this
-  project currently has zero concept of multiple users per business)
 - **Phase 12**: Real API Keys system (replacing the single shared `api_token`)
 - **Phase 13–14**: Security Center enhancements + centralized Audit Log
 - **Phase 15–16**: Expand `ExportUserDataJob` to include business data; enhance Delete Account
@@ -446,3 +445,24 @@ Differential analysis against Semrush / Yext / Birdeye / SOCi is documented in
 - `php tests/Unit/Business/BusinessReadinessServiceTest.php` — 7/7 passed (offline, pure
   logic; no DB required). DB-backed flows still require the server runtime, consistent with
   every prior phase.
+
+---
+
+## Phase 10-11 — Team Management + RBAC (2026-08-15)
+
+Full multi-user access + role-based access control, delivered separately from the competitive
+phase. Detailed changelog: `BUSINESS_TEAM_RBAC_CHANGELOG.md`.
+
+- **`business_members`** table (additive migration 000055) — `admin`/`member`/`viewer` rows;
+  owner stays derived from `businesses.owner_user_id` (single source of truth).
+- **`BusinessAccessService`** — the one RBAC gate every business controller now calls
+  (`roleOf`/`canView`/`canEdit`/`canManageTeam`/`canAdministerTeam`/`resolveUserBusiness`);
+  pure `roleAllows()`/`roleRank()` are offline-testable.
+- **`BusinessTeamService`** — invite (instant for registered users, token invite otherwise),
+  accept, remove, change role, list. Fine rules centralized: `admin` cannot touch another
+  `admin`; assigning `admin` requires the owner; owner can't be re-added as a member.
+- **`BusinessTeamController`** + 5 routes (list/invite/accept/remove/changeRole).
+- **Refactor**: all six business controllers' ownership checks replaced with the access
+  service; write actions return 403 for `viewer`; `show()`/`overview()` resolve owner-or-member.
+- **Tests**: `BusinessAccessServiceTest` 7/7 passed offline; readiness test re-run 7/7;
+  route dispatch verified, no conflicts; `php -l` clean.
