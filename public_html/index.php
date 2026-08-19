@@ -114,17 +114,12 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/Chat/MessengerAPI.php',
     APP_PATH . '/Services/Chat/InstagramAPI.php',
     APP_PATH . '/Services/Chat/EmailChannelAPI.php',
-    // AI Chat Platform: Providers + Services + Models + Controllers
-    // (2026-08-08) - نفس المبدأ: كلاسات جديدة مش في classmap قديم بتاع
-    // composer، فلازم تتحمّل يدويًا. الترتيب مهم: الـ Interface أولًا،
-    // وبعده OpenAICompatibleProvider (abstract)، وبعده المزودين اللي
-    // بيمدّوه، وبعدين AIProviderManager اللي بيعمل `new` عليهم.
     APP_PATH . '/Services/AI/Providers/AIProviderInterface.php',
     APP_PATH . '/Services/AI/Providers/OpenAICompatibleProvider.php',
+    APP_PATH . '/Services/AI/Providers/GeminiProvider.php',
     APP_PATH . '/Services/AI/Providers/OpenAIProvider.php',
     APP_PATH . '/Services/AI/Providers/DeepSeekProvider.php',
     APP_PATH . '/Services/AI/Providers/KimiProvider.php',
-    APP_PATH . '/Services/AI/Providers/GeminiProvider.php',
     APP_PATH . '/Services/AI/Providers/AIProviderManager.php',
     APP_PATH . '/Services/AI/KnowledgeBaseService.php',
     APP_PATH . '/Services/AI/AIConversationEngine.php',
@@ -132,8 +127,6 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/AI/FollowUpAutomationService.php',
     APP_PATH . '/Services/AI/AiAnalyticsService.php',
     APP_PATH . '/Services/AI/AiReplySuggestionsService.php',
-    // Learning Loop (2026-08-16): Resolution Learning + Knowledge Gaps.
-    // لازم يتحمّل قبل AiLearningController وأي Controller بيستخدمه.
     APP_PATH . '/Services/AI/LearningLoopService.php',
     APP_PATH . '/Models/AiUsageLog.php',
     APP_PATH . '/Models/AiKnowledgeBase.php',
@@ -142,14 +135,20 @@ $optionalNewClassFiles = [
     APP_PATH . '/Models/AiFollowup.php',
     APP_PATH . '/Models/AiFollowupRule.php',
     APP_PATH . '/Models/AiCustomTag.php',
-    APP_PATH . '/Controllers/ChatInboxController.php',
+    APP_PATH . '/Services/AI/KnowledgeBaseService.php',
+    APP_PATH . '/Services/AI/AIConversationEngine.php',
+    APP_PATH . '/Services/AI/LeadScoringService.php',
+    APP_PATH . '/Services/AI/BusinessHoursService.php',
+    APP_PATH . '/Services/AI/FollowUpAutomationService.php',
+    APP_PATH . '/Services/AI/AiAnalyticsService.php',
+    APP_PATH . '/Services/AI/AiReplySuggestionsService.php',
     APP_PATH . '/Controllers/AiKnowledgeBaseController.php',
+    APP_PATH . '/Controllers/ChatInboxController.php',
     APP_PATH . '/Controllers/AiLeadController.php',
     APP_PATH . '/Controllers/AiFollowupSettingsController.php',
     APP_PATH . '/Controllers/AiAnalyticsController.php',
+    APP_PATH . '/Controllers/AiCustomTagController.php',
     APP_PATH . '/Controllers/AiLearningController.php',
-    // In-Chat Quotes (2026-08-16): بيع داخل الشات - عروض أسعار تُبنى وتُرسل
-    // وتُتتبّع جوه المحادثة. بيحتاج AiQuoteModel اللي محمّل فوق كمان.
     APP_PATH . '/Models/AiQuote.php',
     APP_PATH . '/Controllers/AiQuoteController.php',
     // OTA Integration: نفس المشكلة بالظبط - الكنترولر ده مش مسجّل في
@@ -412,16 +411,34 @@ $optionalNewClassFiles = [
     APP_PATH . '/Models/BusinessTargetMarket.php',
     APP_PATH . '/Models/BusinessAiContext.php',
     APP_PATH . '/Models/BusinessBrandSettings.php',
+    APP_PATH . '/Models/BusinessMember.php',
+    // Business Control Center - Phase 8-9/12/13-14/15-16/17 (2026-08-15)
+    APP_PATH . '/Models/BusinessApiKey.php',
+    APP_PATH . '/Models/BusinessAuditLog.php',
+    APP_PATH . '/Services/BusinessIntegrationsService.php',
+    APP_PATH . '/Services/BusinessApiKeyService.php',
+    APP_PATH . '/Services/BusinessAuditService.php',
+    APP_PATH . '/Services/BusinessOnboardingService.php',
+    APP_PATH . '/Services/BusinessAccountClosureService.php',
+    APP_PATH . '/Controllers/BusinessIntegrationsController.php',
+    APP_PATH . '/Controllers/BusinessApiKeyController.php',
+    APP_PATH . '/Controllers/BusinessAuditLogController.php',
+    APP_PATH . '/Controllers/BusinessOnboardingController.php',
     APP_PATH . '/Services/BusinessServiceManager.php',
     APP_PATH . '/Services/BusinessLocationService.php',
     APP_PATH . '/Services/BusinessContextService.php',
     APP_PATH . '/Services/BusinessReadinessService.php',
+    APP_PATH . '/Services/BusinessAccessService.php',
+    APP_PATH . '/Services/BusinessTeamService.php',
+    APP_PATH . '/Services/BusinessNotificationService.php',
     APP_PATH . '/Controllers/BusinessController.php',
     APP_PATH . '/Controllers/BusinessLocationController.php',
     APP_PATH . '/Controllers/BusinessServiceController.php',
     APP_PATH . '/Controllers/BusinessTargetMarketController.php',
     APP_PATH . '/Controllers/BusinessAiContextController.php',
     APP_PATH . '/Controllers/BusinessBrandSettingsController.php',
+    APP_PATH . '/Controllers/BusinessTeamController.php',
+    APP_PATH . '/Controllers/BusinessCenterController.php',
 ];
 foreach ($optionalNewClassFiles as $classFile) {
     if (file_exists($classFile)) {

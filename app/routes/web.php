@@ -55,6 +55,7 @@ $router->group('/dashboard', function ($router) {
 });
 
 $router->get('/revenue', 'RevenueController', 'index', ['AuthMiddleware']);
+$router->get('/business-center', 'BusinessCenterController', 'index', ['AuthMiddleware']);
 $router->get('/revenue/intelligence', 'RevenueIntelligenceController', 'index', ['AuthMiddleware']);
 $router->get('/website-optimizer', 'WebsiteOptimizerController', 'index', ['AuthMiddleware']);
 $router->get('/competitor-monitoring', 'CompetitorMonitoringController', 'index', ['AuthMiddleware']);
@@ -93,6 +94,7 @@ $router->get('/ads/competitors', 'AdsController', 'showCompetitorsPage', ['AuthM
 $router->get('/ads/connections', 'AdsController', 'showConnectionsPage', ['AuthMiddleware']);
 $router->get('/ads/autopilot', 'AdsController', 'showAutopilotPage', ['AuthMiddleware']);
 $router->get('/ads/copilot', 'AdsController', 'showCopilotPage', ['AuthMiddleware']);
+$router->get('/ads/alerts', 'AdsController', 'showAlertsPage', ['AuthMiddleware']);
 $router->get('/ads/market-research', 'AdsController', 'showMarketResearchPage', ['AuthMiddleware']);
 $router->get('/ads/team', 'AdsController', 'showTeamPage', ['AuthMiddleware']);
 $router->get('/ads/campaigns/{id}', 'AdsController', 'showCampaignDetailsPage', ['AuthMiddleware']);

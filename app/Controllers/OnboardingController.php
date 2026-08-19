@@ -41,6 +41,19 @@
 class OnboardingController extends Controller
 {
     /**
+     * أقصى طول لكل حقل نصي (بالأحرف مش بالبايت). الحدود مطابقة لأعمدة
+     * قاعدة البيانات: company_name VARCHAR(255)، main_url ≤ 500، والمحتوى
+     * النصي الطويل TEXT. مشتركة بين complete() و saveDraft() عشان المسودة
+     * متخالفش مع الـAPI النهائي.
+     */
+    private const FIELD_MAX_LENGTHS = [
+        'business_name' => 255,
+        'main_url' => 500,
+        'target_customers' => 2000,
+        'main_services' => 2000,
+    ];
+
+    /**
      * POST /api/onboarding/complete
      * { business_name, main_url, industry, target_country, target_language?,
      *   target_customers, main_services, competitors: [{name, domain}, ...] (حتى 3) }
@@ -62,6 +75,16 @@ class OnboardingController extends Controller
 
         if (!$this->validate(['main_url' => 'required', 'business_name' => 'required'])) {
             return $this->error($this->tr('onboarding.api.invalid_data'), 422, $this->getErrors());
+        }
+
+        // طول أقصى لكل حقل نصي (بالأحرف مش بالبايت - عربي UTF-8 = 3 بايت لكل
+        // حرف). الإرسال الأطول من حدود أعمدة قاعدة البيانات هيكسر الـDB أو
+        // يخزّن بيانات ضخمة بلا داعي.
+        foreach (self::FIELD_MAX_LENGTHS as $f => $max) {
+            $v = $this->get($f);
+            if (is_string($v) && mb_strlen($v) > $max) {
+                return $this->error($this->tr('onboarding.api.invalid_data'), 422);
+            }
         }
 
         $mainUrl = $this->canonicalizeUrl((string) $this->get('main_url'));
@@ -174,7 +197,7 @@ class OnboardingController extends Controller
 
         } catch (Exception $e) {
             Logger::error('Onboarding Complete Error', ['message' => $e->getMessage()]);
-            $debugMsg = (defined('APP_DEBUG') && APP_DEBUG) ? 'تعذر إكمال الإعداد: ' . $e->getMessage() : 'تعذر إكمال الإعداد';
+            $debugMsg = (defined('APP_DEBUG') && APP_DEBUG) ? $this->tr('onboarding.api.complete_failed') . ': ' . $e->getMessage() : $this->tr('onboarding.api.complete_failed');
             return $this->error($debugMsg, 500);
         }
     }
@@ -411,6 +434,13 @@ class OnboardingController extends Controller
         foreach ($allowed as $key) {
             if (array_key_exists($key, $rawDraft)) {
                 $draft[$key] = $rawDraft[$key];
+            }
+        }
+        // طول أقصى لكل حقل نصي - نفس حدود complete() عشان المسودة متخالفش
+        // مع الـAPI النهائي (وإلا المستخدم يحفظ مسودة صالحة ويفشل الإرسال).
+        foreach (self::FIELD_MAX_LENGTHS as $f => $max) {
+            if (isset($draft[$f]) && is_string($draft[$f]) && mb_strlen($draft[$f]) > $max) {
+                return $this->error($this->tr('onboarding.api.invalid_data'), 422);
             }
         }
         // طول أقصى للحد من تخزين بيانات ضخمة
@@ -815,7 +845,7 @@ class OnboardingController extends Controller
                 <p class="ob-sub">{$t('onboarding.step1.sub')}</p>
                 <div class="ob-field">
                     <label for="obBusinessName">{$t('onboarding.field.business_name')}</label>
-                    <input type="text" id="obBusinessName" placeholder="{$t('onboarding.field.business_name_ph')}" autocomplete="organization" aria-required="true">
+                    <input type="text" id="obBusinessName" maxlength="255" placeholder="{$t('onboarding.field.business_name_ph')}" autocomplete="organization" aria-required="true">
                 </div>
             </div>
 
@@ -825,7 +855,7 @@ class OnboardingController extends Controller
                 <p class="ob-sub">{$t('onboarding.step2.sub')}</p>
                 <div class="ob-field">
                     <label for="obMainUrl">{$t('onboarding.field.website_url')}</label>
-                    <input type="text" id="obMainUrl" inputmode="url" placeholder="https://example.com" aria-required="true">
+                    <input type="text" id="obMainUrl" inputmode="url" maxlength="500" placeholder="https://example.com" aria-required="true">
                 </div>
                 <div id="obDetectHint" class="ob-detect-hint"></div>
             </div>
@@ -861,7 +891,7 @@ class OnboardingController extends Controller
                 <p class="ob-sub">{$t('onboarding.step5.sub')}</p>
                 <div class="ob-field">
                     <label for="obTargetCustomers">{$t('onboarding.field.target_customers')}</label>
-                    <textarea id="obTargetCustomers" rows="3" placeholder="{$t('onboarding.field.target_customers_ph')}"></textarea>
+                    <textarea id="obTargetCustomers" rows="3" maxlength="2000" placeholder="{$t('onboarding.field.target_customers_ph')}"></textarea>
                 </div>
             </div>
 
@@ -871,7 +901,7 @@ class OnboardingController extends Controller
                 <p class="ob-sub">{$t('onboarding.step6.sub')}</p>
                 <div class="ob-field">
                     <label for="obMainServices">{$t('onboarding.field.main_services')}</label>
-                    <textarea id="obMainServices" rows="3" placeholder="{$t('onboarding.field.main_services_ph')}"></textarea>
+                    <textarea id="obMainServices" rows="3" maxlength="2000" placeholder="{$t('onboarding.field.main_services_ph')}"></textarea>
                 </div>
             </div>
 
@@ -1575,7 +1605,7 @@ HTML;
             ]);
         } catch (Exception $e) {
             Logger::error('Onboarding Status Error', ['message' => $e->getMessage()]);
-            return $this->error('تعذر جلب حالة الإعداد', 500);
+            return $this->error($this->tr('onboarding.api.status_failed'), 500);
         }
     }
 
