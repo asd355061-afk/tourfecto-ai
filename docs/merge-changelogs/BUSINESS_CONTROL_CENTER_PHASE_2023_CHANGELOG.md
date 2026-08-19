@@ -1,8 +1,8 @@
-# Business Control Center — Phases 20–29 Changelog
+# Business Control Center — Phases 20–30 Changelog
 
 **Branch:** `feat/business-control-center`
 **Date:** 2026-08-17
-**Scope:** DB quality pass, validation hardening, API design review, Frontend UX, Notifications expansion, Tests, Security audit fixes, Performance audit fixes, Migration verification, Route & config verification
+**Scope:** DB quality pass, validation hardening, API design review, Frontend UX, Notifications expansion, Tests, Security audit fixes, Performance audit fixes, Migration verification, Route & config verification, Final report
 
 ---
 
@@ -137,3 +137,15 @@ Verified all **10** business migrations are **additive-only** — `CREATE TABLE 
 - `tests/Unit/Business/BusinessPerformanceTest.php` — **new**, 3/3 (H1/H2 via counting stubs).
 - `php -l` clean on every touched file; route-duplication check clean (the `/sitemap.xml` double registration at HomeController:14 / AssetController:246 is pre-existing and unrelated).
 - Total business suite: **56 assertions across 8 test files, all green**.
+
+## Phase 30 — Final report
+
+The Business Control Center module is feature-complete across all 30 phases. Summary of the final state:
+
+- **10 migrations** (additive-only, FKs type-matched to `users.id`), **21 business classes** in the classmap, **26 API routes** + `GET /business-center` panel route, all behind `AuthMiddleware` with centralized RBAC.
+- **RBAC**: 4 roles × 6 capabilities truth table lives in `BusinessAccessService::roleAllows()`; `getAccessibleBusiness()` = 404 for unauthorized, violated capability = 403.
+- **Security**: Phase 26 closed privilege escalation (owner-only admin grants, two layers), token exposure, unbounded invites, and the `esc()` XSS edge; the three remaining findings (CSRF on `/api/*`, GET-param auth token, invitee emailing) are platform-wide decisions documented for follow-up.
+- **Performance**: per-request role/business memoization (H1/H2), batch user loading in the team list (H3), SQL-side ordering (M2), and removal of the redundant `currentUser()` query (M3) — cutting 2–5 queries from every business endpoint.
+- **Tests**: **56 assertions across 8 test files, all green** (Wiring 6, Phase8912 9, Access 9, Readiness 7, Notification 8, ServiceManager 9, Security 5, Performance 3), runnable offline in CLI PHP 8.2 with the `Model` stub pattern.
+- **Frontend**: `/business-center` panel (overview/profile/team/API keys/audit tabs) with i18n in en/ar/fr/de and `bc-*` styles; in-app notifications for team + API-key events.
+- Branch `feat/business-control-center` is up to date with the merged upstream `main` and pushed to remote (`7dc3099`).
