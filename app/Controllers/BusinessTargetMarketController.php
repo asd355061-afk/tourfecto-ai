@@ -1,14 +1,12 @@
 <?php
-
 /**
  * Tourfecto - Business Target Market Controller
  * Business Control Center - Phase 5
  * @version 1.0.0
  */
-class BusinessTargetMarketController extends Controller
-{
-    private function currentUser(): ?User
-    {
+class BusinessTargetMarketController extends Controller {
+
+    private function currentUser(): ?User {
         $id = $_SESSION['user_id'] ?? null;
         if (!$id) {
             return null;
@@ -17,19 +15,12 @@ class BusinessTargetMarketController extends Controller
         return $model->find($id);
     }
 
-    private function loadOwnedBusiness(int $businessId, int $userId): ?Business
-    {
-        $model = new Business();
-        $business = $model->find($businessId);
-        if (!$business || !$business->isOwnedBy($userId)) {
-            return null;
-        }
-        return $business;
+    private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
+        return (new BusinessAccessService())->getAccessibleBusiness($businessId, $userId);
     }
 
     /** GET /api/business/{businessId}/markets */
-    public function show(array $params = []): array
-    {
+    public function show(array $params = []): array {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -55,8 +46,7 @@ class BusinessTargetMarketController extends Controller
      * مفيش داعي لـstore/update منفصلين زي Locations/Services لأن مفيش
      * أكتر من نسخة ممكنة أصلًا.
      */
-    public function upsert(array $params = []): array
-    {
+    public function upsert(array $params = []): array {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -65,6 +55,9 @@ class BusinessTargetMarketController extends Controller
         $business = $this->loadOwnedBusiness((int) ($params['businessId'] ?? 0), (int) $user->getAttribute('id'));
         if (!$business) {
             return $this->error('Business Profile غير موجود', 404);
+        }
+        if (!(new BusinessAccessService())->canEdit((int) $business->getAttribute('id'), (int) $user->getAttribute('id'))) {
+            return $this->error('ليست لديك صلاحية تعديل البيانات', 403);
         }
 
         if ($this->has('customer_type') && $this->get('customer_type') !== '') {
@@ -88,6 +81,16 @@ class BusinessTargetMarketController extends Controller
             foreach ($this->get('target_countries') as $code) {
                 if (!is_string($code) || !preg_match('/^[A-Za-z]{2}$/', $code)) {
                     return $this->error('كود دولة غير صحيح في target_countries', 422, ['target_countries' => ['كل قيمة لازم تكون كود ISO 3166-1 من حرفين']]);
+                }
+            }
+        }
+
+        // فحص ISO للغات - نفس منطق target_countries لكن بنمط ISO 639
+        // (حرفين أو ثلاثة) لأن ده جدول لغات مش دول.
+        if ($this->has('target_languages')) {
+            foreach ($this->get('target_languages') as $lang) {
+                if (!is_string($lang) || !preg_match('/^[A-Za-z]{2,3}$/', $lang)) {
+                    return $this->error('كود لغة غير صحيح في target_languages', 422, ['target_languages' => ['كل قيمة لازم تكون كود ISO 639 من حرفين أو ثلاثة']]);
                 }
             }
         }
@@ -120,6 +123,8 @@ class BusinessTargetMarketController extends Controller
         }
 
         (new BusinessContextService())->invalidate($businessId);
+
+        BusinessAuditLog::record($businessId, (int) $user->getAttribute('id'), 'target_markets_updated', 'success', 'business', (string) $businessId);
 
         return $this->success(['target_markets' => $record->toArray()], 'تم الحفظ');
     }

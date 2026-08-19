@@ -170,7 +170,8 @@ class WalletService
         $currentRow = Subscription::activeSubscriptionRow($userId);
         $isPlanChange = $currentRow !== null;
         $oldPrice = $isPlanChange ? (float) $currentRow['price'] : 0.0;
-        $chargeAmount = $isPlanChange ? round($newPrice - $oldPrice, 2) : $newPrice;
+        // حساب الفرق موحّد في BillingRules (مرجع القواعد المالية الوحيد)
+        $chargeAmount = $isPlanChange ? BillingRules::planChangeCharge($oldPrice, $newPrice) : $newPrice;
 
         $balance = $this->getBalance($userId);
 
@@ -260,9 +261,9 @@ class WalletService
                 // تصحيح (2026-08-15 / Phase 17 - Prorated Downgrade Credit):
                 // لو التخفيض (chargeAmount سالب) والمنصة فعّلت الرجوع
                 // التلقائي، نضيف فرق السعر رصيد موجبة لمحفظة العميل.
-                // مقفول افتراضيًا (ALLOW_PRORATED_DOWNGRADE_CREDIT = false)
+                // مقفول افتراضيًا (BillingRules::ALLOW_PRORATED_DOWNGRADE_CREDIT)
                 // - قرار مالي بياخده مالك المنصة مش الكود.
-                if ($chargeAmount < 0 && self::ALLOW_PRORATED_DOWNGRADE_CREDIT) {
+                if ($chargeAmount < 0 && BillingRules::ALLOW_PRORATED_DOWNGRADE_CREDIT) {
                     $creditAmount = abs($chargeAmount);
                     $creditTx = new WalletTransaction();
                     $creditTx->fill([
@@ -1048,16 +1049,18 @@ class WalletService
      * ❌ قيمتها حاليًا false (سياسة محافظة مستمرة من قبل): التخفيض
      * بيفعّل الباقة الجديدة من غير أي استرجاع تلقائي. ده قرار مالي
      * حقيقي بيأثر على إيراد المنصة، فمش هيتفعّل في الكود إلا بقرار
-     * صريح من مالك المنصة - غيّر القيمة لـ true هنا لما تقرر كده.
+     * صريح من مالك المنصة - غيّر القيمة في BillingRules لما تقرر كده.
      *
      * ⚠️ ملحوظة تقنية: المبلغ المرتجع هنا هو فرق السعر الكامل
      * (old - new) مش "pro-rated" حرفيًا على الأيام المتبقية - لأن
      * التسعير الحالي بيخصم الفرق الكامل عند الترقية برضه (متماثل
-     * الاتجاهين). لو احتجناهم pro-rating حقيقي بدقة على اليوم، ده
-     * بيتطلب تخزين تاريخ بداية الفترة (متاح فعلًا في subscriptions
-     * كـ current_period_start) ويبقى تعديل منفصل موثّق.
+     * الاتجاهين). لو احتجناهم pro-rating حقيقي بدقة على اليوم،
+     * BillingRules::proratedCredit() جاهزة (مش مفعّلة).
+     *
+     * التعريف الموحّد انتقل لـ BillingRules::ALLOW_PRORATED_DOWNGRADE_CREDIT
+     * - دي بس بتبقي الإشارة القابلة للقراءة لموقع القرار.
      */
-    private const ALLOW_PRORATED_DOWNGRADE_CREDIT = false;
+    public const ALLOW_PRORATED_DOWNGRADE_CREDIT = BillingRules::ALLOW_PRORATED_DOWNGRADE_CREDIT;
 
     /**
      * Section 13: تنبيه "رصيد منخفض" - بيتنده بعد أي خصم ناجح (استخدام

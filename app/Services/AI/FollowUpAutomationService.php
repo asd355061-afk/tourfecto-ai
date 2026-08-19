@@ -59,6 +59,12 @@ class FollowUpAutomationService
     /**
      * الخطوة 1: إيجاد محادثات "سكتت" بعد سؤال العميل، وجدولة الخطوة
      * التالية من المتابعة لها حسب قواعد الشركة، لو حان وقتها.
+     *
+     * إدراك ساعات العمل (تحسين تنافسي): لو الشركة مهيأة قسم business_hours
+     * في Knowledge Base، أي لحظة استحقاق بتقع خارج ساعات العمل بتتأجل تلقائيًا
+     * لأقرب لحظة فتح - مش هنبعت متابعة للعميل الساعة 3 الفجر (Intercom/
+     * respond.io/ManyChat كلهم بيعملوا كده، وبيقلل معدل الانسحاب).
+     *
      * @param array $stats مرجع - يُحدَّث مباشرة
      */
     private function discoverAndScheduleNewFollowUps(array &$stats): void
@@ -80,12 +86,23 @@ class FollowUpAutomationService
              LIMIT 300"
         );
 
+        if (empty($candidates)) {
+            return;
+        }
+
+        // جلب ساعات عمل كل المواقع المعنية دفعة واحدة (بدل استعلام لكل صف)
+        $websiteIds = array_values(array_unique(array_map(function ($r) {
+            return (int) $r['website_id'];
+        }, $candidates)));
+        $schedules = $this->businessSchedulesFor($websiteIds);
+
         foreach ($candidates as $row) {
             $steps = json_decode((string) $row['steps'], true);
             if (!is_array($steps) || empty($steps)) {
                 continue;
             }
 
+            $websiteId = (int) $row['website_id'];
             $conversationId = (int) $row['conversation_id'];
             $maxFollowups = (int) $row['max_followups'];
 
@@ -106,11 +123,17 @@ class FollowUpAutomationService
                 continue; // لسه معاش وقتها
             }
 
+            // إدراك ساعات العمل: أرجِع لحظة الاستحقاق لأقرب لحظة عمل فعلية
+            $schedule = $schedules[$websiteId] ?? null;
+            if ($schedule !== null) {
+                $dueAt = BusinessHoursService::nextOpenTime($dueAt, $schedule);
+            }
+
             $lead = $this->leadModel->where(['conversation_id' => $conversationId], [], 1);
 
             $followup = new AiFollowup();
             $followup->fill([
-                'website_id' => (int) $row['website_id'],
+                'website_id' => $websiteId,
                 'conversation_id' => $conversationId,
                 'lead_id' => !empty($lead) ? $lead[0]->getAttribute('id') : null,
                 'followup_number' => $alreadySent + 1,
@@ -142,6 +165,16 @@ class FollowUpAutomationService
              LIMIT 200"
         );
 
+        if (empty($due)) {
+            return;
+        }
+
+        // ساعات عمل المواقع المعنية دفعة واحدة
+        $websiteIds = array_values(array_unique(array_map(function ($r) {
+            return (int) $r['website_id'];
+        }, $due)));
+        $schedules = $this->businessSchedulesFor($websiteIds);
+
         foreach ($due as $row) {
             $followupId = (int) $row['id'];
             $conversationId = (int) $row['conversation_id'];
@@ -151,6 +184,18 @@ class FollowUpAutomationService
                     : ($row['ai_status'] !== 'ai' ? 'human_handoff' : 'lead_closed');
                 $this->cancelFollowUp($followupId, $reason);
                 $stats['cancelled']++;
+                continue;
+            }
+
+            // إدراك ساعات العمل: لو الوقت الحالي خارج ساعات عمل الشركة، نأجل
+            // الإرسال لأقرب لحظة فتح بدل إرسال متابعة في ساعة متأخرة
+            $schedule = $schedules[(int) $row['website_id']] ?? null;
+            if ($schedule !== null && !BusinessHoursService::isOpenAt(time(), $schedule)) {
+                $nextOpen = BusinessHoursService::nextOpenTime(time(), $schedule);
+                $this->db->query(
+                    "UPDATE ai_followups SET scheduled_at = ? WHERE id = ?",
+                    [date('Y-m-d H:i:s', $nextOpen), $followupId]
+                );
                 continue;
             }
 
@@ -218,6 +263,49 @@ class FollowUpAutomationService
             "UPDATE ai_followups SET status = 'cancelled', stop_reason = ? WHERE id = ?",
             [$reason, $followupId]
         );
+    }
+
+    /**
+     * جداول ساعات العمل لعدد من المواقع دفعة واحدة (استعلام واحد بدل
+     * استعلام لكل موقع). الجدول = null لو الموقع مش مهيأ ساعات عمل
+     * (يعني 24/7 ولا يوجد أي قيد - سلوك قديم محفوظ).
+     * @param int[] $websiteIds
+     * @return array [websiteId => array|null]
+     */
+    private function businessSchedulesFor(array $websiteIds): array {
+        $schedules = [];
+        foreach ($websiteIds as $websiteId) {
+            $schedules[(int) $websiteId] = null;
+        }
+        if (empty($websiteIds)) {
+            return $schedules;
+        }
+
+        try {
+            $placeholders = implode(',', array_fill(0, count($websiteIds), '?'));
+            $rows = $this->db->query(
+                "SELECT website_id, content, structured_data FROM ai_knowledge_base
+                 WHERE website_id IN ({$placeholders})
+                   AND section = 'business_hours' AND is_active = 1 AND deleted_at IS NULL
+                 LIMIT 500",
+                $websiteIds
+            );
+
+            $grouped = [];
+            foreach ($rows as $row) {
+                $grouped[(int) $row['website_id']][] = $row;
+            }
+
+            foreach ($grouped as $websiteId => $entries) {
+                $schedules[$websiteId] = BusinessHoursService::fromEntries($entries);
+            }
+        } catch (Exception $e) {
+            Logger::warning('FollowUpAutomationService: failed to load business hours', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $schedules;
     }
 
     /**

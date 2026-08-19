@@ -22,6 +22,7 @@ class AiChatConversation extends Model
         'handoff_at', 'lead_status', 'priority', 'tags', 'ai_summary',
         'ai_confidence_score', 'language', 'unread_count',
         'last_message_at', 'last_customer_message_at', 'do_not_contact',
+        'next_recommended_action',
     ];
 
     /**
