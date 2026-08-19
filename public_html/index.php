@@ -81,6 +81,7 @@ $optionalNewClassFiles = [
     // Partner API (المرحلة 2 من خطة API Gateway - 2026-08-06)
     APP_PATH . '/Models/PartnerApiKey.php',
     APP_PATH . '/Middleware/PartnerAuthMiddleware.php',
+    APP_PATH . '/Middleware/ApiKeyScopeMiddleware.php',
     APP_PATH . '/Controllers/PartnerController.php',
     APP_PATH . '/Controllers/PartnerKeyController.php',
     APP_PATH . '/Security/Csrf.php',

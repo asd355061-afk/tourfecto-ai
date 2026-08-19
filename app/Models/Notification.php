@@ -38,7 +38,22 @@ class Notification extends Model
             'content_publishing' => true,
             'leads' => true,
             'system' => true,
+            // Phase 16C: ملخصات البريد الدورية (Daily/Weekly Digest).
+            // مفعّلة افتراضيًا عشان مفيش حد يفقد ملخصه من غير ما يطلب،
+            // وتقدر تتقفل من Settings > Notifications زي GitHub.
+            'digest_daily' => true,
+            'digest_weekly' => true,
         ];
+    }
+
+    /**
+     * هل ملخص بريد دوري معيّن مفعّل للمستخدم؟ أي digest غير معروف
+     * بيتعامل معاه كمفعّل (feature جديدة متتقفلش بالغلط).
+     */
+    public static function digestEnabledFor(User $user, string $digestType): bool
+    {
+        $prefs = self::preferencesFor($user);
+        return (bool) ($prefs[$digestType] ?? true);
     }
 
     /** يرجّع تفضيلات مستخدم معيّن، بعد الدمج مع الافتراضي لأي فئة ناقصة */

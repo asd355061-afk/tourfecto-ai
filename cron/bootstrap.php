@@ -164,6 +164,10 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Models/CiUserPreference.php',
     APP_PATH . '/Models/Competitor.php',
     APP_PATH . '/Models/CompetitorRecommendation.php',
+    // Phase 16C: Settings > Notifications بتتحكم في digest_weekly، فـ
+    // ci_weekly_digest محتاج الـ Notification model عشان يقدر يستبعد
+    // أي حد قفّل الملخص الأسبوعي (digestEnabledFor).
+    APP_PATH . '/Models/Notification.php',
 ];
 foreach ($optionalJobDependencyFiles as $depFile) {
     if (file_exists($depFile)) {
