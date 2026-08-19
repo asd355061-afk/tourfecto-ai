@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - GBP Module Upgrade Integration Test
  * بيغطي: Setup Wizard status، Tenant Isolation، Validation قبل الإرسال،
@@ -42,7 +43,8 @@ foreach ([
     }
 }
 
-class GbpModuleTest {
+class GbpModuleTest
+{
     private $testResults = [];
     private $passed = 0;
     private $failed = 0;
@@ -50,9 +52,14 @@ class GbpModuleTest {
     /** @var Database */
     private $db;
 
-    private $userAId, $userBId, $websiteAId, $websiteBId, $connectionAId;
+    private $userAId;
+    private $userBId;
+    private $websiteAId;
+    private $websiteBId;
+    private $connectionAId;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
         $this->userAId = $this->createTestUser('gbp_test_a_');
         $this->userBId = $this->createTestUser('gbp_test_b_');
@@ -63,7 +70,8 @@ class GbpModuleTest {
         $this->connectionAId = $this->createFixtureConnection($this->userAId, $this->websiteAId);
     }
 
-    public function runAll(): void {
+    public function runAll(): void
+    {
         echo "\n⭐ GBP Module Upgrade - Integration Tests\n";
         echo "==========================================\n";
         echo "ملحوظة: مفيش Google Credentials حقيقية متاحة في بيئة الاختبار -\n";
@@ -84,7 +92,8 @@ class GbpModuleTest {
     }
 
     /** Setup Wizard status لازم يرجع بدون Exception حتى لو الإعدادات ناقصة، وبحالة "missing" واضحة */
-    private function testSetupWizardStatus(): void {
+    private function testSetupWizardStatus(): void
+    {
         $this->startTest('Setup Wizard - System Status');
         try {
             $service = new GbpSetupStatusService();
@@ -92,17 +101,23 @@ class GbpModuleTest {
             $keys = ['google_maps', 'oauth_client', 'business_profile_api'];
             $ok = true;
             foreach ($keys as $k) {
-                if (!isset($status[$k]['status']) || !isset($status[$k]['detail'])) $ok = false;
+                if (!isset($status[$k]['status']) || !isset($status[$k]['detail'])) {
+                    $ok = false;
+                }
             }
-            if ($ok) $this->pass('systemStatus() يرجع الحقول الثلاثة المطلوبة بدون Exception');
-            else $this->fail('systemStatus() ناقص حقول متوقعة');
+            if ($ok) {
+                $this->pass('systemStatus() يرجع الحقول الثلاثة المطلوبة بدون Exception');
+            } else {
+                $this->fail('systemStatus() ناقص حقول متوقعة');
+            }
         } catch (Throwable $e) {
             $this->fail('systemStatus() رمى Exception: ' . $e->getMessage());
         }
     }
 
     /** أهم اختبار أمني: Tenant B لازم ميشوفش اتصالات/مواقع Tenant A أبدًا */
-    private function testTenantIsolation(): void {
+    private function testTenantIsolation(): void
+    {
         $this->startTest('Multi-Tenant Isolation');
         try {
             $service = new GbpSetupStatusService();
@@ -110,8 +125,8 @@ class GbpModuleTest {
             $connectionsForA = $service->connectionsForUser($this->userAId);
             $connectionsForB = $service->connectionsForUser($this->userBId);
 
-            $aHasOwn = count(array_filter($connectionsForA, fn($c) => $c['website_id'] === $this->websiteAId)) > 0;
-            $bSeesA = count(array_filter($connectionsForB, fn($c) => $c['website_id'] === $this->websiteAId)) > 0;
+            $aHasOwn = count(array_filter($connectionsForA, fn ($c) => $c['website_id'] === $this->websiteAId)) > 0;
+            $bSeesA = count(array_filter($connectionsForB, fn ($c) => $c['website_id'] === $this->websiteAId)) > 0;
 
             if ($aHasOwn && !$bSeesA) {
                 $this->pass('Tenant B لا يستطيع رؤية اتصالات Tenant A (العزل شغال)');
@@ -120,29 +135,37 @@ class GbpModuleTest {
             }
 
             $websitesForB = $service->websitesWithConnectionState($this->userBId);
-            $bSeesAWebsite = count(array_filter($websitesForB, fn($w) => $w['website_id'] === $this->websiteAId)) > 0;
-            if (!$bSeesAWebsite) $this->pass('websitesWithConnectionState() معزولة بالـ Tenant بشكل صحيح');
-            else $this->fail('خطأ عزل: Tenant B شاف موقع Tenant A في websitesWithConnectionState()');
+            $bSeesAWebsite = count(array_filter($websitesForB, fn ($w) => $w['website_id'] === $this->websiteAId)) > 0;
+            if (!$bSeesAWebsite) {
+                $this->pass('websitesWithConnectionState() معزولة بالـ Tenant بشكل صحيح');
+            } else {
+                $this->fail('خطأ عزل: Tenant B شاف موقع Tenant A في websitesWithConnectionState()');
+            }
         } catch (Throwable $e) {
             $this->fail('اختبار العزل رمى Exception: ' . $e->getMessage());
         }
     }
 
     /** findConnection على موقع مش مربوط لازم يرجع null، مش Exception */
-    private function testConnectionNotFoundIsSafe(): void {
+    private function testConnectionNotFoundIsSafe(): void
+    {
         $this->startTest('Sync Service - Connection Not Found');
         try {
             $sync = new GbpSyncService();
             $result = $sync->findConnection($this->websiteBId, $this->userBId); // B مفهوش اتصال
-            if ($result === null) $this->pass('findConnection() يرجع null بأمان لما مفيش اتصال');
-            else $this->fail('findConnection() المفروض يرجع null');
+            if ($result === null) {
+                $this->pass('findConnection() يرجع null بأمان لما مفيش اتصال');
+            } else {
+                $this->fail('findConnection() المفروض يرجع null');
+            }
         } catch (Throwable $e) {
             $this->fail('findConnection() رمى Exception بدل ما يرجع null: ' . $e->getMessage());
         }
     }
 
     /** Validation الصور لازم يشتغل من غير ما يحتاج اتصال حقيقي بجوجل */
-    private function testPhotoUploadValidation(): void {
+    private function testPhotoUploadValidation(): void
+    {
         $this->startTest('Photo Upload Validation (no network needed)');
         try {
             $service = new GbpPhotoService();
@@ -164,7 +187,8 @@ class GbpModuleTest {
      * بدون Google Credentials حقيقية، أي محاولة تحديث بروفايل فعلي لازم
      * تفشل برسالة واضحة (يحتاج Reconnect) - مش تدّعي نجاح وهمي.
      */
-    private function testProfileUpdateFailsGracefullyWithoutRealToken(): void {
+    private function testProfileUpdateFailsGracefullyWithoutRealToken(): void
+    {
         $this->startTest('Profile Update - Safe Failure Without Real Token');
         try {
             $service = new GbpProfileService();
@@ -181,7 +205,8 @@ class GbpModuleTest {
     }
 
     /** لموقع مش مربوط أصلًا، الـ Insights لازم يرجع "Not Connected" مش بيانات وهمية */
-    private function testInsightsFailGracefullyWhenNotConnected(): void {
+    private function testInsightsFailGracefullyWhenNotConnected(): void
+    {
         $this->startTest('Insights - No Fake Data When Not Connected');
         try {
             $service = new GbpInsightsService();
@@ -198,7 +223,8 @@ class GbpModuleTest {
     }
 
     /** AI Insights لازم يفشل بوضوح (مش يخترع أرقام) لو مفيش بيانات حقيقية */
-    private function testAiInsightsNeverClaimsFakeSuccess(): void {
+    private function testAiInsightsNeverClaimsFakeSuccess(): void
+    {
         $this->startTest('AI Insights - No Invented Numbers Without Real Data');
         try {
             $ai = new GbpAIInsightsService();
@@ -215,7 +241,8 @@ class GbpModuleTest {
     }
 
     /** Round 5: Attributes لازم تفشل بأمان (Reconnect) من غير توكن حقيقي، مش تدّعي نجاح */
-    private function testAttributesFailGracefullyWithoutRealToken(): void {
+    private function testAttributesFailGracefullyWithoutRealToken(): void
+    {
         $this->startTest('Attributes - Safe Failure Without Real Token');
         try {
             $service = new GbpProfileService();
@@ -232,7 +259,8 @@ class GbpModuleTest {
     }
 
     /** Round 5: GbpBackgroundSyncJob لازم يرمي Exception واضح لو الـ payload ناقص (Queue Worker هيسجّله كـ failed مش كريش صامت) */
-    private function testBackgroundSyncJobHandlesMissingConnectionSafely(): void {
+    private function testBackgroundSyncJobHandlesMissingConnectionSafely(): void
+    {
         $this->startTest('Background Sync Job - Missing Payload Safety');
         try {
             $job = new GbpBackgroundSyncJob();
@@ -243,8 +271,11 @@ class GbpModuleTest {
                 $threw = true;
             }
 
-            if ($threw) $this->pass('GbpBackgroundSyncJob::handle() برمي Exception واضح لما الـ payload ناقص');
-            else $this->fail('GbpBackgroundSyncJob::handle() المفروض يرمي Exception مع payload فاضي');
+            if ($threw) {
+                $this->pass('GbpBackgroundSyncJob::handle() برمي Exception واضح لما الـ payload ناقص');
+            } else {
+                $this->fail('GbpBackgroundSyncJob::handle() المفروض يرمي Exception مع payload فاضي');
+            }
         } catch (Throwable $e) {
             $this->fail('اختبار Background Sync Job فشل: ' . $e->getMessage());
         }
@@ -254,7 +285,8 @@ class GbpModuleTest {
     // Fixtures
     // ============================================
 
-    private function createTestUser(string $prefix): int {
+    private function createTestUser(string $prefix): int
+    {
         $sql = "INSERT INTO users (company_name, email, password, phone, is_active)
                 VALUES (:company_name, :email, :password, :phone, :is_active)";
         return (int) $this->db->query($sql, [
@@ -266,7 +298,8 @@ class GbpModuleTest {
         ]);
     }
 
-    private function createTestWebsite(int $userId): int {
+    private function createTestWebsite(int $userId): int
+    {
         $sql = "INSERT INTO websites (user_id, main_url, company_name, industry, is_verified)
                 VALUES (:user_id, :main_url, :company_name, :industry, :is_verified)";
         return (int) $this->db->query($sql, [
@@ -279,7 +312,8 @@ class GbpModuleTest {
     }
 
     /** اتصال Fixture بتوكن وهمي (مش حقيقي) - يوضح إننا "لا نتظاهر بنجاح اتصال حقيقي" */
-    private function createFixtureConnection(int $userId, int $websiteId): int {
+    private function createFixtureConnection(int $userId, int $websiteId): int
+    {
         $sql = "INSERT INTO platform_connections
                     (website_id, user_id, platform, access_token, refresh_token, token_expires_at,
                      external_account_id, external_location_id, external_location_name, status)
@@ -298,7 +332,8 @@ class GbpModuleTest {
         ]);
     }
 
-    private function cleanup(): void {
+    private function cleanup(): void
+    {
         $this->db->query("DELETE FROM gbp_sync_logs WHERE website_id IN (:a, :b)", [':a' => $this->websiteAId, ':b' => $this->websiteBId]);
         $this->db->query("DELETE FROM gbp_photos WHERE website_id IN (:a, :b)", [':a' => $this->websiteAId, ':b' => $this->websiteBId]);
         $this->db->query("DELETE FROM platform_connections WHERE website_id IN (:a, :b)", [':a' => $this->websiteAId, ':b' => $this->websiteBId]);
@@ -306,21 +341,27 @@ class GbpModuleTest {
         $this->db->query("DELETE FROM users WHERE id IN (:a, :b)", [':a' => $this->userAId, ':b' => $this->userBId]);
     }
 
-    private function startTest(string $name): void { echo "\n  ▶ {$name}\n"; }
+    private function startTest(string $name): void
+    {
+        echo "\n  ▶ {$name}\n";
+    }
 
-    private function pass(string $message): void {
+    private function pass(string $message): void
+    {
         echo "    ✅ {$message}\n";
         $this->passed++;
         $this->testResults[] = ['status' => 'PASS', 'message' => $message];
     }
 
-    private function fail(string $message): void {
+    private function fail(string $message): void
+    {
         echo "    ❌ {$message}\n";
         $this->failed++;
         $this->testResults[] = ['status' => 'FAIL', 'message' => $message];
     }
 
-    private function printSummary(): void {
+    private function printSummary(): void
+    {
         $total = $this->passed + $this->failed;
         $percentage = $total > 0 ? round(($this->passed / $total) * 100, 2) : 0;
         echo "\n" . str_repeat('=', 50) . "\n";

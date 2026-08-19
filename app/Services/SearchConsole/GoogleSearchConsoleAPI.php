@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Google Search Console API Integration
  * تكامل مع Search Console API (بيانات ظهور الموقع في نتائج بحث Google:
@@ -9,7 +10,8 @@
  * الموقع بييجوا من صف platform_connections الخاص بكل عميل (مش من .env عام)،
  * عشان كل عميل يربط حساب Google بتاعه هو.
  */
-class GoogleSearchConsoleAPI {
+class GoogleSearchConsoleAPI
+{
     private const BASE_URL = 'https://www.googleapis.com/webmasters/v3';
 
     private string $accessToken;
@@ -18,7 +20,8 @@ class GoogleSearchConsoleAPI {
     /**
      * @param string $accessToken توكن OAuth حقيقي (scope: webmasters.readonly) خاص بحساب هذا العميل.
      */
-    public function __construct(string $accessToken = '') {
+    public function __construct(string $accessToken = '')
+    {
         $this->accessToken = $accessToken;
     }
 
@@ -27,7 +30,8 @@ class GoogleSearchConsoleAPI {
      * (بيرجع بس اللي مؤكدة الملكية verified، عشان العميل يختار الموقع
      * الصح لو عنده أكتر من واحد).
      */
-    public function listSites(): array {
+    public function listSites(): array
+    {
         $response = $this->makeRequest('GET', '/sites');
         if (!$response['success']) {
             return $response;
@@ -56,7 +60,8 @@ class GoogleSearchConsoleAPI {
      * @param string[] $dimensions زي ['query'] أو ['page'] أو ['date']
      * @param int $rowLimit أقصى عدد صفوف (Google بيسمح لحد 25000)
      */
-    public function getSearchAnalytics(string $siteUrl, string $startDate, string $endDate, array $dimensions = ['query'], int $rowLimit = 25): array {
+    public function getSearchAnalytics(string $siteUrl, string $startDate, string $endDate, array $dimensions = ['query'], int $rowLimit = 25): array
+    {
         $endpoint = '/sites/' . rawurlencode($siteUrl) . '/searchAnalytics/query';
 
         $response = $this->makeRequest('POST', $endpoint, [], [
@@ -91,7 +96,8 @@ class GoogleSearchConsoleAPI {
      * ملخص سريع (إجمالي clicks/impressions/متوسط ctr وposition) لآخر N يوم،
      * مفيد لكارت "نظرة عامة" من غير ما تحمّل تفاصيل كل query.
      */
-    public function getSummary(string $siteUrl, int $days = 28): array {
+    public function getSummary(string $siteUrl, int $days = 28): array
+    {
         $endDate = date('Y-m-d', strtotime('-2 days')); // بيانات Google بتتأخر يوم-يومين عادة
         $startDate = date('Y-m-d', strtotime("-{$days} days", strtotime($endDate)));
 
@@ -123,7 +129,8 @@ class GoogleSearchConsoleAPI {
         ];
     }
 
-    private function makeRequest(string $method, string $endpoint, array $query = [], array $data = []): array {
+    private function makeRequest(string $method, string $endpoint, array $query = [], array $data = []): array
+    {
         $url = self::BASE_URL . $endpoint;
 
         if (!empty($query)) {

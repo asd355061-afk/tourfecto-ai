@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * AI Analytics Dashboard (بند 18).
@@ -7,12 +8,13 @@
  * @copyright 2026 Tourfecto
  */
 
-class AiAnalyticsController extends Controller {
-
+class AiAnalyticsController extends Controller
+{
     /** @var AiAnalyticsService */
     private $analytics;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->analytics = new AiAnalyticsService();
     }
@@ -21,7 +23,8 @@ class AiAnalyticsController extends Controller {
      * GET /api/ai-chat/websites/{id}/analytics
      * Query: since (Y-m-d, اختياري - افتراضيًا آخر 30 يوم)
      */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -36,8 +39,20 @@ class AiAnalyticsController extends Controller {
             return $this->error('since must be in Y-m-d format', 422);
         }
 
+        // Observability: لوحة صحة مزودي الـAI (استجابة لتحليل المنافسين
+        // Zendesk/Gorgias). تُرجع المزودين المهيّئين + ملخص آخر 24 ساعة.
+        $health = (new AIProviderManager())->health((int) $website->getAttribute('id'));
+
+        // Learning Loop (Zendesk/Fin): معدلات الحل + فجوات المعرفة المقترحة.
+        $learning = (new LearningLoopService())->getLearningInsights(
+            (int) $website->getAttribute('id'),
+            $since
+        );
+
         return $this->success([
             'dashboard' => $this->analytics->getDashboard((int) $website->getAttribute('id'), $since),
+            'provider_health' => $health,
+            'learning_loop' => $learning,
         ]);
     }
 
@@ -45,7 +60,8 @@ class AiAnalyticsController extends Controller {
      * @param int $websiteId
      * @return Website|null
      */
-    private function authorizedWebsite(int $websiteId): ?Website {
+    private function authorizedWebsite(int $websiteId): ?Website
+    {
         if ($websiteId <= 0) {
             return null;
         }

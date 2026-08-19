@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - GBP Insights & Analytics Service
  * مقاييس أداء حقيقية من Business Profile Performance API الرسمي
@@ -9,7 +10,8 @@
  * @version 1.0.0
  * @since 2026-08-09 (GBP Module Upgrade)
  */
-class GbpInsightsService {
+class GbpInsightsService
+{
     /** @var Database */
     private $db;
     /** @var GbpSyncService */
@@ -20,7 +22,8 @@ class GbpInsightsService {
     /** كاش لمدة ساعتين - Performance API بطيء نسبيًا ومحدود quota */
     private const CACHE_TTL_SECONDS = 7200;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
         $this->sync = new GbpSyncService();
         $this->reviewSync = new GoogleReviewSyncService();
@@ -32,7 +35,8 @@ class GbpInsightsService {
      * @param string|null $customStart Y-m-d - لدعم Custom Range الصريح من الواجهة
      * @param string|null $customEnd Y-m-d
      */
-    public function getInsights(int $websiteId, int $userId, int $days = 30, bool $withComparison = true, ?string $customStart = null, ?string $customEnd = null): array {
+    public function getInsights(int $websiteId, int $userId, int $days = 30, bool $withComparison = true, ?string $customStart = null, ?string $customEnd = null): array
+    {
         $connection = $this->sync->findConnection($websiteId, $userId);
         if (!$connection) {
             return ['success' => false, 'error' => 'Not Connected - اربط Google Business Profile أولاً'];
@@ -89,7 +93,8 @@ class GbpInsightsService {
         return $result;
     }
 
-    private function fetchRange(PlatformConnection $connection, DateTime $start, DateTime $end): array {
+    private function fetchRange(PlatformConnection $connection, DateTime $start, DateTime $end): array
+    {
         $cacheKey = sprintf(
             '%d:%s:%s',
             $connection->getAttribute('id'),
@@ -130,7 +135,8 @@ class GbpInsightsService {
         return ['success' => true, 'metrics' => $response['metrics']];
     }
 
-    private function totals(array $metrics): array {
+    private function totals(array $metrics): array
+    {
         $totals = [];
         foreach ($metrics as $metric => $points) {
             $totals[$metric] = array_sum(array_column($points, 'value'));
@@ -148,7 +154,8 @@ class GbpInsightsService {
         ];
     }
 
-    private function percentChange(array $current, array $previous): array {
+    private function percentChange(array $current, array $previous): array
+    {
         $change = [];
         foreach (['views', 'searches', 'website_clicks', 'phone_calls', 'direction_requests', 'customer_actions'] as $key) {
             $cur = $current[$key] ?? 0;
@@ -162,7 +169,8 @@ class GbpInsightsService {
         return $change;
     }
 
-    private function readCache(string $key): ?array {
+    private function readCache(string $key): ?array
+    {
         try {
             $rows = $this->db->query(
                 "SELECT payload, fetched_at FROM gbp_insights_cache WHERE cache_key = ? LIMIT 1",
@@ -181,7 +189,8 @@ class GbpInsightsService {
         }
     }
 
-    private function writeCache(string $key, array $metrics): void {
+    private function writeCache(string $key, array $metrics): void
+    {
         try {
             $payload = json_encode($metrics, JSON_UNESCAPED_UNICODE);
             $this->db->query(

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Fixture Loader
  * تحميل بيانات الاختبار في قاعدة البيانات
@@ -7,36 +8,39 @@
  * @copyright 2026 Tourfecto
  */
 
-class FixtureLoader {
+class FixtureLoader
+{
     /**
      * @var Database $db - اتصال قاعدة البيانات
      */
     private $db;
-    
+
     /**
      * @var array $loadedFixtures - قائمة البيانات المحملة
      */
     private $loadedFixtures = [];
-    
+
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
-    
+
     /**
      * تحميل جميع البيانات
      * @param bool $cleanFirst - تنظيف البيانات أولاً
      * @return array
      */
-    public function loadAll(bool $cleanFirst = true): array {
+    public function loadAll(bool $cleanFirst = true): array
+    {
         $this->loadedFixtures = [];
-        
+
         if ($cleanFirst) {
             $this->cleanDatabase();
         }
-        
+
         $this->loadUsers();
         $this->loadWebsites();
         $this->loadSubscriptions();
@@ -44,37 +48,39 @@ class FixtureLoader {
         $this->loadReviews();
         $this->loadChatMessages();
         $this->loadBotSettings();
-        
+
         return $this->loadedFixtures;
     }
-    
+
     /**
      * تنظيف قاعدة البيانات
      */
-    private function cleanDatabase(): void {
+    private function cleanDatabase(): void
+    {
         $tables = [
-            'chat_messages', 'reviews', 'ai_reports', 
+            'chat_messages', 'reviews', 'ai_reports',
             'bot_settings', 'subscriptions', 'websites', 'users'
         ];
-        
+
         foreach ($tables as $table) {
             $sql = "DELETE FROM {$table} WHERE id > 0";
             $this->db->query($sql);
-            
+
             $sql = "ALTER TABLE {$table} AUTO_INCREMENT = 1";
             $this->db->query($sql);
         }
-        
+
         echo "🧹 Database cleaned\n";
     }
-    
+
     /**
      * تحميل بيانات المستخدمين
      */
-    private function loadUsers(): void {
+    private function loadUsers(): void
+    {
         $fixtures = require_once __DIR__ . '/users_fixtures.php';
         $users = $fixtures['users'] ?? [];
-        
+
         foreach ($users as $user) {
             $sql = "INSERT INTO users (
                 company_name, email, password, phone, country, language, 
@@ -83,21 +89,22 @@ class FixtureLoader {
                 :company_name, :email, :password, :phone, :country, :language,
                 :timezone, :role, :is_active, :email_verified, :api_token, :created_at
             )";
-            
+
             $id = $this->db->query($sql, $user);
             $this->loadedFixtures['users'][] = $id;
         }
-        
+
         echo "👤 Loaded " . count($users) . " users\n";
     }
-    
+
     /**
      * تحميل بيانات المواقع
      */
-    private function loadWebsites(): void {
+    private function loadWebsites(): void
+    {
         $fixtures = require_once __DIR__ . '/users_fixtures.php';
         $websites = $fixtures['websites'] ?? [];
-        
+
         foreach ($websites as $website) {
             $sql = "INSERT INTO websites (
                 user_id, main_url, company_name, industry, target_language,
@@ -108,21 +115,22 @@ class FixtureLoader {
                 :target_country, :meta_description, :competitor_1_url, :competitor_2_url,
                 :competitor_3_url, :is_verified
             )";
-            
+
             $id = $this->db->query($sql, $website);
             $this->loadedFixtures['websites'][] = $id;
         }
-        
+
         echo "🌐 Loaded " . count($websites) . " websites\n";
     }
-    
+
     /**
      * تحميل بيانات الاشتراكات
      */
-    private function loadSubscriptions(): void {
+    private function loadSubscriptions(): void
+    {
         $fixtures = require_once __DIR__ . '/subscriptions_fixtures.php';
         $subscriptions = $fixtures['subscriptions'] ?? [];
-        
+
         foreach ($subscriptions as $sub) {
             $sql = "INSERT INTO subscriptions (
                 user_id, plan_name, plan_type, status, price, currency,
@@ -137,26 +145,27 @@ class FixtureLoader {
                 :competitor_analysis_used, :auto_pilot, :start_date, :expiry_date,
                 :last_billed_at, :next_billing_at, :payment_method, :payment_gateway
             )";
-            
+
             $id = $this->db->query($sql, $sub);
             $this->loadedFixtures['subscriptions'][] = $id;
         }
-        
+
         echo "📋 Loaded " . count($subscriptions) . " subscriptions\n";
     }
-    
+
     /**
      * تحميل بيانات التقارير
      */
-    private function loadReports(): void {
+    private function loadReports(): void
+    {
         $fixtures = require_once __DIR__ . '/reports_fixtures.php';
-        
+
         $reportTypes = ['seo_reports', 'aeo_reports', 'geo_reports', 'full_reports'];
         $totalLoaded = 0;
-        
+
         foreach ($reportTypes as $type) {
             $reports = $fixtures[$type] ?? [];
-            
+
             foreach ($reports as $report) {
                 $sql = "INSERT INTO ai_reports (
                     website_id, user_id, report_type, target_url, competitor_urls,
@@ -177,22 +186,23 @@ class FixtureLoader {
                     :cached_until, :status, :error_message, :tokens_used, :cost_in_usd,
                     :created_at
                 )";
-                
+
                 $id = $this->db->query($sql, $report);
                 $this->loadedFixtures['reports'][] = $id;
                 $totalLoaded++;
             }
         }
-        
+
         echo "📊 Loaded " . $totalLoaded . " reports\n";
     }
-    
+
     /**
      * تحميل بيانات المراجعات
      */
-    private function loadReviews(): void {
+    private function loadReviews(): void
+    {
         $reviews = $this->generateTestReviews();
-        
+
         foreach ($reviews as $review) {
             $sql = "INSERT INTO reviews (
                 website_id, user_id, platform, platform_review_id, reviewer_name,
@@ -205,18 +215,19 @@ class FixtureLoader {
                 :sentiment_confidence, :auto_reply_generated, :reply_sent, :is_processed,
                 :created_at
             )";
-            
+
             $this->db->query($sql, $review);
         }
-        
+
         echo "⭐ Loaded " . count($reviews) . " reviews\n";
     }
-    
+
     /**
      * توليد مراجعات للاختبار
      * @return array
      */
-    private function generateTestReviews(): array {
+    private function generateTestReviews(): array
+    {
         $reviews = [
             [
                 'website_id' => 1,
@@ -270,16 +281,17 @@ class FixtureLoader {
                 'created_at' => date('Y-m-d H:i:s', strtotime('-3 days'))
             ]
         ];
-        
+
         return $reviews;
     }
-    
+
     /**
      * تحميل بيانات رسائل الشات
      */
-    private function loadChatMessages(): void {
+    private function loadChatMessages(): void
+    {
         $messages = $this->generateTestChatMessages();
-        
+
         foreach ($messages as $message) {
             $sql = "INSERT INTO chat_messages (
                 website_id, user_id, platform, platform_message_id, customer_name,
@@ -290,18 +302,19 @@ class FixtureLoader {
                 :customer_phone, :message_direction, :message_text, :message_language,
                 :ai_reply_generated, :bot_status, :is_auto_pilot, :created_at
             )";
-            
+
             $this->db->query($sql, $message);
         }
-        
+
         echo "💬 Loaded " . count($messages) . " chat messages\n";
     }
-    
+
     /**
      * توليد رسائل شات للاختبار
      * @return array
      */
-    private function generateTestChatMessages(): array {
+    private function generateTestChatMessages(): array
+    {
         return [
             [
                 'website_id' => 1,
@@ -350,13 +363,14 @@ class FixtureLoader {
             ]
         ];
     }
-    
+
     /**
      * تحميل بيانات إعدادات البوت
      */
-    private function loadBotSettings(): void {
+    private function loadBotSettings(): void
+    {
         $settings = $this->generateTestBotSettings();
-        
+
         foreach ($settings as $setting) {
             $sql = "INSERT INTO bot_settings (
                 user_id, website_id, platform, is_enabled, auto_pilot,
@@ -371,18 +385,19 @@ class FixtureLoader {
                 :business_hours_start, :business_hours_end, :timezone,
                 :created_at
             )";
-            
+
             $this->db->query($sql, $setting);
         }
-        
+
         echo "⚙️ Loaded " . count($settings) . " bot settings\n";
     }
-    
+
     /**
      * توليد إعدادات بوت للاختبار
      * @return array
      */
-    private function generateTestBotSettings(): array {
+    private function generateTestBotSettings(): array
+    {
         return [
             [
                 'user_id' => 1,
@@ -424,12 +439,13 @@ class FixtureLoader {
             ]
         ];
     }
-    
+
     /**
      * الحصول على قائمة البيانات المحملة
      * @return array
      */
-    public function getLoadedFixtures(): array {
+    public function getLoadedFixtures(): array
+    {
         return $this->loadedFixtures;
     }
 }
@@ -440,7 +456,7 @@ class FixtureLoader {
 if (basename(__FILE__) === basename($_SERVER['PHP_SELF'])) {
     $loader = new FixtureLoader();
     $result = $loader->loadAll(true);
-    
+
     echo "\n✅ All fixtures loaded successfully!\n";
     echo "📊 Loaded " . count($result, COUNT_RECURSIVE) . " records\n";
 }

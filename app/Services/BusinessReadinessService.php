@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Readiness Service
  * Business Control Center - AI Audit scoring (Competitive phase 2026-08-15)
@@ -20,8 +21,8 @@
  * Authorization - الـController اللي بينادي score() هو المسؤول إنه يتأكد
  * إن الـbusinessId يخص المستخدم الحالي قبل النداء.
  */
-class BusinessReadinessService {
-
+class BusinessReadinessService
+{
     /**
      * أوزان الفئات السبع - مجموعها 100. قابلة للتغيير مستقبلًا (قابلة
      * للتخصيص لكل باقة/عميل) لكنها بتفضل ثابتة دلوقتي عشان الاستقرار.
@@ -35,14 +36,15 @@ class BusinessReadinessService {
         'contact'       => 15,
         'locations'     => 15,
         'services'      => 10,
-        'target_markets'=> 10,
+        'target_markets' => 10,
         'brand'         => 10,
     ];
 
     /**
      * درجة الجاهزية الكاملة للـBusiness - دي اللي بيستخدمها الـController.
      */
-    public function score(int $businessId): array {
+    public function score(int $businessId): array
+    {
         $context = (new BusinessContextService())->getContext($businessId);
         return $this->scoreFromContext($context);
     }
@@ -61,7 +63,8 @@ class BusinessReadinessService {
      *   generated_at: string
      * }
      */
-    public function scoreFromContext(array $context): array {
+    public function scoreFromContext(array $context): array
+    {
         if (empty($context['exists'])) {
             return [
                 'exists' => false,
@@ -74,13 +77,13 @@ class BusinessReadinessService {
         }
 
         $scorers = [
-            'identity'       => ['label' => 'بيانات النشاط الأساسية', 'weight' => self::CATEGORY_WEIGHTS['identity'],       'fn' => fn() => $this->scoreIdentity($context)],
-            'contact'        => ['label' => 'بيانات التواصل والتحقق',  'weight' => self::CATEGORY_WEIGHTS['contact'],        'fn' => fn() => $this->scoreContact($context)],
-            'locations'      => ['label' => 'المواقع والفروع',        'weight' => self::CATEGORY_WEIGHTS['locations'],      'fn' => fn() => $this->scoreLocations($context)],
-            'services'       => ['label' => 'الخدمات',                'weight' => self::CATEGORY_WEIGHTS['services'],       'fn' => fn() => $this->scoreServices($context)],
-            'target_markets' => ['label' => 'الأسواق المستهدفة',      'weight' => self::CATEGORY_WEIGHTS['target_markets'], 'fn' => fn() => $this->scoreTargetMarkets($context)],
-            'ai_context'     => ['label' => 'السياق الذكي للـAI',     'weight' => self::CATEGORY_WEIGHTS['ai_context'],     'fn' => fn() => $this->scoreAiContext($context)],
-            'brand'          => ['label' => 'الهوية البصرية والنبرة', 'weight' => self::CATEGORY_WEIGHTS['brand'],          'fn' => fn() => $this->scoreBrand($context)],
+            'identity'       => ['label' => 'بيانات النشاط الأساسية', 'weight' => self::CATEGORY_WEIGHTS['identity'],       'fn' => fn () => $this->scoreIdentity($context)],
+            'contact'        => ['label' => 'بيانات التواصل والتحقق',  'weight' => self::CATEGORY_WEIGHTS['contact'],        'fn' => fn () => $this->scoreContact($context)],
+            'locations'      => ['label' => 'المواقع والفروع',        'weight' => self::CATEGORY_WEIGHTS['locations'],      'fn' => fn () => $this->scoreLocations($context)],
+            'services'       => ['label' => 'الخدمات',                'weight' => self::CATEGORY_WEIGHTS['services'],       'fn' => fn () => $this->scoreServices($context)],
+            'target_markets' => ['label' => 'الأسواق المستهدفة',      'weight' => self::CATEGORY_WEIGHTS['target_markets'], 'fn' => fn () => $this->scoreTargetMarkets($context)],
+            'ai_context'     => ['label' => 'السياق الذكي للـAI',     'weight' => self::CATEGORY_WEIGHTS['ai_context'],     'fn' => fn () => $this->scoreAiContext($context)],
+            'brand'          => ['label' => 'الهوية البصرية والنبرة', 'weight' => self::CATEGORY_WEIGHTS['brand'],          'fn' => fn () => $this->scoreBrand($context)],
         ];
 
         $categories = [];
@@ -114,7 +117,8 @@ class BusinessReadinessService {
      * أهم النصائح المرتبة حسب الأثر (أولًا الفئات الأثقل وزنًا، وبعدين
      * الفرص الأعلى فاقدًا داخل كل فئة). كل نص رسالة إجراء واضح.
      */
-    private function buildRecommendations(array $categories, array $context): array {
+    private function buildRecommendations(array $categories, array $context): array
+    {
         $recommendations = [];
 
         foreach ($categories as $key => $cat) {
@@ -148,7 +152,8 @@ class BusinessReadinessService {
     /**
      * أكتر حاجة ناقصة في الفئة - بترجع أقصى 3 رسائل فعلية (مش كل فاضي).
      */
-    private function topMissingSignals(string $category, array $context): array {
+    private function topMissingSignals(string $category, array $context): array
+    {
         $missing = [];
 
         switch ($category) {
@@ -204,11 +209,11 @@ class BusinessReadinessService {
                 if (empty($services)) {
                     $missing[] = 'أضف خدمة واحدة نشطة على الأقل (جولات، رحلات نيلية...)';
                 } else {
-                    $hasDescription = array_filter($services, fn($s) => !empty($s['description']));
+                    $hasDescription = array_filter($services, fn ($s) => !empty($s['description']));
                     if (count($hasDescription) !== count($services)) {
                         $missing[] = 'أضف وصفًا تفصيليًا لكل خدمة لتغذية محتوى الـAI';
                     }
-                    $hasCategory = array_filter($services, fn($s) => !empty($s['category']));
+                    $hasCategory = array_filter($services, fn ($s) => !empty($s['category']));
                     if (count($hasCategory) !== count($services)) {
                         $missing[] = 'صنّف كل خدمة ضمن فئة واضحة (رحلات، فنادق، نقل...)';
                     }
@@ -261,7 +266,8 @@ class BusinessReadinessService {
         return array_slice($missing, 0, 3);
     }
 
-    private function scoreIdentity(array $context): int {
+    private function scoreIdentity(array $context): int
+    {
         $b = $context['business'];
         $score = 0;
         if (!empty($b['legal_name']) || !empty($b['trade_name'])) {
@@ -285,7 +291,8 @@ class BusinessReadinessService {
         return min(100, $score);
     }
 
-    private function scoreContact(array $context): int {
+    private function scoreContact(array $context): int
+    {
         $b = $context['business'];
         $score = 0;
         if (!empty($b['website_url'])) {
@@ -315,7 +322,8 @@ class BusinessReadinessService {
         return min(100, $score);
     }
 
-    private function scoreLocations(array $context): int {
+    private function scoreLocations(array $context): int
+    {
         $locations = $context['locations'] ?? [];
         if (empty($locations)) {
             return 0;
@@ -338,15 +346,16 @@ class BusinessReadinessService {
         return min(100, $score);
     }
 
-    private function scoreServices(array $context): int {
+    private function scoreServices(array $context): int
+    {
         $services = $context['services'] ?? [];
         if (empty($services)) {
             return 0;
         }
         $score = 60; // خدمة نشطة واحدة على الأقل
         $all = count($services);
-        $withDescription = count(array_filter($services, fn($s) => !empty($s['description'])));
-        $withCategory = count(array_filter($services, fn($s) => !empty($s['category'])));
+        $withDescription = count(array_filter($services, fn ($s) => !empty($s['description'])));
+        $withCategory = count(array_filter($services, fn ($s) => !empty($s['category'])));
         if ($all > 0 && $withDescription === $all) {
             $score += 20;
         }
@@ -356,7 +365,8 @@ class BusinessReadinessService {
         return min(100, $score);
     }
 
-    private function scoreTargetMarkets(array $context): int {
+    private function scoreTargetMarkets(array $context): int
+    {
         $tm = $context['target_markets'] ?? null;
         if (!$tm) {
             return 0;
@@ -380,7 +390,8 @@ class BusinessReadinessService {
         return min(100, $score);
     }
 
-    private function scoreAiContext(array $context): int {
+    private function scoreAiContext(array $context): int
+    {
         $ai = $context['ai_context'] ?? null;
         if (!$ai) {
             return 0;
@@ -413,7 +424,8 @@ class BusinessReadinessService {
         return min(100, $score);
     }
 
-    private function scoreBrand(array $context): int {
+    private function scoreBrand(array $context): int
+    {
         $brand = $context['brand_settings'] ?? null;
         if (!$brand) {
             return 0;
@@ -435,7 +447,8 @@ class BusinessReadinessService {
      * تحويل الدرجة لرمز تقييم (A-F) - نفس فلسفة SOCi/Birdeye: رمز سهل
      * الواجهة بتعرضه بلون معين من غير ما تشرح الأرقام.
      */
-    private function gradeFor(int $total): string {
+    private function gradeFor(int $total): string
+    {
         if ($total >= 90) {
             return 'A';
         }

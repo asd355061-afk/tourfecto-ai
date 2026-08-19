@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Website Builder Service (v3)
  * تدفق شات موجّه بيجمع: اللغة، المجال (رحلات/فندق - أكتر مجالات جاية
@@ -7,7 +8,8 @@
  * فعليًا** بقالب مختلف تمامًا لكل مجال - وباللغة اللي اختارها العميل.
  * @version 3.0.0
  */
-class WebsiteBuilderService {
+class WebsiteBuilderService
+{
     /** @var GeminiClient */
     private $gemini;
 
@@ -26,22 +28,24 @@ class WebsiteBuilderService {
         'de' => ['label' => 'Deutsch', 'dir' => 'ltr'],
     ];
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->gemini = new GeminiClient();
     }
 
     /** الحالة الحالية للمعالج - السؤال الجاي أو لو خلصنا كل الأسئلة */
-    public function getCurrentState(): array {
+    public function getCurrentState(): array
+    {
         $answers = $_SESSION['website_builder_answers'] ?? [];
         $items = $answers['items'] ?? [];
         $itemsDone = !empty($answers['items_done']);
 
         if (empty($answers['language'])) {
-            $options = array_map(fn($l) => $l['label'], self::LANGUAGES);
+            $options = array_map(fn ($l) => $l['label'], self::LANGUAGES);
             return ['done' => false, 'step' => 'language', 'question' => 'أهلاً! هنبني موقعك خطوة بخطوة. الأول، بأي لغة عايز موقعك يطلع؟', 'options' => array_values($options)];
         }
         if (empty($answers['industry'])) {
-            $options = array_map(fn($i) => $i['label'], self::INDUSTRIES);
+            $options = array_map(fn ($i) => $i['label'], self::INDUSTRIES);
             return ['done' => false, 'step' => 'industry', 'question' => 'تمام 👍 إيه مجال نشاطك السياحي؟', 'options' => array_values($options)];
         }
         if (empty($answers['business_name'])) {
@@ -70,7 +74,8 @@ class WebsiteBuilderService {
     }
 
     /** تسجيل إجابة وإرجاع السؤال الجاي (أو إشارة إننا خلصنا) */
-    public function submitAnswer(string $message): array {
+    public function submitAnswer(string $message): array
+    {
         $state = $this->getCurrentState();
         if ($state['done']) {
             return $state;
@@ -102,7 +107,8 @@ class WebsiteBuilderService {
         return $this->getCurrentState();
     }
 
-    private function matchLanguageChoice(string $message): string {
+    private function matchLanguageChoice(string $message): string
+    {
         $message = trim($message);
         foreach (self::LANGUAGES as $key => $meta) {
             if (mb_stripos($message, $meta['label']) !== false || mb_stripos($meta['label'], $message) !== false) {
@@ -112,7 +118,8 @@ class WebsiteBuilderService {
         return 'ar'; // افتراضي آمن لو الرد مش واضح
     }
 
-    private function matchIndustryChoice(string $message): string {
+    private function matchIndustryChoice(string $message): string
+    {
         $message = trim($message);
         foreach (self::INDUSTRIES as $key => $meta) {
             if (mb_stripos($message, $meta['label']) !== false || mb_stripos($meta['label'], $message) !== false) {
@@ -123,7 +130,8 @@ class WebsiteBuilderService {
     }
 
     /** إعادة تصفير المعالج (لو العميل عايز يبدأ موقع تاني من الصفر) */
-    public function resetWizard(): void {
+    public function resetWizard(): void
+    {
         unset($_SESSION['website_builder_answers']);
     }
 
@@ -131,7 +139,8 @@ class WebsiteBuilderService {
      * توليد الموقع الكامل بعد اكتمال كل الإجابات - بيولّد محتوى مناسب
      * للمجال المختار (رحلات أو غرف فندق)، وباللغة المختارة.
      */
-    public function generateSite(int $userId): array {
+    public function generateSite(int $userId): array
+    {
         $walletService = new WalletService();
         $priceCheck = $walletService->canAffordUsage($userId, 'website_generation');
         if (!$priceCheck['can_afford']) {
@@ -205,7 +214,8 @@ class WebsiteBuilderService {
         return ['success' => true, 'website' => $website->toArray()];
     }
 
-    private function buildToursPrompt(array $answers): string {
+    private function buildToursPrompt(array $answers): string
+    {
         $langName = self::LANGUAGES[$answers['language']]['label'] ?? 'العربية';
         $itemsListText = '';
         foreach ($answers['items'] as $i => $desc) {
@@ -249,7 +259,8 @@ class WebsiteBuilderService {
 PROMPT;
     }
 
-    private function buildHotelPrompt(array $answers): string {
+    private function buildHotelPrompt(array $answers): string
+    {
         $langName = self::LANGUAGES[$answers['language']]['label'] ?? 'العربية';
         $itemsListText = '';
         foreach ($answers['items'] as $i => $desc) {
@@ -293,7 +304,8 @@ PROMPT;
     }
 
     /** توليد صورة واقعية احترافية لعنصر (رحلة أو غرفة) وحفظها */
-    private function generateItemImage(array $item, string $serviceType, string $industry, string $uploadsDir, string $slug): ?string {
+    private function generateItemImage(array $item, string $serviceType, string $industry, string $uploadsDir, string $slug): ?string
+    {
         try {
             $subject = $industry === 'hotel' ? 'غرفة فندقية فاخرة' : 'رحلة سياحية';
             $prompt = "صورة فوتوغرافية احترافية عالية الجودة لـ{$subject} بعنوان \"" . ($item['name'] ?? '')
@@ -322,7 +334,8 @@ PROMPT;
     }
 
     /** بونص: توليد رحلة أو غرفة واحدة إضافية بالذكاء الاصطناعي - لإضافة عنصر جديد لموقع موجود بالفعل */
-    public function generateSingleItem(int $userId, string $industry, string $serviceType, string $language, string $briefDescription, array $existingSlugs = []): array {
+    public function generateSingleItem(int $userId, string $industry, string $serviceType, string $language, string $briefDescription, array $existingSlugs = []): array
+    {
         $walletService = new WalletService();
         $priceCheck = $walletService->canAffordUsage($userId, 'website_generation');
         if (!$priceCheck['can_afford']) {
@@ -358,18 +371,21 @@ PROMPT;
         return ['success' => true, 'item' => $item];
     }
 
-    public function generateTourImage(array $tour, string $serviceType, string $uploadsDir, string $slug): ?string {
+    public function generateTourImage(array $tour, string $serviceType, string $uploadsDir, string $slug): ?string
+    {
         return $this->generateItemImage($tour, $serviceType, 'tours', $uploadsDir, $slug);
     }
 
-    private function parseJsonResponse(string $text): ?array {
+    private function parseJsonResponse(string $text): ?array
+    {
         $text = trim($text);
         $text = preg_replace('/^```json\s*|\s*```$/m', '', $text);
         $decoded = json_decode(trim($text), true);
         return is_array($decoded) ? $decoded : null;
     }
 
-    private function generateUniqueSlug(string $businessName): string {
+    private function generateUniqueSlug(string $businessName): string
+    {
         $base = $this->slugify($businessName);
         $slug = $base;
         $counter = 1;
@@ -380,7 +396,8 @@ PROMPT;
         return $slug;
     }
 
-    private function slugify(string $text): string {
+    private function slugify(string $text): string
+    {
         $transliterated = preg_match('/[\x{0600}-\x{06FF}]/u', $text) ? 'w-' . substr(md5($text), 0, 8) : $text;
         $slug = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($transliterated)), '-');
         return $slug !== '' ? $slug : 'site-' . substr(md5(uniqid('', true)), 0, 6);

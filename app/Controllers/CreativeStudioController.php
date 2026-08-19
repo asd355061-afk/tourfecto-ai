@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Creative Studio Controller
  * لوحة Creative Studio: مكتبة وسائط (صور + فيديوهات قصيرة بالذكاء
@@ -8,20 +9,23 @@
  * تلقائيًا).
  * @version 2.0.0
  */
-class CreativeStudioController extends Controller {
+class CreativeStudioController extends Controller
+{
     /** @var MediaGenerationService */
     private $mediaService;
     /** @var VideoScriptService */
     private $videoService;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->mediaService = new MediaGenerationService();
         $this->videoService = new VideoScriptService();
     }
 
     /** GET /creative-studio */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $body = <<<HTML
         <div class="p-toolbar">
             <button class="p-btn" onclick="document.getElementById('mediaModal').classList.add('open')">🎨 توليد صورة</button>
@@ -395,16 +399,24 @@ JS;
     }
 
     /** GET /api/creative-studio/media */
-    public function listMedia(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listMedia(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $items = (new MediaItem())->where(['user_id' => $this->user['id']], ['created_at' => 'DESC'], 40);
-        return $this->success(['items' => array_map(fn($i) => $i->toArray(), $items)]);
+        return $this->success(['items' => array_map(fn ($i) => $i->toArray(), $items)]);
     }
 
     /** POST /api/creative-studio/media - توليد صورة */
-    public function requestMedia(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!$this->validate(['type' => 'required', 'prompt' => 'required'])) return $this->error('بيانات ناقصة', 422);
+    public function requestMedia(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!$this->validate(['type' => 'required', 'prompt' => 'required'])) {
+            return $this->error('بيانات ناقصة', 422);
+        }
 
         try {
             $item = $this->mediaService->requestGeneration(
@@ -423,9 +435,14 @@ JS;
     }
 
     /** POST /api/creative-studio/video - توليد فيديو قصير حقيقي (Veo) */
-    public function requestVideo(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!$this->validate(['prompt' => 'required'])) return $this->error('الوصف مطلوب', 422);
+    public function requestVideo(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!$this->validate(['prompt' => 'required'])) {
+            return $this->error('الوصف مطلوب', 422);
+        }
 
         try {
             $item = $this->mediaService->requestVideoGeneration(
@@ -443,9 +460,14 @@ JS;
     }
 
     /** POST /api/creative-studio/enhance-prompt - تحسين وصف بالذكاء الاصطناعي قبل التوليد */
-    public function enhancePrompt(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!$this->validate(['prompt' => 'required'])) return $this->error('الوصف مطلوب', 422);
+    public function enhancePrompt(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!$this->validate(['prompt' => 'required'])) {
+            return $this->error('الوصف مطلوب', 422);
+        }
 
         $prompt = (string) $this->get('prompt');
         $kind = (string) $this->get('kind', 'image');
@@ -477,16 +499,24 @@ PROMPT;
     }
 
     /** GET /api/creative-studio/video-scripts */
-    public function listVideoScripts(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listVideoScripts(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $items = (new VideoScript())->where(['user_id' => $this->user['id']], ['created_at' => 'DESC'], 40);
-        return $this->success(['scripts' => array_map(fn($i) => $i->toArray(), $items)]);
+        return $this->success(['scripts' => array_map(fn ($i) => $i->toArray(), $items)]);
     }
 
     /** POST /api/creative-studio/video-scripts */
-    public function requestVideoScript(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if (!$this->validate(['topic' => 'required'])) return $this->error('الموضوع مطلوب', 422);
+    public function requestVideoScript(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!$this->validate(['topic' => 'required'])) {
+            return $this->error('الموضوع مطلوب', 422);
+        }
 
         try {
             $script = $this->videoService->generate(

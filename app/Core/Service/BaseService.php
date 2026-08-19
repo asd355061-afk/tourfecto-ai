@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Base Service
  * الأساس المشترك لأي Service (Service Layer)
@@ -18,7 +19,8 @@
  *        (Dependency Injection)، فتقدر تستبدل أي واحد فيهم بنسخة وهمية
  *        (mock) وقت الاختبار من غير ما تلمس باقي المنطق.
  */
-abstract class BaseService implements ServiceInterface {
+abstract class BaseService implements ServiceInterface
+{
     /** @var LoggerInterface */
     protected $logger;
 
@@ -43,7 +45,8 @@ abstract class BaseService implements ServiceInterface {
     /**
      * اختصار لإطلاق Event لو نظام الأحداث متاح، بدون ما تنهار الخدمة لو مش متاح.
      */
-    protected function emit(AppEvent $event): void {
+    protected function emit(AppEvent $event): void
+    {
         if ($this->events) {
             $this->events->dispatch($event);
         }
@@ -52,7 +55,8 @@ abstract class BaseService implements ServiceInterface {
     /**
      * اختصار للتسجيل، بيتجاهل بأمان لو الـ logger مش متاح.
      */
-    protected function log(string $level, string $message, array $context = []): void {
+    protected function log(string $level, string $message, array $context = []): void
+    {
         if ($this->logger) {
             $this->logger->log($level, $message, $context);
         }

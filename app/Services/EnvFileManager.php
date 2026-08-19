@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Env File Manager
  * @version 1.0.0
@@ -15,18 +16,21 @@
  *  - القيم الحساسة (secrets) منعرضهاش كاملة أبدًا لأي طلب - دايمًا مقنّعة
  *    (mask) - التعديل بيتم بس بإدخال قيمة جديدة كاملة.
  */
-class EnvFileManager {
-
-    private static function envPath(): string {
+class EnvFileManager
+{
+    private static function envPath(): string
+    {
         return ROOT_PATH . '/.env';
     }
 
-    private static function backupDir(): string {
+    private static function backupDir(): string
+    {
         return TOURFECTO_STORAGE . '/backups/env';
     }
 
     /** القيمة الفعلية المحمّلة حاليًا في الذاكرة لمفتاح معيّن ($_ENV/$_SERVER/getenv) */
-    public static function currentValue(string $key): ?string {
+    public static function currentValue(string $key): ?string
+    {
         if (array_key_exists($key, $_ENV)) {
             return (string) $_ENV[$key];
         }
@@ -41,7 +45,8 @@ class EnvFileManager {
      * تقنيع قيمة حساسة: بيعرض آخر 4 خانات بس والباقي نقط.
      * لو القيمة فاضية أو غير موجودة بيرجع سلسلة فاضية.
      */
-    public static function mask(?string $value): string {
+    public static function mask(?string $value): string
+    {
         if ($value === null || $value === '') {
             return '';
         }
@@ -58,7 +63,8 @@ class EnvFileManager {
      * @param array<string,string> $updates key => new value
      * @throws Exception
      */
-    public static function updateKeys(array $updates): void {
+    public static function updateKeys(array $updates): void
+    {
         if (empty($updates)) {
             return;
         }
@@ -128,7 +134,8 @@ class EnvFileManager {
         }
     }
 
-    private static function formatValue(string $value): string {
+    private static function formatValue(string $value): string
+    {
         if ($value === '') {
             return '';
         }
@@ -138,7 +145,8 @@ class EnvFileManager {
         return $value;
     }
 
-    private static function backup(string $content): void {
+    private static function backup(string $content): void
+    {
         $dir = self::backupDir();
         if (!is_dir($dir)) {
             @mkdir($dir, 0750, true);

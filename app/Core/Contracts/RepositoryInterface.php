@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Repository Contract
  * العقد الأساسي لأي Repository في المشروع (Repository Pattern)
@@ -11,7 +12,8 @@
  * الكود المفترض - مشكلة is_active/status، main_url/url، expiry_date...).
  * الـ Repository هو المكان الوحيد المسموح له يعرف التفاصيل دي.
  */
-interface RepositoryInterface {
+interface RepositoryInterface
+{
     /**
      * البحث عن سجل بالمفتاح الأساسي.
      * @param int|string $id

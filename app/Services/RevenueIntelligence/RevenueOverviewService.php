@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Revenue Overview Service
  * @version 1.0.0
@@ -10,16 +11,19 @@
  *    منتجات/خدمات مرتبط بالإيراد فعليًا - نرجع "Not enough data" بدل
  *    اختراع بيانات، بدل ما نعيد استخدام "source" كبديل مضلل لـ"منتج").
  */
-class RevenueOverviewService {
+class RevenueOverviewService
+{
     /** @var RevenueDataGateway */
     private $gateway;
 
-    public function __construct(?RevenueDataGateway $gateway = null) {
+    public function __construct(?RevenueDataGateway $gateway = null)
+    {
         $this->gateway = $gateway ?? new RevenueDataGateway();
     }
 
     /** يحوّل period (daily/weekly/monthly/quarterly/yearly) لعدد أيام الفترة المطلوبة. */
-    public static function periodToDays(string $period): int {
+    public static function periodToDays(string $period): int
+    {
         switch ($period) {
             case 'daily': return 1;
             case 'weekly': return 7;
@@ -34,7 +38,8 @@ class RevenueOverviewService {
      * نظرة عامة كاملة على الإيرادات لفترة معيّنة + مقارنة بالفترة السابقة
      * لنفس الطول (Revenue Growth).
      */
-    public function getOverview(int $userId, string $period = 'monthly'): array {
+    public function getOverview(int $userId, string $period = 'monthly'): array
+    {
         $days = self::periodToDays($period);
         $now = new DateTime('now');
         $currentEnd = clone $now;
@@ -90,7 +95,8 @@ class RevenueOverviewService {
      * Recurring Revenue من جدول subscriptions الحقيقي *عندما تتوفر بيانات*.
      * لا نخترع MRR لو الجدول غير موجود/فاضي.
      */
-    public function getRecurringRevenue(int $userId): array {
+    public function getRecurringRevenue(int $userId): array
+    {
         $rows = $this->gateway->getActiveSubscriptionsRevenue($userId);
         if ($rows === null) {
             return ['available' => false, 'reason' => 'Not enough data', 'monthly_recurring_revenue' => null, 'active_subscriptions' => null];
@@ -114,7 +120,8 @@ class RevenueOverviewService {
     }
 
     /** Section 7: Revenue by Source بمقارنة نمو كل مصدر مقابل الفترة السابقة. */
-    public function getRevenueBySourceWithGrowth(int $userId, string $period = 'monthly'): array {
+    public function getRevenueBySourceWithGrowth(int $userId, string $period = 'monthly'): array
+    {
         $days = self::periodToDays($period);
         $now = new DateTime('now');
         $currentStart = (clone $now)->modify("-{$days} days");
@@ -139,20 +146,24 @@ class RevenueOverviewService {
                 'revenue_growth_percent' => $growth,
             ];
         }
-        usort($out, static function ($a, $b) { return $b['revenue'] <=> $a['revenue']; });
+        usort($out, static function ($a, $b) {
+            return $b['revenue'] <=> $a['revenue'];
+        });
 
         return ['has_data' => true, 'sources' => $out];
     }
 
     /** Section 8: صريح أن لا بيانات منتج/خدمة حقيقية مرتبطة بالإيراد في المشروع الحالي. */
-    public function getRevenueByProduct(int $userId): array {
+    public function getRevenueByProduct(int $userId): array
+    {
         return [
             'has_data' => false,
             'message' => 'Not enough data for reliable Revenue by Product/Service. Tourfecto currently records revenue with a "source" dimension (booking/order/subscription/manual), not a linked products/services catalog. Integrate a products table with rev_revenue_records.reference_id to enable this view.',
         ];
     }
 
-    private function indexBySource(array $rows): array {
+    private function indexBySource(array $rows): array
+    {
         $out = [];
         foreach ($rows as $r) {
             $out[$r['source']] = ['total' => (float) $r['total'], 'count' => (int) $r['count']];

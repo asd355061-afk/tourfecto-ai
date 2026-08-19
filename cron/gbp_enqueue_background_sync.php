@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - GBP Background Sync (Queue-based)
  * @version 1.0.0

@@ -1,9 +1,11 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Detected Change Model
  * @version 1.0.0
  */
-class CiChange extends Model {
+class CiChange extends Model
+{
     protected $table = 'ci_changes';
     protected $fillable = [
         'competitor_id', 'user_id', 'page_type', 'change_type', 'severity',

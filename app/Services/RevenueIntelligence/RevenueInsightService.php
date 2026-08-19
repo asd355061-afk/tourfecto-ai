@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Revenue Insight Service (Opportunities + Risks)
  * @version 1.0.0
@@ -14,7 +15,8 @@
  * متوفرة (مثال: Cross-sell أو أداء منتج/خدمة - section 8 غير متاح) يتم
  * تخطّيه بدل اختراعه.
  */
-class RevenueInsightService {
+class RevenueInsightService
+{
     private RevenueOverviewService $overview;
     private CustomerRevenueService $customerService;
     private PipelineRevenueService $pipelineService;
@@ -32,7 +34,8 @@ class RevenueInsightService {
     }
 
     /** Section 3: REVENUE OPPORTUNITIES */
-    public function getOpportunities(int $userId): array {
+    public function getOpportunities(int $userId): array
+    {
         $opportunities = [];
 
         $customerIntel = $this->customerService->getCustomerRevenueIntelligence($userId);
@@ -49,13 +52,16 @@ class RevenueInsightService {
     }
 
     /** Section 4: REVENUE RISK DETECTION */
-    public function getRisks(int $userId): array {
+    public function getRisks(int $userId): array
+    {
         $risks = [];
 
         $overview = $this->overview->getOverview($userId, 'monthly');
         if ($overview['has_data']) {
             $overviewRisk = self::riskFromOverview($overview);
-            if ($overviewRisk !== null) { $risks[] = $overviewRisk; }
+            if ($overviewRisk !== null) {
+                $risks[] = $overviewRisk;
+            }
         }
 
         $customerIntel = $this->customerService->getCustomerRevenueIntelligence($userId);
@@ -71,7 +77,9 @@ class RevenueInsightService {
         $pipeline = $this->pipelineService->getPipelineIntelligence($userId);
         if ($pipeline['has_data']) {
             $pipelineRisk = self::riskFromPipeline($pipeline['pipeline']);
-            if ($pipelineRisk !== null) { $risks[] = $pipelineRisk; }
+            if ($pipelineRisk !== null) {
+                $risks[] = $pipelineRisk;
+            }
         }
 
         return $risks;
@@ -79,12 +87,15 @@ class RevenueInsightService {
 
     // ================= Pure builder functions (testable) =================
 
-    public static function opportunitiesFromCustomers(array $customers): array {
+    public static function opportunitiesFromCustomers(array $customers): array
+    {
         $out = [];
         $vipAndHigh = array_values(array_filter($customers, static function ($c) {
             return in_array($c['value_segment'], ['VIP', 'High Value'], true);
         }));
-        usort($vipAndHigh, static function ($a, $b) { return $b['customer_revenue'] <=> $a['customer_revenue']; });
+        usort($vipAndHigh, static function ($a, $b) {
+            return $b['customer_revenue'] <=> $a['customer_revenue'];
+        });
         foreach (array_slice($vipAndHigh, 0, 5) as $c) {
             $out[] = [
                 'type' => 'opportunity',
@@ -100,7 +111,9 @@ class RevenueInsightService {
             ];
         }
 
-        $growing = array_values(array_filter($customers, static function ($c) { return $c['revenue_trend'] === 'growing'; }));
+        $growing = array_values(array_filter($customers, static function ($c) {
+            return $c['revenue_trend'] === 'growing';
+        }));
         foreach (array_slice($growing, 0, 5) as $c) {
             $out[] = [
                 'type' => 'opportunity',
@@ -116,8 +129,12 @@ class RevenueInsightService {
             ];
         }
 
-        $inactive = array_values(array_filter($customers, static function ($c) { return $c['value_segment'] === 'Inactive'; }));
-        usort($inactive, static function ($a, $b) { return $b['customer_revenue'] <=> $a['customer_revenue']; });
+        $inactive = array_values(array_filter($customers, static function ($c) {
+            return $c['value_segment'] === 'Inactive';
+        }));
+        usort($inactive, static function ($a, $b) {
+            return $b['customer_revenue'] <=> $a['customer_revenue'];
+        });
         foreach (array_slice($inactive, 0, 5) as $c) {
             $out[] = [
                 'type' => 'opportunity',
@@ -136,12 +153,15 @@ class RevenueInsightService {
         return $out;
     }
 
-    public static function opportunitiesFromSources(array $sources): array {
+    public static function opportunitiesFromSources(array $sources): array
+    {
         $out = [];
         $positive = array_values(array_filter($sources, static function ($s) {
             return $s['revenue_growth_percent'] !== null && $s['revenue_growth_percent'] > 15;
         }));
-        usort($positive, static function ($a, $b) { return $b['revenue_growth_percent'] <=> $a['revenue_growth_percent']; });
+        usort($positive, static function ($a, $b) {
+            return $b['revenue_growth_percent'] <=> $a['revenue_growth_percent'];
+        });
         foreach (array_slice($positive, 0, 3) as $s) {
             $out[] = [
                 'type' => 'opportunity',
@@ -159,7 +179,8 @@ class RevenueInsightService {
         return $out;
     }
 
-    public static function riskFromOverview(array $overview): ?array {
+    public static function riskFromOverview(array $overview): ?array
+    {
         if ($overview['growth_percent'] === null || $overview['growth_percent'] >= -10) {
             return null;
         }
@@ -178,9 +199,12 @@ class RevenueInsightService {
         ];
     }
 
-    public static function risksFromCustomers(array $customers): array {
+    public static function risksFromCustomers(array $customers): array
+    {
         $out = [];
-        $inactive = array_values(array_filter($customers, static function ($c) { return $c['value_segment'] === 'Inactive'; }));
+        $inactive = array_values(array_filter($customers, static function ($c) {
+            return $c['value_segment'] === 'Inactive';
+        }));
         if (count($inactive) > 0) {
             $totalInactiveRevenue = round(array_sum(array_column($inactive, 'customer_revenue')), 2);
             $out[] = [
@@ -201,7 +225,9 @@ class RevenueInsightService {
         $lostHighValue = array_values(array_filter($customers, static function ($c) {
             return $c['value_segment'] === 'Inactive' && $c['customer_revenue'] > 0;
         }));
-        usort($lostHighValue, static function ($a, $b) { return $b['customer_revenue'] <=> $a['customer_revenue']; });
+        usort($lostHighValue, static function ($a, $b) {
+            return $b['customer_revenue'] <=> $a['customer_revenue'];
+        });
         foreach (array_slice($lostHighValue, 0, 3) as $c) {
             $out[] = [
                 'type' => 'risk',
@@ -221,12 +247,15 @@ class RevenueInsightService {
         return $out;
     }
 
-    public static function risksFromSources(array $sources): array {
+    public static function risksFromSources(array $sources): array
+    {
         $out = [];
         $declining = array_values(array_filter($sources, static function ($s) {
             return $s['revenue_growth_percent'] !== null && $s['revenue_growth_percent'] < -20;
         }));
-        usort($declining, static function ($a, $b) { return $a['revenue_growth_percent'] <=> $b['revenue_growth_percent']; });
+        usort($declining, static function ($a, $b) {
+            return $a['revenue_growth_percent'] <=> $b['revenue_growth_percent'];
+        });
         foreach (array_slice($declining, 0, 3) as $s) {
             $out[] = [
                 'type' => 'risk',
@@ -245,7 +274,8 @@ class RevenueInsightService {
         return $out;
     }
 
-    public static function riskFromPipeline(array $pipeline): ?array {
+    public static function riskFromPipeline(array $pipeline): ?array
+    {
         if ($pipeline['open_deals_count'] === 0) {
             return [
                 'type' => 'risk',

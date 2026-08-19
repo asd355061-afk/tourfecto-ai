@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Analysis Service
  * يسدّ فجوة /ai/competitors و/ai/keywords الحقيقية (كانتا صفحتين
@@ -16,7 +17,8 @@
  * competitor_domain/competitor_name (تأكيد من تصدير phpMyAdmin حقيقي)،
  * تم تعديل كل الاستخدامات هنا لتطابق الأعمدة الحقيقية بدل name/url.
  */
-class CompetitorAnalysisService {
+class CompetitorAnalysisService
+{
     /** @var mixed أي كائن عنده generateContent($prompt,$options):array بنفس شكل GeminiClient - عادة AIOrchestrator */
     private $ai;
 
@@ -27,11 +29,13 @@ class CompetitorAnalysisService {
      * حد كان بينادي بيها لحد دلوقتي). لسه ممكن تحقن GeminiClient أو أي
      * كائن تاني بنفس الشكل يدويًا لو عايز (مثلاً في الاختبارات).
      */
-    public function __construct($ai = null) {
+    public function __construct($ai = null)
+    {
         $this->ai = $ai ?? (class_exists('AIOrchestrator') ? new AIOrchestrator() : new GeminiClient());
     }
 
-    public function addCompetitor(int $userId, int $websiteId, string $name, string $domain, string $notes = ''): Competitor {
+    public function addCompetitor(int $userId, int $websiteId, string $name, string $domain, string $notes = ''): Competitor
+    {
         $competitor = new Competitor([
             'user_id' => $userId, 'website_id' => $websiteId,
             'competitor_name' => $name, 'competitor_domain' => $domain,
@@ -52,7 +56,8 @@ class CompetitorAnalysisService {
      * يبني توصيات فعلية اعتمادًا على الحقائق المستخرجة فعليًا - مش أسماء
      * الدومينز بس زي ما كان قبل كده.
      */
-    public function analyze(Competitor $competitor, string $myWebsiteDomain): array {
+    public function analyze(Competitor $competitor, string $myWebsiteDomain): array
+    {
         $competitorDomain = $competitor->getAttribute('competitor_domain');
         $competitorName = $competitor->getAttribute('competitor_name') ?: $competitorDomain;
 
@@ -121,7 +126,8 @@ class CompetitorAnalysisService {
      * تقني شامل). بيرجع بيانات فاضية بأمان لو الموقع مش متاح، عشان
      * التحليل يكمل بدل ما يفشل بالكامل بسبب موقع منافس واحد مش راضي يرد.
      */
-    public function crawlDomainSummary(string $domain): array {
+    public function crawlDomainSummary(string $domain): array
+    {
         $url = preg_match('#^https?://#i', $domain) ? $domain : 'https://' . $domain;
         $html = $this->fetchHtml($url);
 
@@ -149,7 +155,9 @@ class CompetitorAnalysisService {
         $h1Count = $doc->getElementsByTagName('h1')->length;
         $bodyText = '';
         $body = $doc->getElementsByTagName('body')->item(0);
-        if ($body) { $bodyText = preg_replace('/\s+/', ' ', trim($body->textContent)); }
+        if ($body) {
+            $bodyText = preg_replace('/\s+/', ' ', trim($body->textContent));
+        }
         $wordCount = $bodyText !== '' ? str_word_count($bodyText) : 0;
 
         $hasSchema = $xpath->query('//script[@type="application/ld+json"]')->length > 0;
@@ -168,7 +176,15 @@ class CompetitorAnalysisService {
      * جلب HTML الصفحة - في method مستقل (بروتكتد) عشان الاختبارات تقدر
      * تعمل Override بسهولة بدون شبكة حقيقية.
      */
-    protected function fetchHtml(string $url): ?string {
+    protected function fetchHtml(string $url): ?string
+    {
+        // Phase 20 - Defense-in-depth ضد SSRF: حتى لو الـURL عدّى فحص
+        // الـController، نتأكد هنا تاني قبل ما السيرفر يطلب أي حاجة
+        // (metadata endpoints / شبكات داخلية / منافذ غير قياسية).
+        if (class_exists('SsrfGuard') && !SsrfGuard::isSafe($url)) {
+            return null;
+        }
+
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
@@ -191,23 +207,40 @@ class CompetitorAnalysisService {
      * نفس المدخلات = نفس النتيجة دايمًا (عكس سؤال الذكاء الاصطناعي "اديني
      * رقم" اللي ممكن يختلف كل مرة بنفس البيانات).
      */
-    private function calculateOnPageScore(array $summary): int {
-        if (!$summary['reachable']) return 0;
+    private function calculateOnPageScore(array $summary): int
+    {
+        if (!$summary['reachable']) {
+            return 0;
+        }
 
         $score = 0;
-        if (!empty($summary['title'])) $score += 25;
-        if (!empty($summary['meta_description'])) $score += 20;
-        if (($summary['h1_count'] ?? 0) === 1) $score += 15; // H1 واحد بالظبط هو الأفضل
-        elseif (($summary['h1_count'] ?? 0) > 1) $score += 5; // أكتر من واحد أفضل من صفر بس مش مثالي
-        if (($summary['word_count'] ?? 0) >= 300) $score += 20;
-        elseif (($summary['word_count'] ?? 0) >= 100) $score += 10;
-        if (!empty($summary['has_schema'])) $score += 20;
+        if (!empty($summary['title'])) {
+            $score += 25;
+        }
+        if (!empty($summary['meta_description'])) {
+            $score += 20;
+        }
+        if (($summary['h1_count'] ?? 0) === 1) {
+            $score += 15;
+        } // H1 واحد بالظبط هو الأفضل
+        elseif (($summary['h1_count'] ?? 0) > 1) {
+            $score += 5;
+        } // أكتر من واحد أفضل من صفر بس مش مثالي
+        if (($summary['word_count'] ?? 0) >= 300) {
+            $score += 20;
+        } elseif (($summary['word_count'] ?? 0) >= 100) {
+            $score += 10;
+        }
+        if (!empty($summary['has_schema'])) {
+            $score += 20;
+        }
 
         return min(100, $score);
     }
 
-    private function buildComparisonPrompt(string $myDomain, array $mySummary, int $myScore, string $competitorDomain, string $competitorName, array $competitorSummary, int $competitorScore): string {
-        $fmt = fn(array $s) => sprintf(
+    private function buildComparisonPrompt(string $myDomain, array $mySummary, int $myScore, string $competitorDomain, string $competitorName, array $competitorSummary, int $competitorScore): string
+    {
+        $fmt = fn (array $s) => sprintf(
             "Title: %s\nMeta Description: %s\nعدد H1: %d\nعدد الكلمات التقريبي: %d\nSchema markup: %s\nمتاح: %s",
             $s['title'] ?? '(مفقود)',
             $s['meta_description'] ?? '(مفقود)',

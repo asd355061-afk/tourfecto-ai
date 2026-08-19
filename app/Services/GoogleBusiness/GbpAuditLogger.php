@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - GBP Audit Logger
  * تسجيل بسيط وآمن لعمليات موديول GBP المهمة (بند 16 بالسبيك الأصلي).
@@ -8,11 +9,13 @@
  * @version 1.0.0
  * @since 2026-08-14 (GBP Module Upgrade - Round 7: Production Finalization)
  */
-class GbpAuditLogger {
+class GbpAuditLogger
+{
     /** أي مفتاح فيه واحدة من الكلمات دي بيتشال تلقائيًا من الـ details قبل التسجيل */
     private const FORBIDDEN_KEY_PATTERNS = ['token', 'secret', 'password', 'client_secret', 'refresh_token', 'access_token', 'authorization'];
 
-    public static function log(string $action, ?int $websiteId, ?int $userId, string $status = 'success', array $details = []): void {
+    public static function log(string $action, ?int $websiteId, ?int $userId, string $status = 'success', array $details = []): void
+    {
         try {
             $safeDetails = self::stripSecrets($details);
 
@@ -34,7 +37,8 @@ class GbpAuditLogger {
         }
     }
 
-    private static function stripSecrets(array $details): array {
+    private static function stripSecrets(array $details): array
+    {
         $clean = [];
         foreach ($details as $key => $value) {
             $lowerKey = strtolower((string) $key);

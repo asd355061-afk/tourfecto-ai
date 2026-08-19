@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Service Marker Contract
  * @version 1.0.0
@@ -11,5 +12,6 @@
  *    "منطق عمل" (business logic) مش وصول مباشر لقاعدة البيانات (ده شغل
  *    الـ Repository) ومش استقبال/رد HTTP (ده شغل الـ Controller).
  */
-interface ServiceInterface {
+interface ServiceInterface
+{
 }

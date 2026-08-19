@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Context Service
  * Business Control Center - Phase 6 (أهم نقطة في الطلب الأصلي)
@@ -19,8 +20,8 @@
  * الحفظ الناجح - وده اتعمل فعليًا في كل الـControllers المعنية (راجع
  * BUSINESS_CONTROL_CENTER_CHANGELOG.md لقائمة كل نقطة استدعاء).
  */
-class BusinessContextService {
-
+class BusinessContextService
+{
     private const CACHE_TTL = 3600; // ساعة - بيانات شبه ثابتة، مش محتاجة تحديث لحظي
     private const CACHE_KEY_PREFIX = 'business_context:';
 
@@ -31,7 +32,8 @@ class BusinessContextService {
      * الدالة دي؛ لازم يتأكد إن الـbusinessId اللي بيبعته فعلًا يخص
      * السياق اللي المستخدم/الـJob الحالي مسموحله بيه قبل النداء).
      */
-    public function getContext(int $businessId): array {
+    public function getContext(int $businessId): array
+    {
         $cache = new Cache();
         $cacheKey = self::CACHE_KEY_PREFIX . $businessId;
 
@@ -53,11 +55,13 @@ class BusinessContextService {
      * (ساعة) - غير مقبول لمستخدم عدّل بياناته دلوقتي وعايز الـAI يستخدم
      * النسخة الجديدة فورًا.
      */
-    public function invalidate(int $businessId): void {
+    public function invalidate(int $businessId): void
+    {
         (new Cache())->delete(self::CACHE_KEY_PREFIX . $businessId);
     }
 
-    private function buildContext(int $businessId): array {
+    private function buildContext(int $businessId): array
+    {
         $business = (new Business())->find($businessId);
         if (!$business) {
             return ['exists' => false];
@@ -77,8 +81,8 @@ class BusinessContextService {
             'exists' => true,
             'business' => $business->toArray(),
             'primary_location' => $this->findPrimaryLocation($locations),
-            'locations' => array_map(fn($l) => $l->toArray(), $locations),
-            'services' => array_map(fn($s) => $s->toArray(), $services),
+            'locations' => array_map(fn ($l) => $l->toArray(), $locations),
+            'services' => array_map(fn ($s) => $s->toArray(), $services),
             'target_markets' => $targetMarket ? [
                 'countries' => $targetMarket->getTargetCountries(),
                 'cities' => $targetMarket->getTargetCities(),
@@ -113,7 +117,8 @@ class BusinessContextService {
         ];
     }
 
-    private function findPrimaryLocation(array $locations): ?array {
+    private function findPrimaryLocation(array $locations): ?array
+    {
         foreach ($locations as $location) {
             if ((bool) $location->getAttribute('is_primary')) {
                 return $location->toArray();
@@ -128,7 +133,8 @@ class BusinessContextService {
      * من الـarray الخام. لو حقل فاضي (لسه المستخدم مكملش بياناته)، بيتم
      * تجاهله من النص تمامًا بدل ما يظهر "N/A" أو قيمة وهمية.
      */
-    public function toPromptContext(int $businessId): string {
+    public function toPromptContext(int $businessId): string
+    {
         $context = $this->getContext($businessId);
         if (!$context['exists']) {
             return '';
@@ -156,7 +162,7 @@ class BusinessContextService {
             $lines[] = 'Target Markets: ' . implode(', ', $context['target_markets']['countries']);
         }
         if (!empty($context['services'])) {
-            $serviceNames = array_map(fn($s) => $s['name'], $context['services']);
+            $serviceNames = array_map(fn ($s) => $s['name'], $context['services']);
             $lines[] = 'Services: ' . implode(', ', $serviceNames);
         }
         if (!empty($context['ai_context']['unique_selling_points'])) {

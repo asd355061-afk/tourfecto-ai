@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - JWT Service
  * تنفيذ ذاتي بسيط لتوقيع JWT بخوارزمية HS256، بدون أي مكتبة خارجية
@@ -14,15 +15,16 @@
  * @version 1.0.0
  */
 
-class JwtService {
-
+class JwtService
+{
     /**
      * توليد JWT موقّع.
      * @param array $claims بيانات إضافية (زي 'sub' لـ user id، 'type' لنوع التوكن)
      * @param int $ttlSeconds مدة الصلاحية بالثواني
      * @return string
      */
-    public static function issue(array $claims, int $ttlSeconds): string {
+    public static function issue(array $claims, int $ttlSeconds): string
+    {
         $header = self::base64UrlEncode(json_encode([
             'typ' => 'JWT',
             'alg' => 'HS256',
@@ -46,7 +48,8 @@ class JwtService {
      * timing attacks - نفس مبدأ password_verify في PartnerApiKey).
      * @return array|null
      */
-    public static function verify(string $token): ?array {
+    public static function verify(string $token): ?array
+    {
         $parts = explode('.', $token);
         if (count($parts) !== 3) {
             return null;
@@ -70,16 +73,19 @@ class JwtService {
         return $decoded;
     }
 
-    private static function sign(string $data): string {
+    private static function sign(string $data): string
+    {
         $secret = defined('JWT_SECRET') ? JWT_SECRET : '';
         return self::base64UrlEncode(hash_hmac('sha256', $data, $secret, true));
     }
 
-    private static function base64UrlEncode(string $data): string {
+    private static function base64UrlEncode(string $data): string
+    {
         return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
     }
 
-    private static function base64UrlDecode(string $data): string {
+    private static function base64UrlDecode(string $data): string
+    {
         $padded = str_pad($data, strlen($data) % 4 === 0 ? strlen($data) : strlen($data) + (4 - strlen($data) % 4), '=');
         return base64_decode(strtr($padded, '-_', '+/')) ?: '';
     }

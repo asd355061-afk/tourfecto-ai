@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - GBP Photos/Media Service
  * إدارة صور Google Business Profile عن طريق Media API الرسمي
@@ -8,7 +9,8 @@
  * @version 1.0.0
  * @since 2026-08-09 (GBP Module Upgrade)
  */
-class GbpPhotoService {
+class GbpPhotoService
+{
     /** @var Database */
     private $db;
     /** @var GbpSyncService */
@@ -23,13 +25,15 @@ class GbpPhotoService {
         'FOOD_AND_DRINK', 'MENU', 'COMMON_AREA', 'ROOMS', 'TEAMS', 'ADDITIONAL',
     ];
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
         $this->sync = new GbpSyncService();
         $this->reviewSync = new GoogleReviewSyncService();
     }
 
-    public function validateUpload(array $file): array {
+    public function validateUpload(array $file): array
+    {
         if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
             return ['valid' => false, 'error' => 'فشل رفع الملف'];
         }
@@ -49,7 +53,8 @@ class GbpPhotoService {
      * وقت، شبكة، وممكن يفشل) بيتم في الخلفية عن طريق GbpPhotoUploadJob.
      * الـ request بتاع المستخدم مبيستناش رد Google API.
      */
-    public function queueUpload(int $websiteId, int $userId, string $publicSourceUrl, string $category): array {
+    public function queueUpload(int $websiteId, int $userId, string $publicSourceUrl, string $category): array
+    {
         if (!in_array($category, self::ALLOWED_CATEGORIES, true)) {
             return ['success' => false, 'error' => 'تصنيف الصورة غير صحيح'];
         }
@@ -92,7 +97,8 @@ class GbpPhotoService {
      * التنفيذ الفعلي لرفع الصورة على Google - بينادى من GbpPhotoUploadJob
      * (أو مباشرة كـ fallback لو الطابور مش متاح - شوف queueUpload() فوق).
      */
-    public function processUpload(int $photoId): array {
+    public function processUpload(int $photoId): array
+    {
         $rows = $this->db->query("SELECT * FROM gbp_photos WHERE id = ? LIMIT 1", [$photoId]);
         if (empty($rows)) {
             return ['success' => false, 'error' => 'صف الصورة غير موجود'];
@@ -139,7 +145,8 @@ class GbpPhotoService {
         return ['success' => true, 'media' => $result['media']];
     }
 
-    private function markFailed(int $photoId, string $error): void {
+    private function markFailed(int $photoId, string $error): void
+    {
         try {
             $this->db->query("UPDATE gbp_photos SET status = 'failed', error_message = ? WHERE id = ?", [$error, $photoId]);
         } catch (Throwable $e) {
@@ -153,7 +160,8 @@ class GbpPhotoService {
      * (الـ category بيتحدد وقت insertMedia بس ومينفعش يتغيّر بعدين حسب
      * توثيق Google الحالي)، فمعملناش استدعاء وهمي لجوجل هنا.
      */
-    public function setPrimary(int $websiteId, int $userId, int $photoId): array {
+    public function setPrimary(int $websiteId, int $userId, int $photoId): array
+    {
         $rows = $this->db->query("SELECT id FROM gbp_photos WHERE id = ? AND website_id = ? AND user_id = ? LIMIT 1", [$photoId, $websiteId, $userId]);
         if (empty($rows)) {
             return ['success' => false, 'error' => 'الصورة غير موجودة'];
@@ -168,7 +176,8 @@ class GbpPhotoService {
         }
     }
 
-    public function listPhotos(int $websiteId, int $userId, int $page = 1, int $limit = 24): array {
+    public function listPhotos(int $websiteId, int $userId, int $page = 1, int $limit = 24): array
+    {
         try {
             $offset = max(0, ($page - 1) * $limit);
             $rows = $this->db->query(
@@ -186,7 +195,8 @@ class GbpPhotoService {
         }
     }
 
-    public function deletePhoto(int $websiteId, int $userId, int $photoId): array {
+    public function deletePhoto(int $websiteId, int $userId, int $photoId): array
+    {
         $rows = $this->db->query(
             "SELECT * FROM gbp_photos WHERE id = ? AND website_id = ? AND user_id = ? LIMIT 1",
             [$photoId, $websiteId, $userId]

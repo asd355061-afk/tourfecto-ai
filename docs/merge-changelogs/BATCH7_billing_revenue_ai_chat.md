@@ -142,3 +142,212 @@ middleware مجموعة `/wallet/*` الإدارية من `AdminMiddleware` ال
 Migrations الجديدة الست (`database/migrations/2026_08_08_*.sql` و
 `2026_08_09_0000{41..45}_*.sql`) لازم تتشغّل مرة واحدة على قاعدة
 البيانات قبل أي استخدام للموديولات التلاتة.
+
+---
+
+## 5) Phase 17 — تحديثات تنافسية (Stripe/Chargebee/Paddle) — 2026-08-15
+
+تحليل تنافسي عالمي لثلاثة أقوى منصات فوترة (Stripe Billing، Chargebee
+هجين Billing للذكاء الاصطناعي، Paddle كـ Merchant of Record) → تطبيق
+أهم ما يميزهم على موديول الفوترة الحالي.
+
+### 5.1 Prorated Downgrade Credit (WalletService)
+
+- ثابت `ALLOW_PRORATED_DOWNGRADE_CREDIT` (افتراضيًا `false`).
+- عند تفعيله: التخفيض من باقة لأرخص بيرجّع فرق السعر رصيدًا موجبة
+  (`type = 'subscription_credit'`) لمحفظة العميل + إشعار + ActivityLog
+  (`wallet.downgrade_credited`). Idempotent عبر نفس `idempotency_key`.
+- ⚠️ **قرار مالي**: قيمته الحالية `false` — تفعيله قرار لمالك المنصة
+  (فيه migration لازم تتشغّل الأول، شوف 5.4).
+
+### 5.2 تذكيرات تجديد متدرجة + إنذار Dunning أخير (SubscriptionLifecycleService)
+
+- تذكير مبكر 7 أيام قبل التجديد (`sendEarlyRenewalReminders`) متدرج مع
+  التذكير العادي 3 أيام، كل واحد بـ Dedup مستقل في `activity_logs`.
+- إنذار أخير (`sendDunningFinalNotices`) في آخر يومين من فترة السماح
+  للاشتراكات `past_due` — بيمنع الإلغاء الصامت (نمط Stripe Dunning).
+- `runLifecycleChecks()` راجع عدّادين إضافيين في نتيجته:
+  `early_renewal_reminders_sent`, `dunning_final_notices_sent`.
+
+### 5.3 الإيراد لكل ميزة (Usage Revenue Breakdown)
+
+- عمود `feature_key` جديد على `wallet_transactions` بيتعبى تلقائيًا من
+  `chargeForUsage()` (كانت الميزة بتختفي قبل كده).
+- دالة `WalletService::getUsageRevenueBreakdown($year, $month)` + endpoint
+  `GET /api/admin/wallet/usage-revenue` (BillingViewer).
+- الصفوف القديمة (feature_key = NULL) بتتجمع تحت `_legacy_unmapped`
+  عشان مفيش إيراد يضيع صامتًا.
+
+### 5.4 Migrations جديدة (تشغيلها مرة واحدة على قاعدة البيانات)
+
+- `2026_08_15_000052_add_subscription_credit_to_wallet_transactions_type.sql`
+  → إضافة `'subscription_credit'` لقيم `type` ENUM.
+- `2026_08_15_000053_add_feature_key_to_wallet_transactions.sql`
+  → عمود `feature_key` (اختياري، NULL للحركات القديمة).
+
+> ملاحظة: الـ migrations دي إضافية بالكامل (non-destructive) — مش بتحذف
+> ولا بتعدّل أي عمود/قيمة موجودة.
+
+---
+
+## 6) Phase 18 — التجديد التلقائي من الرصيد (2026-08-15)
+
+سد فجوة جوهرية مقابلة Stripe Billing: كانت الاشتراكات بتوصل
+`current_period_end` ومفيش أي كود بيحاول يخصم الرصيد تلقائيًا للتجديد
+— كان بتروح `past_due` حتى لو العميل عنده رصيد كافي.
+
+### 6.1 WalletService::renewSubscriptionFromBalance()
+
+- يخصم سعر الباقة من المحفظة، يمدّد `current_period_end` (شهر/سنة حسب
+  `billing_cycle`)، يعيد تصفير عدادات الاستخدام (`usage_*_count` + 
+  `last_usage_reset_at`)، ينشئ فاتورة `paid`، ويسجّل ActivityLog +
+  إشعار (`subscription_renewed`).
+- **Idempotent وآمن ضد التشغيل المزدوج**: `SELECT ... FOR UPDATE` على
+  صف الاشتراك نفسه جوه الـ transaction + إعادة فحص `current_period_end`
+  بعد القفل + `idempotency_key` فريدة (`renewal_{subId}_{periodEnd}`) —
+  أول عملية بس بتخصم، والباقي بيتجاهل.
+- بيرفض تجديد الاشتراكات اللي عليها `cancel_at_period_end = 1` (العميل
+  طلب الإلغاء صراحةً) وما بيبعتش إشعار "فشل دفع" (الـ Dunning اللي في
+  الـ Lifecycle هو اللي بيهتم بده).
+- متوافق مع `subscription_plans` الحقيقية (`plan_code`, `billing_cycle`,
+  `price`) — نفس مصدر السعر اللي بيستخدمه الاشتراك الجديد.
+
+### 6.2 SubscriptionLifecycleService
+
+- `attemptAutoRenewals()` — جديد: بيدوّر على الاشتراكات اللي
+  `status='active'` و`current_period_end <= NOW()`، وبينادي
+  `renewSubscriptionFromBalance()` لكل واحدة. كل عملية معزولة بـ
+  try/catch (فشل واحد ميمنعش الباقي). النتيجة فيها عدّادات:
+  `attempted / renewed / insufficient_balance / skipped / failed / errors`.
+- `transitionCancelledAtPeriodEnd()` — جديد: الاشتراك اللي عليه
+  `cancel_at_period_end = 1` والفترة خلصت بيروح `cancelled` مباشرة
+  (مش `past_due`) — بيتنفذ **قبل** `transitionExpiredActiveToPastDue`
+  عشان محدش ياخد صف مخصوصه.
+- `runLifecycleChecks()` راجع دلوقتي (بالترتيب): auto-renewals →
+  cancelled_at_period_end → past_due → trials → grace → التذكيرات.
+
+### 6.3 مفيش migrations جديدة
+
+كل الأعمدة المستخدمة (`current_period_start/end`, `cancel_at_period_end`,
+`usage_ai_analysis_count`, `usage_ai_message_count`, `usage_review_reply_count`,
+`last_usage_reset_at`) موجودة بالفعل في جدول `subscriptions` الحقيقي
+(متأكَّد منها من `Subscription::createSubscription`).
+
+> ⚠️ ملحوظة تشغيلية: لسه مفيش Cron حقيقي — التجديد التلقائي بيعمل
+> "كسول" لما الأدمن يفتح صفحة الاشتراكات أو يضغط
+> `/api/admin/subscriptions/run-lifecycle-checks`. لأداء حقيقي لازم
+> Job runner يستدعي الـ endpoint ده دوريًا (يوميًا على الأقل).
+
+---
+
+## 7) Phase 19 — سكريبت Cron للفوترة (2026-08-15)
+
+سد فجوة "مفيش Cron حقيقي": السكريبت `cron/run_billing_lifecycle.php`
+بيشغّل كل فحوصات الفوترة دوريًا من غير أي تدخل بشري - فالتجديد
+التلقائي من الرصيد بقى يشتغل فعلاً في ميعاده، مش "كسول" لما الأدمن
+يفتح الصفحة بالصدفة.
+
+### بيعمل إيه (بالترتيب)
+1. `SubscriptionLifecycleService::runLifecycleChecks()` → التجديد التلقائي
+   + انتقالات الحالة (cancelled_at_period_end / past_due / trials / grace)
+   + التذكيرات المتدرجة والإنذار الأخير.
+2. `InvoiceLifecycleService::runLifecycleChecks()` → وضع علامة الـ overdue
+   والـ refunded على الفواتير.
+
+### الإعداد في cPanel (Hostinger)
+```
+Cron Job: Once a day
+php /home/USERNAME/domains/YOURSITE.com/cron/run_billing_lifecycle.php >> /home/USERNAME/domains/YOURSITE.com/storage/logs/billing_lifecycle.log 2>&1
+```
+
+### لماذا مرة واحدة يوميًا؟
+التجديد فترة سماحه 7 أيام والإنذارات بتتدرج على أيام — مرة يوميًا
+كفاية تمامًا ومش بتضغط على الاستضافة المشتركة. Idempotent بالكامل:
+حتى لو اتنفّذ مرتين بالغلط، مفيش خصم مزدوج (قفل FOR UPDATE +
+`idempotency_key`).
+
+### ملحوظة
+السكريبت بيطبع تقرير موجز للـ log (كم تجديد نجح/فشل، انتقالات الحالة،
+تذكيرات) + سطر لكل خطأ تجديد لو حصل — عشان تتابع صحة الفوترة من ملف
+`storage/logs/billing_lifecycle.log`.
+
+### 7.1 SubscriptionPeriod helper + اختبار
+
+- `app/Services/Subscription/SubscriptionPeriod.php` — كلاس pure لحسابات
+  فترات الاشتراك (`nextPeriodEnd` + `renewalIdempotencyKey`) - كان
+  المنطق مكرر في `Subscription::createSubscription` و
+  `WalletService::renewSubscriptionFromBalance`، اتحوّل لمرجع واحد.
+- `tests/Unit/SubscriptionPeriodTest.php` — اختبار offline بـ 8 حالات
+  (تمديد شهري/سنوي، التثبيت على تاريخ الإدخال مش now()، السلوك المحافظ
+  للأنواع المجهولة، الـ fallback للتاريخ غير الصالح، صيغة/تفرد/استقرار
+  مفتاح الـ idempotency). بيشتغل مباشرة:
+  ```
+  php tests/Unit/SubscriptionPeriodTest.php
+  ```
+  النتيجة الحالية: 8/8 نجحت.
+
+---
+
+## 8) Phase 20 — واجهة الفوترة الاحترافية (2026-08-16)
+
+بعد ما الموديول كان API خالص، اتبنى **واجهة SPA ثابتة احترافية** تتوضع
+في `public/billing/` وتشتغل نفس-الأصل مع الـ PHP backend (session auth،
+مفيش CORS). ثيم **Dark OLED** بألوان بحرية احترافية + أخضر "مدفوع"،
+خطوط Fira Sans/Fira Code، ودعم كامل للعربية RTL.
+
+### الملفات
+- `public/billing/index.html` — صفحة العميل
+- `public/billing/admin.html` — لوحة الأدمن
+- `public/billing/assets/css/billing.css` — نظام التصميم (design tokens،
+  cards، tables، modals، toasts، skeleton loading، pricing cards،
+  responsive 375/768/1024/1440)
+- `public/billing/assets/js/icons.js` — مكتبة أيقونات SVG (نمط Lucide)
+- `public/billing/assets/js/api.js` — عميل API بنفس-الأصل + auto-fallback
+  لبيانات معاينة (mock) لما الخادم مش متاح — عشان المعاينة تشتغل من
+  غير backend. الـ dynamic routes (`/{id}`) بتشتغل في الوضعين.
+- `public/billing/assets/js/mock-data.js` — بيانات معاينة مطابقة لشكل
+  الـ API الحقيقي حرفيًا
+- `public/billing/assets/js/ui.js` — مكتبة UI مشتركة (toast، modal،
+  confirm dialogs، formatters، رسوم SVG خفيفة بدون أي مكتبات خارجية:
+  line/donut/bar)
+- `public/billing/assets/js/billing.js` — منطق صفحة العميل
+- `public/billing/assets/js/admin.js` — منطق لوحة الأدمن
+
+### صفحة العميل
+- **نظرة عامة**: بطاقة الباقة الحالية (الاسم/الحالة/نهاية الفترة) +
+  عدادات الاستخدام (AI/شات/مراجعات/منافسين) بشرائط تقدم تحذّر عند 70%/
+  90% + رصيد المحفظة
+- **الباقات**: 3 بطاقات أسعار مع toggle شهري/سنوي (وفّر 17%)، تمييز
+  "الأكثر اختيارًا"، زر ترقية/اشتراك، modal تأكيد بيحسب الفرق ويظهر
+  النقص لو الرصيد غير كافٍ (يعرض إيداع تكميلي تلقائيًا)
+- **المحفظة**: balance hero + بيانات الدفع (IBAN/PayPal/واتساب) + سجل
+  حركات (نوع/حالة/مبلغ موجّه/وقت) + إيداع جديد + استرداد بطاقة
+- **الفواتير**: جدول + عرض تفصيلي للفاتورة (items/الضريبة/الإجمالي)
+- **بيانات الفوترة**: نموذج save + شرح فائدة البيانات الضريبية
+
+### لوحة الأدمن
+- **مؤشرات**: 8 KPI (MRR/ARR/اشتراكات نشطة/إيداعات/رسوم استخدام/
+  إيداعات معلّقة/أرصدة العملاء/Churn) بأيقونات ملوّنة
+- **مخطط MRR**: line chart بـ range toggle (7/30/90 يوم)
+- **إيراد الاستخدام**: donut chart + legend ملونة حسب الميزة
+- **إيداعات قيد الانتظار**: اعتماد/رفض مع تأكيد
+- **الاشتراكات**: جدول + بحث فوري + إلغاء
+- **بطاقات الشحن**: توليد (count/value/batch) + جدول
+- **إعدادات الفوترة**: مفاتيح toggle (شحن تلقائي، استرداد بطاقات،
+  prorated downgrade credit) + حدود الإيداع
+- **تسعير الاستخدام**: جدول + تعديل الأسعار
+
+### اختبارات
+- فحص `node --check` على كل ملفات JS
+- اختبار DOM smoke (Node stub) للصفحتين — التحقق إن الـ render الفعلي
+  بيطلّع المحتوى الصح (الخطة، الرصيد، الرسوم البيانية)
+- اختبار resolution للـ dynamic routes في mock mode (approve/reject/
+  cancel/edit)
+- المعاينة تعمل: static server + mock fallback تلقائي، مع شارة
+  "وضع المعاينة" واضحة
+
+### النشر على السيرفر
+المجلد `public/billing/` كله يتنسخ جوه الـ web root الحالي. الواجهة
+بتتصل بـ `/api/...` نفس-الأصل، فلما تُرفع على السيرفر مع الـ backend
+بتقرأ البيانات الحقيقية تلقائيًا (مع أول فشل شبكة بس بتقع على
+المعاينة الافتراضية).

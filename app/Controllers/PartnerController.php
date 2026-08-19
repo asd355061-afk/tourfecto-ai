@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Partner Controller
  * نقطة انطلاق Partner API: نقاط وصول للقراءة فقط لشركاء خارجيين
@@ -13,14 +14,15 @@
  * @version 1.0.0
  */
 
-class PartnerController extends Controller {
-
+class PartnerController extends Controller
+{
     /**
      * فحص اتصال بسيط - أي مفتاح صالح (بدون أي scope خاص) يعدي منها.
      * مفيد للشريك عشان يتأكد إن المفتاح شغال قبل ما يكمل تكامل حقيقي.
      * GET /api/partner/ping
      */
-    public function ping(array $params = []): array {
+    public function ping(array $params = []): array
+    {
         $partner = $_SERVER['auth_partner'] ?? null;
 
         return $this->success([
@@ -37,7 +39,8 @@ class PartnerController extends Controller {
      *
      * GET /api/partner/websites/{website_id}/reputation-summary
      */
-    public function reputationSummary(array $params = []): array {
+    public function reputationSummary(array $params = []): array
+    {
         $websiteId = (int) ($params['website_id'] ?? 0);
         if ($websiteId <= 0) {
             return $this->error('Invalid website_id', 400);

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Plan Features
  * تعريف ميزات الباقات والصلاحيات
@@ -7,88 +8,96 @@
  * @copyright 2026 Tourfecto
  */
 
-class PlanFeature {
+class PlanFeature
+{
     /**
      * @var array $plans - خطط الاشتراك
      */
     private $plans = [];
-    
+
     /**
      * @var array $features - قائمة الميزات المتاحة
      */
     private $features = [];
-    
+
     /**
      * @var array $featureCategories - تصنيفات الميزات
      */
     private $featureCategories = [];
-    
+
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         $this->loadPlans();
         $this->loadFeatures();
         $this->loadCategories();
     }
-    
+
     /**
      * الحصول على جميع الباقات
      * @return array
      */
-    public function getAllPlans(): array {
+    public function getAllPlans(): array
+    {
         return $this->plans;
     }
-    
+
     /**
      * الحصول على باقة معينة
      * @param string $planName
      * @return array|null
      */
-    public function getPlan(string $planName): ?array {
+    public function getPlan(string $planName): ?array
+    {
         return $this->plans[$planName] ?? null;
     }
-    
+
     /**
      * الحصول على ميزات باقة معينة
      * @param string $planName
      * @return array
      */
-    public function getPlanFeatures(string $planName): array {
+    public function getPlanFeatures(string $planName): array
+    {
         $plan = $this->getPlan($planName);
         return $plan ? $plan['features'] : [];
     }
-    
+
     /**
      * التحقق من وجود ميزة في باقة
      * @param string $planName
      * @param string $feature
      * @return bool
      */
-    public function hasFeature(string $planName, string $feature): bool {
+    public function hasFeature(string $planName, string $feature): bool
+    {
         $features = $this->getPlanFeatures($planName);
         return isset($features[$feature]) && $features[$feature];
     }
-    
+
     /**
      * الحصول على قيمة ميزة
      * @param string $planName
      * @param string $feature
      * @return mixed
      */
-    public function getFeatureValue(string $planName, string $feature) {
+    public function getFeatureValue(string $planName, string $feature)
+    {
         $features = $this->getPlanFeatures($planName);
         return $features[$feature] ?? null;
     }
-    
+
     /**
      * مقارنة بين باقات
      * @param array $planNames
      * @return array
      */
-    public function comparePlans(array $planNames): array {
+    public function comparePlans(array $planNames): array
+    {
         $comparison = [];
-        
+
         foreach ($this->features as $featureKey => $feature) {
             $comparison[$featureKey] = [
                 'name' => $feature['name'],
@@ -96,7 +105,7 @@ class PlanFeature {
                 'category' => $feature['category'],
                 'plans' => []
             ];
-            
+
             foreach ($planNames as $planName) {
                 $plan = $this->getPlan($planName);
                 if ($plan) {
@@ -105,46 +114,50 @@ class PlanFeature {
                 }
             }
         }
-        
+
         return $comparison;
     }
-    
+
     /**
      * الحصول على ميزات حسب التصنيف
      * @param string $category
      * @return array
      */
-    public function getFeaturesByCategory(string $category): array {
+    public function getFeaturesByCategory(string $category): array
+    {
         $result = [];
-        
+
         foreach ($this->features as $key => $feature) {
             if ($feature['category'] === $category) {
                 $result[$key] = $feature;
             }
         }
-        
+
         return $result;
     }
-    
+
     /**
      * الحصول على جميع التصنيفات
      * @return array
      */
-    public function getCategories(): array {
+    public function getCategories(): array
+    {
         return $this->featureCategories;
     }
-    
+
     /**
      * تحميل خطط الاشتراك
      */
-    private function loadPlans(): void {
+    private function loadPlans(): void
+    {
         $this->plans = SUBSCRIPTION_PLANS;
     }
-    
+
     /**
      * تحميل قائمة الميزات
      */
-    private function loadFeatures(): void {
+    private function loadFeatures(): void
+    {
         $this->features = [
             'ai_analysis' => [
                 'name' => 'تحليل الذكاء الاصطناعي',
@@ -220,11 +233,12 @@ class PlanFeature {
             ]
         ];
     }
-    
+
     /**
      * تحميل تصنيفات الميزات
      */
-    private function loadCategories(): void {
+    private function loadCategories(): void
+    {
         $this->featureCategories = [
             'ai' => [
                 'name' => 'الذكاء الاصطناعي',
@@ -258,23 +272,24 @@ class PlanFeature {
             ]
         ];
     }
-    
+
     /**
      * الحصول على سعر الباقة
      * @param string $planName
      * @param string $type
      * @return float|null
      */
-    public function getPrice(string $planName, string $type = 'monthly'): ?float {
+    public function getPrice(string $planName, string $type = 'monthly'): ?float
+    {
         $plan = $this->getPlan($planName);
-        
+
         if (!$plan) {
             return null;
         }
-        
+
         return $type === 'yearly' ? $plan['price_yearly'] : $plan['price_monthly'];
     }
-    
+
     /**
      * الحصول على السعر المنسق
      * @param string $planName
@@ -282,34 +297,36 @@ class PlanFeature {
      * @param string $currency
      * @return string
      */
-    public function getFormattedPrice(string $planName, string $type = 'monthly', string $currency = 'USD'): string {
+    public function getFormattedPrice(string $planName, string $type = 'monthly', string $currency = 'USD'): string
+    {
         $price = $this->getPrice($planName, $type);
-        
+
         if ($price === null) {
             return 'N/A';
         }
-        
+
         $symbols = CURRENCY_SYMBOLS;
         $symbol = $symbols[$currency] ?? '$';
-        
+
         return $symbol . number_format($price, 2);
     }
-    
+
     /**
      * الحصول على توصية الباقة المناسبة
      * @param array $requirements
      * @return string
      */
-    public function recommendPlan(array $requirements): string {
+    public function recommendPlan(array $requirements): string
+    {
         $score = [
             'starter' => 0,
             'professional' => 0,
             'enterprise' => 0
         ];
-        
+
         foreach ($this->plans as $planName => $plan) {
             $features = $plan['features'];
-            
+
             foreach ($requirements as $feature => $required) {
                 if (isset($features[$feature])) {
                     if ($features[$feature] >= $required) {
@@ -320,9 +337,9 @@ class PlanFeature {
                 }
             }
         }
-        
+
         $bestPlan = array_search(max($score), $score);
-        
+
         return $bestPlan ?: 'starter';
     }
 }

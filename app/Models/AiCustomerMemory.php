@@ -1,10 +1,12 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * ذاكرة العميل طويلة المدى (بند 3). كل صف = حقيقة واحدة عن عميل معيّن.
  * @version 1.0.0
  */
-class AiCustomerMemory extends Model {
+class AiCustomerMemory extends Model
+{
     protected $table = 'ai_customer_memory';
     protected $fillable = [
         'website_id', 'customer_key', 'memory_key', 'memory_value',
@@ -18,7 +20,8 @@ class AiCustomerMemory extends Model {
      * @param string $customerKey
      * @return array
      */
-    public function memoryFor(int $websiteId, string $customerKey): array {
+    public function memoryFor(int $websiteId, string $customerKey): array
+    {
         $rows = $this->where(['website_id' => $websiteId, 'customer_key' => $customerKey]);
         $memory = [];
         foreach ($rows as $row) {
@@ -37,7 +40,8 @@ class AiCustomerMemory extends Model {
      * @param int|null $sourceConversationId
      * @return bool
      */
-    public function remember(int $websiteId, string $customerKey, string $memoryKey, string $memoryValue, ?int $sourceConversationId = null): bool {
+    public function remember(int $websiteId, string $customerKey, string $memoryKey, string $memoryValue, ?int $sourceConversationId = null): bool
+    {
         $existing = $this->where([
             'website_id' => $websiteId,
             'customer_key' => $customerKey,

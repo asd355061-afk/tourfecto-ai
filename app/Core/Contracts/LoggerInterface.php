@@ -1,9 +1,11 @@
 <?php
+
 /**
  * Tourfecto - Logger Contract (PSR-3 style)
  * @version 1.0.0
  */
-interface LoggerInterface {
+interface LoggerInterface
+{
     public function emergency(string $message, array $context = []): void;
     public function alert(string $message, array $context = []): void;
     public function critical(string $message, array $context = []): void;

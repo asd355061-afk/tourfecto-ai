@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Google Search Console Integration
  * @version 1.0.0
@@ -7,33 +8,40 @@
  * LinkedIn Marketing...). كل اللي محتاج تغيّره: الـ URLs الأربعة تحت
  * وactions جوه request().
  */
-class GoogleSearchConsoleIntegration extends BaseOAuthIntegration {
-
-    public function key(): string {
+class GoogleSearchConsoleIntegration extends BaseOAuthIntegration
+{
+    public function key(): string
+    {
         return 'google_search_console';
     }
 
-    public function isConfigured(): bool {
+    public function isConfigured(): bool
+    {
         return IntegrationManager::isConfigured('google_search_console');
     }
 
-    protected function authUrl(): string {
+    protected function authUrl(): string
+    {
         return 'https://accounts.google.com/o/oauth2/v2/auth';
     }
 
-    protected function tokenUrl(): string {
+    protected function tokenUrl(): string
+    {
         return 'https://oauth2.googleapis.com/token';
     }
 
-    protected function scope(): string {
+    protected function scope(): string
+    {
         return 'https://www.googleapis.com/auth/webmasters.readonly';
     }
 
-    protected function apiBaseUrl(): string {
+    protected function apiBaseUrl(): string
+    {
         return 'https://searchconsole.googleapis.com/webmasters/v3';
     }
 
-    public function request(string $action, array $params = [], array $context = []): array {
+    public function request(string $action, array $params = [], array $context = []): array
+    {
         switch ($action) {
             case 'list_sites':
                 return $this->authorizedRequest('GET', '/sites', $context);

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Billing Viewer Middleware
  * صلاحية "اطّلاع فقط" على الفوترة - لموظفي الدعم/المبيعات اللي محتاجين
@@ -13,10 +14,12 @@
  * @version 1.0.0
  * @date 2026-08-10
  */
-class BillingViewerMiddleware {
+class BillingViewerMiddleware
+{
     private const ALLOWED_ROLES = ['super_admin', 'admin', 'manager', 'agent'];
 
-    public function handle(): ?array {
+    public function handle(): ?array
+    {
         $user = $_SESSION['user'] ?? ($_SERVER['auth_user'] ?? null);
 
         if (!$user) {

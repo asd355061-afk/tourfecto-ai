@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - User Controller
  * الملف الشخصي وإعدادات المستخدم
@@ -8,12 +9,13 @@
  * الموجود فعليًا في app/Models/User.php.
  */
 
-class UserController extends Controller {
-
+class UserController extends Controller
+{
     /**
      * الحصول على المستخدم الحالي من الجلسة، ويُرجع null إن لم يكن مسجل دخول
      */
-    private function currentUser(): ?User {
+    private function currentUser(): ?User
+    {
         $id = $_SESSION['user_id'] ?? null;
         if (!$id) {
             return null;
@@ -25,13 +27,15 @@ class UserController extends Controller {
     /**
      * هل الطلب الحالي API (JSON) ولا صفحة ويب عادية؟
      */
-    private function isApiRequest(): bool {
+    private function isApiRequest(): bool
+    {
         $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
         return strpos($path, '/api/') === 0;
     }
 
     /** GET /profile و GET /api/user/profile */
-    public function showProfile(array $params = []): array {
+    public function showProfile(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             if ($this->isApiRequest()) {
@@ -53,7 +57,8 @@ class UserController extends Controller {
         exit;
     }
 
-    private function renderProfilePage(User $user): void {
+    private function renderProfilePage(User $user): void
+    {
         $data = $user->toArray();
         $firstName = htmlspecialchars((string) ($data['first_name'] ?? ''), ENT_QUOTES, 'UTF-8');
         $lastName = htmlspecialchars((string) ($data['last_name'] ?? ''), ENT_QUOTES, 'UTF-8');
@@ -145,7 +150,8 @@ JS;
         echo $this->renderPanelPage('_profile', 'الملف الشخصي', 'بيانات حسابك', $body, $script);
     }
 
-    public function profile(array $params = []): array {
+    public function profile(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -154,7 +160,8 @@ JS;
     }
 
     /** GET /profile/edit -> نفس صفحة /profile (الفورم متضمّن فيها بالفعل) */
-    public function showEditProfile(array $params = []): array {
+    public function showEditProfile(array $params = []): array
+    {
         if ($this->isApiRequest()) {
             return $this->profile($params);
         }
@@ -163,10 +170,14 @@ JS;
     }
 
     /** POST /profile/update و PUT /api/user/profile */
-    public function updateProfile(array $params = []): array {
+    public function updateProfile(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         // Server-side validation (لا نعتمد على Client Validation وحدها -
@@ -234,7 +245,8 @@ JS;
     }
 
     /** PUT /api/user/password */
-    public function updatePassword(array $params = []): array {
+    public function updatePassword(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -256,13 +268,22 @@ JS;
             return $this->error('تعذر تحديث كلمة المرور', 500);
         }
 
-        AuditLog::record((int) $user->getAttribute('id'), 'password_changed');
+        // أمان: بعد تغيير كلمة المرور بنسجّل خروج من كل الأجهزة التانية
+        // فورًا (نحتفظ بالجهاز الحالي بس) - نفس سلوك GitHub/Stripe. أي
+        // جلسة مسروقة/قديمة بكلمة مرور قديمة متبقاش صالحة. الاستثناء:
+        // لو مفيش refresh token حالي معروف (جلسات قديمة بدون JWT) بنخلي
+        // الوظيفة تسجّل خروج من كل الأجهزة عشان أقوى أمان.
+        $currentRefreshTokenId = $_SESSION['current_refresh_token_id'] ?? null;
+        RefreshToken::revokeAllForUserExcept((int) $user->getAttribute('id'), $currentRefreshTokenId);
 
-        return $this->success([], 'تم تحديث كلمة المرور بنجاح');
+        AuditLog::record((int) $user->getAttribute('id'), 'password_changed', 'success', null, null, ['other_sessions_revoked' => true]);
+
+        return $this->success([], 'تم تحديث كلمة المرور بنجاح - تم تسجيل الخروج من جميع الأجهزة الأخرى');
     }
 
     /** GET /profile/settings و GET /api/user/settings */
-    public function showSettings(array $params = []): array {
+    public function showSettings(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             if ($this->isApiRequest()) {
@@ -280,7 +301,8 @@ JS;
         exit;
     }
 
-    private function renderSettingsPage(User $user): void {
+    private function renderSettingsPage(User $user): void
+    {
         $data = $user->toArray();
 
         // Connected Accounts (Profile Center Phase 2): بيانات حقيقية من
@@ -478,6 +500,12 @@ JS;
         $tTabSecurity = $this->tr('settings.tab.security');
         $tTabNotifications = $this->tr('settings.tab.notifications');
         $tTabApi = $this->tr('settings.tab.api');
+        $tTabIntegrations = $this->tr('settings.tab.integrations');
+        $tTabsAriaLabel = $this->tr('settings.tabs_aria_label');
+        $tIntegrationsTitle = $this->tr('settings.integrations_title');
+        $tIntegrationsDesc = $this->tr('settings.integrations_desc');
+        $tIntegrationsListHint = $this->tr('settings.integrations_list_hint');
+        $tIntegrationsManageBtn = $this->tr('settings.integrations_manage_btn');
         $tTabBilling = $this->tr('settings.tab.billing');
         $tTabAudit = $this->tr('settings.tab.audit');
         $tTabWorkspace = $this->tr('settings.tab.workspace');
@@ -546,6 +574,12 @@ JS;
         $tSavedRecoveryCodes = $this->tr('settings.tfa_saved_codes');
         $tTwoFactorEnabledLabel = $this->tr('settings.tfa_enabled_label');
         $tConfirmPasswordFor2FA = $this->tr('settings.tfa_confirm_password');
+        $tRegenerateRecoveryCodes = $this->tr('settings.regenerate_recovery_codes');
+        $tRegenRecoveryHint = $this->tr('settings.recovery_codes_hint');
+        $tRegenRecoveryConfirm = $this->trJs('settings.js.regenerate_recovery_confirm');
+        $tRegenRecoveryDone = $this->trJs('settings.js.recovery_codes_regenerated');
+        $tRegenRecoveryFailed = $this->trJs('settings.js.recovery_codes_failed');
+        $tRecoveryNeedTotp = $this->trJs('settings.js.recovery_need_totp');
         $t2FANotConfiguredHint = $this->tr('settings.2fa_not_configured_hint');
         $tSessionsTitle = $this->tr('settings.sessions_title');
         $tSessionsHint = $this->tr('settings.sessions_hint');
@@ -571,6 +605,9 @@ JS;
         $tPersonalKeysDesc = $this->tr('settings.personal_keys_desc');
         $tKeyNamePlaceholder = $this->tr('settings.key_name_placeholder');
         $tCreateKey = $this->tr('settings.create_key');
+        $tKeyExpiryDaysPlaceholder = $this->tr('settings.key_expiry_days_placeholder');
+        $tKeyExpiryLabel = $this->tr('settings.key_expiry_label');
+        $tKeyExpiresNever = $this->tr('settings.key_expires_never');
         $tKeysLoading = $this->tr('settings.keys_loading');
         $tKeysEmpty = $this->trJs('settings.keys_empty');
         $tRevoke = $this->trJs('settings.revoke');
@@ -595,6 +632,12 @@ JS;
         $tAuditColObject = $this->tr('settings.audit_col_object');
         $tAuditColTime = $this->tr('settings.audit_col_time');
         $tAuditColResult = $this->tr('settings.audit_col_result');
+        $tAuditAllResults = $this->tr('settings.audit_all_results');
+        $tAuditResultSuccess = $this->tr('settings.audit_result_success');
+        $tAuditResultFailed = $this->tr('settings.audit_result_failed');
+        $tAuditActionPlaceholder = $this->tr('settings.audit_action_placeholder');
+        $tAuditExportBtn = $this->tr('settings.audit_export_btn');
+        $tAuditExportFailed = $this->trJs('settings.js.audit_export_failed');
         $tAuditEmpty = $this->trJs('settings.audit_empty');
         $tAuditPrev = $this->tr('settings.audit_prev');
         $tAuditNext = $this->tr('settings.audit_next');
@@ -631,12 +674,29 @@ JS;
         $tLeaveWorkspaceWarning = $this->tr('settings.leave_workspace_warning');
         $tLeaveWorkspaceBtn = $this->tr('settings.leave_workspace_btn');
 
+        // Phase 12 (Scoped CSRF): التوكن اللي بيتبعت مع كل طلب JSON من
+        // أي تاب في الصفحة - بيتبني فوق كائن Csrf الموجود بالفعل.
+        $csrfToken = class_exists('Csrf') ? Csrf::token() : '';
+
         $body = <<<HTML
+        <script>window.TF_CSRF_TOKEN = "{$csrfToken}";</script>
+        <style>
+            /* Phase 14: تحويل تابات الإعدادات لـ Dropdown على الموبايل.
+               مقصود إنها مربوطة بـ #settingsTabs/#settingsTabsMobile
+               بالتحديد، مش .p-tabs/.p-tab العامة - الكلاسات دي مستخدمة
+               في صفحات تانية ومش عايزين نغيّر سلوكها الافتراضي هناك. */
+            #settingsTabsMobile { display: none; }
+            @media (max-width: 640px) {
+                #settingsTabs { display: none; }
+                #settingsTabsMobile { display: block; width: 100%; margin-bottom: 14px; }
+            }
+        </style>
         <div class="p-tabs" id="settingsTabs">
             <button class="p-tab active" data-section="profile">👤 {$tTabProfile}</button>
             <button class="p-tab" data-section="security">🔒 {$tTabSecurity}</button>
             <button class="p-tab" data-section="notifications">🔔 {$tTabNotifications}</button>
             <button class="p-tab" data-section="api">🔑 {$tTabApi}</button>
+            <button class="p-tab" data-section="integrations">🔌 {$tTabIntegrations}</button>
             <button class="p-tab" data-section="billing">💳 {$tTabBilling}</button>
             <button class="p-tab" data-section="audit">📜 {$tTabAudit}</button>
             <button class="p-tab" data-section="workspace">🏢 {$tTabWorkspace}</button>
@@ -646,6 +706,22 @@ JS;
             <button class="p-tab" data-section="activity">📋 {$tTabActivity}</button>
             <button class="p-tab" data-section="permissions">🛡️ {$tTabPermissions}</button>
         </div>
+
+        <select id="settingsTabsMobile" aria-label="{$tTabsAriaLabel}">
+            <option value="profile">👤 {$tTabProfile}</option>
+            <option value="security">🔒 {$tTabSecurity}</option>
+            <option value="notifications">🔔 {$tTabNotifications}</option>
+            <option value="api">🔑 {$tTabApi}</option>
+            <option value="integrations">🔌 {$tTabIntegrations}</option>
+            <option value="billing">💳 {$tTabBilling}</option>
+            <option value="audit">📜 {$tTabAudit}</option>
+            <option value="workspace">🏢 {$tTabWorkspace}</option>
+            <option value="team">👥 {$tTabTeam}</option>
+            <option value="general">🌐 {$tTabGeneral}</option>
+            <option value="connected">🔗 {$tTabConnected}</option>
+            <option value="activity">📋 {$tTabActivity}</option>
+            <option value="permissions">🛡️ {$tTabPermissions}</option>
+        </select>
 
         <!-- الملف الشخصي -->
         <div class="settings-section" id="section_profile">
@@ -805,6 +881,20 @@ JS;
                         <input type="password" id="tfaDisablePassword" class="form-control">
                     </div>
                     <button type="button" class="p-btn danger" onclick="disableTwoFactor()">{$tDisableTwoFactor}</button>
+
+                    <hr style="border:none;border-top:1px solid var(--panel-border,#2a2a3a);margin:18px 0;">
+                    <h4 style="margin:0 0 6px;">{$tRegenerateRecoveryCodes}</h4>
+                    <p class="p-cell-muted" style="font-size:12.5px;">{$tRegenRecoveryHint}</p>
+                    <div class="form-group" style="max-width:320px;margin-top:12px;">
+                        <label class="form-label" for="regenRecoveryPassword">{$tConfirmPasswordFor2FA}</label>
+                        <input type="password" id="regenRecoveryPassword" class="form-control" autocomplete="current-password">
+                    </div>
+                    <div class="form-group" style="max-width:320px;">
+                        <label class="form-label" for="regenRecoveryCode">{$tConfirmCodeLabel}</label>
+                        <input type="text" id="regenRecoveryCode" class="form-control" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+                    </div>
+                    <button type="button" class="p-btn outline" onclick="regenerateRecoveryCodes()">{$tRegenerateRecoveryCodes}</button>
+                    <div id="regenRecoveryCodesBox" style="display:none;background:#f7f7fb;padding:14px;border-radius:8px;font-family:monospace;direction:ltr;text-align:left;line-height:1.8;margin-top:12px;"></div>
                 </div>
             </div>
 
@@ -862,10 +952,12 @@ JS;
                 <div class="p-card-head"><h3>{$tPersonalKeysTitle}</h3></div>
                 <p class="p-cell-muted">{$tPersonalKeysDesc}</p>
 
-                <div style="display:flex;gap:10px;margin:14px 0;">
-                    <input type="text" id="newKeyName" class="form-control" placeholder="{$tKeyNamePlaceholder}" maxlength="120" style="flex:1;">
+                <div style="display:flex;gap:10px;margin:14px 0;flex-wrap:wrap;">
+                    <input type="text" id="newKeyName" class="form-control" placeholder="{$tKeyNamePlaceholder}" maxlength="120" style="flex:1;min-width:180px;">
+                    <input type="number" id="newKeyExpiry" class="form-control" placeholder="{$tKeyExpiryDaysPlaceholder}" min="1" max="365" style="width:150px;">
                     <button type="button" class="p-btn primary" id="createKeyBtn">{$tCreateKey}</button>
                 </div>
+                <p class="p-cell-muted" style="font-size:12px;margin:-4px 0 0;">{$tKeyExpiryLabel}: <span style="color:var(--panel-text-muted,#888)">{$tKeyExpiresNever}</span></p>
                 <p class="field-error" id="err_key_name" role="alert"></p>
                 <div id="newKeyRevealBox" style="display:none;background:#1e1e2e;padding:14px;border-radius:8px;margin-bottom:14px;">
                     <p class="p-cell-muted" style="font-size:12.5px;margin-bottom:8px;">⚠️ {$tRegenerateWarning}</p>
@@ -873,6 +965,18 @@ JS;
                 </div>
 
                 <div id="apiKeysList">{$tKeysLoading}</div>
+            </div>
+        </div>
+
+        <!-- التكاملات (Phase 13) - مؤشر لصفحة /integrations الحقيقية -->
+        <div class="settings-section" id="section_integrations" style="display:none;">
+            <div class="p-card">
+                <div class="p-card-head"><h3>🔌 {$tIntegrationsTitle}</h3></div>
+                <p class="p-cell-muted">{$tIntegrationsDesc}</p>
+                <div class="p-cell-muted" style="font-size:12.5px;margin:10px 0 16px;padding:12px;background:var(--panel-bg,#151521);border-radius:8px;">
+                    💡 {$tIntegrationsListHint}
+                </div>
+                <a href="/integrations" class="p-btn primary">{$tIntegrationsManageBtn}</a>
             </div>
         </div>
 
@@ -912,7 +1016,20 @@ JS;
                         <label class="form-label" for="auditTo">{$tAuditTo}</label>
                         <input type="date" id="auditTo" class="form-control">
                     </div>
+                    <div class="form-group" style="margin:0;">
+                        <label class="form-label" for="auditResult">{$tAuditColResult}</label>
+                        <select id="auditResult" class="form-control">
+                            <option value="">{$tAuditAllResults}</option>
+                            <option value="success">{$tAuditResultSuccess}</option>
+                            <option value="failed">{$tAuditResultFailed}</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label class="form-label" for="auditAction">{$tAuditColAction}</label>
+                        <input type="text" id="auditAction" class="form-control" placeholder="{$tAuditActionPlaceholder}">
+                    </div>
                     <button type="button" class="p-btn outline" id="auditFilterBtn">{$tAuditFilterBtn}</button>
+                    <button type="button" class="p-btn outline" id="auditExportBtn">⬇ {$tAuditExportBtn}</button>
                 </div>
 
                 <div style="overflow-x:auto;">
@@ -1252,17 +1369,57 @@ HTML;
         $script = <<<JS
 (function () {
     const P = window.Panel;
-    const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast;
+    const esc = P.esc, toast = P.toast;
+    const rawFetchJSON = P.fetchJSON;
 
-    // ============ التابات ============
-    document.querySelectorAll('#settingsTabs .p-tab').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('#settingsTabs .p-tab').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            const section = btn.dataset.section;
-            document.querySelectorAll('.settings-section').forEach(s => s.style.display = 'none');
-            document.getElementById('section_' + section).style.display = 'block';
+    // Phase 12: نحقن csrf_token تلقائيًا في أي نداء بجسم JSON (POST/PUT/
+    // DELETE) - بنستبدل fetchJSON المحلية بغلاف بسيط حواليها، عشان كل
+    // نداء fetchJSON(...) موجود بالفعل في الملف ده كله (عشرات النداءات)
+    // ياخد الحماية دي تلقائيًا من غير ما نلمس ولا نداء منهم بنفسه.
+    // مبنيّة فوق window.TF_CSRF_TOKEN المحقون فوق في الصفحة.
+    // عملاء Bearer token (Authorization header) مش محتاجين التوكن ده.
+    async function fetchJSON(url, options = {}) {
+        const method = (options.method || 'GET').toUpperCase();
+        if (method !== 'GET' && typeof options.body === 'string') {
+            try {
+                const bodyObj = JSON.parse(options.body);
+                bodyObj.csrf_token = window.TF_CSRF_TOKEN || '';
+                options = Object.assign({}, options, { body: JSON.stringify(bodyObj) });
+            } catch (e) {
+                // جسم الطلب مش JSON (مثلًا FormData لرفع صورة) - نسيبه زي
+                // ما هو، أماكن الرفع بتضيف csrf_token بنفسها لو محتاجة.
+            }
+        } else if (method !== 'GET' && !options.body) {
+            // نداءات POST من غير جسم (زي 2fa/setup) - نضيف جسم بسيط فيه التوكن.
+            options = Object.assign({}, options, {
+                headers: Object.assign({ 'Content-Type': 'application/json' }, options.headers || {}),
+                body: JSON.stringify({ csrf_token: window.TF_CSRF_TOKEN || '' }),
+            });
+        } else if (method !== 'GET' && typeof FormData !== 'undefined' && options.body instanceof FormData) {
+            options.body.append('csrf_token', window.TF_CSRF_TOKEN || '');
+        }
+        return rawFetchJSON(url, options);
+    }
+
+    // ============ التابات (ديسكتوب + Dropdown الموبايل - Phase 14) ============
+    const settingsSections = ['profile', 'security', 'notifications', 'api', 'integrations', 'billing', 'audit', 'workspace', 'team', 'general', 'connected', 'activity', 'permissions'];
+    function switchSettingsTab(section) {
+        if (settingsSections.indexOf(section) === -1) {
+            section = 'profile';
+        }
+        document.querySelectorAll('#settingsTabs .p-tab').forEach(b => {
+            b.classList.toggle('active', b.dataset.section === section);
         });
+        document.getElementById('settingsTabsMobile').value = section;
+        document.querySelectorAll('.settings-section').forEach(s => {
+            s.style.display = (s.id === 'section_' + section) ? 'block' : 'none';
+        });
+    }
+    document.querySelectorAll('#settingsTabs .p-tab').forEach(btn => {
+        btn.addEventListener('click', () => switchSettingsTab(btn.dataset.section));
+    });
+    document.getElementById('settingsTabsMobile').addEventListener('change', function () {
+        switchSettingsTab(this.value);
     });
 
     // Connected Accounts (Profile Center Phase 2): توست بعد الرجوع من
@@ -1452,6 +1609,33 @@ HTML;
         toast({$tTfaDisabledToast}, 'success');
     };
 
+    window.regenerateRecoveryCodes = async function () {
+        if (!confirm({$tRegenRecoveryConfirm})) return;
+
+        const password = document.getElementById('regenRecoveryPassword').value;
+        const code = document.getElementById('regenRecoveryCode').value;
+        if (!password || !code) {
+            toast({$tRecoveryNeedTotp}, 'error');
+            return;
+        }
+
+        const res = await fetchJSON('/api/user/2fa/recovery-codes/regenerate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: password, code: code }),
+        });
+        if (!res.success) {
+            toast(res.error || {$tRegenRecoveryFailed}, 'error');
+            return;
+        }
+        const box = document.getElementById('regenRecoveryCodesBox');
+        box.innerHTML = res.data.recovery_codes.map(c => '<div>' + c + '</div>').join('');
+        box.style.display = 'block';
+        document.getElementById('regenRecoveryPassword').value = '';
+        document.getElementById('regenRecoveryCode').value = '';
+        toast({$tRegenRecoveryDone}, 'success');
+    };
+
     window.disconnectOAuth = async function (provider) {
         if (!confirm({$tDisconnectConfirm})) return;
         const res = await fetchJSON('/api/user/oauth/' + encodeURIComponent(provider), { method: 'DELETE' });
@@ -1576,6 +1760,7 @@ HTML;
             list.innerHTML = '<p class="p-cell-muted">' + esc({$tKeysEmpty}) + '</p>';
             return;
         }
+        const expiresLabel = esc({$tKeyExpiresNever});
         list.innerHTML = keys.map(k => `
             <div class="p-kv" style="align-items:center;">
                 <span class="k">
@@ -1583,6 +1768,7 @@ HTML;
                     \${k.revoked ? '<span class="p-badge status-suspended" style="margin-inline-start:8px;">' + esc({$tRevoked}) + '</span>' : ''}
                     <br><span class="p-cell-muted" style="font-size:12px;direction:ltr;display:inline-block;">\${escapeHtml(k.key_prefix)}••••••••</span>
                     <span class="p-cell-muted" style="font-size:12px;"> · \${escapeHtml(k.last_used_at || esc({$tNeverUsed}))}</span>
+                    <span class="p-cell-muted" style="font-size:12px;"> · \${k.expires_at ? esc({$tKeyExpiryLabel}) + ' ' + escapeHtml(k.expires_at) : expiresLabel}</span>
                 </span>
                 <span class="v">
                     \${k.revoked ? '' : `<button type="button" class="p-btn outline xs" data-revoke-key="\${k.id}">\${esc({$tRevoke})}</button>`}
@@ -1614,10 +1800,12 @@ HTML;
         btn.disabled = true;
         let res;
         try {
+            const expiryInput = document.getElementById('newKeyExpiry');
+            const expiryDays = expiryInput && expiryInput.value ? parseInt(expiryInput.value, 10) : 0;
             res = await fetchJSON('/api/user/api-keys', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: nameInput.value.trim() }),
+                body: JSON.stringify({ name: nameInput.value.trim(), expires_in_days: expiryDays > 0 ? expiryDays : 0 }),
             });
         } finally {
             btn.disabled = false;
@@ -1768,6 +1956,8 @@ HTML;
             search: document.getElementById('auditSearch').value.trim(),
             from: document.getElementById('auditFrom').value,
             to: document.getElementById('auditTo').value,
+            result: document.getElementById('auditResult').value,
+            action: document.getElementById('auditAction').value.trim(),
         });
 
         const res = await fetchJSON('/api/user/audit-log?' + qs.toString());
@@ -1802,6 +1992,36 @@ HTML;
     document.getElementById('auditFilterBtn').addEventListener('click', () => { auditPage = 1; loadAuditLog(); });
     document.getElementById('auditPrevBtn').addEventListener('click', () => { if (auditPage > 1) { auditPage--; loadAuditLog(); } });
     document.getElementById('auditNextBtn').addEventListener('click', () => { if (auditHasNext) { auditPage++; loadAuditLog(); } });
+
+    document.getElementById('auditExportBtn').addEventListener('click', async function () {
+        const btn = this;
+        btn.disabled = true;
+        try {
+            const qs = new URLSearchParams({
+                search: document.getElementById('auditSearch').value.trim(),
+                from: document.getElementById('auditFrom').value,
+                to: document.getElementById('auditTo').value,
+                result: document.getElementById('auditResult').value,
+                action: document.getElementById('auditAction').value.trim(),
+            });
+            const res = await fetchJSON('/api/user/audit-log/export?' + qs.toString());
+            if (!res.success || !res.data || !res.data.csv) {
+                toast({$tAuditExportFailed}, 'error');
+                return;
+            }
+            const blob = new Blob(['\uFEFF' + res.data.csv], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = res.data.filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        } finally {
+            btn.disabled = false;
+        }
+    });
 
     // ============ الـ Workspace ============
     let wsIsOwner = true;
@@ -2216,7 +2436,8 @@ JS;
     }
 
     /** يبني HTML الصورة الشخصية الحالية (صورة حقيقية لو موجودة، وإلا حرف أول الاسم) */
-    private function avatarInnerHtml(string $avatarUrl, string $initials): string {
+    private function avatarInnerHtml(string $avatarUrl, string $initials): string
+    {
         if ($avatarUrl !== '') {
             return '<img src="' . $avatarUrl . '" alt="الصورة الشخصية" style="width:100%;height:100%;object-fit:cover;">';
         }
@@ -2224,7 +2445,8 @@ JS;
     }
 
     /** POST /api/user/avatar - رفع/تغيير الصورة الشخصية */
-    public function uploadAvatar(array $params = []): array {
+    public function uploadAvatar(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2250,11 +2472,13 @@ JS;
     }
 
     /** يرجّع ' selected' لو القيمتين متطابقتين، مفيدة لبناء HTML بسيط */
-    private function selected(string $current, string $option): string {
+    private function selected(string $current, string $option): string
+    {
         return $current === $option ? ' selected' : '';
     }
 
-    private static function isoCountries(): array {
+    private static function isoCountries(): array
+    {
         static $countries = null;
         if ($countries !== null) {
             return $countries;
@@ -2312,7 +2536,8 @@ JS;
      * أو تتقاطع مع عملة الفوترة/الاشتراك في subscriptions/invoices.
      * @return array<string,string>
      */
-    private static function isoCurrencies(): array {
+    private static function isoCurrencies(): array
+    {
         return [
             'USD' => 'US Dollar', 'EUR' => 'Euro', 'GBP' => 'British Pound', 'EGP' => 'Egyptian Pound',
             'SAR' => 'Saudi Riyal', 'AED' => 'UAE Dirham', 'QAR' => 'Qatari Riyal', 'KWD' => 'Kuwaiti Dinar',
@@ -2338,12 +2563,14 @@ JS;
      * لأنها بتستخدم identifier حقيقي (زي Africa/Cairo) مش UTC+2 ثابت.
      * @return string[]
      */
-    private static function ianaTimezones(): array {
+    private static function ianaTimezones(): array
+    {
         return \DateTimeZone::listIdentifiers(\DateTimeZone::ALL);
     }
 
 
-    public function getSettings(array $params = []): array {
+    public function getSettings(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2355,7 +2582,8 @@ JS;
     }
 
     /** POST /profile/settings و PUT /api/user/settings */
-    public function updateSettings(array $params = []): array {
+    public function updateSettings(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2391,7 +2619,8 @@ JS;
      * Token مخزّن في oauth_accounts أصلاً، فمفيش حاجة حساسة نحذفها غير
      * الربط نفسه.
      */
-    public function disconnectOAuth(array $params = []): array {
+    public function disconnectOAuth(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2416,10 +2645,14 @@ JS;
      * ده بيمنع حالة إن مستخدم يولّد secret وينساه من غير ما يفعّل 2FA
      * فعليًا، ومحدش يقدر يقفل حسابه بالغلط.
      */
-    public function setupTwoFactor(array $params = []): array {
+    public function setupTwoFactor(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         $secret = AuthController::generateTotpSecret();
@@ -2443,10 +2676,14 @@ JS;
      * قبل ما نفعّل 2FA فعليًا على تسجيل الدخول. بعد كده بنولّد Recovery
      * Codes وبنعرضهم مرة واحدة بس (نص عادي) - بعدها بيتخزنوا مُشفّرين فقط.
      */
-    public function enableTwoFactor(array $params = []): array {
+    public function enableTwoFactor(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         $secret = (string) $user->getAttribute('two_factor_secret');
@@ -2478,10 +2715,14 @@ JS;
     }
 
     /** POST /api/user/2fa/disable - لازم كلمة المرور، مش بس زرار */
-    public function disableTwoFactor(array $params = []): array {
+    public function disableTwoFactor(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         if (!$this->validate(['password' => 'required'])) {
@@ -2504,13 +2745,79 @@ JS;
     }
 
     /**
+     * POST /api/user/2fa/recovery-codes/regenerate
+     *
+     * إعادة توليد أكواد الطوارئ (Recovery Codes) مع إبطال الدفعة القديمة
+     * بالكامل - نفس سلوك GitHub/Stripe. ليه حد يطلبها؟ لو المستخدم شك إن
+     * الأكواد القديمة اتكشفت (جهاز مسروق/مخترق مثلًا) أو فقدها، يعمل
+     * توليد جديد يحل محل القديم فورًا فلا تصلح أكواد قديمة تاني.
+     *
+     * المتطلبات (أقوى من مجرد زر): كلمة المرور الحالية + كود TOTP صالح
+     * (أو Recovery Code قديم صالح - عشان لو فقد التطبيق نفسه برضه يقدر
+     * يسترجع). من غير كده أي شخص عنده جلسة مسروقة يقدر يبطل أكواد
+     * طوارئ صاحبها وياخد أكواد جديدة بدلها.
+     */
+    public function regenerateRecoveryCodes(array $params = []): array {
+        $user = $this->currentUser();
+        if (!$user) {
+            return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
+        }
+
+        if (!(bool) $user->getAttribute('two_factor_enabled')) {
+            return $this->error('التحقق بخطوتين غير مُفعّل أصلًا', 422);
+        }
+
+        if (!$this->validate(['password' => 'required'])) {
+            return $this->error('يجب إدخال كلمة المرور', 422, $this->getErrors());
+        }
+        if (!$user->verifyPassword((string) $this->get('password'))) {
+            AuditLog::record((int) $user->getAttribute('id'), 'recovery_codes_regenerate_failed', 'failed');
+            return $this->error('كلمة المرور غير صحيحة', 401);
+        }
+
+        // تحقق ثانٍ بكود TOTP صالح أو Recovery Code قديم صالح (بدل ما
+        // نعتمد على كلمة المرور لوحدها).
+        $verified = false;
+        $secret = (string) $user->getAttribute('two_factor_secret');
+        if ($secret !== '' && AuthController::verifyTotpCode($secret, (string) $this->get('code', ''))) {
+            $verified = true;
+        } else {
+            $oldJson = $user->getAttribute('two_factor_recovery_codes');
+            $oldCodes = $oldJson ? (json_decode((string) $oldJson, true) ?: []) : [];
+            if (TotpService::verifyRecoveryCode($oldCodes, (string) $this->get('code', '')) !== null) {
+                $verified = true;
+            }
+        }
+        if (!$verified) {
+            AuditLog::record((int) $user->getAttribute('id'), 'recovery_codes_regenerate_failed', 'failed');
+            return $this->error('كود التحقق غير صحيح - أدخل كود التطبيق أو أحد أكواد الطوارئ القديمة', 401);
+        }
+
+        $newCodes = AuthController::generateRecoveryCodes();
+        $hashed = array_map(static fn ($code) => password_hash($code, PASSWORD_DEFAULT), $newCodes);
+
+        $user->setAttribute('two_factor_recovery_codes', json_encode($hashed));
+        if ($user->save() === false) {
+            return $this->error('تعذر توليد أكواد طوارئ جديدة', 500);
+        }
+
+        AuditLog::record((int) $user->getAttribute('id'), 'recovery_codes_regenerated', 'success', 'two_factor', null, ['count' => count($newCodes)]);
+
+        return $this->success(['recovery_codes' => $newCodes], 'تم توليد أكواد طوارئ جديدة - الأكواد القديمة أُبطلت نهائيًا');
+    }
+
+    /**
      * POST /api/user/data-export
      * Profile Center Phase 9: طلب تصدير بيانات الحساب (Profile + Login
      * History + Connected Accounts + Sessions metadata - مش كل بيانات
      * العمل زي المواقع/الاشتراكات/CRM). بيتنفّذ Async عن طريق الـQueue
      * الموجود بالفعل، مش هنا مباشرة.
      */
-    public function requestDataExport(array $params = []): array {
+    public function requestDataExport(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2550,7 +2857,8 @@ JS;
     }
 
     /** GET /api/user/data-export - طلبات المستخدم الحالي فقط */
-    public function listDataExports(array $params = []): array {
+    public function listDataExports(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2571,7 +2879,8 @@ JS;
      * public_html في TOURFECTO_STORAGE). لازم يتحقق من ملكية الطلب
      * وإن حالته "ready" وإنه لسه ما انتهتش صلاحيته قبل ما يسمح بالتحميل.
      */
-    public function downloadDataExport(array $params = []): array {
+    public function downloadDataExport(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             header('Location: /login');
@@ -2611,7 +2920,8 @@ JS;
     }
 
     /** GET /profile/security */
-    public function showSecurity(array $params = []): array {
+    public function showSecurity(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             if ($this->isApiRequest()) {
@@ -2632,12 +2942,14 @@ JS;
     }
 
     /** POST /profile/security */
-    public function updateSecurity(array $params = []): array {
+    public function updateSecurity(array $params = []): array
+    {
         return $this->updatePassword($params);
     }
 
     /** GET /profile/api */
-    public function showAPI(array $params = []): array {
+    public function showAPI(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             if ($this->isApiRequest()) {
@@ -2658,7 +2970,8 @@ JS;
     }
 
     /** GET /api/user/sessions - قائمة الجلسات النشطة (أجهزة سجّلت دخول فعليًا) */
-    public function listSessions(array $params = []): array {
+    public function listSessions(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2693,16 +3006,20 @@ JS;
         }
 
         // الأحدث نشاطًا الأول
-        usort($sessions, fn($a, $b) => strcmp((string) $b['last_active'], (string) $a['last_active']));
+        usort($sessions, fn ($a, $b) => strcmp((string) $b['last_active'], (string) $a['last_active']));
 
         return $this->success(['sessions' => $sessions]);
     }
 
     /** POST /api/user/sessions/{id}/logout - تسجيل خروج من جهاز واحد بعينه */
-    public function logoutSession(array $params = []): array {
+    public function logoutSession(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         $id = (int) ($params['id'] ?? 0);
@@ -2723,10 +3040,14 @@ JS;
     }
 
     /** POST /api/user/sessions/logout-others - تسجيل خروج من كل الأجهزة عدا الحالي */
-    public function logoutOtherSessions(array $params = []): array {
+    public function logoutOtherSessions(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         $currentId = $_SESSION['current_refresh_token_id'] ?? null;
@@ -2748,31 +3069,62 @@ JS;
     }
 
     /** تخمين مبسّط لاسم المتصفح من الـ User-Agent - عرض فقط، مش قرار أمني */
-    private function guessBrowser(string $ua): string {
-        if ($ua === '') return '-';
-        if (stripos($ua, 'Edg/') !== false) return 'Edge';
-        if (stripos($ua, 'OPR/') !== false || stripos($ua, 'Opera') !== false) return 'Opera';
-        if (stripos($ua, 'Chrome/') !== false) return 'Chrome';
-        if (stripos($ua, 'CriOS') !== false) return 'Chrome (iOS)';
-        if (stripos($ua, 'Firefox/') !== false) return 'Firefox';
-        if (stripos($ua, 'Safari/') !== false) return 'Safari';
+    private function guessBrowser(string $ua): string
+    {
+        if ($ua === '') {
+            return '-';
+        }
+        if (stripos($ua, 'Edg/') !== false) {
+            return 'Edge';
+        }
+        if (stripos($ua, 'OPR/') !== false || stripos($ua, 'Opera') !== false) {
+            return 'Opera';
+        }
+        if (stripos($ua, 'Chrome/') !== false) {
+            return 'Chrome';
+        }
+        if (stripos($ua, 'CriOS') !== false) {
+            return 'Chrome (iOS)';
+        }
+        if (stripos($ua, 'Firefox/') !== false) {
+            return 'Firefox';
+        }
+        if (stripos($ua, 'Safari/') !== false) {
+            return 'Safari';
+        }
         return 'غير معروف';
     }
 
     /** تخمين مبسّط لنظام التشغيل من الـ User-Agent - عرض فقط، مش قرار أمني */
-    private function guessOS(string $ua): string {
-        if ($ua === '') return '-';
-        if (stripos($ua, 'Windows') !== false) return 'Windows';
-        if (stripos($ua, 'iPhone') !== false || stripos($ua, 'iPad') !== false) return 'iOS';
-        if (stripos($ua, 'Mac OS X') !== false) return 'macOS';
-        if (stripos($ua, 'Android') !== false) return 'Android';
-        if (stripos($ua, 'Linux') !== false) return 'Linux';
+    private function guessOS(string $ua): string
+    {
+        if ($ua === '') {
+            return '-';
+        }
+        if (stripos($ua, 'Windows') !== false) {
+            return 'Windows';
+        }
+        if (stripos($ua, 'iPhone') !== false || stripos($ua, 'iPad') !== false) {
+            return 'iOS';
+        }
+        if (stripos($ua, 'Mac OS X') !== false) {
+            return 'macOS';
+        }
+        if (stripos($ua, 'Android') !== false) {
+            return 'Android';
+        }
+        if (stripos($ua, 'Linux') !== false) {
+            return 'Linux';
+        }
         return 'غير معروف';
     }
 
     /** يخفي جزء من الـ IP قبل عرضه (مثال: 41.238.xx.xx) - مش محتاج IP كامل في الواجهة */
-    private function maskIp(string $ip): string {
-        if ($ip === '') return '-';
+    private function maskIp(string $ip): string
+    {
+        if ($ip === '') {
+            return '-';
+        }
         if (strpos($ip, '.') !== false) { // IPv4
             $parts = explode('.', $ip);
             return count($parts) === 4 ? "{$parts[0]}.{$parts[1]}.xx.xx" : 'xx.xx.xx.xx';
@@ -2785,7 +3137,8 @@ JS;
     }
 
     /** GET /api/user/api-keys - قائمة مفاتيح API الشخصية للمستخدم الحالي */
-    public function listApiKeys(array $params = []): array {
+    public function listApiKeys(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2793,24 +3146,36 @@ JS;
 
         $keyModel = new UserApiKey();
         $keys = array_map(
-            fn($key) => $key->toSafeArray(),
+            fn ($key) => $key->toSafeArray(),
             $keyModel->where(['user_id' => (int) $user->getAttribute('id')], [], 0)
         );
 
-        usort($keys, fn($a, $b) => strcmp((string) $b['created_at'], (string) $a['created_at']));
+        usort($keys, fn ($a, $b) => strcmp((string) $b['created_at'], (string) $a['created_at']));
 
         return $this->success(['keys' => $keys]);
     }
 
     /** POST /api/user/api-keys - إنشاء مفتاح جديد (المفتاح الخام بيترجع مرة واحدة بس هنا) */
-    public function createApiKey(array $params = []): array {
+    public function createApiKey(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
         }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
+        }
 
         if (!$this->validate(['name' => 'required|max:120'])) {
             return $this->error('بيانات غير صحيحة', 422, $this->getErrors());
+        }
+
+        // صلاحية اختيارية (بالأيام): لو المستخدم حددها، المفتاح ينتهي
+        // بعد المدة دي تلقائيًا - نفس Vercel/Stripe. مش إجباري أبدًا:
+        // لو مترسلتش، المفتاح يفضل صالح لغاية ما يُلغى يدويًا.
+        $expiresInDays = (int) ($this->get('expires_in_days', 0));
+        if ($expiresInDays < 0 || $expiresInDays > 365) {
+            return $this->error('فترة الصلاحية لازم تكون بين 1 و365 يوم، أو متترسلش خالص للمفتاح الدائم', 422);
         }
 
         // حد أقصى معقول لعدد المفاتيح الفعّالة لكل مستخدم - يمنع إنشاء
@@ -2818,14 +3183,14 @@ JS;
         $keyModel = new UserApiKey();
         $activeCount = count(array_filter(
             $keyModel->where(['user_id' => (int) $user->getAttribute('id')], [], 0),
-            fn($k) => !$k->getAttribute('revoked_at')
+            fn ($k) => !$k->getAttribute('revoked_at')
         ));
         if ($activeCount >= 10) {
             return $this->error('وصلت للحد الأقصى (10 مفاتيح فعّالة) - ألغِ مفتاح قديم أولًا', 422);
         }
 
         $name = trim(strip_tags((string) $this->get('name')));
-        $result = UserApiKey::generateFor((int) $user->getAttribute('id'), $name);
+        $result = UserApiKey::generateFor((int) $user->getAttribute('id'), $name, $expiresInDays > 0 ? date('Y-m-d H:i:s', time() + ($expiresInDays * 86400)) : null);
 
         AuditLog::record((int) $user->getAttribute('id'), 'api_key_created', 'success', 'api_key', (string) $result['model']->getAttribute('id'));
 
@@ -2838,10 +3203,14 @@ JS;
     }
 
     /** POST /api/user/api-keys/{id}/revoke */
-    public function revokeApiKey(array $params = []): array {
+    public function revokeApiKey(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         $id = (int) ($params['id'] ?? 0);
@@ -2865,10 +3234,14 @@ JS;
     }
 
     /** POST /api/user/deactivate - إيقاف مؤقت وقابل للتراجع (البديل الآمن للحذف النهائي) */
-    public function deactivateAccount(array $params = []): array {
+    public function deactivateAccount(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         if (!$this->validate(['current_password' => 'required'])) {
@@ -2902,7 +3275,8 @@ JS;
     }
 
     /** GET /api/user/audit-log - سجل نشاط الحساب (Read-Only) */
-    public function listAuditLog(array $params = []): array {
+    public function listAuditLog(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -2913,6 +3287,8 @@ JS;
             (int) $user->getAttribute('id'),
             [
                 'search' => (string) $this->get('search', ''),
+                'action' => (string) $this->get('action', ''),
+                'result' => (string) $this->get('result', ''),
                 'from' => (string) $this->get('from', ''),
                 'to' => (string) $this->get('to', ''),
             ],
@@ -2926,6 +3302,62 @@ JS;
             'page' => $page,
             'per_page' => 20,
         ]);
+    }
+
+    /**
+     * GET /api/user/audit-log/export
+     *
+     * تصدير سجل النشاط كملف CSV (نفس فلاتر القائمة: search/action/result/
+     * from/to). مش بيكشف أي بيانات حساسة - نفس الأعمدة المعروضة في
+     * الواجهة بالظبط. التصدير بيحصل مباشرة (بحد أقصى 5000 صف) من غير
+     * ما يعدي على الـ Queue عشان الملف صغير مقارنةً بتصدير البيانات
+     * الكامل.
+     */
+    public function exportAuditLog(array $params = []): array {
+        $user = $this->currentUser();
+        if (!$user) {
+            return $this->error('غير مسجل دخول', 401);
+        }
+
+        $rows = AuditLog::exportFor(
+            (int) $user->getAttribute('id'),
+            [
+                'search' => (string) $this->get('search', ''),
+                'action' => (string) $this->get('action', ''),
+                'result' => (string) $this->get('result', ''),
+                'from' => (string) $this->get('from', ''),
+                'to' => (string) $this->get('to', ''),
+            ]
+        );
+
+        // CSV بسيط يدوي - مفيش أي مكتبة خارجية (قيد السيرفر).
+        $out = fopen('php://temp', 'r+');
+        fputcsv($out, ['time', 'action', 'object_type', 'object_id', 'result', 'ip']);
+        foreach ($rows as $row) {
+            fputcsv($out, [
+                $row['created_at'] ?? '',
+                $row['action'] ?? '',
+                $row['object_type'] ?? '',
+                $row['object_id'] ?? '',
+                $row['result'] ?? '',
+                $row['ip_address'] ?? '',
+            ]);
+        }
+        rewind($out);
+        $csv = stream_get_contents($out);
+        fclose($out);
+
+        $filename = 'tourfecto-audit-log-' . date('Y-m-d-His') . '.csv';
+
+        if ($this->isApiRequest()) {
+            // واجهة API: نرجّع الـ CSV كنص مع اسم الملف للمتصفح يبدأ تحميل
+            return $this->success(['filename' => $filename, 'csv' => $csv]);
+        }
+
+        header('Content-Type: text/csv; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        echo "\xEF\xBB\xBF" . $csv; // BOM لـ Excel
+        exit;
     }
 
     /**
@@ -2944,10 +3376,14 @@ JS;
      * الحذف ده لـ Soft Delete بدل الاعتماد على CASCADE) قرار منتج/عمل
      * محتاج مراجعتك، مش حاجة غيّرتها من نفسي.
      */
-    public function deleteAccount(array $params = []): array {
+    public function deleteAccount(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
+        }
+        if ($csrfError = $this->verifyCsrf()) {
+            return $csrfError;
         }
 
         if (!$this->validate([

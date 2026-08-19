@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Revenue Anomaly Detection Service
  * @version 1.0.0
@@ -10,7 +11,8 @@
  * التاريخ، المقياس المتأثر (الإيراد اليومي)، سبب مقترح عندما يمكن ربطه
  * بمصدر واحد مهيمن على اليوم، وتوصية بالتحقق (لا حكم قطعي).
  */
-class RevenueAnomalyService {
+class RevenueAnomalyService
+{
     /** أقل عدد أيام بيانات قبل ما نحاول كشف شذوذ (نافذة إحصائية دنيا). */
     public const MIN_WINDOW = 14;
 
@@ -21,11 +23,13 @@ class RevenueAnomalyService {
     /** @var RevenueDataGateway */
     private $gateway;
 
-    public function __construct(?RevenueDataGateway $gateway = null) {
+    public function __construct(?RevenueDataGateway $gateway = null)
+    {
         $this->gateway = $gateway ?? new RevenueDataGateway();
     }
 
-    public function detect(int $userId, int $lookbackDays = 60): array {
+    public function detect(int $userId, int $lookbackDays = 60): array
+    {
         $now = new DateTime('now');
         $from = (clone $now)->modify("-{$lookbackDays} days");
         $series = $this->gateway->getDailyRevenueSeries($userId, $from->format('Y-m-d H:i:s'), $now->format('Y-m-d H:i:s'));
@@ -39,16 +43,21 @@ class RevenueAnomalyService {
      * @param array $dailySeries [['date'=>Y-m-d,'revenue'=>float], ...] مرتّبة تصاعديًا
      * @param array $rawRecords سجلات الإيراد الخام (لمحاولة تحديد "السبب" لو مصدر واحد هيمن على اليوم الشاذ)
      */
-    public static function computeAnomalies(array $dailySeries, array $rawRecords = []): array {
+    public static function computeAnomalies(array $dailySeries, array $rawRecords = []): array
+    {
         $n = count($dailySeries);
         if ($n < self::MIN_WINDOW) {
             return ['has_data' => false, 'message' => 'Not enough data', 'anomalies' => []];
         }
 
-        $values = array_map(static function ($p) { return (float) $p['revenue']; }, $dailySeries);
+        $values = array_map(static function ($p) {
+            return (float) $p['revenue'];
+        }, $dailySeries);
         $mean = array_sum($values) / $n;
         $variance = 0.0;
-        foreach ($values as $v) { $variance += ($v - $mean) ** 2; }
+        foreach ($values as $v) {
+            $variance += ($v - $mean) ** 2;
+        }
         $variance /= $n;
         $stdDev = sqrt($variance);
 
@@ -105,7 +114,9 @@ class RevenueAnomalyService {
         }
 
         // الأحدث أولًا
-        usort($anomalies, static function ($a, $b) { return strcmp($b['period'], $a['period']); });
+        usort($anomalies, static function ($a, $b) {
+            return strcmp($b['period'], $a['period']);
+        });
 
         return ['has_data' => true, 'mean' => round($mean, 2), 'std_dev' => round($stdDev, 2), 'anomalies' => $anomalies];
     }

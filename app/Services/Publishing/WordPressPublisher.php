@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - WordPress Publisher
  * نشر مقال جاهز مباشرة على موقع ووردبريس الخاص بالعميل عن طريق
@@ -12,14 +13,16 @@
  * عن يوزر + باسورد تطبيق العميل بيولّده بنفسه من لوحة تحكم موقعه
  * (Users → Profile → Application Passwords) ويلزقه هنا مرة واحدة.
  */
-class WordPressPublisher {
+class WordPressPublisher
+{
     private int $timeout = 30;
 
     /**
      * تجربة الاتصال (بنجيب بيانات المستخدم الحالي /users/me) للتأكد إن
      * الرابط + اليوزر + الباسورد صحيحين قبل ما نحفظهم.
      */
-    public function testConnection(string $siteUrl, string $username, string $appPassword): array {
+    public function testConnection(string $siteUrl, string $username, string $appPassword): array
+    {
         $response = $this->request('GET', $siteUrl, '/wp-json/wp/v2/users/me', $username, $appPassword);
 
         if (!$response['success']) {
@@ -40,7 +43,8 @@ class WordPressPublisher {
      * @param string $status 'publish' (نشر مباشر) أو 'draft' (مسودة يراجعها العميل الأول)
      * @return array ['success'=>bool, 'post_id'=>?int, 'url'=>?string, 'error'=>?string]
      */
-    public function createPost(string $siteUrl, string $username, string $appPassword, string $title, string $htmlContent, string $excerpt = '', string $status = 'publish'): array {
+    public function createPost(string $siteUrl, string $username, string $appPassword, string $title, string $htmlContent, string $excerpt = '', string $status = 'publish'): array
+    {
         $response = $this->request('POST', $siteUrl, '/wp-json/wp/v2/posts', $username, $appPassword, [
             'title' => $title,
             'content' => $htmlContent,
@@ -62,7 +66,8 @@ class WordPressPublisher {
     /**
      * تحديث post موجود (لو المقال اتنشر قبل كده وعايزين نعيد النشر بعد تعديل).
      */
-    public function updatePost(string $siteUrl, string $username, string $appPassword, int $postId, string $title, string $htmlContent, string $excerpt = ''): array {
+    public function updatePost(string $siteUrl, string $username, string $appPassword, int $postId, string $title, string $htmlContent, string $excerpt = ''): array
+    {
         $response = $this->request('POST', $siteUrl, '/wp-json/wp/v2/posts/' . $postId, $username, $appPassword, [
             'title' => $title,
             'content' => $htmlContent,
@@ -80,7 +85,8 @@ class WordPressPublisher {
         ];
     }
 
-    private function request(string $method, string $siteUrl, string $path, string $username, string $appPassword, array $data = []): array {
+    private function request(string $method, string $siteUrl, string $path, string $username, string $appPassword, array $data = []): array
+    {
         $url = rtrim($siteUrl, '/') . $path;
 
         $ch = curl_init($url);
@@ -139,7 +145,8 @@ class WordPressPublisher {
      * صالح للنشر على ووردبريس. مش parser كامل، بس كافي لعناوين/فقرات/Bold
      * اللي بيولدها الـ AI Engine.
      */
-    public static function markdownToHtml(string $markdown): string {
+    public static function markdownToHtml(string $markdown): string
+    {
         $escaped = htmlspecialchars($markdown, ENT_QUOTES, 'UTF-8');
 
         $escaped = preg_replace('/^### (.*)$/m', '<h4>$1</h4>', $escaped);

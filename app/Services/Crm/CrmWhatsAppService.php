@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM WhatsApp Business Cloud API Client (بند 16)
  * @version 1.0.0
@@ -14,19 +15,22 @@
  * التنفيذ هذه (لا اتصال شبكة متاح) - راجع "Tests Requiring Credentials"
  * في CHANGELOG.
  */
-class CrmWhatsAppService {
+class CrmWhatsAppService
+{
     private $settings;
     private $accessToken;
     private $phoneNumberId;
     private $apiVersion = 'v18.0';
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->settings = new SystemSettingsService();
         $this->accessToken = $this->settings->get('crm_whatsapp_access_token', '');
         $this->phoneNumberId = $this->settings->get('crm_whatsapp_phone_number_id', '');
     }
 
-    public function isConfigured(): bool {
+    public function isConfigured(): bool
+    {
         return $this->accessToken !== '' && $this->phoneNumberId !== '';
     }
 
@@ -34,7 +38,8 @@ class CrmWhatsAppService {
      * إرسال رسالة نصية عبر WhatsApp Business Cloud API الرسمي.
      * @param string $toPhoneE164 رقم بصيغة دولية بدون + (مثال: 201234567890)
      */
-    public function sendTextMessage(string $toPhoneE164, string $text): array {
+    public function sendTextMessage(string $toPhoneE164, string $text): array
+    {
         if (!$this->isConfigured()) {
             return [
                 'success' => false,
@@ -53,7 +58,8 @@ class CrmWhatsAppService {
         return $this->post($url, $payload);
     }
 
-    private function post(string $url, array $payload): array {
+    private function post(string $url, array $payload): array
+    {
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
@@ -89,7 +95,8 @@ class CrmWhatsAppService {
      * التحقق من Webhook Verification Handshake الرسمي من Meta
      * (GET request بـhub.mode/hub.verify_token/hub.challenge).
      */
-    public function verifyWebhook(?string $mode, ?string $token, ?string $challenge): ?string {
+    public function verifyWebhook(?string $mode, ?string $token, ?string $challenge): ?string
+    {
         $expectedToken = $this->settings->get('crm_whatsapp_webhook_verify_token', '');
         if ($mode === 'subscribe' && $expectedToken !== '' && $token === $expectedToken) {
             return $challenge;
@@ -98,7 +105,8 @@ class CrmWhatsAppService {
     }
 
     /** يرسل رسالة نصية لجهة اتصال CRM، ويسجّلها في محادثة (بند 16) */
-    public function sendToContact(int $userId, int $contactId, string $text): array {
+    public function sendToContact(int $userId, int $contactId, string $text): array
+    {
         $contact = (new CrmContact())->find($contactId);
         if (!$contact || (int) $contact->getAttribute('user_id') !== $userId) {
             return ['success' => false, 'error' => 'جهة الاتصال غير موجودة'];
@@ -141,7 +149,8 @@ class CrmWhatsAppService {
      * (يتجاهل status updates وأنواع الرسائل الأخرى غير المدعومة حاليًا).
      * @return array<int, array{from: string, text: string, external_id: string}>
      */
-    public function parseIncomingWebhook(array $payload): array {
+    public function parseIncomingWebhook(array $payload): array
+    {
         $messages = [];
         foreach (($payload['entry'] ?? []) as $entry) {
             foreach (($entry['changes'] ?? []) as $change) {
