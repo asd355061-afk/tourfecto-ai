@@ -55,6 +55,7 @@ class ChatInboxController extends Controller
             'tag' => $this->get('tag'),
             'search' => $this->get('search'),
             'assigned_agent_id' => $this->get('assigned_agent_id'),
+            'unread_only' => $this->get('unread_only'),
         ];
         $filters = array_filter($filters, function ($v) {
             return $v !== null && $v !== '';
@@ -368,6 +369,7 @@ class ChatInboxController extends Controller
             $data['language'] = $conversation->getAttribute('language');
             $data['do_not_contact'] = (bool) $conversation->getAttribute('do_not_contact');
             $data['created_at'] = $conversation->getAttribute('created_at');
+            $data['next_recommended_action'] = $conversation->getAttribute('next_recommended_action');
         }
 
         return $data;

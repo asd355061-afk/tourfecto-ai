@@ -312,6 +312,10 @@ class UnifiedInboxService
             array_push($params, $term, $term, $term, $term);
         }
 
+        if (!empty($filters['unread_only'])) {
+            $where[] = "unread_count > 0";
+        }
+
         $sql = "SELECT * FROM ai_conversations WHERE " . implode(' AND ', $where)
             . " ORDER BY last_message_at DESC LIMIT ? OFFSET ?";
         $params[] = $limit;

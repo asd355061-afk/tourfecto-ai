@@ -20,7 +20,7 @@ class AiLead extends Model
 
     /**
      * @param int $websiteId
-     * @param array $filters ['status']
+     * @param array $filters ['status', 'conversation_id']
      * @return array
      */
     public function forWebsite(int $websiteId, array $filters = []): array
@@ -28,6 +28,9 @@ class AiLead extends Model
         $conditions = ['website_id' => $websiteId];
         if (!empty($filters['status'])) {
             $conditions['status'] = $filters['status'];
+        }
+        if (!empty($filters['conversation_id'])) {
+            $conditions['conversation_id'] = (int) $filters['conversation_id'];
         }
         return $this->where($conditions, ['lead_score' => 'DESC', 'last_interaction_at' => 'DESC']);
     }
