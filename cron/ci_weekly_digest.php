@@ -56,6 +56,15 @@ try {
             continue;
         }
 
+        // Phase 16C: لو المستخدم قفّل الملخص الأسبوعي من Settings >
+        // Notifications (digest_weekly)، نتخطاه حتى لو weekly_digest_enabled
+        // لسه فعّال من الإعدادات القديمة - الـ toggle الجديد هو الحاكم.
+        $prefUser = (new User())->find($userId);
+        if ($prefUser && !Notification::digestEnabledFor($prefUser, 'digest_weekly')) {
+            $skipped++;
+            continue;
+        }
+
         $summary = $analyst->weeklySummary($userId, $websiteId);
         if (!($summary['available'] ?? false)) {
             $skipped++; // بيانات غير كافية - مبنبعتش إيميل فاضي
