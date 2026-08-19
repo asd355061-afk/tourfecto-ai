@@ -23,17 +23,18 @@ $router->post('/api/auth/resend-verification', 'AuthController', 'resendVerifica
 // ============================================
 // مسارات المستخدم (User)
 // ============================================
-$router->get('/api/user/profile', 'UserController', 'profile', ['AuthMiddleware']);
-$router->put('/api/user/profile', 'UserController', 'updateProfile', ['AuthMiddleware']);
-$router->post('/api/user/avatar', 'UserController', 'uploadAvatar', ['AuthMiddleware']);
-$router->put('/api/user/password', 'UserController', 'updatePassword', ['AuthMiddleware']);
-$router->get('/api/user/settings', 'UserController', 'getSettings', ['AuthMiddleware']);
-$router->put('/api/user/settings', 'UserController', 'updateSettings', ['AuthMiddleware']);
+$router->get('/api/user/profile', 'UserController', 'profile', ['AuthMiddleware', 'ApiKeyScopeMiddleware:profile:read']);
+$router->put('/api/user/profile', 'UserController', 'updateProfile', ['AuthMiddleware', 'ApiKeyScopeMiddleware:profile:write']);
+$router->post('/api/user/avatar', 'UserController', 'uploadAvatar', ['AuthMiddleware', 'ApiKeyScopeMiddleware:profile:write']);
+$router->put('/api/user/password', 'UserController', 'updatePassword', ['AuthMiddleware', 'ApiKeyScopeMiddleware:profile:write']);
+$router->get('/api/user/settings', 'UserController', 'getSettings', ['AuthMiddleware', 'ApiKeyScopeMiddleware:profile:read']);
+$router->put('/api/user/settings', 'UserController', 'updateSettings', ['AuthMiddleware', 'ApiKeyScopeMiddleware:profile:write']);
 // Profile Center Phase 5 (2026-08-10): Two-Factor Authentication + OAuth disconnect
 $router->delete('/api/user/oauth/{provider}', 'UserController', 'disconnectOAuth', ['AuthMiddleware']);
 $router->post('/api/user/2fa/setup', 'UserController', 'setupTwoFactor', ['AuthMiddleware']);
 $router->post('/api/user/2fa/enable', 'UserController', 'enableTwoFactor', ['AuthMiddleware']);
 $router->post('/api/user/2fa/disable', 'UserController', 'disableTwoFactor', ['AuthMiddleware']);
+$router->post('/api/user/2fa/re-enroll', 'UserController', 'reEnrollTwoFactor', ['AuthMiddleware']);
 $router->post('/api/user/2fa/recovery-codes/regenerate', 'UserController', 'regenerateRecoveryCodes', ['AuthMiddleware']);
 // Profile Center Phase 9 (2026-08-10): Data Export
 $router->post('/api/user/data-export', 'UserController', 'requestDataExport', ['AuthMiddleware']);
@@ -42,25 +43,26 @@ $router->delete('/api/user/account', 'UserController', 'deleteAccount', ['AuthMi
 // Tourfecto Account & Workspace Settings Center (Phases 2-8, 2026-08-09)
 $router->get('/api/user/sessions', 'UserController', 'listSessions', ['AuthMiddleware']);
 $router->post('/api/user/sessions/{id}/logout', 'UserController', 'logoutSession', ['AuthMiddleware']);
+$router->patch('/api/user/sessions/{id}/name', 'UserController', 'renameSession', ['AuthMiddleware', 'ApiKeyScopeMiddleware:profile:write']);
 $router->post('/api/user/sessions/logout-others', 'UserController', 'logoutOtherSessions', ['AuthMiddleware']);
 $router->get('/api/user/api-keys', 'UserController', 'listApiKeys', ['AuthMiddleware']);
 $router->post('/api/user/api-keys', 'UserController', 'createApiKey', ['AuthMiddleware']);
 $router->post('/api/user/api-keys/{id}/revoke', 'UserController', 'revokeApiKey', ['AuthMiddleware']);
-$router->get('/api/user/audit-log', 'UserController', 'listAuditLog', ['AuthMiddleware']);
-$router->get('/api/user/audit-log/export', 'UserController', 'exportAuditLog', ['AuthMiddleware']);
+$router->get('/api/user/audit-log', 'UserController', 'listAuditLog', ['AuthMiddleware', 'ApiKeyScopeMiddleware:audit:read']);
+$router->get('/api/user/audit-log/export', 'UserController', 'exportAuditLog', ['AuthMiddleware', 'ApiKeyScopeMiddleware:audit:read']);
 $router->post('/api/user/deactivate', 'UserController', 'deactivateAccount', ['AuthMiddleware']);
-$router->get('/api/workspace', 'WorkspaceController', 'getWorkspace', ['AuthMiddleware']);
-$router->put('/api/workspace', 'WorkspaceController', 'updateWorkspace', ['AuthMiddleware']);
-$router->post('/api/workspace/logo', 'WorkspaceController', 'uploadLogo', ['AuthMiddleware']);
-$router->get('/api/workspace/members', 'WorkspaceController', 'listMembers', ['AuthMiddleware']);
-$router->post('/api/workspace/invite', 'WorkspaceController', 'inviteMember', ['AuthMiddleware']);
-$router->get('/api/workspace/invites', 'WorkspaceController', 'listInvites', ['AuthMiddleware']);
-$router->post('/api/workspace/invites/{id}/revoke', 'WorkspaceController', 'revokeInvite', ['AuthMiddleware']);
-$router->put('/api/workspace/members/{id}/role', 'WorkspaceController', 'changeRole', ['AuthMiddleware']);
-$router->post('/api/workspace/members/{id}/deactivate', 'WorkspaceController', 'deactivateMember', ['AuthMiddleware']);
-$router->post('/api/workspace/members/{id}/reactivate', 'WorkspaceController', 'reactivateMember', ['AuthMiddleware']);
-$router->delete('/api/workspace/members/{id}', 'WorkspaceController', 'removeMember', ['AuthMiddleware']);
-$router->post('/api/workspace/leave', 'WorkspaceController', 'leaveWorkspace', ['AuthMiddleware']);
+$router->get('/api/workspace', 'WorkspaceController', 'getWorkspace', ['AuthMiddleware', 'ApiKeyScopeMiddleware:workspace:read']);
+$router->put('/api/workspace', 'WorkspaceController', 'updateWorkspace', ['AuthMiddleware', 'ApiKeyScopeMiddleware:workspace:write']);
+$router->post('/api/workspace/logo', 'WorkspaceController', 'uploadLogo', ['AuthMiddleware', 'ApiKeyScopeMiddleware:workspace:write']);
+$router->get('/api/workspace/members', 'WorkspaceController', 'listMembers', ['AuthMiddleware', 'ApiKeyScopeMiddleware:workspace:read']);
+$router->post('/api/workspace/invite', 'WorkspaceController', 'inviteMember', ['AuthMiddleware', 'ApiKeyScopeMiddleware:workspace:write']);
+$router->get('/api/workspace/invites', 'WorkspaceController', 'listInvites', ['AuthMiddleware', 'ApiKeyScopeMiddleware:workspace:read']);
+$router->post('/api/workspace/invites/{id}/revoke', 'WorkspaceController', 'revokeInvite', ['AuthMiddleware', 'ApiKeyScopeMiddleware:workspace:write']);
+$router->put('/api/workspace/members/{id}/role', 'WorkspaceController', 'changeRole', ['AuthMiddleware', 'ApiKeyScopeMiddleware:workspace:write']);
+$router->post('/api/workspace/members/{id}/deactivate', 'WorkspaceController', 'deactivateMember', ['AuthMiddleware', 'ApiKeyScopeMiddleware:workspace:write']);
+$router->post('/api/workspace/members/{id}/reactivate', 'WorkspaceController', 'reactivateMember', ['AuthMiddleware', 'ApiKeyScopeMiddleware:workspace:write']);
+$router->delete('/api/workspace/members/{id}', 'WorkspaceController', 'removeMember', ['AuthMiddleware', 'ApiKeyScopeMiddleware:workspace:write']);
+$router->post('/api/workspace/leave', 'WorkspaceController', 'leaveWorkspace', ['AuthMiddleware', 'ApiKeyScopeMiddleware:workspace:write']);
 $router->get('/api/workspace/invite/{token}', 'WorkspaceController', 'showInvite');
 $router->post('/api/workspace/invite/{token}/accept', 'WorkspaceController', 'acceptInvite');
 
