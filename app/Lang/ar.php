@@ -455,6 +455,8 @@ return [
     'onboarding.api.invalid_url' => 'رابط غير صالح - تأكد إنه دومين صحيح',
     'onboarding.api.create_failed' => 'تعذر إنشاء الموقع',
     'onboarding.api.started' => 'بدأنا التحليل في الخلفية',
+    'onboarding.api.complete_failed' => 'تعذر إكمال الإعداد',
+    'onboarding.api.status_failed' => 'تعذر جلب حالة الإعداد',
     'credits.tooltip' => 'رصيد الذكاء الاصطناعي المتبقي هذا الشهر - دوس للتفاصيل',
     'wallet.tooltip' => 'رصيد محفظتك - دوس للتفاصيل',
     'website_context.tooltip' => 'الموقع الحالي - بيتزامن تلقائيًا مع باقي الصفحات',
@@ -2592,6 +2594,14 @@ return [
     'settings.tab.permissions' => 'الدور والصلاحيات',
     'settings.view_privacy_policy' => 'عرض سياسة الخصوصية',
     'settings.js.delete_confirm_subscription' => 'الحذف مش هيلغي الاشتراك تلقائيًا عند مزوّد الدفع - هتحتاج تلغيه بنفسك من صفحة الفوترة. عايز تكمل؟',
+    'chat.kb.title' => 'قاعدة المعرفة',
+    'chat.kb.subtitle' => 'المعلومات التي يعتمد عليها الذكاء الاصطناعي في الرد على عملائك',
+    'chat.followup.title' => 'المتابعة التلقائية',
+    'chat.followup.subtitle' => 'إعدادات الرسائل التلقائية للعملاء الذين لم يردّوا',
+    'chat.analytics.title' => 'تحليلات AI Chat',
+    'chat.analytics.subtitle' => 'أداء الذكاء الاصطناعي والمحادثات',
+    'chat.leads.title' => 'العملاء المحتملون',
+    'chat.leads.subtitle' => 'كل العملاء المحتملين مرتّبين حسب الأولوية',
 
     // ===== مركز الأعمال (المرحلة 23) =====
     'business_center.page.title' => 'مركز الأعمال',

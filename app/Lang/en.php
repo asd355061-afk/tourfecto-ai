@@ -466,6 +466,8 @@ return [
     'onboarding.api.invalid_url' => 'Invalid URL - please make sure it is a valid domain',
     'onboarding.api.create_failed' => 'Could not create the website',
     'onboarding.api.started' => 'Analysis started in the background',
+    'onboarding.api.complete_failed' => 'Could not complete the setup',
+    'onboarding.api.status_failed' => 'Could not fetch the setup status',
     'credits.tooltip' => 'Remaining AI credits this month - click for details',
     'wallet.tooltip' => 'Your wallet balance - click for details',
     'website_context.tooltip' => 'Current website - syncs automatically across other pages',
@@ -2604,6 +2606,14 @@ return [
     'settings.tab.permissions' => 'Role & Permissions',
     'settings.view_privacy_policy' => 'View Privacy Policy',
     'settings.js.delete_confirm_subscription' => "Deletion won't automatically cancel your subscription with the payment provider - you'll need to cancel it yourself from the billing page. Continue anyway?",
+    'chat.kb.title' => 'Knowledge Base',
+    'chat.kb.subtitle' => 'The information your AI assistant relies on when replying to customers',
+    'chat.followup.title' => 'Automatic Follow-ups',
+    'chat.followup.subtitle' => 'Automatic message settings for customers who have not replied',
+    'chat.analytics.title' => 'AI Chat Analytics',
+    'chat.analytics.subtitle' => 'AI performance and conversation insights',
+    'chat.leads.title' => 'Leads',
+    'chat.leads.subtitle' => 'All leads sorted by priority',
 
     // ===== Business Center (Phase 23) =====
     'business_center.page.title' => 'Business Center',
