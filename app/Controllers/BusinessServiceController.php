@@ -6,17 +6,21 @@
  */
 class BusinessServiceController extends Controller {
 
-    private function currentUser(): ?User {
-        $id = $_SESSION['user_id'] ?? null;
-        if (!$id) {
-            return null;
+    /**
+     * نفس نسخة BusinessAccessService جوه الطلب الواحد - عشان الـroleCache
+     * الجوه الـService يشتغل (بدل استعلامات متكررة لكل فحص). Phase 27.
+     */
+    private ?BusinessAccessService $accessService = null;
+
+    private function access(): BusinessAccessService {
+        if ($this->accessService === null) {
+            $this->accessService = new BusinessAccessService();
         }
-        $model = new User();
-        return $model->find($id);
+        return $this->accessService;
     }
 
     private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
-        return (new BusinessAccessService())->getAccessibleBusiness($businessId, $userId);
+        return $this->access()->getAccessibleBusiness($businessId, $userId);
     }
 
     /** يحمّل Service مع فحص صلاحية التعديل على الـBusiness التابعة لها (viewer مش بيعدّل) */
@@ -25,7 +29,7 @@ class BusinessServiceController extends Controller {
         if (!$service) {
             return null;
         }
-        if (!(new BusinessAccessService())->canEdit((int) $service->getAttribute('business_id'), $userId)) {
+        if (!$this->access()->canEdit((int) $service->getAttribute('business_id'), $userId)) {
             return null;
         }
         return $service;
@@ -33,12 +37,11 @@ class BusinessServiceController extends Controller {
 
     /** GET /api/business/{businessId}/services */
     public function index(array $params = []): array {
-        $user = $this->currentUser();
-        if (!$user) {
+        if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
 
-        $business = $this->loadOwnedBusiness((int) ($params['businessId'] ?? 0), (int) $user->getAttribute('id'));
+        $business = $this->loadOwnedBusiness((int) ($params['businessId'] ?? 0), (int) $this->user['id']);
         if (!$business) {
             return $this->error('Business Profile غير موجود', 404);
         }
@@ -53,16 +56,15 @@ class BusinessServiceController extends Controller {
 
     /** POST /api/business/{businessId}/services */
     public function store(array $params = []): array {
-        $user = $this->currentUser();
-        if (!$user) {
+        if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
 
-        $business = $this->loadOwnedBusiness((int) ($params['businessId'] ?? 0), (int) $user->getAttribute('id'));
+        $business = $this->loadOwnedBusiness((int) ($params['businessId'] ?? 0), (int) $this->user['id']);
         if (!$business) {
             return $this->error('Business Profile غير موجود', 404);
         }
-        if (!(new BusinessAccessService())->canEdit((int) $business->getAttribute('id'), (int) $user->getAttribute('id'))) {
+        if (!$this->access()->canEdit((int) $business->getAttribute('id'), (int) $this->user['id'])) {
             return $this->error('ليست لديك صلاحية تعديل البيانات', 403);
         }
 
@@ -92,19 +94,18 @@ class BusinessServiceController extends Controller {
 
         (new BusinessContextService())->invalidate($businessId);
 
-        BusinessAuditLog::record($businessId, (int) $user->getAttribute('id'), 'service_created', 'success', 'service', (string) $service->getAttribute('id'));
+        BusinessAuditLog::record($businessId, (int) $this->user['id'], 'service_created', 'success', 'service', (string) $service->getAttribute('id'));
 
         return $this->success(['service' => $service->toArray()], 'تم إنشاء الخدمة', 201);
     }
 
     /** PUT /api/business/services/{id} */
     public function update(array $params = []): array {
-        $user = $this->currentUser();
-        if (!$user) {
+        if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
 
-        $service = $this->loadOwnedService((int) ($params['id'] ?? 0), (int) $user->getAttribute('id'));
+        $service = $this->loadOwnedService((int) ($params['id'] ?? 0), (int) $this->user['id']);
         if (!$service) {
             return $this->error('الخدمة غير موجودة', 404);
         }
@@ -154,19 +155,18 @@ class BusinessServiceController extends Controller {
 
         (new BusinessContextService())->invalidate((int) $service->getAttribute('business_id'));
 
-        BusinessAuditLog::record((int) $service->getAttribute('business_id'), (int) $user->getAttribute('id'), 'service_updated', 'success', 'service', (string) $service->getAttribute('id'));
+        BusinessAuditLog::record((int) $service->getAttribute('business_id'), (int) $this->user['id'], 'service_updated', 'success', 'service', (string) $service->getAttribute('id'));
 
         return $this->success(['service' => $service->toArray()], 'تم تحديث الخدمة');
     }
 
     /** DELETE /api/business/services/{id} */
     public function destroy(array $params = []): array {
-        $user = $this->currentUser();
-        if (!$user) {
+        if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
 
-        $service = $this->loadOwnedService((int) ($params['id'] ?? 0), (int) $user->getAttribute('id'));
+        $service = $this->loadOwnedService((int) ($params['id'] ?? 0), (int) $this->user['id']);
         if (!$service) {
             return $this->error('الخدمة غير موجودة', 404);
         }
@@ -179,7 +179,7 @@ class BusinessServiceController extends Controller {
 
         (new BusinessContextService())->invalidate($businessId);
 
-        BusinessAuditLog::record($businessId, (int) $user->getAttribute('id'), 'service_deleted', 'success', 'service', (string) $service->getAttribute('id'));
+        BusinessAuditLog::record($businessId, (int) $this->user['id'], 'service_deleted', 'success', 'service', (string) $service->getAttribute('id'));
 
         return $this->success([], 'تم حذف الخدمة');
     }

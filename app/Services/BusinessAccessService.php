@@ -89,17 +89,32 @@ class BusinessAccessService {
     }
 
     /**
+     * كاش جوه الطلب الواحد لنفس (businessId, userId) - منع تكرار نفس
+     * استعلامات الدور (H1 - Phase 27 performance audit). الدور مبيتغيرش
+     * جوه الطلب الواحد (مفيش كتابة بين الفحوص)، فالنتيجة آمنة تتكاش.
+     */
+    private array $roleCache = [];
+
+    /** كاش للـBusiness المحمّل أثناء فحص الدور - ليعاد استخدامه بدل استعلام ثاني (H2). */
+    private array $businessCache = [];
+
+    /**
      * دور المستخدم الفعلي على الـBusiness ده، أو null لو مالهوش أي وصول.
      * owner بيتفحص الأول (مصدر الحقيقة businesses.owner_user_id)، وبعدين
      * عضو نشط في business_members.
      */
     public function roleOf(int $businessId, int $userId): ?string {
+        $cacheKey = $businessId . ':' . $userId;
+        if (array_key_exists($cacheKey, $this->roleCache)) {
+            return $this->roleCache[$cacheKey];
+        }
         $business = (new Business())->find($businessId);
         if (!$business) {
             return null;
         }
+        $this->businessCache[$businessId] = $business;
         if ((int) $business->getAttribute('owner_user_id') === $userId) {
-            return self::ROLE_OWNER;
+            return $this->roleCache[$cacheKey] = self::ROLE_OWNER;
         }
         $members = (new BusinessMember())->where(
             ['business_id' => $businessId, 'user_id' => $userId, 'status' => 'active'],
@@ -110,7 +125,8 @@ class BusinessAccessService {
             return null;
         }
         $role = $members[0]->getAttribute('role');
-        return in_array($role, self::allowedMemberRoles(), true) ? $role : null;
+        $role = in_array($role, self::allowedMemberRoles(), true) ? $role : null;
+        return $this->roleCache[$cacheKey] = $role;
     }
 
     public function canView(int $businessId, int $userId): bool {
@@ -154,10 +170,13 @@ class BusinessAccessService {
      * له بيعرف الـBusiness موجودة (هو عضو فيها)، فبياخد 403 على الكتابة.
      */
     public function getAccessibleBusiness(int $businessId, int $userId): ?Business {
-        if (!$this->canView($businessId, $userId)) {
+        $role = $this->roleOf($businessId, $userId);
+        if ($role === null || !self::roleAllows($role, self::CAP_VIEW)) {
             return null;
         }
-        return (new Business())->find($businessId);
+        // الـBusiness اتحمّل أصلاً جوه roleOf() - استرجعه من الكاش بدل
+        // استعلام SELECT تاني (H2 - Phase 27).
+        return $this->businessCache[$businessId] ?? null;
     }
 
     /**

@@ -20,12 +20,13 @@ class BusinessApiKeyService {
      * @return array<int,array>
      */
     public function list(int $businessId): array {
-        $keys = array_map(
+        // M2 (Phase 27 performance audit): الترتيب اتعمل في SQL (ORDER BY
+        // created_at DESC) بدل جلب كل الصفوف وفرزها في PHP - نفس النتيجة،
+        // استعلام واحد بدون usort.
+        return array_map(
             fn($key) => $key->toSafeArray(),
-            (new BusinessApiKey())->where(['business_id' => $businessId], [], 0)
+            (new BusinessApiKey())->where(['business_id' => $businessId], ['created_at' => 'DESC'], 0)
         );
-        usort($keys, fn($a, $b) => strcmp((string) $b['created_at'], (string) $a['created_at']));
-        return $keys;
     }
 
     /**

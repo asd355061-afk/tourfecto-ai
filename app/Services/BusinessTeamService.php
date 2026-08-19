@@ -287,11 +287,44 @@ class BusinessTeamService {
         }
 
         $members = (new BusinessMember())->where(['business_id' => $businessId], ['role' => 'ASC', 'id' => 'ASC']);
+
+        // H3 (Phase 27 performance audit): بدل استعلام User لكل عضو على حدة
+        // (N+1 - فريق بـ25 عضو كان بيكلف 25 استعلام)، بنجيب كل المستخدمين
+        // المطلوبين باستعلام واحد IN (...) ونربطهم بالـID.
+        $memberUserIds = array_values(array_unique(array_filter(
+            array_map(fn($m) => $m->getAttribute('user_id'), $members),
+            fn($id) => $id !== null
+        )));
+        $usersById = $this->usersById($memberUserIds);
+
         foreach ($members as $member) {
-            $team[] = $this->memberToArray($member);
+            $team[] = $this->memberToArray($member, $usersById);
         }
 
         return $team;
+    }
+
+    /**
+     * جلب عدد من المستخدمين باستعلام واحد (IN) بدل استعلام لكل ID -
+     * H3 (Phase 27). بيرجع map بالـID => User، فاضي لو مفيش IDs.
+     *
+     * @param int[] $ids
+     * @return array<int, User>
+     */
+    private function usersById(array $ids): array {
+        if (empty($ids)) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $rows = Database::getInstance()->query(
+            "SELECT * FROM `users` WHERE `id` IN ({$placeholders})",
+            $ids
+        );
+        $byId = [];
+        foreach ($rows as $row) {
+            $byId[(int) ($row['id'] ?? 0)] = new User($row);
+        }
+        return $byId;
     }
 
     // ============================================
@@ -302,10 +335,13 @@ class BusinessTeamService {
         return bin2hex(random_bytes(32));
     }
 
-    private function memberToArray(BusinessMember $member): array {
+    private function memberToArray(BusinessMember $member, array $usersById = []): array {
         $userId = $member->getAttribute('user_id');
         if ($userId !== null) {
-            $user = (new User())->find((int) $userId);
+            $user = $usersById[(int) $userId] ?? null;
+            if (!$user) {
+                $user = (new User())->find((int) $userId);
+            }
             if ($user) {
                 return $this->userEntry($user, (int) $member->getAttribute('business_id'), (string) $member->getAttribute('role'), (string) $member->getAttribute('status'));
             }

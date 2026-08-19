@@ -16,17 +16,17 @@
  */
 class BusinessTeamController extends Controller {
 
-    private function currentUser(): ?User {
-        $id = $_SESSION['user_id'] ?? null;
-        if (!$id) {
-            return null;
-        }
-        $model = new User();
-        return $model->find($id);
-    }
+    /**
+     * نفس نسخة BusinessAccessService جوه الطلب الواحد - عشان الـroleCache
+     * الجوه الـService يشتغل (بدل استعلامات متكررة لكل فحص). M3 + H1 (Phase 27).
+     */
+    private ?BusinessAccessService $accessService = null;
 
     private function access(): BusinessAccessService {
-        return new BusinessAccessService();
+        if ($this->accessService === null) {
+            $this->accessService = new BusinessAccessService();
+        }
+        return $this->accessService;
     }
 
     /**
@@ -40,12 +40,11 @@ class BusinessTeamController extends Controller {
 
     /** GET /api/business/{businessId}/team */
     public function index(array $params = []): array {
-        $user = $this->currentUser();
-        if (!$user) {
+        if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
 
-        $business = $this->loadAccessibleBusiness((int) ($params['businessId'] ?? 0), (int) $user->getAttribute('id'));
+        $business = $this->loadAccessibleBusiness((int) ($params['businessId'] ?? 0), (int) $this->user['id']);
         if (!$business) {
             return $this->error('Business غير موجود', 404);
         }
@@ -60,11 +59,10 @@ class BusinessTeamController extends Controller {
      * body: { email, role } - role من admin/member/viewer.
      */
     public function invite(array $params = []): array {
-        $user = $this->currentUser();
-        if (!$user) {
+        if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
-        $userId = (int) $user->getAttribute('id');
+        $userId = (int) $this->user['id'];
         $businessId = (int) ($params['businessId'] ?? 0);
 
         $business = $this->loadAccessibleBusiness($businessId, $userId);
@@ -114,8 +112,7 @@ class BusinessTeamController extends Controller {
      * قبول دعوة معلقة - اللي بيدخل لازم يكون بريده هو بريد الدعوة.
      */
     public function acceptInvite(array $params = []): array {
-        $user = $this->currentUser();
-        if (!$user) {
+        if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
 
@@ -125,14 +122,14 @@ class BusinessTeamController extends Controller {
         $result = (new BusinessTeamService())->acceptInvite(
             $businessId,
             $token,
-            (int) $user->getAttribute('id'),
-            (string) $user->getAttribute('email')
+            (int) $this->user['id'],
+            (string) ($this->user['email'] ?? '')
         );
         if (!$result['ok']) {
             return $this->error($result['error'], 422);
         }
 
-        BusinessAuditLog::record($businessId, (int) $user->getAttribute('id'), 'member_joined', 'success', 'member', (string) ($result['member']['member_id'] ?? ''));
+        BusinessAuditLog::record($businessId, (int) $this->user['id'], 'member_joined', 'success', 'member', (string) ($result['member']['member_id'] ?? ''));
 
         return $this->success(['member' => $result['member']], 'تم قبول الدعوة والانضمام للفريق');
     }
@@ -142,11 +139,10 @@ class BusinessTeamController extends Controller {
      * حذف عضو - القاعدة الدقيقة جوه الـService.
      */
     public function remove(array $params = []): array {
-        $user = $this->currentUser();
-        if (!$user) {
+        if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
-        $userId = (int) $user->getAttribute('id');
+        $userId = (int) $this->user['id'];
         $businessId = (int) ($params['businessId'] ?? 0);
 
         $business = $this->loadAccessibleBusiness($businessId, $userId);
@@ -173,11 +169,10 @@ class BusinessTeamController extends Controller {
      * body: { role } - القاعدة الدقيقة جوه الـService.
      */
     public function changeRole(array $params = []): array {
-        $user = $this->currentUser();
-        if (!$user) {
+        if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
-        $userId = (int) $user->getAttribute('id');
+        $userId = (int) $this->user['id'];
         $businessId = (int) ($params['businessId'] ?? 0);
 
         $business = $this->loadAccessibleBusiness($businessId, $userId);
