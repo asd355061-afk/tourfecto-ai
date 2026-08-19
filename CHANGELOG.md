@@ -1,4 +1,59 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## المرحلة 16: إغلاق كل فجوات Settings Center التنافسية المتبقية — 2026-08-17
+
+بعد جولة الفحص التنافسية الكاملة (GitHub/Stripe/Vercel/Notion/Slack)، تم
+تنفيذ **كل** الفجوات المتبقية في Settings Center دفعة واحدة (طلب
+"الكل"). البناء فوق Phase 15 (`80ac655`) الموجود بالفعل على `origin/main`.
+
+**16A — API Key Scopes (نمط GitHub Fine-grained PAT):** عمود `scopes`
+جديد في `user_api_keys` (migration `2026_08_16_000002`) + ثابت
+`UserApiKey::SCOPES` (7 نطاقات: profile/billing/workspace/audit/data).
+النطاقات تُفرَض **فقط** على طلبات الـ API Key
+(`$_SERVER['auth_method'] === 'api_key'`) عبر Middleware جديد
+`ApiKeyScopeMiddleware` (يرفض بـ 403 لو النطاق ناقص). مفاتيح قديمة بلا
+scopes تحتفظ بصلاحية كاملة (توافق رجعي). 19 مسار API مغطّى.
+
+**16B — Session Device Naming (نمط Notion):** `PATCH
+/api/user/sessions/{id}/name` + `RefreshToken::renameDevice()` + حقل
+إدخال لكل جلسة في الواجهة + حماية IDOR + AuditLog `session_renamed`.
+
+**16C — Notification Digest Toggles (نمط GitHub):** تفضيلات جديدة
+`digest_daily`/`digest_weekly` (مفعّلة افتراضيًا) تتحكم فعلًا في
+`SendRevenueDigestJob` و`cron/ci_weekly_digest.php` من Settings.
+
+**16D — Audit Export Pagination (ما بعد 5000 صف):** `exportFor()` تدعم
+`offset` + `countFor()`، والـ CSV بتتصدّر على دفعات 5000 حتى النهاية
+مع زر "جارٍ التصدير…".
+
+**16E — 2FA Lost-Device Re-enrollment (نمط GitHub/Stripe):**
+`POST /api/user/2fa/re-enroll` يتطلب كلمة المرور + كود TOTP حالي أو
+Recovery Code صالح (Rate Limited 5/15 دقيقة)، يفضي حالة 2FA القديمة،
+ويولّد secret جديد يدخل على مرحلة Setup. UI جديدة "Lost your device?".
+
+**16F — تقسيم `renderSettingsPage()` (~2300 سطر):** الـ body والـ JS
+انفصلوا إلى 15 ملف View (`app/Views/Settings/*.php`) — تحقق حرفي
+byte-identical + اختبار Harness لتنفيذ فعلي يثبت عدم وجود متغيرات
+غير مُعرّفة (0 متبقيات `{$var}`).
+
+**16G — UX Polish:** حالة "جارٍ التصدير" على زرار CSV، والـ loading/
+empty states الموجودة لكل التابات اتأكدت واتحسّنت.
+
+**ملفات جديدة:** `app/Middleware/ApiKeyScopeMiddleware.php`،
+`app/Views/Settings/*.php` (15 ملف)، migration `2026_08_16_000002`.
+
+**ملفات معدّلة:** `app/Models/UserApiKey.php`، `app/Models/RefreshToken.php`،
+`app/Models/AuditLog.php`، `app/Models/Notification.php`،
+`app/Controllers/UserController.php`، `app/Controllers/AuthController.php`،
+`app/Middleware/AuthMiddleware.php`، `app/routes/api.php`،
+`public_html/index.php`، `app/Jobs/SendRevenueDigestJob.php`،
+`cron/bootstrap.php`، `cron/ci_weekly_digest.php`،
+`app/Lang/{en,ar,fr,de}.php`، `tests/Unit/SettingsCompetitiveTest.php`.
+
+**الاختبارات:** `php tests/Unit/SettingsCompetitiveTest.php` → 38/38
+(تغطية: expiry، scopes، recovery rotation، session rename validation،
+digest preferences). الاختبارات المعتمدة على قاعدة البيانات بتنفذ على
+السيرفر (مفيش MySQL driver في الـ sandbox).
+
 ## v1.7.0 — بيع داخل الشات + نظام أيقونات SVG موحّد (In-Chat Quotes + Icon Polish) — 2026-08-17
 
 إضافة **بيع داخل الشات عبر عروض أسعار (In-Chat Quotes)** ونظام **أيقونات SVG مركزي**

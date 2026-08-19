@@ -233,6 +233,14 @@ class AuthMiddleware
                 }
 
                 $keyRecord->touchUsage();
+
+                // نعرّف سياق المفتاح في الطلب عشان أي Middleware/Controller
+                // يقدر يفرض الصلاحيات (Scopes) على الطلبات الجاية بمفتاح
+                // معيّن. NULL/فاضي = وصول كامل (توافق خلفي).
+                $_SERVER['auth_api_key_id'] = (int) $keyRecord->getAttribute('id');
+                $_SERVER['auth_api_key_scopes'] = $keyRecord->getAttribute('scopes');
+                $_SERVER['auth_method'] = 'api_key';
+
                 return $owner->toArray();
             }
 
