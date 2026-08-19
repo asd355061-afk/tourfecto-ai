@@ -351,3 +351,62 @@ php /home/USERNAME/domains/YOURSITE.com/cron/run_billing_lifecycle.php >> /home/
 بتتصل بـ `/api/...` نفس-الأصل، فلما تُرفع على السيرفر مع الـ backend
 بتقرأ البيانات الحقيقية تلقائيًا (مع أول فشل شبكة بس بتقع على
 المعاينة الافتراضية).
+
+## 9) Phase 21 — اختبارات PHPUnit للفوترة + توحيد القواعد المالية (2026-08-17)
+
+### الفكرة
+من اتجاهات التحسين التنافسي الخمسة اللي اختارها المالك، الاتجاه ده
+(اختبارات PHPUnit للتكامل). المشكلة اللي وقفنا قدامها: اختبارات التكامل
+الحقيقية محتاجة MySQL، والبيئة المحلية من غير قاعدة بيانات. الحل
+المعتمد إستراتيجيتين متكاملتين:
+
+1. **استخراج المنطق النقي** في كلاس `BillingRules` (قواعد مالية بحتة من
+   غير DB) — يختبر offline في البيئة المحلية.
+2. **اختبارات تكامل** بفحص توفر قاعدة البيانات وتتخطى تلقائيًا
+   (`markTestSkipped`) في غيابها وتشتغل كاملة على سيرفر الإنتاج.
+
+### ملفات جديدة
+- `app/Services/Subscription/BillingRules.php` — **مرجع القواعد المالية
+  الموحّد** (pure): أيام دورة الحياة (grace=7 / تذكير=3 / تذكير مبكر=7 /
+  إنذار أخير=2)، حساب فرق سعر الباقة، استرجاع التخفيض، الـ pro-rating
+  الحقيقي على اليوم، نوافذ الـ dunning/grace/reminder. كل القرارات
+  المالية من مكان واحد.
+- `tests/Unit/BillingRulesTest.php` — PHPUnit TestCase بـ 33 حالة
+  (data providers) تعمل offline تمامًا.
+- `tests/Integration/BillingRoutesTest.php` — PHPUnit TestCase يتحقق إن
+  كل مسارات الفوترة الـ 17 (اشتراكات + محفظة) مسجّلة وصحيحة + فحص "عدم
+  تسريب" ضد أي مسار غير متعلق (4312 assertion).
+- `tests/Integration/BillingLifecycleIntegrationTest.php` — تكامل حقيقي
+  (يتطلب MySQL): وجود جداول الفوترة، الباقات المفعلة بأسعار سليمة، وبنية
+  نتيجة `runLifecycleChecks()` + أمان التكرار (idempotent). بيحمّل
+  متطلباته بنفسه (guarded requires) ويتخطى تلقائيًا من غير DB.
+- `tests/Unit/offline_bootstrap.php` — bootstrap خفيف (تعريف `env()`
+  محايد + مجلدات) للاختبارات اللي مش محتاجة قاعدة بيانات.
+
+### تعديلات
+- `WalletService.php` — استخدام `BillingRules::planChangeCharge()` في
+  `subscribeWithBalance` + الرجوع لـ `BillingRules::ALLOW_PRORATED_DOWNGRADE_CREDIT`
+  (التعريف اللي كان خاص بالـ service بقى إشارة للمرجع الموحّد).
+- `SubscriptionLifecycleService.php` — ثوابت الأيام الأربعة بقت تشاور على
+  `BillingRules::*` (مصدر واحد للحقيقة بدل 4 ثوابت متناثرة).
+- `tests/bootstrap.php` — إصلاح خطأ موجود مسبقًا: كان بيستدعي `env()`
+  قبل تعريفها (الـ configs بتدعوها) فبيخلى phpunit.xml ينهار دايمًا بـ
+  "Call to undefined function env()". تمت إضافة تعريف محايد للدالة قبل
+  تحميل التكوين.
+
+### تشغيل الاختبارات
+```bash
+# اختبارات الـ pure logic + المسارات (offline، في أي بيئة):
+phpunit --bootstrap tests/Unit/offline_bootstrap.php tests/Unit/BillingRulesTest.php
+phpunit --bootstrap tests/Unit/offline_bootstrap.php tests/Integration/BillingRoutesTest.php
+
+# اختبارات التكامل الحقيقية (على السيرفر بقاعدة بيانات):
+phpunit --bootstrap tests/Unit/offline_bootstrap.php tests/Integration/BillingLifecycleIntegrationTest.php
+```
+نتائج التشغيل المحلي: `BillingRulesTest` (33/33) — `BillingRoutesTest`
+(3/3) — `BillingLifecycleIntegrationTest` (3/3 skipped بدون MySQL).
+
+### ملاحظة
+إصلاح `tests/bootstrap.php` بيخلي الـ `phpunit.xml` (والسكريبت
+`composer test`) يشتغلوا فعليًا لأول مرة على السيرفر. الملفات المتولدة
+بالتشغيل (`junit.xml`, `testdox.html`, `testdox.txt`) غير مضافة للـ repo.

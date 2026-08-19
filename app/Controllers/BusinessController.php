@@ -1,14 +1,12 @@
 <?php
-
 /**
  * Tourfecto - Business Controller
  * Business Profile (منفصل عن User Profile) - Business Control Center Phase 2
  * @version 1.0.0
  */
-class BusinessController extends Controller
-{
-    private function currentUser(): ?User
-    {
+class BusinessController extends Controller {
+
+    private function currentUser(): ?User {
         $id = $_SESSION['user_id'] ?? null;
         if (!$id) {
             return null;
@@ -24,32 +22,31 @@ class BusinessController extends Controller
      * بمجرد تخمين ID، حتى لو الفحص ده مش Policy/Gate حقيقي بمعنى Laravel
      * - المعمارية دي مفهاش نظام Policies جاهز، فالفحص هنا Server-side
      * صريح بدل ما يعتمد على إخفاء الـID فقط).
+     *
+     * Phase 10-11 (Team Management + RBAC): الفحص بقى بيعدي عبر
+     * BusinessAccessService (نقطة الفحص المركزية الوحيدة) بدل isOwnedBy()
+     * - فبيدعم إن فريق كامل (owner/admin/member/viewer) يشتغل على نفس
+     * الـBusiness، مش المالك بس.
      */
-    private function loadOwnedBusiness(int $businessId, int $userId): ?Business
-    {
-        $model = new Business();
-        $business = $model->find($businessId);
-        if (!$business || !$business->isOwnedBy($userId)) {
-            return null;
-        }
+    private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
+        $business = (new BusinessAccessService())->getAccessibleBusiness($businessId, $userId);
         return $business;
     }
 
     /** GET /api/business - الـBusiness (أو أول واحد) بتاع المستخدم الحالي */
-    public function show(array $params = []): array
-    {
+    public function show(array $params = []): array {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
         }
 
-        $businesses = (new Business())->where(['owner_user_id' => (int) $user->getAttribute('id')], ['id' => 'ASC'], 1);
-        if (empty($businesses)) {
+        $business = (new BusinessAccessService())->resolveUserBusiness((int) $user->getAttribute('id'));
+        if (!$business) {
             // مفيش Business لسه - مش خطأ، حالة طبيعية (لسه مكمّلش Onboarding)
             return $this->success(['business' => null]);
         }
 
-        return $this->success(['business' => $businesses[0]->toArray()]);
+        return $this->success(['business' => $business->toArray()]);
     }
 
     /**
@@ -58,8 +55,7 @@ class BusinessController extends Controller
      * Management في مرحلة لاحقة). لو عنده واحد بالفعل، بنرفض إنشاء
      * تاني هنا - التعديل بيبقى عن طريق update() مش إنشاء نسخة تانية.
      */
-    public function store(array $params = []): array
-    {
+    public function store(array $params = []): array {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -85,6 +81,8 @@ class BusinessController extends Controller
             return $this->error('تعذر إنشاء Business Profile', 500);
         }
 
+        BusinessAuditLog::record((int) $business->getAttribute('id'), $userId, 'business_created', 'success', 'business', (string) $business->getAttribute('id'));
+
         return $this->success(['business' => $business->toArray()], 'تم إنشاء Business Profile', 201);
     }
 
@@ -97,15 +95,14 @@ class BusinessController extends Controller
      * المطلوب في الـSpec (Phase 19) - من غير ما يحتاج الـFrontend يلم
      * 6 Endpoints مختلفة ويعيد تركيب الصورة بنفسه.
      */
-    public function overview(array $params = []): array
-    {
+    public function overview(array $params = []): array {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
         }
 
-        $businesses = (new Business())->where(['owner_user_id' => (int) $user->getAttribute('id')], ['id' => 'ASC'], 1);
-        if (empty($businesses)) {
+        $business = (new BusinessAccessService())->resolveUserBusiness((int) $user->getAttribute('id'));
+        if (!$business) {
             return $this->success([
                 'business' => null,
                 'readiness' => null,
@@ -114,7 +111,7 @@ class BusinessController extends Controller
             ]);
         }
 
-        $businessId = (int) $businesses[0]->getAttribute('id');
+        $businessId = (int) $business->getAttribute('id');
         $context = (new BusinessContextService())->getContext($businessId);
         $readiness = (new BusinessReadinessService())->scoreFromContext($context);
 
@@ -138,18 +135,22 @@ class BusinessController extends Controller
     }
 
     /** PUT /api/business/{id} - تحديث. Authorization: Owner فقط */
-    public function update(array $params = []): array
-    {
+    public function update(array $params = []): array {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
         }
 
-        $business = $this->loadOwnedBusiness((int) ($params['id'] ?? 0), (int) $user->getAttribute('id'));
+        $access = new BusinessAccessService();
+        $business = $access->getAccessibleBusiness((int) ($params['id'] ?? 0), (int) $user->getAttribute('id'));
         if (!$business) {
             // 404 مش 403 عمدًا: منمنعش معلومة "الـID ده موجود لكن مش بتاعك"
             // - نفس مبدأ عدم كشف وجود موارد لمستخدمين تانيين (IDOR-safe).
             return $this->error('Business Profile غير موجود', 404);
+        }
+        // viewer (عضو للعرض بس) - يشوف لكن مش بيعدّل.
+        if (!$access->canEdit((int) $business->getAttribute('id'), (int) $user->getAttribute('id'))) {
+            return $this->error('ليست لديك صلاحية تعديل بيانات الـBusiness', 403);
         }
 
         $validationError = $this->validateBusinessInput(true);
@@ -168,6 +169,8 @@ class BusinessController extends Controller
         // التعديل - راجع التعليق الكامل جوه BusinessContextService.
         (new BusinessContextService())->invalidate((int) $business->getAttribute('id'));
 
+        BusinessAuditLog::record((int) $business->getAttribute('id'), (int) $user->getAttribute('id'), 'business_updated', 'success', 'business', (string) $business->getAttribute('id'));
+
         return $this->success(['business' => $business->toArray()], 'تم تحديث Business Profile');
     }
 
@@ -177,8 +180,7 @@ class BusinessController extends Controller
      * بيفرّق بين Create (كل الحقول المطلوبة اختيارية التحقق من وجودها)
      * و Update (زي ما هي، مفيش حقول Required إجبارية غير legal_name).
      */
-    private function validateBusinessInput(bool $isUpdate): ?array
-    {
+    private function validateBusinessInput(bool $isUpdate): ?array {
         $rules = [
             'legal_name' => ($isUpdate ? '' : 'required|') . 'max_length:255',
             'trade_name' => 'max_length:255',
@@ -194,7 +196,7 @@ class BusinessController extends Controller
             'tax_number' => 'max_length:100',
         ];
         // إزالة أي قاعدة فاضية (لو الحقل مش required عند التحديث)
-        $rules = array_filter($rules, fn ($r) => trim($r, '|') !== '');
+        $rules = array_filter($rules, fn($r) => trim($r, '|') !== '');
 
         if (!$this->validate($rules)) {
             return $this->error('بيانات غير صحيحة', 422, $this->getErrors());
@@ -227,12 +229,51 @@ class BusinessController extends Controller
             }
         }
 
+        // روابط URL: الموقع والشعار - بنسمح بالصيغة من غير scheme (بنسيب
+        // الـhttps:// للـFrontend وقت العرض)، فبنضيفها مؤقتًا للفحص بس.
+        foreach (['website_url', 'logo_url'] as $urlField) {
+            if ($this->has($urlField) && $this->get($urlField) !== '') {
+                $raw = (string) $this->get($urlField);
+                $candidate = preg_match('#^https?://#i', $raw) ? $raw : 'https://' . $raw;
+                if (filter_var($candidate, FILTER_VALIDATE_URL) === false) {
+                    return $this->error('رابط غير صحيح', 422, [$urlField => ['يجب أن يكون رابطًا صحيحًا']]);
+                }
+            }
+        }
+
+        // اللغة الأساسية: ISO 639-1 (حرفين) أو ISO 639-2 (ثلاثة) - أحرف فقط
+        if ($this->has('primary_language') && $this->get('primary_language') !== '') {
+            if (!preg_match('/^[A-Za-z]{2,3}$/', (string) $this->get('primary_language'))) {
+                return $this->error('اللغة الأساسية غير صحيحة', 422, ['primary_language' => ['يجب أن يكون كود ISO 639 من حرفين أو ثلاثة']]);
+            }
+        }
+
+        // supported_languages: نفس معيار primary_language لكل عنصر
+        if ($this->has('supported_languages') && $this->get('supported_languages') !== null) {
+            $langs = $this->get('supported_languages');
+            if (!is_array($langs)) {
+                return $this->error('اللغات المدعومة غير صحيحة', 422, ['supported_languages' => ['يجب أن تكون قائمة (Array)']]);
+            }
+            foreach ($langs as $lang) {
+                if (!is_string($lang) || !preg_match('/^[A-Za-z]{2,3}$/', $lang)) {
+                    return $this->error('لغة غير صحيحة في supported_languages', 422, ['supported_languages' => ['كل قيمة لازم تكون كود ISO 639 من حرفين أو ثلاثة']]);
+                }
+            }
+        }
+
+        // المنطقة الزمنية: لازم تكون IANA صحيحة (نفس قائمة UserController
+        // اللي بتتولد من DateTimeZone نفسها)
+        if ($this->has('timezone') && $this->get('timezone') !== '') {
+            if (!in_array($this->get('timezone'), timezone_identifiers_list(), true)) {
+                return $this->error('المنطقة الزمنية غير صحيحة', 422, ['timezone' => ['يجب أن تكون معرف IANA صحيحًا (مثل Africa/Cairo)']]);
+            }
+        }
+
         return null;
     }
 
     /** يطبّق كل الحقول اللي اتبعتت فعليًا (has()) على الـBusiness Model - نفس نمط UserController::updateProfile() */
-    private function applyBusinessFields(Business $business): void
-    {
+    private function applyBusinessFields(Business $business): void {
         $fields = [
             'legal_name', 'trade_name', 'logo_url', 'description', 'website_url',
             'business_email', 'business_phone', 'whatsapp_number', 'city', 'address',

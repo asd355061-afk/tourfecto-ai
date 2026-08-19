@@ -20,7 +20,8 @@
  *      system_settings بتاعت GeminiClient) وهل شكلها Placeholder
  *      ولو طلبت, اختبار حي لمفتاح Gemini فعليًا
  *   5) فحص Syntax لكل ملفات PHP (لو shell_exec متاح على الاستضافة)
- *   6) آخر الأخطاء المسجلة في storage/logs/app.log
+ *   6) فحص AI Chat Platform (ملفات + جداول + عمود next_recommended_action)
+ *   7) آخر الأخطاء المسجلة في storage/logs/app.log
  */
 
 // ============================================
@@ -364,7 +365,74 @@ if (!$canExec) {
 add_section($report, '5) فحص Syntax لملفات PHP', $syntaxStatus, $lines);
 
 // ============================================
-// 6. آخر الأخطاء المسجلة
+// 6. AI Chat Platform - وجود الملفات والجداول والعمود الجديد
+// ============================================
+$lines = [];
+$chatStatus = 'ok';
+$aiChatClasses = [
+    'Models/AiKnowledgeBase.php',
+    'Models/AiChatConversation.php',
+    'Models/AiCustomerMemory.php',
+    'Models/AiLead.php',
+    'Models/AiFollowup.php',
+    'Models/AiFollowupRule.php',
+    'Models/AiCustomTag.php',
+    'Models/AiUsageLog.php',
+    'Services/AI/Providers/AIProviderInterface.php',
+    'Services/AI/Providers/AIProviderManager.php',
+    'Services/AI/KnowledgeBaseService.php',
+    'Services/AI/AIConversationEngine.php',
+    'Services/AI/LeadScoringService.php',
+    'Services/AI/BusinessHoursService.php',
+    'Services/AI/FollowUpAutomationService.php',
+    'Services/AI/AiAnalyticsService.php',
+    'Services/AI/AiReplySuggestionsService.php',
+    'Services/Chat/UnifiedInboxService.php',
+    'Services/Chat/ChatManager.php',
+    'Services/Chat/AutoReplyEngine.php',
+    'Controllers/AiKnowledgeBaseController.php',
+    'Controllers/ChatInboxController.php',
+    'Controllers/AiLeadController.php',
+    'Controllers/AiFollowupSettingsController.php',
+    'Controllers/AiAnalyticsController.php',
+    'Controllers/AiCustomTagController.php',
+    'Controllers/ChatController.php',
+];
+foreach ($aiChatClasses as $rel) {
+    $path = APP_PATH . '/' . $rel;
+    if (!file_exists($path)) {
+        $lines[] = '❌ ملف ناقص: ' . $rel;
+        $chatStatus = 'fail';
+    } elseif (!class_exists(basename($rel, '.php'))) {
+        $lines[] = '⚠️ الملف موجود لكن الكلاس مش متحمّل: ' . $rel . ' (لازم يتسجّل في $optionalNewClassFiles بـ public_html/index.php)';
+        if ($chatStatus !== 'fail') {
+            $chatStatus = 'warn';
+        }
+    }
+}
+if ($dbOk) {
+    foreach (['ai_knowledge_base', 'ai_conversations', 'ai_customer_memory', 'ai_leads', 'ai_followup_rules', 'ai_followups', 'ai_custom_tags', 'ai_usage_logs'] as $tbl) {
+        $tchk = $pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?");
+        $tchk->execute([$tbl]);
+        if ((int) $tchk->fetchColumn() === 0) {
+            $lines[] = '❌ جدول ناقص: `' . $tbl . '` (شغّل migration 2026_08_08_000001_create_ai_chat_platform_tables.sql)';
+            $chatStatus = 'fail';
+        }
+    }
+    $colChk = $pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ai_conversations' AND COLUMN_NAME = 'next_recommended_action'");
+    $colChk->execute();
+    if ((int) $colChk->fetchColumn() === 0) {
+        $lines[] = '❌ عمود next_recommended_action ناقص على ai_conversations (شغّل migration 2026_08_15_000002_add_next_action_to_ai_conversations.sql)';
+        $chatStatus = 'fail';
+    }
+}
+if (empty($lines)) {
+    $lines[] = '✅ كل ملفات AI Chat موجودة والكلاسات متحمّلة، وكل جداول/عمود الموديول موجودة في قاعدة البيانات';
+}
+add_section($report, '6) AI Chat Platform (ملفات + جداول + عمود next_recommended_action)', $chatStatus, $lines);
+
+// ============================================
+// 7. آخر الأخطاء المسجلة
 // ============================================
 $lines = [];
 $logPath = TOURFECTO_STORAGE . '/logs/app.log';
@@ -376,7 +444,7 @@ if (file_exists($logPath)) {
 } else {
     $lines[] = 'ℹ️ ملف اللوج مش موجود لسه (' . $logPath . ')';
 }
-add_section($report, '6) آخر الأخطاء المسجلة (Logger)', 'ok', $lines);
+add_section($report, '7) آخر الأخطاء المسجلة (Logger)', 'ok', $lines);
 
 // ============================================
 // طباعة التقرير

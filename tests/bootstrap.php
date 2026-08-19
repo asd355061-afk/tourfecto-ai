@@ -19,6 +19,23 @@ define('TOURFECTO_TEST_ENV', 'testing');
 define('TOURFECTO_TEST_DB', 'tourfecto_test');
 
 // ============================================
+// 1.5. تعريف دالة env() قبل تحميل ملفات التكوين
+// ملفات التكوين (Config/app.php, database.php) تستدعي env() مباشرة،
+// لكن الدالة معرّفة في app/Helpers/functions.php اللي بتتحمّل بعدهم
+// في الترتيب الأصلي - فكان bootstrap ده بيفشل دايمًا بـ
+// "Call to undefined function env()". تعريف محايد هنا يحل المشكلة
+// ويخلي phpunit.xml يشتغل فعليًا (يرجع قيم متغيرات البيئة الحقيقية
+// إن وجدت، وإلا الافتراضي من phpunit.xml).
+// ============================================
+if (!function_exists('env')) {
+    function env(string $key, $default = null)
+    {
+        $real = getenv($key);
+        return $real === false ? $default : $real;
+    }
+}
+
+// ============================================
 // 2. تحميل ملفات التكوين
 // ============================================
 require_once TOURFECTO_APP . '/Config/app.php';
