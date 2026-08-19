@@ -6,13 +6,17 @@
  */
 class BusinessLocationController extends Controller {
 
-    private function currentUser(): ?User {
-        $id = $_SESSION['user_id'] ?? null;
-        if (!$id) {
-            return null;
+    /**
+     * نفس نسخة BusinessAccessService جوه الطلب الواحد - عشان الـroleCache
+     * الجوه الـService يشتغل (بدل استعلامات متكررة لكل فحص). Phase 27.
+     */
+    private ?BusinessAccessService $accessService = null;
+
+    private function access(): BusinessAccessService {
+        if ($this->accessService === null) {
+            $this->accessService = new BusinessAccessService();
         }
-        $model = new User();
-        return $model->find($id);
+        return $this->accessService;
     }
 
     /**
@@ -20,7 +24,7 @@ class BusinessLocationController extends Controller {
      * BusinessAccessService - Phase 10-11) - نفس مبدأ IDOR-safety.
      */
     private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
-        return (new BusinessAccessService())->getAccessibleBusiness($businessId, $userId);
+        return $this->access()->getAccessibleBusiness($businessId, $userId);
     }
 
     /**
@@ -36,8 +40,7 @@ class BusinessLocationController extends Controller {
             return null;
         }
         $businessId = (int) $location->getAttribute('business_id');
-        $access = new BusinessAccessService();
-        if (!$access->canEdit($businessId, $userId)) {
+        if (!$this->access()->canEdit($businessId, $userId)) {
             return null;
         }
         return $location;
@@ -45,12 +48,11 @@ class BusinessLocationController extends Controller {
 
     /** GET /api/business/{businessId}/locations */
     public function index(array $params = []): array {
-        $user = $this->currentUser();
-        if (!$user) {
+        if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
 
-        $business = $this->loadOwnedBusiness((int) ($params['businessId'] ?? 0), (int) $user->getAttribute('id'));
+        $business = $this->loadOwnedBusiness((int) ($params['businessId'] ?? 0), (int) $this->user['id']);
         if (!$business) {
             return $this->error('Business Profile غير موجود', 404);
         }
@@ -65,17 +67,16 @@ class BusinessLocationController extends Controller {
 
     /** POST /api/business/{businessId}/locations */
     public function store(array $params = []): array {
-        $user = $this->currentUser();
-        if (!$user) {
+        if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
-        $userId = (int) $user->getAttribute('id');
+        $userId = (int) $this->user['id'];
 
         $business = $this->loadOwnedBusiness((int) ($params['businessId'] ?? 0), $userId);
         if (!$business) {
             return $this->error('Business Profile غير موجود', 404);
         }
-        if (!(new BusinessAccessService())->canEdit((int) $business->getAttribute('id'), $userId)) {
+        if (!$this->access()->canEdit((int) $business->getAttribute('id'), $userId)) {
             return $this->error('ليست لديك صلاحية تعديل البيانات', 403);
         }
 
@@ -103,12 +104,11 @@ class BusinessLocationController extends Controller {
 
     /** PUT /api/business/locations/{id} */
     public function update(array $params = []): array {
-        $user = $this->currentUser();
-        if (!$user) {
+        if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
 
-        $location = $this->loadOwnedLocation((int) ($params['id'] ?? 0), (int) $user->getAttribute('id'));
+        $location = $this->loadOwnedLocation((int) ($params['id'] ?? 0), (int) $this->user['id']);
         if (!$location) {
             return $this->error('الموقع غير موجود', 404);
         }
@@ -132,19 +132,18 @@ class BusinessLocationController extends Controller {
 
         (new BusinessContextService())->invalidate((int) $location->getAttribute('business_id'));
 
-        BusinessAuditLog::record((int) $location->getAttribute('business_id'), (int) $user->getAttribute('id'), 'location_updated', 'success', 'location', (string) $location->getAttribute('id'));
+        BusinessAuditLog::record((int) $location->getAttribute('business_id'), (int) $this->user['id'], 'location_updated', 'success', 'location', (string) $location->getAttribute('id'));
 
         return $this->success(['location' => $location->toArray()], 'تم تحديث الموقع');
     }
 
     /** DELETE /api/business/locations/{id} */
     public function destroy(array $params = []): array {
-        $user = $this->currentUser();
-        if (!$user) {
+        if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
 
-        $location = $this->loadOwnedLocation((int) ($params['id'] ?? 0), (int) $user->getAttribute('id'));
+        $location = $this->loadOwnedLocation((int) ($params['id'] ?? 0), (int) $this->user['id']);
         if (!$location) {
             return $this->error('الموقع غير موجود', 404);
         }
@@ -158,7 +157,7 @@ class BusinessLocationController extends Controller {
 
         (new BusinessContextService())->invalidate($businessId);
 
-        BusinessAuditLog::record($businessId, (int) $user->getAttribute('id'), 'location_deleted', 'success', 'location', (string) $location->getAttribute('id'));
+        BusinessAuditLog::record($businessId, (int) $this->user['id'], 'location_deleted', 'success', 'location', (string) $location->getAttribute('id'));
 
         return $this->success([], 'تم حذف الموقع');
     }

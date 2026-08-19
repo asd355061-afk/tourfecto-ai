@@ -6,18 +6,22 @@
  */
 class BusinessController extends Controller {
 
-    private function currentUser(): ?User {
-        $id = $_SESSION['user_id'] ?? null;
-        if (!$id) {
-            return null;
+    /**
+     * نفس نسخة BusinessAccessService جوه الطلب الواحد - عشان الـroleCache
+     * الجوه الـService يشتغل (بدل استعلامات متكررة لكل فحص). Phase 27.
+     */
+    private ?BusinessAccessService $accessService = null;
+
+    private function access(): BusinessAccessService {
+        if ($this->accessService === null) {
+            $this->accessService = new BusinessAccessService();
         }
-        $model = new User();
-        return $model->find($id);
+        return $this->accessService;
     }
 
     /**
      * تحميل الـBusiness المرتبط بالمستخدم الحالي، مع فحص ملكية صريح.
-     * دايمًا بيرجع null لو المستخدم مش Owner - حتى لو الـID موجود فعليًا
+     * دايمًا بيرجع null لو المستخدم مش Owner - حتى لو الـID موجود فعلًا
      * لمستخدم تاني (منع IDOR: محدش يقدر يشوف/يعدّل Business غير بتاعه
      * بمجرد تخمين ID، حتى لو الفحص ده مش Policy/Gate حقيقي بمعنى Laravel
      * - المعمارية دي مفهاش نظام Policies جاهز، فالفحص هنا Server-side
@@ -29,18 +33,16 @@ class BusinessController extends Controller {
      * الـBusiness، مش المالك بس.
      */
     private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
-        $business = (new BusinessAccessService())->getAccessibleBusiness($businessId, $userId);
-        return $business;
+        return $this->access()->getAccessibleBusiness($businessId, $userId);
     }
 
     /** GET /api/business - الـBusiness (أو أول واحد) بتاع المستخدم الحالي */
     public function show(array $params = []): array {
-        $user = $this->currentUser();
-        if (!$user) {
+        if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
 
-        $business = (new BusinessAccessService())->resolveUserBusiness((int) $user->getAttribute('id'));
+        $business = $this->access()->resolveUserBusiness((int) $this->user['id']);
         if (!$business) {
             // مفيش Business لسه - مش خطأ، حالة طبيعية (لسه مكمّلش Onboarding)
             return $this->success(['business' => null]);
@@ -56,12 +58,11 @@ class BusinessController extends Controller {
      * تاني هنا - التعديل بيبقى عن طريق update() مش إنشاء نسخة تانية.
      */
     public function store(array $params = []): array {
-        $user = $this->currentUser();
-        if (!$user) {
+        if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
 
-        $userId = (int) $user->getAttribute('id');
+        $userId = (int) $this->user['id'];
 
         $existing = (new Business())->where(['owner_user_id' => $userId], [], 1);
         if (!empty($existing)) {
@@ -96,12 +97,11 @@ class BusinessController extends Controller {
      * 6 Endpoints مختلفة ويعيد تركيب الصورة بنفسه.
      */
     public function overview(array $params = []): array {
-        $user = $this->currentUser();
-        if (!$user) {
+        if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
 
-        $business = (new BusinessAccessService())->resolveUserBusiness((int) $user->getAttribute('id'));
+        $business = $this->access()->resolveUserBusiness((int) $this->user['id']);
         if (!$business) {
             return $this->success([
                 'business' => null,
@@ -136,20 +136,19 @@ class BusinessController extends Controller {
 
     /** PUT /api/business/{id} - تحديث. Authorization: Owner فقط */
     public function update(array $params = []): array {
-        $user = $this->currentUser();
-        if (!$user) {
+        if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
 
-        $access = new BusinessAccessService();
-        $business = $access->getAccessibleBusiness((int) ($params['id'] ?? 0), (int) $user->getAttribute('id'));
+        $access = $this->access();
+        $business = $access->getAccessibleBusiness((int) ($params['id'] ?? 0), (int) $this->user['id']);
         if (!$business) {
             // 404 مش 403 عمدًا: منمنعش معلومة "الـID ده موجود لكن مش بتاعك"
             // - نفس مبدأ عدم كشف وجود موارد لمستخدمين تانيين (IDOR-safe).
             return $this->error('Business Profile غير موجود', 404);
         }
         // viewer (عضو للعرض بس) - يشوف لكن مش بيعدّل.
-        if (!$access->canEdit((int) $business->getAttribute('id'), (int) $user->getAttribute('id'))) {
+        if (!$access->canEdit((int) $business->getAttribute('id'), (int) $this->user['id'])) {
             return $this->error('ليست لديك صلاحية تعديل بيانات الـBusiness', 403);
         }
 
@@ -169,7 +168,7 @@ class BusinessController extends Controller {
         // التعديل - راجع التعليق الكامل جوه BusinessContextService.
         (new BusinessContextService())->invalidate((int) $business->getAttribute('id'));
 
-        BusinessAuditLog::record((int) $business->getAttribute('id'), (int) $user->getAttribute('id'), 'business_updated', 'success', 'business', (string) $business->getAttribute('id'));
+        BusinessAuditLog::record((int) $business->getAttribute('id'), (int) $this->user['id'], 'business_updated', 'success', 'business', (string) $business->getAttribute('id'));
 
         return $this->success(['business' => $business->toArray()], 'تم تحديث Business Profile');
     }

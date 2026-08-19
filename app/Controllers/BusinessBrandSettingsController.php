@@ -6,27 +6,30 @@
  */
 class BusinessBrandSettingsController extends Controller {
 
-    private function currentUser(): ?User {
-        $id = $_SESSION['user_id'] ?? null;
-        if (!$id) {
-            return null;
+    /**
+     * نفس نسخة BusinessAccessService جوه الطلب الواحد - عشان الـroleCache
+     * الجوه الـService يشتغل (بدل استعلامات متكررة لكل فحص). Phase 27.
+     */
+    private ?BusinessAccessService $accessService = null;
+
+    private function access(): BusinessAccessService {
+        if ($this->accessService === null) {
+            $this->accessService = new BusinessAccessService();
         }
-        $model = new User();
-        return $model->find($id);
+        return $this->accessService;
     }
 
     private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
-        return (new BusinessAccessService())->getAccessibleBusiness($businessId, $userId);
+        return $this->access()->getAccessibleBusiness($businessId, $userId);
     }
 
     /** GET /api/business/{businessId}/brand */
     public function show(array $params = []): array {
-        $user = $this->currentUser();
-        if (!$user) {
+        if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
 
-        $business = $this->loadOwnedBusiness((int) ($params['businessId'] ?? 0), (int) $user->getAttribute('id'));
+        $business = $this->loadOwnedBusiness((int) ($params['businessId'] ?? 0), (int) $this->user['id']);
         if (!$business) {
             return $this->error('Business Profile غير موجود', 404);
         }
@@ -41,17 +44,16 @@ class BusinessBrandSettingsController extends Controller {
 
     /** PUT /api/business/{businessId}/brand */
     public function upsert(array $params = []): array {
-        $user = $this->currentUser();
-        if (!$user) {
+        if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
 
         $businessId = (int) ($params['businessId'] ?? 0);
-        $business = $this->loadOwnedBusiness($businessId, (int) $user->getAttribute('id'));
+        $business = $this->loadOwnedBusiness($businessId, (int) $this->user['id']);
         if (!$business) {
             return $this->error('Business Profile غير موجود', 404);
         }
-        if (!(new BusinessAccessService())->canEdit($businessId, (int) $user->getAttribute('id'))) {
+        if (!$this->access()->canEdit($businessId, (int) $this->user['id'])) {
             return $this->error('ليست لديك صلاحية تعديل البيانات', 403);
         }
 
@@ -140,7 +142,7 @@ class BusinessBrandSettingsController extends Controller {
         // تعديل تاني على بيانات الـBusiness.
         (new BusinessContextService())->invalidate($businessId);
 
-        BusinessAuditLog::record($businessId, (int) $user->getAttribute('id'), 'brand_settings_updated', 'success', 'business', (string) $businessId);
+        BusinessAuditLog::record($businessId, (int) $this->user['id'], 'brand_settings_updated', 'success', 'business', (string) $businessId);
 
         return $this->success(['brand_settings' => $record->toArray()], 'تم حفظ إعدادات العلامة التجارية');
     }
