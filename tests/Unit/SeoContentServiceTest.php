@@ -12,6 +12,7 @@
  */
 
 require_once __DIR__ . '/../../app/Core/Database.php';
+require_once __DIR__ . '/../../app/Core/Queue/QueueManager.php';
 require_once __DIR__ . '/../../app/Services/Seo/SeoAbTestService.php';
 require_once __DIR__ . '/../../app/Services/Seo/SeoPerformanceService.php';
 require_once __DIR__ . '/../../app/Services/Seo/SeoContentService.php';
@@ -43,6 +44,11 @@ class FakeDatabase extends Database
         if (strpos($upper, 'INSERT') === 0) {
             $this->inserts[] = [$sql, $params];
             return $this->nextId++;
+        }
+
+        if (strpos($upper, 'INFORMATION_SCHEMA') !== false) {
+            $table = $params[0] ?? '';
+            return isset($this->rows[$table]) ? [['ok' => 1]] : [];
         }
 
         foreach (array_keys($this->rows) as $table) {
@@ -79,6 +85,7 @@ class SeoContentServiceTest
         $this->testPendingGenerationItems();
         $this->testApplyWinningTitleAppliesWinner();
         $this->testApplyWinningTitleNoWinner();
+        $this->testRunEngineCycleSummary();
 
         $this->printSummary();
     }
@@ -256,6 +263,34 @@ class SeoContentServiceTest
         $service = new SeoContentService($db);
         $result = $service->applyWinningTitleToItem(1);
         $this->assertTrue($result['success'] === false, 'no winner => not applied');
+    }
+
+    /**
+     * دورة المحرك: العناصر queued بتتجدول حملة واحدة للتوليد في الطابور،
+     * وبتفضل كل الخطوات التانية (index/A-B/winner) صفر لأن الفيكتورة مبتعرفش
+     * تفرّق حالات غير queued (بتتجاهل WHERE) - وده المطلوب إن الدورة تشتغل
+     * بأمان من غير اعتماد على DB حقيقي ولا LLM.
+     */
+    private function testRunEngineCycleSummary(): void
+    {
+        $db = new FakeDatabase();
+        $db->rows = [
+            'jobs' => [],
+            'seo_content_items' => [
+                ['id' => 1, 'campaign_id' => 10, 'topic' => 'topic a'],
+                ['id' => 2, 'campaign_id' => 10, 'topic' => 'topic b'],
+            ],
+        ];
+        $service = new SeoContentService($db);
+        $summary = $service->runEngineCycle();
+
+        $this->assertTrue(is_array($summary), 'runEngineCycle returns array');
+        $this->assertTrue(array_keys($summary) === ['campaigns_enqueued', 'indexed', 'ab_created', 'winner_applied'], 'summary has 4 keys');
+        $this->assertTrue($summary['campaigns_enqueued'] === 1, 'one unique campaign enqueued for generation');
+        $this->assertTrue($summary['indexed'] === 0, 'no index step executed');
+        $this->assertTrue($summary['ab_created'] === 0, 'no A/B step executed');
+        $this->assertTrue($summary['winner_applied'] === 0, 'no winner step executed');
+        $this->assertTrue(count($db->inserts) === 1, 'exactly one job INSERT queued');
     }
 
     private function makeDb(array $rows): FakeDatabase

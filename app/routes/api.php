@@ -1120,6 +1120,7 @@ $router->post('/api/seo-content/campaigns/{id}/generate', 'SeoContentController'
 $router->post('/api/seo-content/items/{id}/generate', 'SeoContentController', 'generateItem', ['AuthMiddleware']);
 $router->post('/api/seo-content/items/{id}/index', 'SeoContentController', 'indexItem', ['AuthMiddleware']);
 $router->post('/api/seo-content/items/{id}/ab-test', 'SeoContentController', 'abTest', ['AuthMiddleware']);
+$router->post('/api/seo-content/engine/run', 'SeoContentController', 'runEngine', ['AuthMiddleware']);
 // Phase 15 (Executive Dashboard)
 $router->get('/api/executive-dashboard', 'ExecutiveDashboardController', 'getDashboard', ['AuthMiddleware']);
 // Phase 16 (Onboarding Wizard)

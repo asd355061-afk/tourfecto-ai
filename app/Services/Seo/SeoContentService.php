@@ -530,6 +530,77 @@ class SeoContentService
         ];
     }
 
+    /**
+     * تنفيذ دورة واحدة من محرك المحتوى التلقائي (نفس منطق الكرون).
+     * بيكررها أي حد: cron/seo_content_engine.php أو زر "تشغيل" في اللوحة.
+     * @return array ['campaigns_enqueued'=>int, 'indexed'=>int, 'ab_created'=>int, 'winner_applied'=>int]
+     */
+    public function runEngineCycle(
+        int $generateLimit = 20,
+        int $indexLimit = 20,
+        int $abLimit = 20,
+        int $winnerLimit = 20
+    ): array {
+        $summary = [
+            'campaigns_enqueued' => 0,
+            'indexed' => 0,
+            'ab_created' => 0,
+            'winner_applied' => 0,
+        ];
+
+        // 1) توليد: جدولة حملة لكل عنصر queued (خلفي عبر الطابور)
+        $pendingCampaigns = [];
+        foreach ($this->pendingGenerationItems($generateLimit) as $item) {
+            $pendingCampaigns[(int) $item['campaign_id']] = true;
+        }
+        if (!empty($pendingCampaigns)) {
+            $queue = new QueueManager($this->db);
+            foreach (array_keys($pendingCampaigns) as $campaignId) {
+                if ($queue->push('SeoContentGenerateJob', ['campaign_id' => $campaignId])) {
+                    $summary['campaigns_enqueued']++;
+                }
+            }
+        }
+
+        // 2) فهرسة IndexNow
+        foreach ($this->pendingIndexItems($indexLimit) as $item) {
+            try {
+                $res = $this->indexItem((int) $item['id']);
+                if (!empty($res['success'])) {
+                    $summary['indexed']++;
+                }
+            } catch (Exception $e) {
+                Logger::warning('SEO content engine: index failed', ['item_id' => $item['id'], 'error' => $e->getMessage()]);
+            }
+        }
+
+        // 3) تجارب A/B
+        foreach ($this->pendingAbTestItems($abLimit) as $item) {
+            try {
+                $res = $this->createTitleAbTest((int) $item['id']);
+                if (!empty($res['success'])) {
+                    $summary['ab_created']++;
+                }
+            } catch (Exception $e) {
+                Logger::warning('SEO content engine: A/B create failed', ['item_id' => $item['id'], 'error' => $e->getMessage()]);
+            }
+        }
+
+        // 4) تطبيق العنوان الفائز
+        foreach ($this->pendingWinnerApplyItems($winnerLimit) as $item) {
+            try {
+                $res = $this->applyWinningTitleToItem((int) $item['id']);
+                if (!empty($res['success'])) {
+                    $summary['winner_applied']++;
+                }
+            } catch (Exception $e) {
+                Logger::warning('SEO content engine: winner apply failed', ['item_id' => $item['id'], 'error' => $e->getMessage()]);
+            }
+        }
+
+        return $summary;
+    }
+
     // ==================== helpers ====================
 
     private function getCampaign(int $campaignId): ?array

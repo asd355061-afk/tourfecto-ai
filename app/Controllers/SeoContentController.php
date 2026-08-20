@@ -53,6 +53,8 @@ class SeoContentController extends Controller
         <div class="p-toolbar">
             <select id="sccWebsiteSelect" class="p-select"><option value="">اختر موقعًا</option></select>
             <span class="p-cell-muted" id="sccConnStatus" style="font-size:12px;"></span>
+            <span style="flex:1;"></span>
+            <button class="p-btn" id="sccRunEngineBtn">تشغيل دورة المحرك</button>
         </div>
 
         <div class="scc-grid" style="margin-top:14px;">
@@ -155,6 +157,16 @@ class SeoContentController extends Controller
         }
         document.getElementById('sccDiscoverBtn').onclick = sccLoadDiscover;
         document.getElementById('sccCreateBtn').onclick = sccCreateCampaign;
+        document.getElementById('sccRunEngineBtn').onclick = async function () {
+            const btn = this; btn.disabled = true; btn.textContent = 'جارٍ التشغيل...';
+            const res = await sccApi('/api/seo-content/engine/run', { method: 'POST' });
+            btn.disabled = false; btn.textContent = 'تشغيل دورة المحرك';
+            const st = document.getElementById('sccConnStatus');
+            if (!res.success) { st.textContent = res.error || 'فشل التشغيل'; return; }
+            const s = res.data;
+            st.textContent = `تم: ${s.campaigns_enqueued} حملة للتوليد، ${s.indexed} مفهرس، ${s.ab_created} تجربة A/B، ${s.winner_applied} عنوان فائز`;
+            if (sccCampaign) sccSelectCampaign(sccCampaign);
+        };
         sccLoadWebsites();
         JS;
 
@@ -320,6 +332,17 @@ class SeoContentController extends Controller
             return $this->error($result['error'] ?? 'فشل إنشاء التجربة', 500);
         }
         return $this->success($result, 'تم إنشاء تجربة A/B');
+    }
+
+    /** POST /api/seo-content/engine/run - تشغيل دورة محرك المحتوى فورًا (نفس منطق الكرون) */
+    public function runEngine(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $summary = $this->service->runEngineCycle();
+        $this->log('SEO Content Engine Cycle Run', $summary);
+        return $this->success($summary, 'تم تشغيل دورة المحرك');
     }
 
     // ==================== helpers ====================
