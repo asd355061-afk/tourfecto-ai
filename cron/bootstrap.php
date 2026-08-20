@@ -113,6 +113,7 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Services/RevenueIntelligence/PipelineRevenueService.php',
     APP_PATH . '/Services/RevenueIntelligence/RevenueInsightService.php',
     APP_PATH . '/Services/RevenueIntelligence/RevenueActionService.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueActionExecutor.php',
     APP_PATH . '/Services/RevenueIntelligence/RevenueCacheService.php',
     APP_PATH . '/Services/RevenueIntelligence/RevenueAssistantService.php',
     APP_PATH . '/Services/RevenueIntelligence/ExecutiveSummaryService.php',

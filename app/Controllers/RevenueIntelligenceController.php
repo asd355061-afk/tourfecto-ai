@@ -23,6 +23,7 @@ class RevenueIntelligenceController extends Controller
     private RevenueAnomalyService $anomalyService;
     private RevenueAssistantService $assistantService;
     private RevenueActionService $actionService;
+    private RevenueActionExecutor $actionExecutor;
     private ExecutiveSummaryService $executiveSummaryService;
     private RevenueCacheService $cacheService;
 
@@ -37,6 +38,7 @@ class RevenueIntelligenceController extends Controller
         $this->anomalyService = new RevenueAnomalyService();
         $this->assistantService = new RevenueAssistantService();
         $this->actionService = new RevenueActionService();
+        $this->actionExecutor = new RevenueActionExecutor();
         $this->executiveSummaryService = new ExecutiveSummaryService();
         $this->cacheService = new RevenueCacheService();
     }
@@ -307,6 +309,64 @@ HTML;
             return $this->success(['has_data' => !empty($actions), 'actions' => $actions]);
         } catch (Throwable $e) {
             return $this->serverError('actions', $e);
+        }
+    }
+
+    /**
+     * POST /api/revenue-intelligence/actions/execute - طبقة التنفيذ.
+     * بتحوّل التوصيات لإجراءات فعلية (مهمة CRM + إشعار للأعلى خطورة) مع
+     * منع التكرار. استخدم dry_run=true للاستعراض من غير كتابة.
+     */
+    public function apiActionsExecute(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $userId = (int) $this->user['id'];
+        $boolOpt = function (string $key, bool $default) {
+            $v = $this->get($key, null);
+            if ($v === null) {
+                return $default;
+            }
+            return in_array(strtolower((string) $v), ['1', 'true', 'on', 'yes'], true);
+        };
+        $opts = [
+            'create_tasks' => $boolOpt('create_tasks', true),
+            'notify' => $boolOpt('notify', true),
+            'dry_run' => $boolOpt('dry_run', false),
+            'window_days' => (int) $this->get('window_days', 7),
+        ];
+        try {
+            $actions = $this->actionService->getNextBestActions($userId, 10);
+            if ($opts['dry_run']) {
+                return $this->success([
+                    'dry_run' => true,
+                    'summary' => $this->actionExecutor->executeActions($userId, $actions, $opts),
+                ], 'استعراض التنفيذ المتوقع');
+            }
+            $summary = $this->actionExecutor->executeActions($userId, $actions, $opts);
+            ActivityLog::record('revenue_intelligence', 'actions.executed', [
+                'user_id' => $userId,
+                'meta' => ['planned' => $summary['planned'], 'executed' => $summary['executed'], 'tasks_created' => $summary['tasks_created'], 'skipped' => $summary['skipped']],
+            ]);
+            return $this->success(['summary' => $summary], 'تم تنفيذ إجراءات الإيرادات');
+        } catch (Throwable $e) {
+            return $this->serverError('actions-execute', $e);
+        }
+    }
+
+    /** GET /api/revenue-intelligence/actions/history - سجل عمليات التنفيذ. */
+    public function apiActionsHistory(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $userId = (int) $this->user['id'];
+        try {
+            $history = $this->actionExecutor->history($userId, (int) $this->get('limit', 20));
+            return $this->success(['has_data' => !empty($history), 'history' => $history]);
+        } catch (Throwable $e) {
+            return $this->serverError('actions-history', $e);
         }
     }
 
@@ -846,7 +906,18 @@ HTML;
             case 'top_revenue_source':
                 return `<div class="p-card"><h4>${labels[key]}</h4><p>${d.top_revenue_source ? esc(d.top_revenue_source.source) + ' — ' + fmt(d.top_revenue_source.revenue) : I18N['common.no_records_yet']}</p></div>`;
             case 'recommended_actions':
-                return `<div class="p-card"><h4>${labels[key]}</h4>${(d.recommended_actions || []).map(a => `<div style="padding:8px 0;border-bottom:1px solid var(--border,#eee);"><b>${esc(a.action)}</b> — ${esc(a.reason)}</div>`).join('') || `<div class="p-empty">${I18N['common.no_records_yet']}</div>`}</div>`;
+                return `<div class="p-card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                        <h4 style="margin:0;">${labels[key]}</h4>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                            <button class="p-btn xs" id="revaiExecPreviewBtn">${I18N['revai.exec.preview']}</button>
+                            <button class="p-btn primary xs" id="revaiExecBtn">⚡ ${I18N['revai.exec.execute']}</button>
+                        </div>
+                    </div>
+                    ${(d.recommended_actions || []).map(a => `<div style="padding:8px 0;border-bottom:1px solid var(--border,#eee);"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><b>${esc(a.action)}</b>${a.severity ? badge(a.severity, sevColor[a.severity] || '#888') : ''}</div><div style="font-size:12.5px;opacity:.85;margin-top:2px;">${esc(a.reason)}</div></div>`).join('') || `<div class="p-empty">${I18N['common.no_records_yet']}</div>`}
+                    <div id="revaiExecResult" style="margin-top:10px;font-size:12.5px;"></div>
+                    <div id="revaiExecHistory" style="margin-top:8px;"></div>
+                </div>`;
         }
         return '';
     }
@@ -928,6 +999,46 @@ HTML;
                 if (done.success) { toast(I18N['revai.prefs.reset_done'], 'success'); renderExecutive(); } else { toast(done.error, 'error'); }
             });
         }
+        const execBtn = document.getElementById('revaiExecBtn');
+        if (execBtn) execBtn.addEventListener('click', revaiExecute);
+        const previewBtn = document.getElementById('revaiExecPreviewBtn');
+        if (previewBtn) previewBtn.addEventListener('click', revaiExecPreview);
+        if (d.recommended_actions && d.recommended_actions.length) revaiLoadExecHistory();
+    }
+
+    async function revaiExecPreview() {
+        const box = document.getElementById('revaiExecResult');
+        if (!box) return;
+        box.innerHTML = '<span class="p-cell-muted">' + esc(I18N['common.loading']) + '</span>';
+        const res = await fetchJSON('/api/revenue-intelligence/actions/execute?dry_run=1', { method: 'POST' });
+        if (!res.success) { box.innerHTML = '<span style="color:#EF4444;">' + esc(res.error) + '</span>'; return; }
+        const s = res.data.summary;
+        box.innerHTML = `<span style="color:var(--panel-text-muted);">${I18N['revai.exec.preview_done'].replace('{n}', s.executed).replace('{t}', s.tasks_created).replace('{s}', s.skipped)}</span>`;
+    }
+
+    async function revaiExecute() {
+        const btn = document.getElementById('revaiExecBtn');
+        const box = document.getElementById('revaiExecResult');
+        if (!btn || !box) return;
+        btn.disabled = true;
+        box.innerHTML = '<span class="p-cell-muted">' + esc(I18N['common.loading']) + '</span>';
+        const res = await fetchJSON('/api/revenue-intelligence/actions/execute', { method: 'POST' });
+        btn.disabled = false;
+        if (!res.success) { box.innerHTML = '<span style="color:#EF4444;">' + esc(res.error) + '</span>'; toast(res.error, 'error'); return; }
+        const s = res.data.summary;
+        box.innerHTML = `<span style="color:#22C55E;">${I18N['revai.exec.done'].replace('{n}', s.executed).replace('{t}', s.tasks_created).replace('{p}', s.notifications_sent).replace('{s}', s.skipped)}</span>`;
+        toast(I18N['revai.exec.done_toast'], 'success');
+        revaiLoadExecHistory();
+    }
+
+    async function revaiLoadExecHistory() {
+        const box = document.getElementById('revaiExecHistory');
+        if (!box) return;
+        const res = await fetchJSON('/api/revenue-intelligence/actions/history?limit=5');
+        if (!res.success || !res.data.history.length) return;
+        box.innerHTML = `<div style="font-size:11px;color:var(--panel-text-muted);margin-bottom:4px;">${I18N['revai.exec.history']}:</div>` + res.data.history.map(h =>
+            `<div style="font-size:12px;padding:3px 0;border-bottom:1px dashed var(--border,#eee);"><span style="opacity:.7;">${esc(h.action_key)}</span> — <span style="opacity:.85;">${esc((h.actions_taken || '').replace(/[\[\]"]/g, ''))}</span></div>`
+        ).join('');
     }
 
     async function renderOverview() {

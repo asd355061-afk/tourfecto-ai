@@ -187,6 +187,8 @@ $router->get('/api/revenue-intelligence/customers', 'RevenueIntelligenceControll
 $router->get('/api/revenue-intelligence/segments', 'RevenueIntelligenceController', 'apiSegments', ['AuthMiddleware']);
 $router->get('/api/revenue-intelligence/pipeline', 'RevenueIntelligenceController', 'apiPipeline', ['AuthMiddleware']);
 $router->get('/api/revenue-intelligence/actions', 'RevenueIntelligenceController', 'apiActions', ['AuthMiddleware']);
+$router->post('/api/revenue-intelligence/actions/execute', 'RevenueIntelligenceController', 'apiActionsExecute', ['AuthMiddleware']);
+$router->get('/api/revenue-intelligence/actions/history', 'RevenueIntelligenceController', 'apiActionsHistory', ['AuthMiddleware']);
 $router->get('/api/revenue-intelligence/executive-summary', 'RevenueIntelligenceController', 'apiExecutiveSummary', ['AuthMiddleware']);
 $router->post('/api/revenue-intelligence/assistant/ask', 'RevenueIntelligenceController', 'apiAssistantAsk', ['AuthMiddleware']);
 $router->get('/api/revenue-intelligence/retention', 'RevenueIntelligenceController', 'apiRetention', ['AuthMiddleware']);

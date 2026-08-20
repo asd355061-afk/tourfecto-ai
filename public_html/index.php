@@ -221,6 +221,7 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/RevenueIntelligence/PipelineRevenueService.php',
     APP_PATH . '/Services/RevenueIntelligence/RevenueInsightService.php',
     APP_PATH . '/Services/RevenueIntelligence/RevenueActionService.php',
+    APP_PATH . '/Services/RevenueIntelligence/RevenueActionExecutor.php',
     APP_PATH . '/Services/RevenueIntelligence/RevenueAssistantService.php',
     APP_PATH . '/Services/RevenueIntelligence/ExecutiveSummaryService.php',
     APP_PATH . '/Services/RevenueIntelligence/RevenueInsightPersister.php',

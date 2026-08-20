@@ -75,6 +75,7 @@ class RevenueActionService
                 'source_type' => 'anomaly',
                 'source_category' => $a['type'],
                 'affected_area' => 'daily_revenue',
+                'period' => $a['period'],
                 'recommended_action' => $a['recommended_investigation'],
                 'severity' => $a['severity'],
             ];
