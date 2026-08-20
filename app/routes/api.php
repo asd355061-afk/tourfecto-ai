@@ -1085,6 +1085,14 @@ $router->post('/api/website-optimizer/auto-pilot-log/{id}/rollback', 'WebsiteOpt
 $router->post('/api/seo-strategy/generate', 'SeoStrategyController', 'generate', ['AuthMiddleware']);
 $router->get('/api/seo-strategy/latest', 'SeoStrategyController', 'getLatestPlan', ['AuthMiddleware']);
 $router->post('/api/seo-strategy/tasks/{id}/status', 'SeoStrategyController', 'updateTaskStatus', ['AuthMiddleware']);
+
+// Phase 21 (Auto SEO - تنفيذ تلقائي فعلي على المواقع الخارجية عبر embed.js)
+$router->post('/api/auto-seo/connect', 'AutoSeoController', 'connect', ['AuthMiddleware']);
+$router->delete('/api/auto-seo/connect', 'AutoSeoController', 'disconnect', ['AuthMiddleware']);
+$router->post('/api/auto-seo/mode', 'AutoSeoController', 'setMode', ['AuthMiddleware']);
+$router->post('/api/auto-seo/apply', 'AutoSeoController', 'apply', ['AuthMiddleware']);
+$router->get('/api/auto-seo/logs', 'AutoSeoController', 'logs', ['AuthMiddleware']);
+$router->post('/api/auto-seo/rollback/{id}', 'AutoSeoController', 'rollback', ['AuthMiddleware']);
 // Phase 15 (Executive Dashboard)
 $router->get('/api/executive-dashboard', 'ExecutiveDashboardController', 'getDashboard', ['AuthMiddleware']);
 // Phase 16 (Onboarding Wizard)

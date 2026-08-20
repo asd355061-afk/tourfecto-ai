@@ -13,6 +13,9 @@
 // ============================================
 $router->get('/', 'HomeController', 'index');
 $router->get('/sitemap.xml', 'HomeController', 'sitemap');
+// Phase 21 (Auto SEO): سكربت الحقن العام - بيتحمّل من متصفح زوار موقع العميل
+// فمينفعش يتحط عليه AuthMiddleware. التحقق بيتم عبر embed_token نفسه.
+$router->get('/embed.js', 'AutoSeoController', 'embedScript');
 $router->get('/services/{slug}', 'ServicesController', 'show');
 
 // ============================================
