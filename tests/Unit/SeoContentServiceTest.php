@@ -76,6 +76,9 @@ class SeoContentServiceTest
         $this->testCampaignStatsAggregatesCtr();
         $this->testDeriveVariantTitleAppendsKeyword();
         $this->testDeriveVariantTitleKeepsExistingKeyword();
+        $this->testPendingGenerationItems();
+        $this->testApplyWinningTitleAppliesWinner();
+        $this->testApplyWinningTitleNoWinner();
 
         $this->printSummary();
     }
@@ -196,6 +199,63 @@ class SeoContentServiceTest
 
         $this->assertTrue($result['success'] === true, 'A/B test created (keyword already in title)');
         $this->assertTrue($result['variant_title'] === 'دليل فنادق القاهرة (دليل شامل)', 'variant uses generic suffix when keyword present');
+    }
+
+    private function testPendingGenerationItems(): void
+    {
+        $db = $this->makeDb([
+            'seo_content_items' => [
+                ['id' => 1, 'campaign_id' => 10, 'topic' => 'topic a'],
+                ['id' => 2, 'campaign_id' => 10, 'topic' => 'topic b'],
+            ],
+        ]);
+        $service = new SeoContentService($db);
+        $items = $service->pendingGenerationItems(20);
+        $this->assertTrue(count($items) === 2, 'pending generation returns queued items');
+        $this->assertTrue($items[0]['campaign_id'] === 10, 'item campaign_id preserved');
+    }
+
+    private function testApplyWinningTitleAppliesWinner(): void
+    {
+        $db = $this->makeDb([
+            'seo_content_campaigns' => [
+                ['id' => 1, 'user_id' => 1, 'website_id' => 1, 'name' => 'C', 'total_items' => 1, 'generated_items' => 1],
+            ],
+            'seo_content_items' => [
+                ['id' => 1, 'campaign_id' => 1, 'article_id' => 5, 'title' => 'Old Title', 'slug' => 'x', 'status' => 'testing', 'ab_test_id' => 9],
+            ],
+            'seo_ab_tests' => [
+                ['id' => 9, 'winner_variant_id' => 3],
+            ],
+            'seo_ab_variants' => [
+                ['id' => 3, 'value' => 'Winning SEO Title'],
+            ],
+        ]);
+        $service = new SeoContentService($db);
+        $result = $service->applyWinningTitleToItem(1);
+
+        $this->assertTrue($result['success'] === true, 'winner applied');
+        $this->assertTrue($result['winner_title'] === 'Winning SEO Title', 'winner title returned');
+        $this->assertTrue($result['test_id'] === 9, 'test_id preserved');
+        $this->assertTrue($result['item_id'] === 1, 'item_id preserved');
+    }
+
+    private function testApplyWinningTitleNoWinner(): void
+    {
+        $db = $this->makeDb([
+            'seo_content_campaigns' => [
+                ['id' => 1, 'user_id' => 1, 'website_id' => 1, 'name' => 'C'],
+            ],
+            'seo_content_items' => [
+                ['id' => 1, 'campaign_id' => 1, 'article_id' => 5, 'title' => 'Old', 'slug' => 'x', 'status' => 'testing', 'ab_test_id' => 9],
+            ],
+            'seo_ab_tests' => [
+                ['id' => 9, 'winner_variant_id' => null],
+            ],
+        ]);
+        $service = new SeoContentService($db);
+        $result = $service->applyWinningTitleToItem(1);
+        $this->assertTrue($result['success'] === false, 'no winner => not applied');
     }
 
     private function makeDb(array $rows): FakeDatabase

@@ -177,6 +177,7 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Services/Seo/SeoProxyService.php',
     APP_PATH . '/Services/Seo/SeoPerformanceService.php',
     APP_PATH . '/Services/Seo/SeoSchedulerService.php',
+    APP_PATH . '/Services/Seo/SeoContentService.php',
     APP_PATH . '/Services/SearchConsole/GoogleSearchConsoleAPI.php',
     APP_PATH . '/Services/Analytics/GoogleAnalyticsAPI.php',
 ];

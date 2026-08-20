@@ -416,6 +416,120 @@ class SeoContentService
         );
     }
 
+    // ==================== Automatic loop (cron) ====================
+
+    /** عناصر مستحقة التوليد (status='queued') لحد $limit */
+    public function pendingGenerationItems(int $limit = 20): array
+    {
+        return $this->db->query(
+            "SELECT i.id, i.campaign_id, i.topic
+               FROM seo_content_items i
+               JOIN seo_content_campaigns c ON c.id = i.campaign_id
+              WHERE i.status = 'queued' AND c.status IN ('draft','generating','ready')
+              ORDER BY i.id ASC LIMIT ?",
+            [$limit]
+        );
+    }
+
+    /** عناصر مستحقة الفهرسة (status='generated') لحد $limit */
+    public function pendingIndexItems(int $limit = 20): array
+    {
+        return $this->db->query(
+            "SELECT i.id
+               FROM seo_content_items i
+               JOIN seo_content_campaigns c ON c.id = i.campaign_id
+              WHERE i.status = 'generated' AND c.status IN ('generating','ready')
+              ORDER BY i.id ASC LIMIT ?",
+            [$limit]
+        );
+    }
+
+    /** عناصر مستحقة تجربة A/B (status='indexed' من غير تجربة) لحد $limit */
+    public function pendingAbTestItems(int $limit = 20): array
+    {
+        return $this->db->query(
+            "SELECT i.id
+               FROM seo_content_items i
+               JOIN seo_content_campaigns c ON c.id = i.campaign_id
+              WHERE i.status = 'indexed' AND i.ab_test_id IS NULL
+              ORDER BY i.id ASC LIMIT ?",
+            [$limit]
+        );
+    }
+
+    /** عناصر تجاربها A/B اكتملت وفيه فائز - مستحقة تطبيق العنوان الفائز */
+    public function pendingWinnerApplyItems(int $limit = 20): array
+    {
+        return $this->db->query(
+            "SELECT i.id, i.ab_test_id
+               FROM seo_content_items i
+               JOIN seo_ab_tests t ON t.id = i.ab_test_id
+              WHERE t.status = 'completed' AND t.winner_variant_id IS NOT NULL
+                AND i.status IN ('testing','indexed','generated')
+              ORDER BY i.id ASC LIMIT ?",
+            [$limit]
+        );
+    }
+
+    /**
+     * تطبيق العنوان الفائز من تجربة A/B المكتملة على المقال والعنصر.
+     * بيقفل حلقة القياس: تجربة -> فائز -> عنوان منشور فعليًا.
+     */
+    public function applyWinningTitleToItem(int $itemId): array
+    {
+        $item = $this->getItem($itemId);
+        if (!$item || empty($item['ab_test_id'])) {
+            return ['success' => false, 'error' => 'العنصر غير موجود أو ليس له تجربة A/B'];
+        }
+
+        $testId = (int) $item['ab_test_id'];
+        $tests = $this->db->query(
+            "SELECT winner_variant_id FROM seo_ab_tests WHERE id = ? AND status = 'completed' AND winner_variant_id IS NOT NULL LIMIT 1",
+            [$testId]
+        );
+        if (empty($tests)) {
+            return ['success' => false, 'error' => 'التجربة غير مكتملة أو لا يوجد فائز'];
+        }
+
+        $winnerVariantId = (int) $tests[0]['winner_variant_id'];
+        $variants = $this->db->query(
+            "SELECT value FROM seo_ab_variants WHERE id = ? LIMIT 1",
+            [$winnerVariantId]
+        );
+        if (empty($variants)) {
+            return ['success' => false, 'error' => 'النسخة الفائزة غير موجودة'];
+        }
+
+        $winningTitle = trim((string) $variants[0]['value']);
+        if ($winningTitle === '') {
+            return ['success' => false, 'error' => 'العنوان الفائز فارغ'];
+        }
+
+        // تحديث المقال في ai_articles (لو لسه موجود)
+        if (!empty($item['article_id'])) {
+            $this->db->exec(
+                "UPDATE ai_articles SET title = ? WHERE id = ?",
+                [$winningTitle, (int) $item['article_id']]
+            );
+        }
+
+        // تحديث العنصر ونقله لحالة "published" (العنوان النهائي مطبّق)
+        $this->db->exec(
+            "UPDATE seo_content_items SET title = ?, status = 'published', updated_at = NOW() WHERE id = ?",
+            [$winningTitle, $itemId]
+        );
+
+        // لو كل عناصر الحملة اتنشرت، نعلّم الحملة completed
+        $this->touchCampaignCounters((int) $item['campaign_id']);
+
+        return [
+            'success' => true,
+            'item_id' => $itemId,
+            'test_id' => $testId,
+            'winner_title' => $winningTitle,
+        ];
+    }
+
     // ==================== helpers ====================
 
     private function getCampaign(int $campaignId): ?array
@@ -441,21 +555,26 @@ class SeoContentService
     private function touchCampaignCounters(int $campaignId): void
     {
         $row = $this->db->query(
-            "SELECT COUNT(*) AS total, SUM(status = 'generated') AS generated
+            "SELECT COUNT(*) AS total,
+                    SUM(status IN ('generated','indexed','testing','published')) AS done,
+                    SUM(status = 'published') AS published
                FROM seo_content_items WHERE campaign_id = ?",
             [$campaignId]
         );
         $total = (int) ($row[0]['total'] ?? 0);
-        $generated = (int) ($row[0]['generated'] ?? 0);
+        $done = (int) ($row[0]['done'] ?? 0);
+        $published = (int) ($row[0]['published'] ?? 0);
         $status = 'draft';
-        if ($total > 0 && $generated >= $total) {
+        if ($total > 0 && $published >= $total) {
+            $status = 'completed';
+        } elseif ($total > 0 && $done >= $total) {
             $status = 'ready';
-        } elseif ($generated > 0) {
+        } elseif ($done > 0) {
             $status = 'generating';
         }
         $this->db->exec(
             "UPDATE seo_content_campaigns SET generated_items = ?, status = ?, updated_at = NOW() WHERE id = ?",
-            [$generated, $status, $campaignId]
+            [$done, $status, $campaignId]
         );
     }
 
