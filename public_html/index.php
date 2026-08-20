@@ -450,6 +450,13 @@ $optionalNewClassFiles = [
     APP_PATH . '/Controllers/BusinessBrandSettingsController.php',
     APP_PATH . '/Controllers/BusinessTeamController.php',
     APP_PATH . '/Controllers/BusinessCenterController.php',
+    // Phase 24 (SEO Content Engine): بيجيب الفرص -> مولّد مقالات -> فهرسة
+    // -> A/B -> قياس CTR. الكلاسات دي مش مسجّلة لسه في classmap بتاع
+    // composer على السيرفر (مفيهوش composer dump-autoload)، فلازم تتحمّل
+    // يدويًا هنا وإلا أي زيارة لـ /seo-content هتقع بـ "Class not found".
+    APP_PATH . '/Services/Seo/SeoContentService.php',
+    APP_PATH . '/Controllers/SeoContentController.php',
+    APP_PATH . '/Jobs/SeoContentGenerateJob.php',
 ];
 foreach ($optionalNewClassFiles as $classFile) {
     if (file_exists($classFile)) {

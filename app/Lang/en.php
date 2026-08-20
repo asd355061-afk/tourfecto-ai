@@ -312,6 +312,7 @@ return [
     'sidebar.revenue_intelligence' => 'Revenue Intelligence',
     'sidebar.website_optimizer' => 'Website Optimizer (AI)',
     'sidebar.auto_seo' => 'Auto SEO',
+    'sidebar.seo_content' => 'SEO Content',
     'sidebar.competitor_monitoring' => 'Competitor Monitoring',
     'sidebar.seo_analysis' => 'SEO/AEO/GEO Analysis',
     'sidebar.ai_reports' => 'AI Reports',

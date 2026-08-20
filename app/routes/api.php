@@ -1110,6 +1110,16 @@ $router->post('/api/seo-ab-tests/{id}/variants', 'SeoAbTestController', 'addVari
 $router->post('/api/seo-ab-tests/{id}/start', 'SeoAbTestController', 'start', ['AuthMiddleware']);
 $router->post('/api/seo-ab-tests/{id}/complete', 'SeoAbTestController', 'complete', ['AuthMiddleware']);
 $router->get('/api/seo-ab-tests/{id}/results', 'SeoAbTestController', 'results', ['AuthMiddleware']);
+// Phase 24 (SEO Content Engine)
+$router->get('/api/seo-content/discover/{website_id}', 'SeoContentController', 'discover', ['AuthMiddleware']);
+$router->post('/api/seo-content/campaigns', 'SeoContentController', 'createCampaign', ['AuthMiddleware']);
+$router->get('/api/seo-content/campaigns/{website_id}', 'SeoContentController', 'listCampaigns', ['AuthMiddleware']);
+$router->get('/api/seo-content/campaigns/{id}/items', 'SeoContentController', 'listItems', ['AuthMiddleware']);
+$router->get('/api/seo-content/campaigns/{id}/stats', 'SeoContentController', 'stats', ['AuthMiddleware']);
+$router->post('/api/seo-content/campaigns/{id}/generate', 'SeoContentController', 'generateCampaign', ['AuthMiddleware']);
+$router->post('/api/seo-content/items/{id}/generate', 'SeoContentController', 'generateItem', ['AuthMiddleware']);
+$router->post('/api/seo-content/items/{id}/index', 'SeoContentController', 'indexItem', ['AuthMiddleware']);
+$router->post('/api/seo-content/items/{id}/ab-test', 'SeoContentController', 'abTest', ['AuthMiddleware']);
 // Phase 15 (Executive Dashboard)
 $router->get('/api/executive-dashboard', 'ExecutiveDashboardController', 'getDashboard', ['AuthMiddleware']);
 // Phase 16 (Onboarding Wizard)

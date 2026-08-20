@@ -342,6 +342,7 @@ abstract class Controller
                 'revenue_intelligence' => [t('sidebar.revenue_intelligence'), '🧠', '/revenue/intelligence'],
                 'website_optimizer' => [t('sidebar.website_optimizer'), '🛠️', '/website-optimizer'],
                 'auto_seo' => [t('sidebar.auto_seo'), 'SEO', '/auto-seo'],
+                'seo_content' => [t('sidebar.seo_content'), '✍️', '/seo-content'],
                 'competitor_monitoring' => [t('sidebar.competitor_monitoring'), '🕵️', '/competitor-monitoring'],
                 'competitor_intelligence' => [t('sidebar.competitor_intelligence'), '🕵️‍♂️', '/competitor-intelligence'],
             ],

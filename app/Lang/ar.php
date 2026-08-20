@@ -302,6 +302,7 @@ return [
     'sidebar.revenue_intelligence' => 'ذكاء الإيرادات',
     'sidebar.website_optimizer' => 'محسّن الموقع (AI)',
     'sidebar.auto_seo' => 'Auto SEO',
+    'sidebar.seo_content' => 'محتوى SEO',
     'sidebar.competitor_monitoring' => 'مراقبة المنافسين',
     'sidebar.seo_analysis' => 'تحليل SEO/AEO/GEO',
     'sidebar.ai_reports' => 'تقارير AI',

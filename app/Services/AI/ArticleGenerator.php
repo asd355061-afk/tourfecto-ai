@@ -58,7 +58,6 @@ class ArticleGenerator
         $apiResponse = $this->geminiClient->generateContent($prompt, [
             'maxOutputTokens' => 16384,
             'responseMimeType' => 'application/json',
-            'task' => 'content_generation',
         ]);
 
         if (!$apiResponse['success']) {
@@ -117,7 +116,6 @@ class ArticleGenerator
         $apiResponse = $this->geminiClient->generateContent($prompt, [
             'maxOutputTokens' => 4096,
             'responseMimeType' => 'application/json',
-            'task' => 'content_generation',
         ]);
 
         if (!$apiResponse['success']) {
