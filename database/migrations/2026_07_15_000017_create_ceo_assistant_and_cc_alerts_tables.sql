@@ -13,7 +13,7 @@
 
 CREATE TABLE IF NOT EXISTS `ceo_business_context_notes` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `user_id` BIGINT UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
     `note` TEXT NOT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     KEY `idx_ceo_notes_user` (`user_id`),
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS `ceo_business_context_notes` (
 
 CREATE TABLE IF NOT EXISTS `ceo_risk_alerts` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `user_id` BIGINT UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
     `title` VARCHAR(255) NOT NULL,
     `description` TEXT NULL,
     `severity` VARCHAR(10) NOT NULL DEFAULT 'medium' COMMENT 'critical|high|medium|low',
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS `ceo_risk_alerts` (
 
 CREATE TABLE IF NOT EXISTS `ceo_growth_opportunities` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `user_id` BIGINT UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
     `title` VARCHAR(255) NOT NULL,
     `description` TEXT NULL,
     `estimated_impact` VARCHAR(10) NOT NULL DEFAULT 'medium' COMMENT 'high|medium|low',
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS `ceo_growth_opportunities` (
 
 CREATE TABLE IF NOT EXISTS `cc_ai_alerts` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `user_id` BIGINT UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
     `message` VARCHAR(500) NOT NULL,
     `severity` VARCHAR(10) NOT NULL DEFAULT 'medium',
     `is_read` TINYINT(1) NOT NULL DEFAULT 0,
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS `cc_ai_alerts` (
 
 CREATE TABLE IF NOT EXISTS `cc_ai_tasks` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `user_id` BIGINT UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
     `title` VARCHAR(255) NOT NULL,
     `status` VARCHAR(20) NOT NULL DEFAULT 'open' COMMENT 'open|done|dismissed',
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

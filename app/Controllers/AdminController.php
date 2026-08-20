@@ -417,6 +417,73 @@ class AdminController extends Controller
         }
     }
 
+    /** GET /api/admin/ai-usage-stats */
+    public function aiUsageStats(array $params = []): array
+    {
+        try {
+            $stats = [
+                'total_requests' => 0, 'total_tokens_input' => 0, 'total_tokens_output' => 0,
+                'total_tokens' => 0, 'total_cost_usd' => 0, 'success_count' => 0, 'failed_count' => 0,
+                'success_rate' => 0, 'by_feature' => [], 'by_provider' => [],
+            ];
+
+            try {
+                $summary = $this->db->query(
+                    "SELECT COUNT(*) AS total,
+                            COALESCE(SUM(tokens_input), 0) AS tokens_input,
+                            COALESCE(SUM(tokens_output), 0) AS tokens_output,
+                            COALESCE(SUM(tokens_total), 0) AS tokens_total,
+                            COALESCE(SUM(estimated_cost_usd), 0) AS cost,
+                            SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS ok,
+                            SUM(CASE WHEN status != 'success' THEN 1 ELSE 0 END) AS bad
+                     FROM ai_usage_logs"
+                )[0] ?? [];
+
+                $stats['total_requests'] = (int) ($summary['total'] ?? 0);
+                $stats['total_tokens_input'] = (int) ($summary['tokens_input'] ?? 0);
+                $stats['total_tokens_output'] = (int) ($summary['tokens_output'] ?? 0);
+                $stats['total_tokens'] = (int) ($summary['tokens_total'] ?? 0);
+                $stats['total_cost_usd'] = round((float) ($summary['cost'] ?? 0), 4);
+                $stats['success_count'] = (int) ($summary['ok'] ?? 0);
+                $stats['failed_count'] = (int) ($summary['bad'] ?? 0);
+                $total = $stats['total_requests'];
+                $stats['success_rate'] = $total > 0 ? round(($stats['success_count'] / $total) * 100, 1) : 0;
+
+                $stats['by_feature'] = $this->db->query(
+                    "SELECT feature, COUNT(*) AS count, COALESCE(SUM(tokens_total), 0) AS tokens
+                     FROM ai_usage_logs GROUP BY feature ORDER BY count DESC LIMIT 20"
+                );
+                $stats['by_provider'] = $this->db->query(
+                    "SELECT provider, COUNT(*) AS count, COALESCE(SUM(tokens_total), 0) AS tokens
+                     FROM ai_usage_logs GROUP BY provider ORDER BY count DESC LIMIT 10"
+                );
+            } catch (Exception $e) {
+                Logger::error('Admin aiUsageStats usage_logs query failed', ['message' => $e->getMessage()]);
+            }
+
+            try {
+                $credits = $this->db->query(
+                    "SELECT COALESCE(SUM(usage_ai_analysis_count), 0) AS ai_analysis,
+                            COALESCE(SUM(usage_ai_message_count), 0) AS ai_messages,
+                            COALESCE(SUM(usage_review_reply_count), 0) AS review_replies
+                     FROM subscriptions"
+                )[0] ?? [];
+                $stats['subscription_usage'] = [
+                    'ai_analysis' => (int) ($credits['ai_analysis'] ?? 0),
+                    'ai_messages' => (int) ($credits['ai_messages'] ?? 0),
+                    'review_replies' => (int) ($credits['review_replies'] ?? 0),
+                ];
+            } catch (Exception $e) {
+                $stats['subscription_usage'] = ['ai_analysis' => 0, 'ai_messages' => 0, 'review_replies' => 0];
+            }
+
+            return $this->success(['stats' => $stats]);
+        } catch (Exception $e) {
+            Logger::error('Admin aiUsageStats Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر جلب إحصائيات الاستخدام', 500);
+        }
+    }
+
     /** GET /api/admin/features */
     public function listFeatures(array $params = []): array
     {

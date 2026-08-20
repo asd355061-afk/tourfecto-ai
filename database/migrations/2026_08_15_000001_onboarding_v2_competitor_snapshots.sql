@@ -18,8 +18,8 @@
 
 CREATE TABLE IF NOT EXISTS `onboarding_competitor_snapshots` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `website_id` BIGINT(20) UNSIGNED NOT NULL,
-    `user_id` BIGINT(20) UNSIGNED NOT NULL,
+    `website_id` INT(11) NOT NULL,
+    `user_id` INT(11) NOT NULL,
     `competitor_id` BIGINT UNSIGNED DEFAULT NULL COMMENT 'id من جدول competitors لو تم التسجيل فيه بنجاح',
     `domain` VARCHAR(500) NOT NULL,
     `title` VARCHAR(500) DEFAULT NULL,

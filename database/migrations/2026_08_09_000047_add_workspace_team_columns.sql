@@ -19,7 +19,7 @@ ALTER TABLE `users`
     ADD COLUMN `owner_user_id` INT(11) NULL DEFAULT NULL COMMENT 'لو مش NULL: هذا الحساب عضو فريق تابع لصاحب الحساب ده (مش حساب مستقل بفوترة خاصة)' AFTER `id`,
     ADD COLUMN `workspace_role` ENUM('admin', 'manager', 'sales', 'support', 'viewer') NULL DEFAULT NULL COMMENT 'دور العضو داخل الـ Workspace - يُستخدم فقط لو owner_user_id مش NULL. منفصل تمامًا عن عمود role الأصلي (صلاحيات منصة Tourfecto الداخلية)' AFTER `owner_user_id`,
     ADD COLUMN `industry` VARCHAR(100) NULL DEFAULT NULL COMMENT 'صناعة/مجال النشاط - جزء من Workspace Settings' AFTER `company_name`,
-    ADD COLUMN `workspace_logo_url` VARCHAR(255) NULL DEFAULT NULL COMMENT 'لوجو الـ Workspace (منفصل عن avatar_url الشخصي)' AFTER `avatar_url`,
+    ADD COLUMN `workspace_logo_url` VARCHAR(255) NULL DEFAULT NULL COMMENT 'لوجو الـ Workspace (منفصل عن avatar_url الشخصي)' AFTER `industry`,
     ADD KEY `idx_owner_user_id` (`owner_user_id`);
 
 -- FK بـ ON DELETE SET NULL عمدًا (مش CASCADE) - عشان لو صاحب حساب

@@ -60,8 +60,8 @@ ALTER TABLE `subscriptions`
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `social_posts` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `user_id` BIGINT(20) UNSIGNED NOT NULL,
-    `website_id` BIGINT(20) UNSIGNED DEFAULT NULL COMMENT 'الموقع/النشاط المرتبط (اختياري)',
+    `user_id` INT(11) NOT NULL,
+    `website_id` INT(11) DEFAULT NULL COMMENT 'الموقع/النشاط المرتبط (اختياري)',
     `content` TEXT NOT NULL COMMENT 'نص المنشور',
     `media_item_id` INT(11) DEFAULT NULL COMMENT 'صورة/فيديو مرتبط من Creative Studio',
     `hashtags` TEXT DEFAULT NULL COMMENT 'JSON array',
@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS `social_post_targets` (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `media_items` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `user_id` BIGINT(20) UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
     `type` ENUM('social_image','marketing_image','instagram_post','facebook_cover',
                 'youtube_thumbnail','story','reels_cover','short_video') NOT NULL,
     `prompt` TEXT DEFAULT NULL COMMENT 'وصف التوليد المُدخل',
@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS `media_items` (
 
 CREATE TABLE IF NOT EXISTS `video_scripts` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `user_id` BIGINT(20) UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
     `topic` VARCHAR(500) NOT NULL,
     `platform` ENUM('tiktok','instagram_reels','youtube_shorts','general') NOT NULL DEFAULT 'general',
     `duration_seconds` INT(11) DEFAULT 30,
@@ -138,7 +138,7 @@ CREATE TABLE IF NOT EXISTS `video_scripts` (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `ai_assistant_interactions` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `user_id` BIGINT(20) UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
     `type` VARCHAR(50) NOT NULL COMMENT 'نوع الأداة (ad_copy, email_subject, slogan...)',
     `title` VARCHAR(255) NOT NULL,
     `input_payload` LONGTEXT NOT NULL,
@@ -160,7 +160,7 @@ CREATE TABLE IF NOT EXISTS `ai_assistant_interactions` (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `agencies` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `owner_user_id` BIGINT(20) UNSIGNED NOT NULL COMMENT 'صاحب الوكالة - يشير لـ users.id',
+    `owner_user_id` INT(11) NOT NULL COMMENT 'صاحب الوكالة - يشير لـ users.id',
     `name` VARCHAR(255) NOT NULL,
     `slug` VARCHAR(100) NOT NULL UNIQUE,
     `status` ENUM('active','suspended','pending') NOT NULL DEFAULT 'pending',
@@ -204,7 +204,7 @@ CREATE TABLE IF NOT EXISTS `agency_domains` (
 CREATE TABLE IF NOT EXISTS `agency_clients` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
     `agency_id` INT(11) NOT NULL,
-    `client_user_id` BIGINT(20) UNSIGNED NOT NULL COMMENT 'يشير لـ users.id - العميل نفسه مستخدم عادي بدور مناسب',
+    `client_user_id` INT(11) NOT NULL COMMENT 'يشير لـ users.id - العميل نفسه مستخدم عادي بدور مناسب',
     `status` ENUM('active','suspended') NOT NULL DEFAULT 'active',
     `added_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
@@ -231,8 +231,8 @@ CREATE TABLE IF NOT EXISTS `agency_email_templates` (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `ad_campaigns` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `user_id` BIGINT(20) UNSIGNED NOT NULL,
-    `website_id` BIGINT(20) UNSIGNED DEFAULT NULL,
+    `user_id` INT(11) NOT NULL,
+    `website_id` INT(11) DEFAULT NULL,
     `platform_connection_id` INT(11) DEFAULT NULL COMMENT 'يشير لـ platform_connections.id (google_ads/meta_ads)',
     `name` VARCHAR(255) NOT NULL,
     `objective` VARCHAR(100) DEFAULT NULL,
@@ -261,7 +261,7 @@ CREATE TABLE IF NOT EXISTS `ad_campaigns` (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `activity_logs` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `user_id` BIGINT(20) UNSIGNED DEFAULT NULL COMMENT 'NULL لو الحدث نظامي بحت',
+    `user_id` INT(11) DEFAULT NULL COMMENT 'NULL لو الحدث نظامي بحت',
     `agency_id` INT(11) DEFAULT NULL,
     `module` VARCHAR(50) NOT NULL COMMENT 'seo, social, creative_studio, white_label, marketing_assistant, billing, system',
     `action` VARCHAR(100) NOT NULL COMMENT 'article.published, post.scheduled, media.generated...',
@@ -310,7 +310,7 @@ ALTER TABLE `users`
 -- ============================================================
 CREATE TABLE IF NOT EXISTS `notifications` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `user_id` BIGINT(20) UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
     `type` VARCHAR(50) NOT NULL COMMENT 'article_published, post_failed, subscription_expiring, review_received...',
     `title` VARCHAR(255) NOT NULL,
     `body` TEXT DEFAULT NULL,
@@ -347,8 +347,8 @@ CREATE TABLE IF NOT EXISTS `notifications` (
 
 CREATE TABLE IF NOT EXISTS `tracked_keywords` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `user_id` BIGINT(20) UNSIGNED NOT NULL,
-    `website_id` BIGINT(20) UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
+    `website_id` INT(11) NOT NULL,
     `keyword` VARCHAR(255) NOT NULL,
     `current_position` INT(11) DEFAULT NULL COMMENT 'ترتيب موقعك الحالي لهذه الكلمة',
     `search_volume` INT(11) DEFAULT NULL,
@@ -364,8 +364,8 @@ CREATE TABLE IF NOT EXISTS `tracked_keywords` (
 
 CREATE TABLE IF NOT EXISTS `competitor_recommendations` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `competitor_id` BIGINT(20) UNSIGNED NOT NULL,
-    `website_id` BIGINT(20) UNSIGNED NOT NULL,
+    `competitor_id` INT(11) NOT NULL,
+    `website_id` INT(11) NOT NULL,
     `recommendation` TEXT NOT NULL,
     `priority` ENUM('low','medium','high') NOT NULL DEFAULT 'medium',
     `status` ENUM('open','done','dismissed') NOT NULL DEFAULT 'open',
@@ -390,8 +390,8 @@ CREATE TABLE IF NOT EXISTS `competitor_recommendations` (
 
 CREATE TABLE IF NOT EXISTS `gbp_content` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `user_id` BIGINT(20) UNSIGNED NOT NULL,
-    `website_id` BIGINT(20) UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
+    `website_id` INT(11) NOT NULL,
     `type` ENUM('update','offer','event','product') NOT NULL DEFAULT 'update',
     `prompt` TEXT DEFAULT NULL,
     `generated_text` TEXT DEFAULT NULL,
@@ -444,7 +444,7 @@ CREATE TABLE IF NOT EXISTS `gbp_scheduled_posts` (
 
 CREATE TABLE IF NOT EXISTS `crm_contacts` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `user_id` BIGINT(20) UNSIGNED NOT NULL COMMENT 'صاحب سجل جهة الاتصال (وكالة أو مستخدم مباشر)',
+    `user_id` INT(11) NOT NULL COMMENT 'صاحب سجل جهة الاتصال (وكالة أو مستخدم مباشر)',
     `agency_id` INT(11) DEFAULT NULL COMMENT 'NULL = عميل مباشر بدون وكالة',
     `name` VARCHAR(255) NOT NULL,
     `email` VARCHAR(255) DEFAULT NULL,
@@ -463,7 +463,7 @@ CREATE TABLE IF NOT EXISTS `crm_contacts` (
 CREATE TABLE IF NOT EXISTS `crm_leads` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
     `contact_id` INT(11) NOT NULL,
-    `owner_user_id` BIGINT(20) UNSIGNED DEFAULT NULL COMMENT 'المسؤول عن متابعة هذا العميل المحتمل',
+    `owner_user_id` INT(11) DEFAULT NULL COMMENT 'المسؤول عن متابعة هذا العميل المحتمل',
     `status` ENUM('new','nurturing','qualified','disqualified','converted') NOT NULL DEFAULT 'new',
     `score` SMALLINT NOT NULL DEFAULT 0,
     `last_engagement_at` TIMESTAMP NULL DEFAULT NULL,
@@ -630,7 +630,7 @@ INSERT INTO `crm_pipeline_stages` (`agency_id`, `name`, `slug`, `sort_order`, `w
 
 CREATE TABLE IF NOT EXISTS `crm_deals` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `owner_user_id` BIGINT(20) UNSIGNED DEFAULT NULL,
+    `owner_user_id` INT(11) DEFAULT NULL,
     `lead_id` INT(11) DEFAULT NULL,
     `contact_id` INT(11) DEFAULT NULL,
     `stage_id` INT(11) NOT NULL,
@@ -654,7 +654,7 @@ CREATE TABLE IF NOT EXISTS `crm_deals` (
 
 CREATE TABLE IF NOT EXISTS `crm_tasks` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `assigned_to_user_id` BIGINT(20) UNSIGNED DEFAULT NULL,
+    `assigned_to_user_id` INT(11) DEFAULT NULL,
     `related_type` ENUM('lead','contact','deal') DEFAULT NULL,
     `related_id` INT(11) DEFAULT NULL,
     `title` VARCHAR(200) NOT NULL,
@@ -673,7 +673,7 @@ CREATE TABLE IF NOT EXISTS `crm_tasks` (
 
 CREATE TABLE IF NOT EXISTS `crm_meetings` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `organizer_user_id` BIGINT(20) UNSIGNED DEFAULT NULL,
+    `organizer_user_id` INT(11) DEFAULT NULL,
     `related_type` ENUM('lead','contact','deal') DEFAULT NULL,
     `related_id` INT(11) DEFAULT NULL,
     `title` VARCHAR(200) NOT NULL,
@@ -691,7 +691,7 @@ CREATE TABLE IF NOT EXISTS `crm_meetings` (
 
 CREATE TABLE IF NOT EXISTS `crm_notes` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `author_user_id` BIGINT(20) UNSIGNED DEFAULT NULL,
+    `author_user_id` INT(11) DEFAULT NULL,
     `related_type` ENUM('lead','contact','deal') NOT NULL,
     `related_id` INT(11) NOT NULL,
     `body` TEXT NOT NULL,
@@ -716,7 +716,7 @@ CREATE TABLE IF NOT EXISTS `crm_notes` (
 
 CREATE TABLE IF NOT EXISTS `analytics_traffic` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `website_id` BIGINT(20) UNSIGNED NOT NULL,
+    `website_id` INT(11) NOT NULL,
     `date` DATE NOT NULL,
     `sessions` INT(11) NOT NULL DEFAULT 0,
     `users` INT(11) NOT NULL DEFAULT 0,
@@ -733,7 +733,7 @@ CREATE TABLE IF NOT EXISTS `analytics_traffic` (
 
 CREATE TABLE IF NOT EXISTS `analytics_conversions` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `website_id` BIGINT(20) UNSIGNED NOT NULL,
+    `website_id` INT(11) NOT NULL,
     `date` DATE NOT NULL,
     `goal_name` VARCHAR(100) NOT NULL COMMENT 'booking, contact_form, whatsapp_click...',
     `conversions` INT(11) NOT NULL DEFAULT 0,
@@ -746,7 +746,7 @@ CREATE TABLE IF NOT EXISTS `analytics_conversions` (
 
 CREATE TABLE IF NOT EXISTS `analytics_device_breakdown` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `website_id` BIGINT(20) UNSIGNED NOT NULL,
+    `website_id` INT(11) NOT NULL,
     `date` DATE NOT NULL,
     `device_type` ENUM('desktop','mobile','tablet') NOT NULL,
     `sessions` INT(11) NOT NULL DEFAULT 0,
@@ -757,7 +757,7 @@ CREATE TABLE IF NOT EXISTS `analytics_device_breakdown` (
 
 CREATE TABLE IF NOT EXISTS `analytics_country_breakdown` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `website_id` BIGINT(20) UNSIGNED NOT NULL,
+    `website_id` INT(11) NOT NULL,
     `date` DATE NOT NULL,
     `country_code` CHAR(2) NOT NULL,
     `sessions` INT(11) NOT NULL DEFAULT 0,
@@ -814,8 +814,8 @@ CREATE TABLE IF NOT EXISTS `gbp_reply_rules` (
 
 CREATE TABLE IF NOT EXISTS `onboarding_competitor_snapshots` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `website_id` BIGINT(20) UNSIGNED NOT NULL,
-    `user_id` BIGINT(20) UNSIGNED NOT NULL,
+    `website_id` INT(11) NOT NULL,
+    `user_id` INT(11) NOT NULL,
     `competitor_id` BIGINT UNSIGNED DEFAULT NULL COMMENT 'id من جدول competitors لو تم التسجيل فيه بنجاح',
     `domain` VARCHAR(500) NOT NULL,
     `title` VARCHAR(500) DEFAULT NULL,

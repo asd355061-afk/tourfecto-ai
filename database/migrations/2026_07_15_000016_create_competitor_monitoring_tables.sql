@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS `cm_content_updates` (
 CREATE TABLE IF NOT EXISTS `cm_alerts` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `competitor_id` INT NOT NULL,
-    `user_id` BIGINT UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
     `alert_type` VARCHAR(50) NOT NULL COMMENT 'price_change/new_offer/ranking_drop/new_content',
     `message` VARCHAR(500) NOT NULL,
     `is_read` TINYINT(1) NOT NULL DEFAULT 0,

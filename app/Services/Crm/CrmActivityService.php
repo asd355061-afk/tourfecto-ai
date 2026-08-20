@@ -153,4 +153,8 @@ class CrmActivityService {
         );
         return $rows;
     }
+
+    private function db() {
+        return Database::getInstance();
+    }
 }

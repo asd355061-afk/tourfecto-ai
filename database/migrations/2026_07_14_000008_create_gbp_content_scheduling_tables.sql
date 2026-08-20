@@ -13,8 +13,8 @@
 
 CREATE TABLE IF NOT EXISTS `gbp_content` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `user_id` BIGINT(20) UNSIGNED NOT NULL,
-    `website_id` BIGINT(20) UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
+    `website_id` INT(11) NOT NULL,
     `type` ENUM('update','offer','event','product') NOT NULL DEFAULT 'update',
     `prompt` TEXT DEFAULT NULL,
     `generated_text` TEXT DEFAULT NULL,

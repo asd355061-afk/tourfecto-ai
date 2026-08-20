@@ -20,7 +20,7 @@
 
 CREATE TABLE IF NOT EXISTS `crm_contacts` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `user_id` BIGINT(20) UNSIGNED NOT NULL COMMENT 'صاحب سجل جهة الاتصال (وكالة أو مستخدم مباشر)',
+    `user_id` INT(11) NOT NULL COMMENT 'صاحب سجل جهة الاتصال (وكالة أو مستخدم مباشر)',
     `agency_id` INT(11) DEFAULT NULL COMMENT 'NULL = عميل مباشر بدون وكالة',
     `name` VARCHAR(255) NOT NULL,
     `email` VARCHAR(255) DEFAULT NULL,
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS `crm_contacts` (
 CREATE TABLE IF NOT EXISTS `crm_leads` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
     `contact_id` INT(11) NOT NULL,
-    `owner_user_id` BIGINT(20) UNSIGNED DEFAULT NULL COMMENT 'المسؤول عن متابعة هذا العميل المحتمل',
+    `owner_user_id` INT(11) DEFAULT NULL COMMENT 'المسؤول عن متابعة هذا العميل المحتمل',
     `status` ENUM('new','nurturing','qualified','disqualified','converted') NOT NULL DEFAULT 'new',
     `score` SMALLINT NOT NULL DEFAULT 0,
     `last_engagement_at` TIMESTAMP NULL DEFAULT NULL,

@@ -207,4 +207,8 @@ class CrmWebFormService {
         $sql .= " ORDER BY s.created_at DESC LIMIT " . (int) $limit;
         return $this->db()->query($sql, $params);
     }
+
+    private function db() {
+        return Database::getInstance();
+    }
 }

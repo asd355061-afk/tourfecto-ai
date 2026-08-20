@@ -38,7 +38,7 @@ INSERT INTO `crm_pipeline_stages` (`agency_id`, `name`, `slug`, `sort_order`, `w
 
 CREATE TABLE IF NOT EXISTS `crm_deals` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `owner_user_id` BIGINT(20) UNSIGNED DEFAULT NULL,
+    `owner_user_id` INT(11) DEFAULT NULL,
     `lead_id` INT(11) DEFAULT NULL,
     `contact_id` INT(11) DEFAULT NULL,
     `stage_id` INT(11) NOT NULL,
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS `crm_deals` (
 
 CREATE TABLE IF NOT EXISTS `crm_tasks` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `assigned_to_user_id` BIGINT(20) UNSIGNED DEFAULT NULL,
+    `assigned_to_user_id` INT(11) DEFAULT NULL,
     `related_type` ENUM('lead','contact','deal') DEFAULT NULL,
     `related_id` INT(11) DEFAULT NULL,
     `title` VARCHAR(200) NOT NULL,
@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS `crm_tasks` (
 
 CREATE TABLE IF NOT EXISTS `crm_meetings` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `organizer_user_id` BIGINT(20) UNSIGNED DEFAULT NULL,
+    `organizer_user_id` INT(11) DEFAULT NULL,
     `related_type` ENUM('lead','contact','deal') DEFAULT NULL,
     `related_id` INT(11) DEFAULT NULL,
     `title` VARCHAR(200) NOT NULL,
@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS `crm_meetings` (
 
 CREATE TABLE IF NOT EXISTS `crm_notes` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `author_user_id` BIGINT(20) UNSIGNED DEFAULT NULL,
+    `author_user_id` INT(11) DEFAULT NULL,
     `related_type` ENUM('lead','contact','deal') NOT NULL,
     `related_id` INT(11) NOT NULL,
     `body` TEXT NOT NULL,

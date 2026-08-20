@@ -13,7 +13,7 @@
 
 CREATE TABLE IF NOT EXISTS `analytics_traffic` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `website_id` BIGINT(20) UNSIGNED NOT NULL,
+    `website_id` INT(11) NOT NULL,
     `date` DATE NOT NULL,
     `sessions` INT(11) NOT NULL DEFAULT 0,
     `users` INT(11) NOT NULL DEFAULT 0,
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS `analytics_traffic` (
 
 CREATE TABLE IF NOT EXISTS `analytics_conversions` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `website_id` BIGINT(20) UNSIGNED NOT NULL,
+    `website_id` INT(11) NOT NULL,
     `date` DATE NOT NULL,
     `goal_name` VARCHAR(100) NOT NULL COMMENT 'booking, contact_form, whatsapp_click...',
     `conversions` INT(11) NOT NULL DEFAULT 0,
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS `analytics_conversions` (
 
 CREATE TABLE IF NOT EXISTS `analytics_device_breakdown` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `website_id` BIGINT(20) UNSIGNED NOT NULL,
+    `website_id` INT(11) NOT NULL,
     `date` DATE NOT NULL,
     `device_type` ENUM('desktop','mobile','tablet') NOT NULL,
     `sessions` INT(11) NOT NULL DEFAULT 0,
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS `analytics_device_breakdown` (
 
 CREATE TABLE IF NOT EXISTS `analytics_country_breakdown` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `website_id` BIGINT(20) UNSIGNED NOT NULL,
+    `website_id` INT(11) NOT NULL,
     `date` DATE NOT NULL,
     `country_code` CHAR(2) NOT NULL,
     `sessions` INT(11) NOT NULL DEFAULT 0,

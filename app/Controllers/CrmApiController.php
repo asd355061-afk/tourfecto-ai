@@ -36,6 +36,13 @@ class CrmApiController extends Controller
     private $leadRoutingService;
     private $lifecycleService;
     private $teamInviteService;
+    private $chartService;
+    private $activityService;
+    private $emailTrackingService;
+    private $externalImportService;
+    private $reportBuilderService;
+    private $sequenceService;
+    private $webFormService;
 
     public function __construct()
     {
@@ -60,6 +67,13 @@ class CrmApiController extends Controller
         $this->leadRoutingService = new CrmLeadRoutingService();
         $this->lifecycleService = new CrmLifecycleService();
         $this->teamInviteService = new CrmTeamInviteService();
+        $this->chartService = new CrmChartService();
+        $this->activityService = new CrmActivityService();
+        $this->emailTrackingService = new CrmEmailTrackingService();
+        $this->externalImportService = new CrmExternalImportService();
+        $this->reportBuilderService = new CrmReportBuilderService();
+        $this->sequenceService = new CrmSequenceService();
+        $this->webFormService = new CrmWebFormService();
     }
 
     /** المستخدم المسجّل دخوله فعليًا (Actor الحقيقي - يُستخدم لحقول "مين اللي عمل ده") */

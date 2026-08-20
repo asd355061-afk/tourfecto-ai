@@ -26,6 +26,12 @@ class GbpProfileController extends Controller
     private $insightsService;
     /** @var GbpAIInsightsService */
     private $aiInsightsService;
+    /** @var GbpReputationAnalyticsService */
+    private $analyticsService;
+    /** @var GbpReplyRuleService */
+    private $replyRuleService;
+    /** @var GbpLocalSeoAuditService */
+    private $localSeoAuditService;
 
     public function __construct()
     {
