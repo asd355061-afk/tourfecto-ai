@@ -1139,6 +1139,9 @@ $router->post('/api/onboarding/step', 'OnboardingController', 'recordStep', ['Au
 $router->post('/api/executive/ceo-advisor/ask', 'ExecutiveExtrasController', 'askCeoAdvisor', ['AuthMiddleware']);
 // Phase 12 (Action Center)
 $router->get('/api/action-center', 'ActionCenterController', 'list', ['AuthMiddleware']);
+$router->get('/api/action-center/actions', 'ActionCenterController', 'actions', ['AuthMiddleware']);
+$router->post('/api/action-center/actions/execute', 'ActionCenterController', 'execute', ['AuthMiddleware']);
+$router->get('/api/action-center/actions/history', 'ActionCenterController', 'history', ['AuthMiddleware']);
 // Phase 9 (Google Business Agent) - درجة اكتمال بروفايل Google Business
 $router->get('/api/reputation/google/profile-completeness', 'ReputationController', 'getProfileCompleteness', ['AuthMiddleware']);
 // Phase 6 (Keyword Intelligence)

@@ -1097,6 +1097,27 @@ class DashboardController extends Controller
         }
     }
 
+    // ---------- Action Center: طبقة التنفيذ (استعراض/تنفيذ) ----------
+    window.actionCenterExec = async function (dryRun) {
+        const box = document.getElementById('growthActionsResult');
+        const sel = document.getElementById('growthWebsiteSelect');
+        const websiteId = sel ? sel.value : null;
+        const qs = websiteId ? `?website_id=${websiteId}` : '';
+        box.innerHTML = dryRun ? 'جارِ استعراض الإجراءات القابلة للتنفيذ...' : 'جارِ التنفيذ...';
+        const res = await fetchJSON(`/api/action-center/actions/execute${qs}`, {
+            method: 'POST',
+            body: JSON.stringify({ dry_run: dryRun ? 1 : 0 })
+        });
+        if (!res.success) { box.innerHTML = esc(res.error || 'فشل التنفيذ'); toast(res.error || 'فشل التنفيذ', 'error'); return; }
+        const s = res.data.summary;
+        let msg = dryRun
+            ? `الاستعراض: ${s.planned} إجراء (${s.skipped} متكرر مسبقًا)`
+            : `تم: ${s.tasks_created} مهمة جديدة · ${s.notifications_sent} إشعار · ${s.skipped} متكرر`;
+        box.innerHTML = msg;
+        toast(msg, dryRun ? 'success' : 'success');
+        loadGrowth();
+    };
+
     window.growthAskAdvisor = async function () {
         const input = document.getElementById('growthAdvisorInput');
         const btn = document.getElementById('growthAdvisorBtn');
@@ -1405,10 +1426,17 @@ HTML;
                     </div>
 
                     <div class="p-card no-pad" style="margin-top:18px;">
-                        <div class="p-card-head" style="padding:18px 20px 0;"><h3>✅ {$this->tr('growth.actions.title')}</h3></div>
+                        <div class="p-card-head" style="padding:18px 20px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                            <h3>✅ {$this->tr('growth.actions.title')}</h3>
+                            <div style="display:flex;gap:6px;">
+                                <button class="p-btn outline xs" onclick="actionCenterExec(1)">استعراض التنفيذ</button>
+                                <button class="p-btn primary xs" onclick="actionCenterExec(0)">⚡ تنفيذ الإجراءات</button>
+                            </div>
+                        </div>
                         <div id="growthActions" style="padding:0 20px 16px;display:flex;flex-direction:column;gap:8px;">
                             <div class="p-loading-row">{$this->tr('common.loading')}</div>
                         </div>
+                        <div id="growthActionsResult" style="padding:0 20px 16px;font-size:12.5px;white-space:pre-wrap;"></div>
                     </div>
 
                     <div class="p-card" style="margin-top:18px;">

@@ -33,6 +33,8 @@ class ActionCenterService
         $items = array_merge($items, $this->getManualTasks($db, $userId));
         $items = array_merge($items, $this->getRiskAlerts($db, $userId));
         $items = array_merge($items, $this->getGrowthOpportunities($db, $userId));
+        $items = array_merge($items, $this->getCompetitorInsights($db, $userId));
+        $items = array_merge($items, $this->getMarketingAssistantItems($db, $userId));
 
         usort($items, function ($a, $b) {
             $order = ['critical' => 0, 'high' => 1, 'medium' => 2, 'low' => 3];
@@ -182,6 +184,72 @@ class ActionCenterService
                 'source' => 'ceo_advisor', 'id' => (int) $r['id'], 'title' => $r['title'], 'description' => $r['description'],
                 'category' => 'growth', 'priority' => $r['estimated_impact'], 'status' => 'new', 'created_at' => $r['created_at'],
                 'action_type' => 'growth_opportunity', 'action_hint' => null,
+            ], $rows);
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * رؤى/تهديدات/فرص/توصيات Competitor Intelligence الجديدة (status = 'new')
+     * - مفيش جدول محلي => صفر (مقاومة للبيئات الناقصة).
+     */
+    private function getCompetitorInsights(Database $db, int $userId): array
+    {
+        try {
+            $rows = $db->query(
+                "SELECT id, competitor_id, type, title, description, confidence, threat_level,
+                        recommended_action, created_at
+                   FROM ci_insights
+                  WHERE user_id = ? AND status = 'new'
+                    AND type IN ('threat','opportunity','recommendation')
+                  ORDER BY FIELD(threat_level,'high','medium','low'), id DESC LIMIT 20",
+                [$userId]
+            );
+            return array_map(fn ($r) => [
+                'source' => 'competitor',
+                'id' => (int) $r['id'],
+                'title' => $r['title'],
+                'description' => trim((string) ($r['recommended_action'] ?? '') . "\n" . (string) $r['description']),
+                'category' => $r['type'],
+                'priority' => $r['threat_level'] ?: ($r['confidence'] ?: 'medium'),
+                'status' => 'new',
+                'created_at' => $r['created_at'],
+                'action_type' => 'competitor_insight',
+                'action_hint' => null,
+                'competitor_id' => $r['competitor_id'] ? (int) $r['competitor_id'] : null,
+            ], $rows);
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * آخر نواتج Marketing Assistant (آخر 7 أيام) كإجراءات قابلة للتنفيذ -
+     * الناتج الأهم هو توليد محتوى تسويقي، بيتهيّأ للمتابعة على شكل مهمة.
+     * (مفيش عمود status في الجدول - dedup بيعتمد على id كل تفاعل)
+     */
+    private function getMarketingAssistantItems(Database $db, int $userId): array
+    {
+        try {
+            $rows = $db->query(
+                "SELECT id, type, title, output, created_at
+                   FROM ai_assistant_interactions
+                  WHERE user_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                  ORDER BY id DESC LIMIT 20",
+                [$userId]
+            );
+            return array_map(fn ($r) => [
+                'source' => 'marketing',
+                'id' => (int) $r['id'],
+                'title' => 'نفّذ المحتوى التسويقي: ' . ($r['title'] ?: $r['type']),
+                'description' => mb_substr((string) $r['output'], 0, 400),
+                'category' => 'marketing',
+                'priority' => 'medium',
+                'status' => 'new',
+                'created_at' => $r['created_at'],
+                'action_type' => 'marketing_output',
+                'action_hint' => 'انشر المحتوى أو استخدمه في حملة - ثم أكمله كمهمة هنا',
             ], $rows);
         } catch (Exception $e) {
             return [];
