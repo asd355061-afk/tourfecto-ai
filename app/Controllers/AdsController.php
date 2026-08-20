@@ -893,10 +893,15 @@ JS;
             $campaign = $this->service->create($access['owner_id'], [
                 'name' => $this->get('name'),
                 'objective' => $this->get('objective'),
+                'platform' => $this->get('platform'),
                 'product_or_service' => $this->get('product_or_service'),
                 'target_audience_brief' => $this->get('target_audience_brief'),
+                'target_countries_json' => $this->get('target_countries_json'),
+                'landing_page_url' => $this->get('landing_page_url'),
                 'daily_budget' => $this->get('daily_budget'),
                 'budget_total' => $this->get('budget_total'),
+                'currency' => $this->get('currency'),
+                'status' => $this->get('status'),
                 'start_date' => $this->get('start_date'),
                 'end_date' => $this->get('end_date'),
                 'ai_generated' => $this->get('ai_generated'),
@@ -904,6 +909,7 @@ JS;
                 'audience' => $this->get('audience'),
                 'budget_recommendation' => $this->get('budget_recommendation'),
                 'copies' => $this->get('copies'),
+                'keywords' => $this->get('keywords'),
             ]);
             return $this->success(['campaign' => $campaign->toArray()], 'تم إنشاء الحملة كمسودة', 201);
         } catch (Exception $e) {

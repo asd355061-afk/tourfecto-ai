@@ -12,7 +12,7 @@
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `ad_alert_rules` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `user_id` BIGINT(20) UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
     `rule_type` ENUM('budget_exhausted','cpc_spike','ctr_drop','landing_page_down','budget_pacing') NOT NULL,
     `is_enabled` TINYINT(1) NOT NULL DEFAULT 1,
     `threshold_value` DECIMAL(12,2) DEFAULT NULL COMMENT 'نسبة/حد القاعدة (نسبة مئوية) - التفسير خاص بكل قاعدة',
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS `ad_alert_rules` (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `ad_alerts` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `user_id` BIGINT(20) UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
     `campaign_id` INT(11) NOT NULL,
     `rule_type` ENUM('budget_exhausted','cpc_spike','ctr_drop','landing_page_down','budget_pacing') NOT NULL,
     `severity` ENUM('info','warning','critical') NOT NULL DEFAULT 'warning',

@@ -23,22 +23,34 @@ class AdCampaignService
         $db->beginTransaction();
 
         try {
+            $platform = $data['platform'] ?? 'manual';
+            if (!in_array($platform, ['manual', 'meta_ads', 'google_ads'], true)) {
+                $platform = 'manual';
+            }
+            $status = $data['status'] ?? 'draft';
+            if (!in_array($status, ['draft', 'active', 'paused', 'completed', 'removed'], true)) {
+                $status = 'draft';
+            }
             $campaign = new AdCampaign([
                 'user_id' => $userId,
                 'website_id' => $data['website_id'] ?? null,
                 'platform_connection_id' => $data['platform_connection_id'] ?? null,
-                'platform' => in_array($data['platform'] ?? 'manual', ['manual', 'meta_ads', 'google_ads'], true) ? $data['platform'] : 'manual',
+                'platform' => $platform,
                 'name' => $data['name'],
                 'objective' => $data['objective'] ?? null,
                 'product_or_service' => $data['product_or_service'] ?? null,
                 'target_audience_brief' => $data['target_audience_brief'] ?? null,
-                'daily_budget' => $data['daily_budget'] ?? null,
+                'target_countries_json' => !empty($data['target_countries_json'])
+                    ? (is_array($data['target_countries_json']) ? json_encode($data['target_countries_json'], JSON_UNESCAPED_UNICODE) : (string) $data['target_countries_json'])
+                    : null,
+                'landing_page_url' => $data['landing_page_url'] ?? null,
+                'daily_budget' => $data['daily_budget'] !== null && $data['daily_budget'] !== '' ? $data['daily_budget'] : null,
                 'budget_total' => $data['budget_total'] ?? null,
                 'currency' => $data['currency'] ?? 'USD',
                 'start_date' => $data['start_date'] ?? null,
                 'end_date' => $data['end_date'] ?? null,
                 'ai_generated' => !empty($data['ai_generated']) ? 1 : 0,
-                'status' => 'draft',
+                'status' => $status,
             ]);
             $campaign->save();
             $campaignId = (int) $campaign->getAttribute('id');

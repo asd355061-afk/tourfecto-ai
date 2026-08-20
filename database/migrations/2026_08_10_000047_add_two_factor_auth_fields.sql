@@ -7,5 +7,5 @@
 -- ============================================================
 
 ALTER TABLE `ad_campaigns`
-    ADD COLUMN `external_adset_id` VARCHAR(64) DEFAULT NULL AFTER `external_campaign_id` COMMENT 'Meta Ad Set ID - لازم لتعديل الميزانية بعد النشر',
-    ADD COLUMN `external_budget_resource` VARCHAR(255) DEFAULT NULL AFTER `external_adset_id` COMMENT 'Google Ads Campaign Budget resource name - لازم لتعديل الميزانية بعد النشر';
+    ADD COLUMN `external_adset_id` VARCHAR(64) DEFAULT NULL COMMENT 'Meta Ad Set ID - لازم لتعديل الميزانية بعد النشر' AFTER `external_campaign_id`,
+    ADD COLUMN `external_budget_resource` VARCHAR(255) DEFAULT NULL COMMENT 'Google Ads Campaign Budget resource name - لازم لتعديل الميزانية بعد النشر' AFTER `external_adset_id`;

@@ -29,7 +29,7 @@ ALTER TABLE `ad_campaigns`
 -- 2) ad_optimization_logs: توسعة لقابلية الـRollback + ملكية السجل
 -- ------------------------------------------------------------
 ALTER TABLE `ad_optimization_logs`
-    ADD COLUMN `user_id` BIGINT(20) UNSIGNED DEFAULT NULL COMMENT 'صاحب قرار التحسين (مطلوب لسرد سجل المستخدم والتحقق من ملكية Rollback)' AFTER `campaign_id`,
+    ADD COLUMN `user_id` INT(11) DEFAULT NULL COMMENT 'صاحب قرار التحسين (مطلوب لسرد سجل المستخدم والتحقق من ملكية Rollback)' AFTER `campaign_id`,
     ADD COLUMN `mode` ENUM('manual','approval','autopilot','rollback') NOT NULL DEFAULT 'manual' AFTER `action_type`,
     ADD COLUMN `before_value` VARCHAR(100) DEFAULT NULL COMMENT 'القيمة قبل التغيير (ميزانية أو حالة)' AFTER `description`,
     ADD COLUMN `after_value` VARCHAR(100) DEFAULT NULL COMMENT 'القيمة بعد التغيير' AFTER `before_value`,
@@ -53,7 +53,7 @@ ALTER TABLE `ad_optimization_logs`
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `ad_autopilot_settings` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `user_id` BIGINT(20) UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
     `optimization_mode` ENUM('manual','approval','autopilot') NOT NULL DEFAULT 'manual',
     `is_active` TINYINT(1) NOT NULL DEFAULT 1,
     `max_daily_budget` DECIMAL(12,2) DEFAULT NULL COMMENT 'سقف الميزانية اليومية لأي حملة - التلقائي مش بيكسره أبدًا',
@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS `ad_autopilot_settings` (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `ad_pending_actions` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `user_id` BIGINT(20) UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
     `campaign_id` INT(11) NOT NULL,
     `action_type` ENUM('increase_budget','decrease_budget','pause_campaign','resume_campaign') NOT NULL,
     `before_value` VARCHAR(100) DEFAULT NULL,
@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS `ad_pending_actions` (
     `confidence_level` VARCHAR(20) DEFAULT NULL,
     `blocked_reason` VARCHAR(500) DEFAULT NULL COMMENT 'لو القرار اتجاوز Guardrails - سبب التحويل للموافقة',
     `status` ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
-    `decided_by_user_id` BIGINT(20) UNSIGNED DEFAULT NULL,
+    `decided_by_user_id` INT(11) DEFAULT NULL,
     `decided_at` TIMESTAMP NULL DEFAULT NULL,
     `executed_log_id` INT(11) DEFAULT NULL COMMENT 'رقم سجل ad_optimization_logs للتنفيذ الفعلي بعد الموافقة',
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -100,7 +100,7 @@ CREATE TABLE IF NOT EXISTS `ad_pending_actions` (
 -- 5) عداد التغييرات اليومي (max_changes_per_day)
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `ad_autopilot_daily_counters` (
-    `user_id` BIGINT(20) UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
     `counter_date` DATE NOT NULL,
     `changes_executed` INT(11) NOT NULL DEFAULT 0,
     PRIMARY KEY (`user_id`, `counter_date`),
@@ -134,7 +134,7 @@ CREATE TABLE IF NOT EXISTS `ad_utm_links` (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `ad_market_research` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `user_id` BIGINT(20) UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
     `campaign_id` INT(11) DEFAULT NULL,
     `goal_description` VARCHAR(2000) NOT NULL,
     `result_json` LONGTEXT NOT NULL COMMENT 'نتيجة البحث الكاملة (JSON) - شامل/منافسين/أسعار/اقتراحات',
@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS `ad_market_research` (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `ad_competitor_insights` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
-    `website_id` BIGINT(20) UNSIGNED DEFAULT NULL,
+    `website_id` INT(11) DEFAULT NULL,
     `competitor_id` INT(11) NOT NULL,
     `offer_description` VARCHAR(2000) NOT NULL,
     `insights_json` LONGTEXT NOT NULL COMMENT 'الرؤى الكاملة (JSON) - استراتيجيات/نصوص/زوايا مقترحة',
