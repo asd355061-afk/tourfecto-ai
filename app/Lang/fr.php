@@ -299,6 +299,7 @@ return [
     'sidebar.revenue' => 'Intelligence des revenus',
     'sidebar.business_center' => 'Centre d\'affaires',
     'sidebar.website_optimizer' => 'Optimiseur de site (IA)',
+    'sidebar.auto_seo' => 'Auto SEO',
     'sidebar.competitor_monitoring' => 'Surveillance des concurrents',
     'sidebar.seo_analysis' => 'Analyse SEO/AEO/GEO',
     'sidebar.ai_reports' => 'Rapports IA',

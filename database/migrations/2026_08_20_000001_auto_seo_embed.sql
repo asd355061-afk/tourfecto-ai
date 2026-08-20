@@ -9,7 +9,7 @@
 -- 1) ربط المواقع الخارجية بالمنصة (Embed Script)
 ALTER TABLE `websites`
     ADD COLUMN `is_connected` TINYINT(1) NOT NULL DEFAULT 0
-        COMMENT 'الموقع مربوط بسكربت Tourfecto ولا لأ' AFTER `status`,
+        COMMENT 'الموقع مربوط بسكربت Tourfecto ولا لأ' AFTER `deleted_at`,
     ADD COLUMN `connection_method` ENUM('script','api','wordpress','shopify') NOT NULL DEFAULT 'script'
         COMMENT 'طريقة الربط' AFTER `is_connected`,
     ADD COLUMN `embed_token` VARCHAR(100) DEFAULT NULL

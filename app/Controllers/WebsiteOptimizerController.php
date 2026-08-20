@@ -943,6 +943,18 @@ JS;
             $schemaTypes = array_merge($schemaTypes, $types);
         }
         $schemaTypes = array_unique($schemaTypes);
+
+        // عدّ البلوكات غير السليمة + الاحتفاظ بالنص الخام لفحوصات GEO المتقدمة
+        $invalidJsonLd = 0;
+        $jsonLdRawText = '';
+        if (preg_match_all('/<script[^>]*type=["\']application\/ld\+json["\'][^>]*>(.*?)<\/script>/is', $html, $rawLd)) {
+            foreach ($rawLd[1] as $raw) {
+                $jsonLdRawText .= $raw . "\n";
+                if (json_decode(trim($raw), true) === null) {
+                    $invalidJsonLd++;
+                }
+            }
+        }
         $hasStructuredData = !empty($schemaTypes);
         $findings[] = $this->finding('seo', 'structured_data', 'بيانات منظّمة (Schema.org / JSON-LD)', $hasStructuredData ? 'pass' : 'fail', $hasStructuredData ? 'info' : 'high', $hasStructuredData ? 'الأنواع الموجودة: ' . implode(', ', $schemaTypes) : 'مفيش أي JSON-LD schema - ده بيقلل فرصة ظهور الموقع بشكل غني في نتائج البحث');
 
@@ -1042,6 +1054,28 @@ JS;
         }
         $findings[] = $this->finding('broken_links', 'link_check', 'فحص الروابط', empty($brokenLinks) ? 'pass' : 'warn', empty($brokenLinks) ? 'info' : 'medium', empty($brokenLinks) ? 'مفيش روابط مكسورة في العينة اللي اتفحصت' : count($brokenLinks) . ' رابط مكسور من عينة ' . count($links));
 
+        // -------------------- ADVANCED CHECKS (AuditChecksService) --------------------
+        $advancedCtx = [
+            'url' => $url,
+            'origin' => $origin,
+            'host' => $host,
+            'html' => $html,
+            'headers' => $headers,
+            'robots_exists' => $robots['exists'],
+            'robots_body' => $robots['body'],
+            'sitemap_exists' => $sitemapExists,
+            'schema_types' => $schemaTypes,
+            'invalid_json_ld' => $invalidJsonLd,
+            'json_ld_raw' => $jsonLdRawText,
+            'main_redirects' => $main['redirects'],
+            'body_text' => $textContent,
+        ];
+        if (class_exists('AuditChecksService')) {
+            $advanced = (new AuditChecksService())->run($advancedCtx);
+            $findings = array_merge($findings, $advanced['findings']);
+            $brokenLinks = array_merge($brokenLinks, $advanced['broken_links']);
+        }
+
         return [
             'findings' => $findings,
             'broken_links' => $brokenLinks,
@@ -1081,6 +1115,7 @@ JS;
         $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $error = curl_error($ch);
         $time = microtime(true) - $start;
+        $redirects = (int) curl_getinfo($ch, CURLINFO_REDIRECT_COUNT);
 
         $body = null;
         $headers = [];
@@ -1101,7 +1136,7 @@ JS;
         }
         curl_close($ch);
 
-        return ['body' => $body, 'code' => $code, 'error' => $error, 'time' => $time, 'headers' => $headers];
+        return ['body' => $body, 'code' => $code, 'error' => $error, 'time' => $time, 'headers' => $headers, 'redirects' => $redirects];
     }
 
     /** جلب ملف مساعد زي robots.txt أو llms.txt من جذر الدومين */

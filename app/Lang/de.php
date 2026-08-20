@@ -299,6 +299,7 @@ return [
     'sidebar.revenue' => 'Umsatzanalyse',
     'sidebar.business_center' => 'Business-Center',
     'sidebar.website_optimizer' => 'Website-Optimierer (KI)',
+    'sidebar.auto_seo' => 'Auto SEO',
     'sidebar.competitor_monitoring' => 'Wettbewerbsüberwachung',
     'sidebar.seo_analysis' => 'SEO/AEO/GEO-Analyse',
     'sidebar.ai_reports' => 'KI-Berichte',

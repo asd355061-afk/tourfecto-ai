@@ -311,6 +311,7 @@ return [
     'sidebar.business_center' => 'Business Center',
     'sidebar.revenue_intelligence' => 'Revenue Intelligence',
     'sidebar.website_optimizer' => 'Website Optimizer (AI)',
+    'sidebar.auto_seo' => 'Auto SEO',
     'sidebar.competitor_monitoring' => 'Competitor Monitoring',
     'sidebar.seo_analysis' => 'SEO/AEO/GEO Analysis',
     'sidebar.ai_reports' => 'AI Reports',

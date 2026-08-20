@@ -1,5 +1,15 @@
 <?php
 
+// Serve static files directly when running under the PHP built-in dev server.
+// (Returning false lets PHP serve the file as-is; production Apache/Nginx are unaffected.)
+if (PHP_SAPI === 'cli-server') {
+    $__staticPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    $__staticFile = __DIR__ . $__staticPath;
+    if ($__staticPath !== '/' && is_file($__staticFile)) {
+        return false;
+    }
+}
+
 /**
  * Tourfecto - نقطة الدخول الرئيسية
  * @version 1.0.1
@@ -499,6 +509,9 @@ foreach (['/Config/openai.php', '/Config/deepseek.php', '/Config/kimi.php'] as $
         require_once APP_PATH . $aiProviderConfig;
     }
 }
+if (file_exists(APP_PATH . '/Config/third_party.php')) {
+    require_once APP_PATH . '/Config/third_party.php';
+}
 
 // ============================================
 // 5. بدء الجلسة (Session)
@@ -712,6 +725,45 @@ if (preg_match('#^/api/v(\d+)/(.*)$#', $path, $vMatches)) {
     $isVersionedApiRequest = true;
     $apiVersion = (int) $vMatches[1];
     $path = '/api/' . $vMatches[2];
+}
+
+// ============================================
+// 9.2. SEO Proxy Passthrough (Phase 2 - Server-Side Edge)
+// ============================================
+// مسار /s/{token}[/{path}...] بيخدم صفحة موقع خارجي بعد إعادة كتابتها
+// Server-Side. المسار هنا ممكن يكون متعدد المقاطع (مش مجرد مقطع واحد)
+// فبنعالجه يدويًا قبل الـ Router العادي - مش هيقدر يطابقه بـ{param} الواحد.
+// التحقق بيتم عبر embed_token نفسه (من غير AuthMiddleware).
+if (strpos($path, '/s/') === 0) {
+    if (preg_match('#^/s/([A-Za-z0-9_]+)#', $path, $sMatches)) {
+        $controllerFile = APP_PATH . '/Controllers/SeoProxyController.php';
+        if (file_exists($controllerFile)) {
+            require_once $controllerFile;
+            $seoProxy = new SeoProxyController();
+            $seoProxy->serve(['token' => $sMatches[1]]);
+        }
+    }
+    // توكن غير صالح أو كنترولر غير موجود - نكمّل للـ Router عشان يطلع 404 عادي
+}
+
+// ============================================
+// 9.3. SEO Proxy CNAME Passthrough (Phase 2 - Custom Domain)
+// ============================================
+// لما العميل يشير CNAME من subdomain بتاعه ناحية سيرفرنا، الطلب بيوصل من
+// غير مسار /s/{token} والـ Host header بيبقى دومينه هو. بنكشف الموقع من
+// الـ Host (مطابقة main_url) ونخدم الصفحة server-side مباشرة. لو الـ Host
+// مش مربوط بموقع، بنكمّل للـ Router عادي (لوحة التحكم والصفحات الداخلية).
+if (strpos($path, '/s/') !== 0 && strpos($path, '/api/') !== 0 && strpos($path, '/assets/') !== 0) {
+    $controllerFile = APP_PATH . '/Controllers/SeoProxyController.php';
+    if (file_exists($controllerFile) && !class_exists('SeoProxyController', false)) {
+        require_once $controllerFile;
+    }
+    if (class_exists('SeoProxyController', false)) {
+        $seoProxy = new SeoProxyController();
+        if ($seoProxy->shouldHandleCname()) {
+            $seoProxy->serveCname();
+        }
+    }
 }
 
 // ============================================

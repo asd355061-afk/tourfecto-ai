@@ -61,6 +61,7 @@ $router->get('/revenue', 'RevenueController', 'index', ['AuthMiddleware']);
 $router->get('/business-center', 'BusinessCenterController', 'index', ['AuthMiddleware']);
 $router->get('/revenue/intelligence', 'RevenueIntelligenceController', 'index', ['AuthMiddleware']);
 $router->get('/website-optimizer', 'WebsiteOptimizerController', 'index', ['AuthMiddleware']);
+$router->get('/auto-seo', 'AutoSeoController', 'index', ['AuthMiddleware']);
 $router->get('/competitor-monitoring', 'CompetitorMonitoringController', 'index', ['AuthMiddleware']);
 
 // ============================================

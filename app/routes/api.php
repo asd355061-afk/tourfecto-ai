@@ -1093,6 +1093,18 @@ $router->post('/api/auto-seo/mode', 'AutoSeoController', 'setMode', ['AuthMiddle
 $router->post('/api/auto-seo/apply', 'AutoSeoController', 'apply', ['AuthMiddleware']);
 $router->get('/api/auto-seo/logs', 'AutoSeoController', 'logs', ['AuthMiddleware']);
 $router->post('/api/auto-seo/rollback/{id}', 'AutoSeoController', 'rollback', ['AuthMiddleware']);
+// Phase 22 (IndexNow - فهرسة فورية لمحركات البحث بعد التطبيق)
+$router->post('/api/indexnow/generate-key', 'SeoIndexingController', 'generateKey', ['AuthMiddleware']);
+$router->post('/api/indexnow/toggle', 'SeoIndexingController', 'toggle', ['AuthMiddleware']);
+$router->get('/api/indexnow/status', 'SeoIndexingController', 'status', ['AuthMiddleware']);
+$router->post('/api/indexnow/submit', 'SeoIndexingController', 'submit', ['AuthMiddleware']);
+// Phase 23 (SEO A/B Testing - تجارب العناوين والأوصاف وقياس الفائز)
+$router->post('/api/seo-ab-tests', 'SeoAbTestController', 'create', ['AuthMiddleware']);
+$router->get('/api/seo-ab-tests', 'SeoAbTestController', 'list', ['AuthMiddleware']);
+$router->post('/api/seo-ab-tests/{id}/variants', 'SeoAbTestController', 'addVariant', ['AuthMiddleware']);
+$router->post('/api/seo-ab-tests/{id}/start', 'SeoAbTestController', 'start', ['AuthMiddleware']);
+$router->post('/api/seo-ab-tests/{id}/complete', 'SeoAbTestController', 'complete', ['AuthMiddleware']);
+$router->get('/api/seo-ab-tests/{id}/results', 'SeoAbTestController', 'results', ['AuthMiddleware']);
 // Phase 15 (Executive Dashboard)
 $router->get('/api/executive-dashboard', 'ExecutiveDashboardController', 'getDashboard', ['AuthMiddleware']);
 // Phase 16 (Onboarding Wizard)

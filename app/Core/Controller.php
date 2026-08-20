@@ -341,6 +341,7 @@ abstract class Controller
                 'revenue' => [t('sidebar.revenue'), '💰', '/revenue'],
                 'revenue_intelligence' => [t('sidebar.revenue_intelligence'), '🧠', '/revenue/intelligence'],
                 'website_optimizer' => [t('sidebar.website_optimizer'), '🛠️', '/website-optimizer'],
+                'auto_seo' => [t('sidebar.auto_seo'), 'SEO', '/auto-seo'],
                 'competitor_monitoring' => [t('sidebar.competitor_monitoring'), '🕵️', '/competitor-monitoring'],
                 'competitor_intelligence' => [t('sidebar.competitor_intelligence'), '🕵️‍♂️', '/competitor-intelligence'],
             ],
@@ -506,6 +507,10 @@ abstract class Controller
         }
         // نفس باغ asset_v بالظبط - site_brand_html() لازم يتحسب في متغير
         $brandHtml = site_brand_html();
+        // Snippets خدمات الطرف الثالث اللي بتشتغل في المتصفح (Hotjar/
+        // Contentsquare، Mixpanel، OneSignal، Calendly) - بتتحقن بس للمفعّل
+        // منها. متحسبة في متغير قبل الـ heredoc (نفس درس asset_v).
+        $thirdPartyHead = class_exists('ThirdPartyHead') ? ThirdPartyHead::render() : '';
 
         return <<<HTML
 <!DOCTYPE html>
@@ -524,7 +529,7 @@ abstract class Controller
     <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
     <link rel="stylesheet" href="{$styleCssUrl}">
     <link rel="stylesheet" href="{$panelCssUrl}">
-{$chatAssetsHead}</head>
+{$thirdPartyHead}{$chatAssetsHead}</head>
 <body>
     <div class="panel-shell">
         <div class="panel-overlay-bg"></div>

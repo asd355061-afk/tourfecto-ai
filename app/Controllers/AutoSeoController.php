@@ -25,6 +25,434 @@ class AutoSeoController extends Controller
         $this->subscription = new SubscriptionValidator();
     }
 
+    /**
+     * GET /auto-seo (صفحة لوحة التنفيذ التلقائي)
+     * ثلاث تبويبات: الربط والتنفيذ + الفهرسة الفورية (IndexNow) + تجارب SEO A/B.
+     */
+    public function index(array $params = []): void
+    {
+        $proxyHost = (defined('SEO_PROXY_HOST') && SEO_PROXY_HOST) ? SEO_PROXY_HOST : ($_SERVER['HTTP_HOST'] ?? '');
+
+        $body = <<<HTML
+        <style>
+        .aseo-tabs { display: flex; gap: 6px; flex-wrap: wrap; padding: 14px 20px 0; }
+        .aseo-tab { border: 1px solid var(--panel-border); background: transparent; color: var(--panel-text-muted); font-size: 12.5px; font-weight: 700; padding: 6px 13px; border-radius: 999px; cursor: pointer; transition: .12s; }
+        .aseo-tab:hover { border-color: var(--panel-accent); color: var(--panel-text); }
+        .aseo-tab.active { background: var(--panel-accent); border-color: var(--panel-accent); color: #1a1206; }
+        .aseo-panel { display: none; }
+        .aseo-panel.active { display: block; }
+        .aseo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .aseo-code { position: relative; margin-top: 10px; }
+        .aseo-code pre { background: #060A13; border: 1px solid var(--panel-border); border-radius: 8px; padding: 12px 14px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.7; overflow-x: auto; direction: ltr; text-align: left; color: #C9D4E4; margin: 0; max-height: 220px; }
+        .aseo-copy { position: absolute; top: 8px; inset-inline-end: 8px; }
+        .aseo-kv { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--panel-border); font-size: 12.5px; }
+        .aseo-kv:last-child { border-bottom: none; }
+        .aseo-kv .k { color: var(--panel-text-muted); font-weight: 700; }
+        .aseo-kv .v { font-family: 'JetBrains Mono', monospace; direction: ltr; text-align: left; word-break: break-all; }
+        .aseo-pill { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+        .aseo-pill.green { background: var(--panel-accent-light); color: var(--panel-accent); }
+        .aseo-pill.gray { background: rgba(255,255,255,.08); color: var(--panel-text-muted); }
+        .aseo-pill.orange { background: rgba(239,176,94,.18); color: var(--panel-warning); }
+        .aseo-test { background: var(--panel-card-bg-2); border: 1px solid var(--panel-border); border-radius: var(--panel-radius-sm); padding: 14px 16px; margin-bottom: 12px; }
+        .aseo-test-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+        .aseo-test-name { font-weight: 800; font-size: 13.5px; }
+        .aseo-variant { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px dashed var(--panel-border); font-size: 12px; }
+        .aseo-variant:last-child { border-bottom: none; }
+        @media (max-width: 720px) { .aseo-grid { grid-template-columns: 1fr; } }
+        </style>
+
+        <div class="p-toolbar">
+            <select id="aseoWebsiteSelect" class="p-select"><option value="">اختر موقعًا</option></select>
+            <span class="p-cell-muted" id="aseoConnStatus" style="font-size:12px;"></span>
+        </div>
+
+        <div class="p-card no-pad" style="margin-top:14px;">
+            <div class="aseo-tabs" id="aseoTabs">
+                <button class="aseo-tab active" data-tab="connect">الربط والتنفيذ</button>
+                <button class="aseo-tab" data-tab="indexnow">الفهرسة الفورية</button>
+                <button class="aseo-tab" data-tab="ab">تجارب SEO A/B</button>
+            </div>
+
+            <!-- تبويب الربط والتنفيذ -->
+            <div class="aseo-panel active" data-panel="connect" style="padding:16px 20px 20px;">
+                <div class="p-card" style="margin:0;">
+                    <h3 style="margin-top:0;">ربط الموقع بالمنصة</h3>
+                    <p class="p-cell-muted" style="font-size:12.5px;">اربط موقعك الخارجي (WordPress/Shopify/HTML) عشان التنفيذ التلقائي يشتغل عليه - مش بس تحليل ونسخ كود يدوي.</p>
+                    <div class="p-toolbar" style="padding:0;border:none;">
+                        <select id="aseoMethod" class="p-select" style="width:auto;">
+                            <option value="script">سكربت (embed.js)</option>
+                            <option value="api">API</option>
+                            <option value="wordpress">WordPress</option>
+                            <option value="shopify">Shopify</option>
+                        </select>
+                        <button class="p-btn primary" id="aseoConnectBtn" onclick="aseoConnect()">ربط الموقع</button>
+                    </div>
+                    <div id="aseoConnectResult" style="margin-top:12px;"></div>
+                </div>
+
+                <div class="p-card" style="margin-top:14px;">
+                    <h3 style="margin-top:0;">ربط CNAME (دومينك الخاص)</h3>
+                    <p class="p-cell-muted" style="font-size:12.5px;">عشان التنفيذ يشتغل server-side على دومينك الحقيقي (مش مجرد embed.js)، أشّر DNS بتاعك ناحية سيرفرنا:</p>
+                    <div class="aseo-kv"><span class="k">نوع السجل</span><span class="v">CNAME</span></div>
+                    <div class="aseo-kv"><span class="k">الاسم (Host)</span><span class="v">www</span></div>
+                    <div class="aseo-kv"><span class="k">القيمة (Points to)</span><span class="v" id="aseoCnameTarget">{$proxyHost}</span></div>
+                    <p class="p-cell-muted" style="font-size:12px;">بعد ما الـ CNAME يتفعّل، محركات البحث هتشوف النسخة المحسّنة من موقعك مباشرة على دومينك. للاختبار من غير تغيير DNS استخدم رابط المعاينة <span dir="ltr">/s/{embed_token}</span>.</p>
+                </div>
+
+                <div class="p-card" style="margin-top:14px;">
+                    <h3 style="margin-top:0;">وضع Auto-Pilot</h3>
+                    <div class="p-toolbar" style="padding:0;border:none;">
+                        <select id="aseoMode" class="p-select" style="width:auto;">
+                            <option value="off">إيقاف</option>
+                            <option value="conservative">متحفّظ (critical/high فقط)</option>
+                            <option value="balanced">متوازن</option>
+                            <option value="aggressive">شرس (كل الإصلاحات)</option>
+                        </select>
+                        <button class="p-btn outline" onclick="aseoSetMode()">حفظ الوضع</button>
+                    </div>
+                </div>
+
+                <div class="p-card" style="margin-top:14px;">
+                    <h3 style="margin-top:0;">تنفيذ الإصلاحات</h3>
+                    <p class="p-cell-muted" style="font-size:12.5px;">يطبّق كل الإصلاحات المؤهلة من آخر تدقيق فعليًا، وبعدها بيبلّغ محركات البحث فورًا عبر IndexNow (لو مفعّل).</p>
+                    <button class="p-btn success" id="aseoApplyBtn" onclick="aseoApply()">تطبيق الإصلاحات الآن</button>
+                    <span id="aseoApplyResult" style="font-size:12px;margin-inline-start:10px;"></span>
+                </div>
+
+                <div class="p-card" style="margin-top:14px;">
+                    <h3 style="margin-top:0;">سجل التغييرات</h3>
+                    <div id="aseoLogs" class="p-cell-muted" style="font-size:12px;">لم يُسجّل أي تغيير بعد.</div>
+                </div>
+            </div>
+
+            <!-- تبويب الفهرسة الفورية -->
+            <div class="aseo-panel" data-panel="indexnow" style="padding:16px 20px 20px;">
+                <div class="p-card" style="margin:0;">
+                    <h3 style="margin-top:0;">IndexNow</h3>
+                    <p class="p-cell-muted" style="font-size:12.5px;">إبلاغ Bing/Yandex/Seznam/Naver بصفحات موقعك فورًا بعد أي تعديل - بدل انتظار الزحف الطبيعي أسابيع.</p>
+                    <div class="p-toolbar" style="padding:0;border:none;">
+                        <button class="p-btn primary" id="aseoGenKeyBtn" onclick="aseoGenerateKey()">توليد مفتاح</button>
+                        <button class="p-btn outline" id="aseoToggleBtn" onclick="aseoToggleIndexNow()">تفعيل/إيقاف</button>
+                    </div>
+                    <div id="aseoIndexNowStatus" style="margin-top:12px;"></div>
+                </div>
+
+                <div class="p-card" style="margin-top:14px;">
+                    <h3 style="margin-top:0;">إرسال روابط يدوي</h3>
+                    <div class="p-toolbar" style="padding:0;border:none;">
+                        <input type="text" id="aseoUrlsInput" class="p-select" style="flex:1;width:auto;" placeholder="https://example.com/page1, https://example.com/page2">
+                        <button class="p-btn success" onclick="aseoSubmitUrls()">إرسال للفهرسة</button>
+                    </div>
+                    <span id="aseoSubmitResult" style="font-size:12px;"></span>
+                </div>
+            </div>
+
+            <!-- تبويب تجارب SEO A/B -->
+            <div class="aseo-panel" data-panel="ab" style="padding:16px 20px 20px;">
+                <div class="p-card" style="margin:0;">
+                    <h3 style="margin-top:0;">تجربة جديدة</h3>
+                    <div class="p-toolbar" style="padding:0;border:none;flex-wrap:wrap;">
+                        <input type="text" id="aseoTestName" class="p-select" style="flex:1;min-width:140px;" placeholder="اسم التجربة">
+                        <select id="aseoTestField" class="p-select" style="width:auto;">
+                            <option value="seo_title">العنوان (Title)</option>
+                            <option value="seo_description">الوصف (Meta Description)</option>
+                            <option value="canonical_url">Canonical</option>
+                            <option value="json_ld">JSON-LD</option>
+                            <option value="faq_schema">FAQ Schema</option>
+                            <option value="speakable">Speakable</option>
+                        </select>
+                        <input type="text" id="aseoTestPath" class="p-select" style="width:auto;" placeholder="مسار (اختياري)">
+                        <button class="p-btn primary" onclick="aseoCreateTest()">إنشاء</button>
+                    </div>
+                </div>
+                <div id="aseoTestsList" style="margin-top:14px;" class="p-cell-muted">مفيش تجارب بعد.</div>
+            </div>
+        </div>
+        HTML;
+
+        $script = <<<'JS'
+(function () {
+    const P = window.Panel;
+    const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast;
+    let currentWebsiteId = null;
+
+    // تبديل التبويبات
+    document.querySelectorAll('.aseo-tab').forEach(btn => {
+        btn.onclick = () => {
+            document.querySelectorAll('.aseo-tab').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.aseo-panel').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelector('[data-panel="' + btn.dataset.tab + '"]').classList.add('active');
+            if (btn.dataset.tab === 'indexnow') loadIndexNow();
+            if (btn.dataset.tab === 'ab') loadTests();
+            if (btn.dataset.tab === 'connect') loadLogs();
+        };
+    });
+
+    async function loadWebsites() {
+        const res = await fetchJSON('/api/website-optimizer/websites');
+        const sel = document.getElementById('aseoWebsiteSelect');
+        if (res.success && res.data.websites.length) {
+            sel.innerHTML = '<option value="">اختر موقعًا</option>' + res.data.websites.map(w => `<option value="${w.id}">${esc(w.main_url)}</option>`).join('');
+        } else {
+            sel.innerHTML = '<option value="">لا توجد مواقع</option>';
+        }
+        sel.onchange = () => { currentWebsiteId = sel.value ? parseInt(sel.value, 10) : null; refreshAll(); };
+    }
+
+    function refreshAll() {
+        if (!currentWebsiteId) return;
+        loadIndexNow(); loadTests(); loadLogs();
+        document.getElementById('aseoConnStatus').textContent = 'موقع محدد: #' + currentWebsiteId;
+    }
+
+    window.aseoConnect = async function () {
+        if (!currentWebsiteId) { toast('اختر موقعًا أولاً', 'error'); return; }
+        const method = document.getElementById('aseoMethod').value;
+        const res = await fetchJSON('/api/auto-seo/connect', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ website_id: currentWebsiteId, method })
+        });
+        if (!res.success) { toast(res.error || 'فشل الربط', 'error'); return; }
+        document.getElementById('aseoConnectResult').innerHTML = `
+            <div class="aseo-kv"><span class="k">توكن الـ Embed</span><span class="v">${esc(res.data.embed_token)}</span></div>
+            <div class="aseo-kv"><span class="k">مفتاح API</span><span class="v">${esc(res.data.api_key)}</span></div>
+            <div class="aseo-code">
+                <button class="p-btn xs outline aseo-copy" onclick="navigator.clipboard.writeText(document.getElementById('aseoEmbedCode').textContent).then(()=>toast('تم النسخ','success'))">نسخ</button>
+                <pre><code id="aseoEmbedCode">${esc(res.data.embed_code)}</code></pre>
+            </div>`;
+        toast('تم ربط الموقع بنجاح', 'success');
+        loadLogs();
+    };
+
+    window.aseoSetMode = async function () {
+        if (!currentWebsiteId) { toast('اختر موقعًا أولاً', 'error'); return; }
+        const mode = document.getElementById('aseoMode').value;
+        const res = await fetchJSON('/api/auto-seo/mode', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ website_id: currentWebsiteId, mode })
+        });
+        if (!res.success) { toast(res.error || 'فشل حفظ الوضع', 'error'); return; }
+        toast('تم تحديث الوضع', 'success');
+    };
+
+    window.aseoApply = async function () {
+        if (!currentWebsiteId) { toast('اختر موقعًا أولاً', 'error'); return; }
+        const btn = document.getElementById('aseoApplyBtn'); btn.disabled = true;
+        const res = await fetchJSON('/api/auto-seo/apply', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ website_id: currentWebsiteId })
+        });
+        btn.disabled = false;
+        if (!res.success) { toast(res.error || 'فشل التطبيق', 'error'); return; }
+        let msg = res.data.applied_count + ' إصلاحات اتطبقت';
+        if (res.data.indexnow && res.data.indexnow.success) msg += ' + تم إبلاغ محركات البحث (IndexNow)';
+        document.getElementById('aseoApplyResult').textContent = msg;
+        toast(msg, 'success');
+        loadLogs();
+    };
+
+    async function loadLogs() {
+        if (!currentWebsiteId) return;
+        const res = await fetchJSON('/api/auto-seo/logs?website_id=' + currentWebsiteId);
+        const box = document.getElementById('aseoLogs');
+        if (!res.success || !res.data.logs.length) { box.innerHTML = 'لم يُسجّل أي تغيير بعد.'; return; }
+        box.innerHTML = res.data.logs.map(l => `
+            <div class="aseo-kv">
+                <span class="k">${esc(l.field_name)} ${esc(l.trigger || '')}</span>
+                <span class="v">${esc(l.new_value || '').slice(0, 80)}</span>
+            </div>`).join('');
+    }
+
+    // ---------- IndexNow ----------
+    window.aseoGenerateKey = async function () {
+        if (!currentWebsiteId) { toast('اختر موقعًا أولاً', 'error'); return; }
+        const res = await fetchJSON('/api/indexnow/generate-key', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ website_id: currentWebsiteId })
+        });
+        if (!res.success) { toast(res.error || 'فشل توليد المفتاح', 'error'); return; }
+        toast('تم توليد مفتاح IndexNow', 'success');
+        loadIndexNow();
+    };
+
+    window.aseoToggleIndexNow = async function () {
+        if (!currentWebsiteId) { toast('اختر موقعًا أولاً', 'error'); return; }
+        const cur = await fetchJSON('/api/indexnow/status?website_id=' + currentWebsiteId);
+        const enabled = cur.success && cur.data.indexnow_enabled ? 0 : 1;
+        await fetchJSON('/api/indexnow/toggle', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ website_id: currentWebsiteId, enabled })
+        });
+        loadIndexNow();
+    };
+
+    async function loadIndexNow() {
+        if (!currentWebsiteId) return;
+        const res = await fetchJSON('/api/indexnow/status?website_id=' + currentWebsiteId);
+        const box = document.getElementById('aseoIndexNowStatus');
+        if (!res.success) { box.innerHTML = ''; return; }
+        const d = res.data;
+        box.innerHTML = `
+            <div class="aseo-kv"><span class="k">الحالة</span><span class="aseo-pill ${d.indexnow_enabled ? 'green' : 'gray'}">${d.indexnow_enabled ? 'مفعّل' : 'متوقف'}</span></div>
+            <div class="aseo-kv"><span class="k">المفتاح</span><span class="v">${d.has_key ? 'موجود' : 'غير مُولّد بعد'}</span></div>`;
+    }
+
+    window.aseoSubmitUrls = async function () {
+        if (!currentWebsiteId) { toast('اختر موقعًا أولاً', 'error'); return; }
+        const raw = document.getElementById('aseoUrlsInput').value;
+        const urls = raw.split(',').map(s => s.trim()).filter(Boolean);
+        if (!urls.length) { toast('اكتب رابطًا واحدًا على الأقل', 'error'); return; }
+        const res = await fetchJSON('/api/indexnow/submit', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ website_id: currentWebsiteId, urls })
+        });
+        if (!res.success) { toast(res.error || 'فشل الإرسال', 'error'); return; }
+        document.getElementById('aseoSubmitResult').textContent = 'تم إرسال ' + urls.length + ' رابط (HTTP ' + res.data.status + ')';
+        toast('تم الإرسال للفهرسة الفورية', 'success');
+    };
+
+    // ---------- SEO A/B ----------
+    window.aseoCreateTest = async function () {
+        if (!currentWebsiteId) { toast('اختر موقعًا أولاً', 'error'); return; }
+        const name = document.getElementById('aseoTestName').value.trim();
+        const targetField = document.getElementById('aseoTestField').value;
+        const targetPath = document.getElementById('aseoTestPath').value.trim();
+        if (!name) { toast('اكتب اسم التجربة', 'error'); return; }
+        const res = await fetchJSON('/api/seo-ab-tests', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ website_id: currentWebsiteId, name, target_field: targetField, target_path: targetPath || null })
+        });
+        if (!res.success) { toast(res.error || 'فشل الإنشاء', 'error'); return; }
+        document.getElementById('aseoTestName').value = '';
+        document.getElementById('aseoTestPath').value = '';
+        toast('تم إنشاء التجربة - أضف النسخ الآن', 'success');
+        loadTests();
+    };
+
+    async function loadTests() {
+        if (!currentWebsiteId) return;
+        const res = await fetchJSON('/api/seo-ab-tests?website_id=' + currentWebsiteId);
+        const box = document.getElementById('aseoTestsList');
+        if (!res.success || !res.data.tests.length) { box.innerHTML = '<div class="p-cell-muted">مفيش تجارب بعد.</div>'; return; }
+        box.innerHTML = res.data.tests.map(t => {
+            const variants = (t.variants || []).map(v => `
+                <div class="aseo-variant">
+                    <span class="aseo-pill ${v.is_control == 1 ? 'gray' : 'orange'}">${esc(v.name)}</span>
+                    <span class="p-cell-muted" style="flex:1;">${esc(v.value).slice(0, 90)}</span>
+                    <span class="p-cell-muted">${v.served_count} عرض</span>
+                </div>`).join('');
+            const actions = (t.status === 'running' || t.status === 'completed')
+                ? `<button class="p-btn xs outline" onclick="aseoMeasureResults(${t.id})">قياس النتائج (GSC)</button>` + (t.status === 'running'
+                    ? `<button class="p-btn xs success" onclick="aseoCompleteTest(${t.id})">إنهاء</button>`
+                    : `<span class="aseo-pill green">انتهت</span>`)
+                : (t.status === 'draft'
+                    ? `<button class="p-btn xs primary" onclick="aseoStartTest(${t.id})">بدء</button>`
+                    : `<span class="aseo-pill green">انتهت</span>`);
+            return `
+                <div class="aseo-test" data-test-id="${t.id}">
+                    <div class="aseo-test-head">
+                        <div>
+                            <span class="aseo-test-name">${esc(t.name)}</span>
+                            <span class="p-cell-muted" style="font-size:11px;"> · ${esc(t.target_field)}</span>
+                        </div>
+                        <div style="display:flex;gap:6px;align-items:center;">
+                            <span class="aseo-pill ${t.status === 'running' ? 'green' : (t.status === 'completed' ? 'gray' : 'orange')}">${esc(t.status)}</span>
+                            ${actions}
+                        </div>
+                    </div>
+                    <div style="margin-top:8px;">${variants}</div>
+                    <div id="aseoResults${t.id}" style="margin-top:10px;"></div>
+                    ${t.status === 'draft' ? `
+                    <div class="p-toolbar" style="padding:8px 0 0;border:none;flex-wrap:wrap;">
+                        <input type="text" id="aseoVName${t.id}" class="p-select" style="width:auto;" placeholder="اسم النسخة">
+                        <input type="text" id="aseoVValue${t.id}" class="p-select" style="flex:1;min-width:160px;" placeholder="القيمة">
+                        <label style="font-size:11px;color:var(--panel-text-muted);"><input type="checkbox" id="aseoVControl${t.id}"> نسخة أصلية</label>
+                        <button class="p-btn xs primary" onclick="aseoAddVariant(${t.id})">إضافة نسخة</button>
+                    </div>` : ''}
+                </div>`;
+        }).join('');
+    }
+
+    window.aseoAddVariant = async function (testId) {
+        const name = document.getElementById('aseoVName' + testId).value.trim();
+        const value = document.getElementById('aseoVValue' + testId).value.trim();
+        const isControl = document.getElementById('aseoVControl' + testId).checked;
+        if (!name || !value) { toast('اكتب اسم النسخة وقيمتها', 'error'); return; }
+        const res = await fetchJSON('/api/seo-ab-tests/' + testId + '/variants', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, value, is_control: isControl, weight: 50 })
+        });
+        if (!res.success) { toast(res.error || 'فشل الإضافة', 'error'); return; }
+        loadTests();
+    };
+
+    window.aseoStartTest = async function (testId) {
+        const res = await fetchJSON('/api/seo-ab-tests/' + testId + '/start', { method: 'POST' });
+        if (!res.success) { toast(res.error || 'فشل البدء', 'error'); return; }
+        toast('بدأت التجربة', 'success');
+        loadTests();
+    };
+
+    window.aseoCompleteTest = async function (testId) {
+        // جرّب قياس CTR الفعلي من GSC الأول - لو فيه فائز مقترح نستخدمه
+        let winner = null;
+        try {
+            const r = await fetchJSON('/api/seo-ab-tests/' + testId + '/results');
+            if (r.success && r.data.gsc_connected && r.data.suggested_winner_variant_id) {
+                winner = (r.data.variants || []).find(v => v.id === r.data.suggested_winner_variant_id) || null;
+            }
+        } catch (e) {}
+
+        // fallback: مفيش GSC مرتبط أو مفيش بيانات كافية => served_count
+        if (!winner) {
+            const tests = await fetchJSON('/api/seo-ab-tests?website_id=' + currentWebsiteId);
+            const t = (tests.data.tests || []).find(x => x.id === testId);
+            if (!t) return;
+            const variants = t.variants || [];
+            if (!variants.length) { toast('لا توجد نسخ', 'error'); return; }
+            winner = variants.reduce((a, b) => (a.served_count >= b.served_count ? a : b));
+        }
+
+        const res = await fetchJSON('/api/seo-ab-tests/' + testId + '/complete', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ winner_variant_id: winner.id })
+        });
+        if (!res.success) { toast(res.error || 'فشل الإنهاء', 'error'); return; }
+        toast('انتهت التجربة - الفائز: ' + winner.name, 'success');
+        loadTests();
+    };
+
+    window.aseoMeasureResults = async function (testId) {
+        const box = document.getElementById('aseoResults' + testId);
+        box.innerHTML = '<span class="p-cell-muted" style="font-size:12px;">جاري جلب بيانات Search Console...</span>';
+        const res = await fetchJSON('/api/seo-ab-tests/' + testId + '/results');
+        if (!res.success) { box.innerHTML = '<span style="color:var(--panel-danger);font-size:12px;">' + esc(res.error || 'فشل القياس') + '</span>'; return; }
+        const d = res.data;
+        if (!d.gsc_connected) {
+            box.innerHTML = '<span class="p-cell-muted" style="font-size:12px;">' + esc(d.message || '') + '</span>';
+            return;
+        }
+        const rows = (d.variants || []).map(v => `
+            <div class="aseo-kv">
+                <span class="k">${esc(v.name)}${v.is_control == 1 ? ' (أصلية)' : ''}</span>
+                <span class="v">CTR ${v.ctr}% · ${v.impressions} ظهور · ${v.clicks} نقرة · ترتيب ${v.avg_position}</span>
+            </div>`).join('');
+        const winner = (d.variants || []).find(v => v.id === d.suggested_winner_variant_id);
+        box.innerHTML = rows + (winner
+            ? `<div class="aseo-pill green" style="margin-top:8px;">الفائز المقترح: ${esc(winner.name)} (CTR ${winner.ctr}%)</div>`
+            : `<div class="p-cell-muted" style="font-size:11.5px;margin-top:8px;">لسه مفيش بيانات كافية (عتبة ${d.min_impressions_threshold} ظهور لكل نسخة)</div>`);
+    };
+
+    loadWebsites();
+})();
+JS;
+
+        header('Content-Type: text/html; charset=utf-8');
+        echo $this->renderPanelPage('auto_seo', 'Auto SEO - التنفيذ التلقائي', 'ربط وتنفيذ وفهرسة فورية وتجارب A/B على مواقعك', $body, $script);
+        exit;
+    }
+
     /** POST /api/auto-seo/connect  { website_id, method } */
     public function connect(array $params = []): array
     {
@@ -172,9 +600,17 @@ class AutoSeoController extends Controller
 
         $this->log('Auto SEO Fixes Applied', ['website_id' => $websiteId, 'count' => count($applied)]);
 
+        // IndexNow: بعد التطبيق، بلّغ محركات البحث فورًا بالصفحات المتأثرة
+        // عشان التعديلات تتزحف وتتفهرس في دقائق مش أسابيع.
+        $indexNowResult = null;
+        if (!empty($applied)) {
+            $indexNowResult = $this->submitToIndexNow($websiteId, $findings);
+        }
+
         return $this->success([
             'applied_count' => count($applied),
             'applied'       => $applied,
+            'indexnow'      => $indexNowResult,
         ], count($applied) . ' إصلاحات اتطبقت فعليًا على موقعك');
     }
 
@@ -248,5 +684,44 @@ class AutoSeoController extends Controller
             [$websiteId, $this->user['id']]
         );
         return !empty($rows);
+    }
+
+    /**
+     * إبلاغ محركات البحث فورًا (IndexNow) بالصفحات اللي اتعدلت بعد التطبيق.
+     * Best-effort: لو الموقع مش مفعّل IndexNow أو مفيش مفتاح، بنرجع null
+     * من غير ما نكسر مسار التطبيق نفسه.
+     */
+    private function submitToIndexNow(int $websiteId, array $findings): ?array
+    {
+        try {
+            $site = $this->db->query(
+                "SELECT main_url, indexnow_key, indexnow_enabled FROM websites WHERE id = ? LIMIT 1",
+                [$websiteId]
+            );
+            if (empty($site) || empty($site[0]['indexnow_key']) || (int) $site[0]['indexnow_enabled'] !== 1) {
+                return null;
+            }
+
+            $host = parse_url($site[0]['main_url'] ?? '', PHP_URL_HOST) ?? '';
+            if ($host === '') {
+                return null;
+            }
+
+            $urls = [rtrim((string) $site[0]['main_url'], '/') . '/'];
+            foreach ($findings as $f) {
+                if (!empty($f['page_url'])) {
+                    $urls[] = (string) $f['page_url'];
+                }
+            }
+            $urls = array_values(array_unique($urls));
+
+            $service = new IndexNowService();
+            $result = $service->submitUrls($host, (string) $site[0]['indexnow_key'], $urls);
+
+            return ['submitted' => $result['submitted'] ?? count($urls), 'success' => (bool) $result['success']];
+        } catch (Exception $e) {
+            Logger::error('IndexNow Auto Submit Error', ['message' => $e->getMessage()]);
+            return null;
+        }
     }
 }

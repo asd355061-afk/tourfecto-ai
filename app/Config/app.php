@@ -21,6 +21,14 @@ define('APP_VERSION', '1.0.0');
 define('APP_ENV', env('APP_ENV') ?: 'production'); // production, staging, development
 define('APP_DEBUG', filter_var(env('APP_DEBUG') ?: false, FILTER_VALIDATE_BOOLEAN));
 define('APP_URL', env('APP_URL') ?: 'https://tourfecto.com');
+
+// ============================================
+// SEO Proxy (Server-Side Edge / CNAME)
+// الهوست اللي العميل يشير عليه CNAME من subdomain بتاعه عشان التنفيذ
+// التلقائي يشتغل server-side. في الإنتاج يبقى هوست مخصص (wildcard TLS)،
+// وفي بيئات المعاينة بيفضل فارغ فنعتمد على HTTP_HOST الحالي وقت العرض.
+// ============================================
+define('SEO_PROXY_HOST', env('SEO_PROXY_HOST') ?: '');
 define('APP_TIMEZONE', env('APP_TIMEZONE') ?: 'UTC');
 define('APP_LOCALE', env('APP_LOCALE') ?: 'ar');
 define('APP_FALLBACK_LOCALE', 'en');

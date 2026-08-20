@@ -160,7 +160,7 @@ class AutoSeoEmbedService
                 ]
             );
 
-            $this->db->exec(
+            $logId = (int) $this->db->query(
                 "INSERT INTO auto_seo_change_log
                     (website_id, user_id, audit_id, finding_id, field_name, old_value, new_value, `trigger`, mode)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -176,8 +176,6 @@ class AutoSeoEmbedService
                     $mode,
                 ]
             );
-
-            $logId = (int) $this->db->lastInsertId();
 
             $this->db->exec(
                 "UPDATE websites
@@ -226,7 +224,7 @@ class AutoSeoEmbedService
     public function buildEmbedJavaScript(string $embedToken): string
     {
         $sites = $this->db->query(
-            "SELECT id, domain, auto_pilot_mode FROM websites WHERE embed_token = ? AND is_connected = 1 LIMIT 1",
+            "SELECT id, main_url AS domain, auto_pilot_mode FROM websites WHERE embed_token = ? AND is_connected = 1 LIMIT 1",
             [$embedToken]
         );
         if (empty($sites)) {
