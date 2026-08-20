@@ -40,7 +40,10 @@ class MarketingAssistantController extends Controller
         <div class="p-card" id="toolPanel" style="display:none;">
             <div class="p-card-head"><h3 id="toolTitle"></h3></div>
             <textarea id="toolInput" rows="3" style="width:100%;" class="p-select" placeholder="اكتب وصف موجز..."></textarea>
-            <button class="p-btn" style="margin-top:10px;" onclick="runTool()">توليد</button>
+            <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="p-btn" id="toolRunBtn" onclick="runTool()">توليد</button>
+                <button class="p-btn outline" onclick="copyOutput()">نسخ الناتج</button>
+            </div>
             <div id="toolOutput" style="margin-top:16px;white-space:pre-wrap;"></div>
         </div>
         <div class="p-card no-pad" style="margin-top:20px;">
@@ -64,15 +67,43 @@ HTML;
         document.getElementById('toolTitle').textContent = label;
         document.getElementById('toolPanel').style.display = 'block';
         document.getElementById('toolOutput').textContent = '';
+        document.getElementById('toolInput').focus();
     };
 
     window.runTool = async function () {
         const input = document.getElementById('toolInput').value.trim();
-        if (!currentTool || !input) return;
-        document.getElementById('toolOutput').textContent = 'جارِ التوليد...';
-        const res = await fetchJSON('/api/marketing-assistant/run', { method: 'POST', headers: jsonHeaders, body: JSON.stringify({ type: currentTool, input }) });
-        document.getElementById('toolOutput').textContent = res.success ? res.data.output : (res.error || 'فشل التوليد');
-        loadHistory();
+        const out = document.getElementById('toolOutput');
+        const btn = document.getElementById('toolRunBtn');
+        if (!currentTool) { P.toast('اختار أداة أولًا من البطاقات بالأعلى', 'error'); return; }
+        if (!input) { P.toast('اكتب وصف موجز قبل التوليد', 'error'); document.getElementById('toolInput').focus(); return; }
+        btn.disabled = true;
+        btn.textContent = 'جارِ التوليد...';
+        out.textContent = 'جارِ التوليد...';
+        try {
+            const res = await fetchJSON('/api/marketing-assistant/run', { method: 'POST', headers: jsonHeaders, body: JSON.stringify({ type: currentTool, input }) });
+            if (res.success) {
+                out.textContent = res.data.output || '';
+                P.toast('تم توليد المحتوى', 'success');
+            } else {
+                out.textContent = res.error || 'فشل التوليد';
+                P.toast(res.error || 'فشل التوليد', 'error');
+            }
+            loadHistory();
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'توليد';
+        }
+    };
+
+    window.copyOutput = async function () {
+        const txt = document.getElementById('toolOutput').textContent;
+        if (!txt || txt.startsWith('جارِ')) { P.toast('لا يوجد محتوى للنسخ بعد', 'error'); return; }
+        try {
+            await navigator.clipboard.writeText(txt);
+            P.toast('تم نسخ المحتوى', 'success');
+        } catch (e) {
+            P.toast('تعذر النسخ', 'error');
+        }
     };
 
     async function loadHistory() {

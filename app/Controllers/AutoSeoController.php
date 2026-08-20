@@ -257,18 +257,24 @@ class AutoSeoController extends Controller
 
     window.aseoApply = async function () {
         if (!currentWebsiteId) { toast('اختر موقعًا أولاً', 'error'); return; }
+        if (!confirm('سيتم تطبيق الإصلاحات المكتشفة على موقعك مباشرة (العنوان والوصف وغيرهما). متابعة؟')) return;
         const btn = document.getElementById('aseoApplyBtn'); btn.disabled = true;
-        const res = await fetchJSON('/api/auto-seo/apply', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ website_id: currentWebsiteId })
-        });
-        btn.disabled = false;
-        if (!res.success) { toast(res.error || 'فشل التطبيق', 'error'); return; }
-        let msg = res.data.applied_count + ' إصلاحات اتطبقت';
-        if (res.data.indexnow && res.data.indexnow.success) msg += ' + تم إبلاغ محركات البحث (IndexNow)';
-        document.getElementById('aseoApplyResult').textContent = msg;
-        toast(msg, 'success');
-        loadLogs();
+        btn.textContent = 'جارِ التطبيق...';
+        try {
+            const res = await fetchJSON('/api/auto-seo/apply', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ website_id: currentWebsiteId })
+            });
+            if (!res.success) { toast(res.error || 'فشل التطبيق', 'error'); return; }
+            let msg = res.data.applied_count + ' إصلاحات اتطبقت';
+            if (res.data.indexnow && res.data.indexnow.success) msg += ' + تم إبلاغ محركات البحث (IndexNow)';
+            document.getElementById('aseoApplyResult').textContent = msg;
+            toast(msg, 'success');
+            loadLogs();
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'تطبيق الإصلاحات الآن';
+        }
     };
 
     async function loadLogs() {
@@ -342,6 +348,8 @@ class AutoSeoController extends Controller
         toast('تم توليد مفتاح IndexNow', 'success');
         loadIndexNow();
     };
+
+    window.aseoToggleIndexNow = async function () {
         if (!currentWebsiteId) { toast('اختر موقعًا أولاً', 'error'); return; }
         const cur = await fetchJSON('/api/indexnow/status?website_id=' + currentWebsiteId);
         const enabled = cur.success && cur.data.indexnow_enabled ? 0 : 1;
