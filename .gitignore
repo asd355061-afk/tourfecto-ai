@@ -32,6 +32,13 @@ coverage/
 tests/coverage/
 *.coverage
 .clover
+tests/junit.xml
+tests/testdox.html
+tests/testdox.txt
+tests/clover.xml
+tests/crap4j.xml
+tests/coverage.php
+tests/coverage.txt
 
 # ============================================
 # IDE

@@ -41,11 +41,11 @@
         <env name="APP_ENV" value="testing"/>
         <env name="APP_DEBUG" value="true"/>
         <env name="APP_URL" value="http://localhost:8000"/>
-        <env name="DB_HOST" value="localhost"/>
+        <env name="DB_HOST" value="127.0.0.1"/>
         <env name="DB_PORT" value="3306"/>
         <env name="DB_NAME" value="tourfecto_test"/>
-        <env name="DB_USER" value="root"/>
-        <env name="DB_PASS" value=""/>
+        <env name="DB_USER" value="tourfecto"/>
+        <env name="DB_PASS" value="tourfecto_pass"/>
         <env name="DB_CHARSET" value="utf8mb4"/>
         <env name="DB_COLLATION" value="utf8mb4_unicode_ci"/>
         <env name="CACHE_DRIVER" value="file"/>

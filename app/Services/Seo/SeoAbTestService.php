@@ -222,20 +222,96 @@ class SeoAbTestService
             ];
         }
 
-        // اقتراح الفائز: أعلى CTR بشرط تجاوز عتبة الظهور (غير كده بنرجع null)
+        // اقتراح الفائز: أعلى CTR بشرط (1) تجاوز عتبة الظهور و(2) تفوق
+        // بدلالة إحصائية (chi-squared vs control) — مش مجرد فرق رقمي عشوائي.
         $suggested = null;
         $bestCtr = -1.0;
+
+        $control = null;
         foreach ($result as $vid => $m) {
-            if ($m['impressions'] >= $minImpressions && $m['ctr'] > $bestCtr) {
-                $bestCtr = $m['ctr'];
-                $suggested = $vid;
+            if ($m['is_control']) {
+                $control = $m;
+                break;
             }
+        }
+
+        foreach ($result as $vid => $m) {
+            if ($m['impressions'] < $minImpressions || $m['is_control']) {
+                continue;
+            }
+            if ($m['ctr'] <= $bestCtr) {
+                continue;
+            }
+
+            // لو في نسخة control نقارن بيها، لازم التفوق يكون معنوي إحصائيًا
+            if ($control !== null && $control['impressions'] >= $minImpressions) {
+                $sig = self::chiSquare2x2($m['clicks'], $m['impressions'], $control['clicks'], $control['impressions']);
+                if (!$sig['significant']) {
+                    continue;
+                }
+            }
+
+            $bestCtr = $m['ctr'];
+            $suggested = $vid;
+        }
+
+        // لو مفيش نسخة variant غلبت الـ control بدلالة إحصائية، والـ control
+        // عنده بيانات كافية (تجاوز العتبة)، يفضل الـ control كخيار افتراضي
+        // (الافتراض الآمن = الإبقاء على النسخة الحالية بدل ترقية عشوائية).
+        if ($suggested === null && $control !== null && $control['impressions'] >= $minImpressions) {
+            $suggested = $control['id'];
         }
 
         return [
             'variants' => array_values($result),
             'suggested_winner_variant_id' => $suggested,
             'min_impressions_threshold' => $minImpressions,
+            'significance' => [
+                'method' => 'chi_squared',
+                'alpha' => 0.05,
+                'critical_value' => 3.841,
+            ],
+        ];
+    }
+
+    /**
+     * اختبار chi-squared (2x2) مع تصحيح Yates لمقارنة CTR نسختين.
+     * الخلايا: a=نقرات النسخة، b=غير نقراتها، c=نقرات control، d=غير نقراته.
+     * @return array ['chi_square'=>float, 'significant'=>bool, 'reliable'=>bool]
+     */
+    private static function chiSquare2x2(int $aClicks, int $aImp, int $bClicks, int $bImp): array
+    {
+        $a = $aClicks;
+        $b = max(0, $aImp - $aClicks);
+        $c = $bClicks;
+        $d = max(0, $bImp - $bClicks);
+
+        $n = $a + $b + $c + $d;
+        if ($n === 0) {
+            return ['chi_square' => 0.0, 'significant' => false, 'reliable' => false];
+        }
+
+        $row1 = $a + $b;
+        $row2 = $c + $d;
+        $col1 = $a + $c;
+        $col2 = $b + $d;
+
+        // أي خلية متوقعة أقل من 5 => الاختبار مش موثوق تمامًا (نموذج صغير)
+        $expected = [$row1 * $col1 / $n, $row1 * $col2 / $n, $row2 * $col1 / $n, $row2 * $col2 / $n];
+        $reliable = min($expected) >= 5;
+
+        if ($row1 === 0 || $row2 === 0 || $col1 === 0 || $col2 === 0) {
+            return ['chi_square' => 0.0, 'significant' => false, 'reliable' => false];
+        }
+
+        // chi-square مع تصحيح الاستمرارية (Yates)
+        $num = abs($a * $d - $b * $c) - ($n / 2);
+        $chi = ($n * $num * $num) / ($row1 * $row2 * $col1 * $col2);
+
+        return [
+            'chi_square' => round($chi, 3),
+            'significant' => $chi > 3.841, // p < 0.05 عند درجة حرية واحدة
+            'reliable' => $reliable,
         ];
     }
 

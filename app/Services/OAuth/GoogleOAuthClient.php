@@ -25,6 +25,8 @@ class GoogleOAuthClient
     public const SCOPE_SEARCH_CONSOLE = 'https://www.googleapis.com/auth/webmasters.readonly';
     /** إدارة كاملة لحسابات/حملات Google Ads (سحب حملات، إنشاء، تعديل ميزانية...) */
     public const SCOPE_ADS = 'https://www.googleapis.com/auth/adwords';
+    /** قراءة بيانات Google Analytics 4 (GA4 Data API) - readonly */
+    public const SCOPE_ANALYTICS = 'https://www.googleapis.com/auth/analytics.readonly';
 
     private string $clientId;
     private string $clientSecret;

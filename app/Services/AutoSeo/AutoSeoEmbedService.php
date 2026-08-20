@@ -63,11 +63,32 @@ class AutoSeoEmbedService
             [$method, $embedToken, $apiKey, $websiteId, $userId]
         );
 
+        // Auto-connect: يولّد مفتاح IndexNow تلقائيًا (لو مش موجود) عشان
+        // الفهرسة الفورية تكون جاهزة من أول لحظة ربط من غير خطوة إضافية.
+        $this->ensureIndexNowKey($websiteId);
+
         return [
             'embed_token' => $embedToken,
             'api_key'     => $apiKey,
             'embed_code'  => $this->buildEmbedCode($embedToken),
         ];
+    }
+
+    /**
+     * توليد مفتاح IndexNow تلقائيًا عند الربط لو مش موجود.
+     */
+    private function ensureIndexNowKey(int $websiteId): void
+    {
+        try {
+            $rows = $this->db->query("SELECT indexnow_key FROM websites WHERE id = ? LIMIT 1", [$websiteId]);
+            if (empty($rows) || !empty($rows[0]['indexnow_key'])) {
+                return;
+            }
+            $key = (new IndexNowService())->generateKey();
+            $this->db->exec("UPDATE websites SET indexnow_key = ? WHERE id = ?", [$key, $websiteId]);
+        } catch (Exception $e) {
+            // الجدول/العمود لسه مش موجود على السيرفر - مش خطأ حاسم للربط
+        }
     }
 
     /** فصل الموقع وإيقاف كل الحقن */

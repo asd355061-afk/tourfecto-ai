@@ -120,6 +120,25 @@ class AutoSeoController extends Controller
                 </div>
 
                 <div class="p-card" style="margin-top:14px;">
+                    <h3 style="margin-top:0;">معاينة قبل التطبيق</h3>
+                    <p class="p-cell-muted" style="font-size:12.5px;">شوف الفرق في العنوان والوصف قبل ما تطبّق فعليًا (من غير أي كتابة على الموقع).</p>
+                    <div class="p-toolbar" style="padding:0;border:none;flex-wrap:wrap;">
+                        <input type="text" id="aseoPreviewTitle" class="p-select" style="flex:1;min-width:160px;" placeholder="عنوان مقترح">
+                        <input type="text" id="aseoPreviewDesc" class="p-select" style="flex:1;min-width:160px;" placeholder="وصف مقترح">
+                        <button class="p-btn primary" onclick="aseoPreview()">معاينة</button>
+                    </div>
+                    <div id="aseoPreviewResult" style="margin-top:12px;"></div>
+                </div>
+
+                <div class="p-card" style="margin-top:14px;">
+                    <h3 style="margin-top:0;">تقرير قبل/بعد</h3>
+                    <p class="p-cell-muted" style="font-size:12.5px;">لقطات سابقة + سجل درجات التدقيق + مقاييس Search Console وGoogle Analytics.</p>
+                    <button class="p-btn outline" onclick="aseoReport()">توليد التقرير</button>
+                    <button class="p-btn outline" onclick="window.location.href='/google-analytics/connect/' + currentWebsiteId">ربط Google Analytics</button>
+                    <div id="aseoReportResult" style="margin-top:12px;"></div>
+                </div>
+
+                <div class="p-card" style="margin-top:14px;">
                     <h3 style="margin-top:0;">سجل التغييرات</h3>
                     <div id="aseoLogs" class="p-cell-muted" style="font-size:12px;">لم يُسجّل أي تغيير بعد.</div>
                 </div>
@@ -264,6 +283,54 @@ class AutoSeoController extends Controller
             </div>`).join('');
     }
 
+    // ---------- معاينة قبل التطبيق + تقرير قبل/بعد ----------
+    window.aseoPreview = async function () {
+        if (!currentWebsiteId) { toast('اختر موقعًا أولاً', 'error'); return; }
+        const title = document.getElementById('aseoPreviewTitle').value.trim();
+        const desc = document.getElementById('aseoPreviewDesc').value.trim();
+        const changes = {};
+        if (title) changes.seo_title = title;
+        if (desc) changes.seo_description = desc;
+        if (!Object.keys(changes).length) { toast('اكتب عنوانًا أو وصفًا مقترحًا', 'error'); return; }
+        const box = document.getElementById('aseoPreviewResult');
+        box.innerHTML = '<span class="p-cell-muted" style="font-size:12px;">جاري تجهيز المعاينة...</span>';
+        const res = await fetchJSON('/api/auto-seo/preview', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ website_id: currentWebsiteId, changes })
+        });
+        if (!res.success) { box.innerHTML = '<span style="color:var(--panel-danger);font-size:12px;">' + esc(res.error || 'فشل المعاينة') + '</span>'; return; }
+        const d = res.data;
+        const row = (label, before, after) => `
+            <div class="aseo-kv">
+                <span class="k">${label}</span>
+                <span class="v">قبل: ${esc(before || '-')}<br>بعد: ${esc(after || '-')}</span>
+            </div>`;
+        box.innerHTML = row('العنوان', d.before.title, d.after.title) + row('الوصف', d.before.description, d.after.description);
+        toast('جاهزة المعاينة', 'success');
+    };
+
+    window.aseoReport = async function () {
+        if (!currentWebsiteId) { toast('اختر موقعًا أولاً', 'error'); return; }
+        const box = document.getElementById('aseoReportResult');
+        box.innerHTML = '<span class="p-cell-muted" style="font-size:12px;">جاري توليد التقرير...</span>';
+        const res = await fetchJSON('/api/auto-seo/report?website_id=' + currentWebsiteId);
+        if (!res.success) { box.innerHTML = '<span style="color:var(--panel-danger);font-size:12px;">' + esc(res.error || 'فشل التقرير') + '</span>'; return; }
+        const d = res.data;
+        const gsc = d.gsc || {};
+        const lastAudit = (d.audits && d.audits.length) ? d.audits[0] : null;
+        let ga4 = '';
+        if (d.ga4 && !d.ga4.error) {
+            ga4 = `<div class="aseo-kv"><span class="k">GA4 (آخر 28 يوم)</span><span class="v">${d.ga4.sessions} جلسة · ${d.ga4.total_users} مستخدم · ${d.ga4.conversions} تحويل</span></div>`;
+        }
+        box.innerHTML = `
+            <div class="aseo-kv"><span class="k">آخر درجة تدقيق</span><span class="v">${lastAudit ? lastAudit.overall_score : '-'}</span></div>
+            <div class="aseo-kv"><span class="k">إصلاحات نشطة</span><span class="v">${d.active_fixes}</span></div>
+            <div class="aseo-kv"><span class="k">Search Console</span><span class="v">${gsc.clicks || 0} نقرة · ${gsc.impressions || 0} ظهور · CTR ${gsc.ctr || 0}%</span></div>
+            ${ga4}
+            <div class="aseo-kv"><span class="k">لقطات مسجّلة</span><span class="v">${(d.history || []).length}</span></div>`;
+        toast('تم توليد التقرير', 'success');
+    };
+
     // ---------- IndexNow ----------
     window.aseoGenerateKey = async function () {
         if (!currentWebsiteId) { toast('اختر موقعًا أولاً', 'error'); return; }
@@ -275,8 +342,6 @@ class AutoSeoController extends Controller
         toast('تم توليد مفتاح IndexNow', 'success');
         loadIndexNow();
     };
-
-    window.aseoToggleIndexNow = async function () {
         if (!currentWebsiteId) { toast('اختر موقعًا أولاً', 'error'); return; }
         const cur = await fetchJSON('/api/indexnow/status?website_id=' + currentWebsiteId);
         const enabled = cur.success && cur.data.indexnow_enabled ? 0 : 1;
@@ -607,6 +672,27 @@ JS;
             $indexNowResult = $this->submitToIndexNow($websiteId, $findings);
         }
 
+        // لقطة قبل/بعد في التقارير (best-effort) عشان العميل يشوف التحسن مع الوقت
+        try {
+            $perf = new SeoPerformanceService($this->db);
+            $latestAudit = $this->db->query(
+                "SELECT id, overall_score FROM wo_audits WHERE website_id = ? ORDER BY id DESC LIMIT 1",
+                [$websiteId]
+            );
+            $perf->snapshot(
+                $websiteId,
+                (int) $this->user['id'],
+                (int) ($latestAudit[0]['id'] ?? 0),
+                (float) ($latestAudit[0]['overall_score'] ?? 0),
+                count($findings),
+                count($applied),
+                [],
+                'manual'
+            );
+        } catch (Exception $e) {
+            // لقطة اختيارية - لا تكسر مسار التطبيق
+        }
+
         return $this->success([
             'applied_count' => count($applied),
             'applied'       => $applied,
@@ -654,6 +740,109 @@ JS;
         $this->log('Auto SEO Rollback', ['log_id' => $logId]);
 
         return $this->success(['log_id' => $logId], 'تم التراجع - الحقن اتوقف فورًا');
+    }
+
+    /**
+     * POST /api/auto-seo/preview  { website_id, changes: {field: value} }
+     * معاينة التغييرات المقترحة قبل التطبيق الفعلي (من غير أي كتابة في DB).
+     */
+    public function preview(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        $websiteId = (int) $this->get('website_id');
+        $changes = $this->get('changes', []);
+
+        if (!$websiteId || !$this->ownsWebsite($websiteId)) {
+            return $this->error('الموقع غير موجود', 404);
+        }
+        if (!is_array($changes) || empty($changes)) {
+            return $this->error('أدخل قيمة مقترحة واحدة على الأقل', 422);
+        }
+
+        $allowed = ['seo_title', 'seo_description', 'canonical_url', 'viewport', 'robots_meta', 'json_ld', 'faq_schema', 'speakable', 'og_tags'];
+        $changes = array_intersect_key($changes, array_flip($allowed));
+        if (empty($changes)) {
+            return $this->error('مفيش حقول مدعومة للمعاينة', 422);
+        }
+
+        $service = new SeoProxyService($this->db);
+        $result = $service->previewChanges($websiteId, $changes);
+        if (empty($result['success'])) {
+            return $this->error($result['error'] ?? 'تعذر المعاينة', 502);
+        }
+
+        return $this->success($result, 'تم تجهيز المعاينة');
+    }
+
+    /**
+     * GET /api/auto-seo/report?website_id=X
+     * تقرير قبل/بعد: لقطات سابقة + سجل درجات التدقيق + مقاييس GSC + (GA4 لو مربوط).
+     */
+    public function report(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        $websiteId = (int) $this->get('website_id');
+        if (!$websiteId || !$this->ownsWebsite($websiteId)) {
+            return $this->error('الموقع غير موجود', 404);
+        }
+
+        $perf = new SeoPerformanceService($this->db);
+
+        $audits = $this->db->query(
+            "SELECT overall_score, completed_at FROM wo_audits
+              WHERE website_id = ? AND status = 'completed' ORDER BY id DESC LIMIT 30",
+            [$websiteId]
+        );
+
+        $fixRow = $this->db->query(
+            "SELECT COUNT(*) AS c FROM auto_seo_applied_fixes WHERE website_id = ? AND is_active = 1",
+            [$websiteId]
+        );
+
+        return $this->success([
+            'history'      => $perf->history($websiteId, 30),
+            'audits'       => $audits,
+            'gsc'          => $perf->cachedSummary($websiteId),
+            'active_fixes' => (int) ($fixRow[0]['c'] ?? 0),
+            'ga4'          => $this->ga4Summary($websiteId),
+        ]);
+    }
+
+    /** ملخص GA4 (best-effort) لو في حساب Google Analytics مربوط بالموقع */
+    private function ga4Summary(int $websiteId): ?array
+    {
+        try {
+            $connections = (new PlatformConnection())->where([
+                'website_id' => $websiteId,
+                'platform' => 'google_analytics',
+                'status' => 'connected',
+            ], [], 1);
+            if (empty($connections)) {
+                return null;
+            }
+
+            $connection = $connections[0];
+            $encryption = new Encryption();
+            $accessToken = $encryption->decrypt($connection->getAttribute('access_token'));
+            $propertyId = (string) ($connection->getAttribute('external_location_id') ?: '');
+
+            if ($propertyId === '') {
+                return null;
+            }
+
+            $api = new GoogleAnalyticsAPI($accessToken);
+            $summary = $api->getSummary($propertyId, 28);
+            return $summary['success'] ? $summary['summary'] : ['error' => $summary['error'] ?? 'GA4 fetch failed'];
+        } catch (Exception $e) {
+            Logger::error('AutoSeo GA4 summary error', ['website_id' => $websiteId, 'message' => $e->getMessage()]);
+            return null;
+        }
     }
 
     /**

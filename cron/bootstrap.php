@@ -168,6 +168,17 @@ $optionalJobDependencyFiles = [
     // ci_weekly_digest محتاج الـ Notification model عشان يقدر يستبعد
     // أي حد قفّل الملخص الأسبوعي (digestEnabledFor).
     APP_PATH . '/Models/Notification.php',
+    // Auto SEO Phase 23 (2026-08-20): SeoSchedulerService/SeoPerformanceService
+    // مستخدمين من cron/auto_seo_scheduler.php وAutoSeoReauditJob - مش مسجّلين
+    // في classmap القديم على السيرفر، فلازم يتحمّلوا هنا.
+    APP_PATH . '/Services/Indexing/IndexNowService.php',
+    APP_PATH . '/Services/AutoSeo/AutoSeoEmbedService.php',
+    APP_PATH . '/Services/Seo/SeoAbTestService.php',
+    APP_PATH . '/Services/Seo/SeoProxyService.php',
+    APP_PATH . '/Services/Seo/SeoPerformanceService.php',
+    APP_PATH . '/Services/Seo/SeoSchedulerService.php',
+    APP_PATH . '/Services/SearchConsole/GoogleSearchConsoleAPI.php',
+    APP_PATH . '/Services/Analytics/GoogleAnalyticsAPI.php',
 ];
 foreach ($optionalJobDependencyFiles as $depFile) {
     if (file_exists($depFile)) {

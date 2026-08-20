@@ -29,6 +29,13 @@ class SeoProxyController extends Controller
             exit;
         }
 
+        if ($this->isRateLimited()) {
+            http_response_code(429);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'Tourfecto proxy: too many requests';
+            exit;
+        }
+
         $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
         $prefix = '/s/' . $token;
         $path = $requestPath === $prefix ? '/' : substr($requestPath, strlen($prefix));
@@ -83,6 +90,13 @@ class SeoProxyController extends Controller
         $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
         $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 
+        if ($this->isRateLimited()) {
+            http_response_code(429);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'Tourfecto proxy: too many requests';
+            exit;
+        }
+
         try {
             $service = new SeoProxyService($this->db);
             $site = $service->findByHost($host);
@@ -106,5 +120,48 @@ class SeoProxyController extends Controller
         header('Cache-Control: public, max-age=60, s-maxage=300');
         echo $result['body'];
         exit;
+    }
+
+    /**
+     * نقطة فحص صحة للـ Edge/Load Balancer (بتتفحص من غير Auth).
+     * بترجع "ok" طالما الخدمة شغالة ومتصلة بقاعدة البيانات.
+     */
+    public function edgeHealth(array $params = []): void
+    {
+        http_response_code(200);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'status' => 'ok',
+            'service' => 'tourfecto-seo-proxy',
+            'time' => date('c'),
+        ]);
+        exit;
+    }
+
+    /**
+     * تحديد معدل الطلبات على الـ proxy العام (من غير AuthMiddleware) للحماية
+     * من إساءة الاستخدام. المفتاح هو IP العميل، بحد أقصى 120 طلب/دقيقة.
+     */
+    private function isRateLimited(): bool
+    {
+        try {
+            if (!class_exists('RateLimiter', false)) {
+                $rlFile = APP_PATH . '/Services/Security/RateLimiter.php';
+                if (file_exists($rlFile)) {
+                    require_once $rlFile;
+                }
+            }
+            if (!class_exists('RateLimiter', false)) {
+                return false;
+            }
+            $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+            $limiter = new RateLimiter();
+            $check = $limiter->checkWithDetails($ip, 'seo_proxy', 120, 60);
+            return !$check['allowed'];
+        } catch (Exception $e) {
+            // لو الـ rate limiter مش متاح (جدول rate_limit_blocks مش موجود)،
+            // بنكمل من غير تقييد بدل ما نكسر الـ proxy.
+            return false;
+        }
     }
 }

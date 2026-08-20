@@ -135,8 +135,13 @@ class SeoProxyService
             []
         );
         foreach ($sites as $site) {
-            $domain = parse_url((string) $site['main_url'], PHP_URL_HOST);
-            if (is_string($domain) && strtolower($domain) === $host) {
+            $domain = strtolower((string) (parse_url((string) $site['main_url'], PHP_URL_HOST) ?? ''));
+            if ($domain === '') {
+                continue;
+            }
+            // مطابقة مباشرة (www.example.com === www.example.com) أو أي
+            // subdomain يشير CNAME لنا (blog.example.com -> example.com).
+            if ($host === $domain || substr($host, -strlen('.' . $domain)) === '.' . $domain) {
                 return $site;
             }
         }
@@ -281,9 +286,33 @@ class SeoProxyService
         return ['status' => 404, 'content_type' => 'text/plain', 'body' => 'Not found'];
     }
 
-    /** جلب صفحة من السيرفر الأصلي */
+    /** جلب صفحة من السيرفر الأصلي (مع حماية SSRF + كاش) */
     private function fetch(string $url): array
     {
+        // حماية SSRF: نمنع السيرفر من إنه يطلب شبكات داخلية / metadata / منافذ
+        // غير قياسية حتى لو العميل حط main_url خبيثة.
+        if (!class_exists('SsrfGuard', false)) {
+            $ssrfFile = APP_PATH . '/Services/CompetitorIntelligence/SsrfGuard.php';
+            if (file_exists($ssrfFile)) {
+                require_once $ssrfFile;
+            }
+        }
+        if (class_exists('SsrfGuard', false)) {
+            $check = SsrfGuard::validateUrl($url);
+            if (!$check['safe']) {
+                return ['body' => null, 'code' => 0, 'error' => 'SSRF blocked: ' . ($check['reason'] ?? 'unsafe')];
+            }
+        }
+
+        // كاش origin: نتجنب إعادة جلب نفس الصفحة من الأصل في كل طلب (نفس
+        // دور الـ CDN). الصلاحية قصيرة عشان أي تعديل جديد يظهر بسرعة.
+        $cache = new Cache();
+        $cacheKey = 'seo_origin_' . md5($url);
+        $cached = $cache->get($cacheKey);
+        if (is_array($cached) && isset($cached['body'])) {
+            return $cached;
+        }
+
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
@@ -298,6 +327,67 @@ class SeoProxyService
         $error = curl_error($ch);
         curl_close($ch);
 
-        return ['body' => $body === false ? null : $body, 'code' => $code, 'error' => $error];
+        $result = ['body' => $body === false ? null : $body, 'code' => $code, 'error' => $error];
+
+        if ($body !== false && $code === 200) {
+            $cache->set($cacheKey, $result, 60);
+        }
+
+        return $result;
+    }
+
+    /**
+     * معاينة التغييرات المقترحة قبل التطبيق الفعلي (بدون أي كتابة في قاعدة البيانات).
+     *
+     * بيجيب صفحة الموقع الأصلية، ويطبّق الإصلاحات الحالية النشطة + التغييرات
+     * المقترحة، ويرجّع الـ title والوصف قبل/بعد عشان العميل يشوف الفرق.
+     *
+     * @param array $changes خريطة field_name => قيمة مقترحة (مثال: seo_title)
+     * @return array ['success'=>bool, 'before'=>[], 'after'=>[], 'error'=>?string]
+     */
+    public function previewChanges(int $websiteId, array $changes): array
+    {
+        $sites = $this->db->query("SELECT main_url FROM websites WHERE id = ? LIMIT 1", [$websiteId]);
+        if (empty($sites)) {
+            return ['success' => false, 'error' => 'site not found'];
+        }
+
+        $origin = rtrim((string) $sites[0]['main_url'], '/');
+        $fetched = $this->fetch($origin . '/');
+        if ($fetched['body'] === null) {
+            return ['success' => false, 'error' => 'origin unreachable (' . ($fetched['error'] ?: "HTTP {$fetched['code']}") . ')'];
+        }
+
+        $html = (string) $fetched['body'];
+        $before = $this->extractSeoMeta($html);
+
+        // طبّق الإصلاحات النشطة الحالية، وبعدها التغييرات المقترحة (تتجاوزها)
+        $active = $this->db->query(
+            "SELECT field_name, injected_code FROM auto_seo_applied_fixes WHERE website_id = ? AND is_active = 1",
+            [$websiteId]
+        );
+        foreach ($active as $fix) {
+            $html = $this->applyRewrite($html, (string) $fix['field_name'], (string) $fix['injected_code'], $origin . '/');
+        }
+        foreach ($changes as $field => $value) {
+            $html = $this->applyRewrite($html, (string) $field, (string) $value, $origin . '/');
+        }
+
+        return ['success' => true, 'before' => $before, 'after' => $this->extractSeoMeta($html)];
+    }
+
+    /** استخراج title + meta description من HTML (للمعاينة والتقارير) */
+    private function extractSeoMeta(string $html): array
+    {
+        $title = '';
+        if (preg_match('/<title[^>]*>(.*?)<\/title>/is', $html, $m)) {
+            $title = trim(strip_tags($m[1]));
+        }
+        $description = '';
+        if (preg_match('/<meta\s+name=["\']description["\'][^>]*content=["\']([^"\']*)["\'][^>]*>/i', $html, $m)
+            || preg_match('/<meta\s+[^>]*content=["\']([^"\']*)["\'][^>]*name=["\']description["\'][^>]*>/i', $html, $m)) {
+            $description = trim(html_entity_decode($m[1], ENT_QUOTES, 'UTF-8'));
+        }
+        return ['title' => $title, 'description' => $description];
     }
 }

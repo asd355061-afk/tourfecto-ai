@@ -160,6 +160,15 @@ $router->group('/search-console', function ($router) {
 }, ['AuthMiddleware']);
 
 // ============================================
+// صفحات ربط Google Analytics 4
+// ============================================
+$router->group('/google-analytics', function ($router) {
+    $router->get('/callback', 'GoogleAnalyticsController', 'callback', ['AuthMiddleware']);
+    $router->get('/choose', 'GoogleAnalyticsController', 'showPropertyPicker', ['AuthMiddleware']);
+    $router->get('/connect/{website_id}', 'GoogleAnalyticsController', 'connect', ['AuthMiddleware']);
+}, ['AuthMiddleware']);
+
+// ============================================
 // صفحة الربط والتكاملات الموحّدة
 // ============================================
 $router->get('/integrations', 'IntegrationsController', 'index', ['AuthMiddleware']);

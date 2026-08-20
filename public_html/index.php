@@ -747,6 +747,20 @@ if (strpos($path, '/s/') === 0) {
 }
 
 // ============================================
+// 9.2b. SEO Proxy Edge Health (لفحص الـ Load Balancer - عام من غير Auth)
+// ============================================
+if ($path === '/seo-proxy/health') {
+    $controllerFile = APP_PATH . '/Controllers/SeoProxyController.php';
+    if (file_exists($controllerFile) && !class_exists('SeoProxyController', false)) {
+        require_once $controllerFile;
+    }
+    if (class_exists('SeoProxyController', false)) {
+        $seoProxy = new SeoProxyController();
+        $seoProxy->edgeHealth();
+    }
+}
+
+// ============================================
 // 9.3. SEO Proxy CNAME Passthrough (Phase 2 - Custom Domain)
 // ============================================
 // لما العميل يشير CNAME من subdomain بتاعه ناحية سيرفرنا، الطلب بيوصل من

@@ -185,14 +185,26 @@ class SeoAbTestController extends Controller
                 : date('Y-m-d', strtotime('-28 days'));
             $endDate = date('Y-m-d', strtotime('-2 days'));
 
-            $analytics = $api->getSearchAnalytics($siteUrl, $startDate, $endDate, ['page'], 25000);
-            if (!$analytics['success']) {
-                return $this->error('تعذر جلب بيانات GSC: ' . ($analytics['error'] ?? ''), 502);
+            // كاش مقاييس GSC (SeoPerformanceService) عشان منضربش Google بـ
+            // request كامل في كل قياس، مع تجديد تلقائي لو البيانات قديمة.
+            $perf = new SeoPerformanceService($this->db);
+            $age = $perf->metricsAgeHours($websiteId);
+            if ($age === null || $age > 6) {
+                $synced = $perf->syncPageMetrics($websiteId, $siteUrl, $accessToken);
+                if (!$synced['success']) {
+                    return $this->error('تعذر جلب بيانات GSC: ' . ($synced['error'] ?? ''), 502);
+                }
             }
 
-            $pageMetrics = [];
-            foreach ($analytics['rows'] as $row) {
-                $pageMetrics[SeoAbTestService::normalizePagePath((string) $row['page'])] = $row;
+            $pageMetrics = $perf->getCachedPageMetrics($websiteId);
+            if (empty($pageMetrics)) {
+                return $this->success([
+                    'gsc_connected' => true,
+                    'test_id' => $testId,
+                    'variants' => $this->service->variantBreakdown($testId),
+                    'suggested_winner_variant_id' => null,
+                    'message' => 'مفيش بيانات أداء في Search Console لصفحات التجربة بعد — بيانات Google بتتأخر يوم-يومين، جرّب تاني بعد فترة.',
+                ]);
             }
 
             $metrics = $this->service->aggregateMetrics($testId, $pageMetrics);
@@ -201,6 +213,7 @@ class SeoAbTestController extends Controller
                 'gsc_connected' => true,
                 'test_id' => $testId,
                 'date_range' => ['start' => $startDate, 'end' => $endDate],
+                'metrics_cached' => $age !== null && $age <= 6,
             ], $metrics));
         } catch (Exception $e) {
             Logger::error('SEO A/B Results Error', ['test_id' => $testId, 'message' => $e->getMessage()]);

@@ -93,7 +93,7 @@ require_once TOURFECTO_APP . '/Services/Chat/ApprovalSystem.php';
 require_once TOURFECTO_APP . '/Services/Subscription/SubscriptionValidator.php';
 require_once TOURFECTO_APP . '/Services/Subscription/UsageTracker.php';
 require_once TOURFECTO_APP . '/Services/Subscription/BillingManager.php';
-require_once TOURFECTO_APP . '/Services/Subscription/PlanFeature.php';
+require_once TOURFECTO_APP . '/Services/PlanFeature.php';
 
 require_once TOURFECTO_APP . '/Services/Security/GDPRCompliance.php';
 require_once TOURFECTO_APP . '/Services/Security/DataEncryption.php';

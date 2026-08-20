@@ -300,7 +300,10 @@ $router->get('/api/reputation/platforms', 'ReputationController', 'getPlatforms'
 $router->post('/api/search-console/finalize', 'SearchConsoleController', 'finalize', ['AuthMiddleware']);
 $router->post('/api/search-console/disconnect/{website_id}', 'SearchConsoleController', 'disconnect', ['AuthMiddleware']);
 $router->get('/api/search-console/stats/{website_id}', 'SearchConsoleController', 'stats', ['AuthMiddleware']);
-
+// Google Analytics 4 (نفس نمط Search Console: GET redirect في web.php)
+$router->post('/api/google-analytics/finalize', 'GoogleAnalyticsController', 'finalize', ['AuthMiddleware']);
+$router->post('/api/google-analytics/disconnect/{website_id}', 'GoogleAnalyticsController', 'disconnect', ['AuthMiddleware']);
+$router->get('/api/google-analytics/stats/{website_id}', 'GoogleAnalyticsController', 'stats', ['AuthMiddleware']);
 // تصحيح: نفس المشكلة - webhook() كان method حقيقي شغال في ReputationController
 // من غير ما يتسجل في أي route. ملحوظة مهمة: ده مش webhook رسمي من
 // TripAdvisor/Google (المنصتين دول مبيقدموش webhooks عامة لأي طرف تالت
@@ -1093,6 +1096,8 @@ $router->post('/api/auto-seo/mode', 'AutoSeoController', 'setMode', ['AuthMiddle
 $router->post('/api/auto-seo/apply', 'AutoSeoController', 'apply', ['AuthMiddleware']);
 $router->get('/api/auto-seo/logs', 'AutoSeoController', 'logs', ['AuthMiddleware']);
 $router->post('/api/auto-seo/rollback/{id}', 'AutoSeoController', 'rollback', ['AuthMiddleware']);
+$router->post('/api/auto-seo/preview', 'AutoSeoController', 'preview', ['AuthMiddleware']);
+$router->get('/api/auto-seo/report', 'AutoSeoController', 'report', ['AuthMiddleware']);
 // Phase 22 (IndexNow - فهرسة فورية لمحركات البحث بعد التطبيق)
 $router->post('/api/indexnow/generate-key', 'SeoIndexingController', 'generateKey', ['AuthMiddleware']);
 $router->post('/api/indexnow/toggle', 'SeoIndexingController', 'toggle', ['AuthMiddleware']);
