@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Integration Manager
  * @version 1.0.0
@@ -12,30 +13,34 @@
  * التكامل بتاعها. لو الـ platform مش مسجّلة أو الإعدادات ناقصة، بيرمي
  * Exception واضح بدل ما يفشل بصمت.
  */
-class IntegrationManager {
-
+class IntegrationManager
+{
     private static array $registry = [];
     private static array $instances = [];
 
-    private static function loadRegistry(): void {
+    private static function loadRegistry(): void
+    {
         if (empty(self::$registry)) {
             self::$registry = require __DIR__ . '/../Config/integrations.php';
         }
     }
 
     /** كل الـ platforms المسجّلة (للوحة تحكم "إدارة التكاملات" مثلاً) */
-    public static function all(): array {
+    public static function all(): array
+    {
         self::loadRegistry();
         return self::$registry;
     }
 
     /** كل الـ platforms المتاحة فعليًا (مفاتيحها موجودة في .env) */
-    public static function available(): array {
+    public static function available(): array
+    {
         self::loadRegistry();
-        return array_filter(self::$registry, fn(string $key) => self::isConfigured($key), ARRAY_FILTER_USE_KEY);
+        return array_filter(self::$registry, fn (string $key) => self::isConfigured($key), ARRAY_FILTER_USE_KEY);
     }
 
-    public static function isConfigured(string $platformKey): bool {
+    public static function isConfigured(string $platformKey): bool
+    {
         self::loadRegistry();
         if (!isset(self::$registry[$platformKey])) {
             return false;
@@ -59,7 +64,8 @@ class IntegrationManager {
     /**
      * @throws Exception لو الـ platform مش مسجّلة أو الكلاس بتاعها مش موجود
      */
-    public static function get(string $platformKey): IntegrationInterface {
+    public static function get(string $platformKey): IntegrationInterface
+    {
         self::loadRegistry();
 
         if (!isset(self::$registry[$platformKey])) {
@@ -85,7 +91,8 @@ class IntegrationManager {
     }
 
     /** metadata الخاصة بـ platform معينة (auth_type, oauth_scope...) */
-    public static function meta(string $platformKey): ?array {
+    public static function meta(string $platformKey): ?array
+    {
         self::loadRegistry();
         return self::$registry[$platformKey] ?? null;
     }

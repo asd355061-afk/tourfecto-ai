@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Notification Service
  * Business Control Center Phase 24 - Notifications expansion
@@ -15,14 +16,15 @@
  * الهدف: أي حدث مشغّل من Service (مش Controller) عشان يضمن إن الإشعار
  * بيحصل حتى لو نفس العملية اتندى من أي نقطة دخول (API/Job/CLI).
  */
-class BusinessNotificationService {
-
+class BusinessNotificationService
+{
     // ============================================
     // Builders - pure logic (لا DB، قابل للاختبار)
     // ============================================
 
     /** مستخدم انضم للفريق فورًا (مسجل بالفعل) */
-    public static function memberAdded(int $userId, string $businessName, string $actorName, string $role): array {
+    public static function memberAdded(int $userId, string $businessName, string $actorName, string $role): array
+    {
         return [
             'user_id' => $userId,
             'type' => 'business_team_added',
@@ -33,7 +35,8 @@ class BusinessNotificationService {
     }
 
     /** دعوة معلقة لمستخدم غير مسجل - ننبّه المالك أن الدعوة اتبعتت */
-    public static function inviteSent(int $ownerUserId, string $businessName, string $invitedEmail, string $role): array {
+    public static function inviteSent(int $ownerUserId, string $businessName, string $invitedEmail, string $role): array
+    {
         return [
             'user_id' => $ownerUserId,
             'type' => 'business_team_invite_sent',
@@ -44,7 +47,8 @@ class BusinessNotificationService {
     }
 
     /** عضو قبل الدعوة - ننبّه المالك */
-    public static function inviteAccepted(int $ownerUserId, string $businessName, string $memberName): array {
+    public static function inviteAccepted(int $ownerUserId, string $businessName, string $memberName): array
+    {
         return [
             'user_id' => $ownerUserId,
             'type' => 'business_team_invite_accepted',
@@ -55,7 +59,8 @@ class BusinessNotificationService {
     }
 
     /** تمت إزالة العضو من الفريق */
-    public static function memberRemoved(int $userId, string $businessName): array {
+    public static function memberRemoved(int $userId, string $businessName): array
+    {
         return [
             'user_id' => $userId,
             'type' => 'business_team_removed',
@@ -66,7 +71,8 @@ class BusinessNotificationService {
     }
 
     /** تم تغيير دور العضو */
-    public static function roleChanged(int $userId, string $businessName, string $newRole): array {
+    public static function roleChanged(int $userId, string $businessName, string $newRole): array
+    {
         return [
             'user_id' => $userId,
             'type' => 'business_team_role_changed',
@@ -77,7 +83,8 @@ class BusinessNotificationService {
     }
 
     /** مفتاح API جديد اتcreate */
-    public static function apiKeyCreated(int $ownerUserId, string $businessName, string $keyName): array {
+    public static function apiKeyCreated(int $ownerUserId, string $businessName, string $keyName): array
+    {
         return [
             'user_id' => $ownerUserId,
             'type' => 'business_api_key_created',
@@ -88,7 +95,8 @@ class BusinessNotificationService {
     }
 
     /** مفتاح API اتلغى */
-    public static function apiKeyRevoked(int $ownerUserId, string $businessName, string $keyName): array {
+    public static function apiKeyRevoked(int $ownerUserId, string $businessName, string $keyName): array
+    {
         return [
             'user_id' => $ownerUserId,
             'type' => 'business_api_key_revoked',
@@ -102,7 +110,8 @@ class BusinessNotificationService {
     // Thin wrappers - تفعيل فعلًا (بتتجاهل الفشل بهدوء)
     // ============================================
 
-    public static function push(array $payload): void {
+    public static function push(array $payload): void
+    {
         if (empty($payload['user_id']) || !class_exists('Notification')) {
             return;
         }

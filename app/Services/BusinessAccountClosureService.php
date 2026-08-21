@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Account Closure Service
  * Business Control Center Phase 15-16: Account deletion / business continuity
@@ -20,14 +21,15 @@
  *
  * Pure logic: nextOwnerForMembers() اختيار الخلف قابل للاختبار offline.
  */
-class BusinessAccountClosureService {
-
+class BusinessAccountClosureService
+{
     /**
      * تنفيذ التحضير الكامل قبل حذف الحساب: تحويل ملكية + توثيق.
      *
      * @return array{transferred: array<int,array{business_id:int,new_owner_id:int}>, cleaned: int}
      */
-    public function prepareForAccountDeletion(int $deletedUserId): array {
+    public function prepareForAccountDeletion(int $deletedUserId): array
+    {
         $transferred = [];
         $cleaned = 0;
 
@@ -88,7 +90,8 @@ class BusinessAccountClosureService {
      * اختيار أعلى عضو نشط رتبة ليرث الملكية - أو null لو مفيش حد.
      * Pure - قابل للاختبار offline بمصفوفة roles.
      */
-    public function pickSuccessor(int $businessId): ?int {
+    public function pickSuccessor(int $businessId): ?int
+    {
         $members = (new BusinessMember())->where([
             'business_id' => $businessId,
             'status' => 'active',
@@ -116,7 +119,8 @@ class BusinessAccountClosureService {
      *
      * @param array<int,array{user_id:int,role:string}> $members
      */
-    public function pickSuccessorFromMembers(array $members): ?int {
+    public function pickSuccessorFromMembers(array $members): ?int
+    {
         $best = null;
         $bestRank = 0;
         foreach ($members as $member) {

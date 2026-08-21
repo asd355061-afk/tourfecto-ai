@@ -1,4 +1,5 @@
 <?php
+
 /**
  * View: Settings - security section (extracted Phase 16F).
  */

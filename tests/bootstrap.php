@@ -198,21 +198,90 @@ function loadDatabaseSchema(): void
         // قراءة ملف الـ SQL
         $sql = file_get_contents($schemaFile);
 
+        // إزالة كتل DELIMITER (الإجراءات المخزنة والمشغلات) - الاختبارات
+        // لا تحتاجها وتكسر التقسيم العادي على الفاصلة المنقوطة.
+        $sql = preg_replace('/DELIMITER\s*\/\/.*?DELIMITER\s*;/s', '', $sql);
+
         // تقسيم الاستعلامات
         $queries = explode(';', $sql);
 
         foreach ($queries as $query) {
             $query = trim($query);
-            if (!empty($query) && strpos($query, 'CREATE DATABASE') === false) {
-                $db->query($query);
+            if (empty($query)) {
+                continue;
             }
+            // تجاهل إنشاء/اختيار قاعدة بيانات معينة - الاختبارات تشتغل
+            // على قاعدة بيانات الاختبار المحددة في phpunit.xml.
+            if (strpos($query, 'CREATE DATABASE') !== false
+                || preg_match('/^USE\s+`?[a-z0-9_]+`?$/i', $query)) {
+                continue;
+            }
+
+            // SET AUTOCOMMIT = 0 في السكيما (مخصصة لتصدير البيانات يدويًا)
+            // بتعطّل الـ autocommit على اتصال الاختبار المشترك كله، فيفتح
+            // معاملة ضمنية تفضل معلقة - وأي beginTransaction() بعدها بيفشل
+            // بـ "There is already an active transaction". نتجاهلها هنا
+            // ونعيد تفعيل الـ autocommit بعد نهاية التحميل.
+            if (stripos($query, 'SET AUTOCOMMIT') === 0) {
+                continue;
+            }
+
+            $db->query($query);
         }
+
+        // إعادة تفعيل الـ autocommit بعد تحميل السكيما - الاختبارات بتعتمد
+        // على سلوك الـ autocommit الافتراضي (كل استعلام يثبت لوحده).
+        $db->query('SET AUTOCOMMIT = 1');
 
         echo "✅ Database schema loaded successfully\n";
 
     } catch (Exception $e) {
         echo "❌ Failed to load schema: " . $e->getMessage() . "\n";
     }
+}
+
+// ============================================
+// 13.5. تطبيق الميجريشنز المطلوبة للاختبارات (بعد السكيما الأساسية)
+// سكيما المخطط الأساسي (schema.sql) بتغطي الجداول القديمة، لكن بعض
+// اختبارات الـ integration بتحتاج جداول من ميجريشنز أحدث (booking engine,
+// wallet, tax_rules...). هنطّبقهم على قاعدة بيانات الاختبار بس (idempotent).
+// ============================================
+function applyTestMigrations(): void
+{
+    $db = Database::getInstance();
+
+    $migrations = [
+        '2026_08_08_000009_create_crm_products_and_deal_items_tables.sql',
+        '2026_08_21_000001_create_booking_engine_tables.sql',
+        '2026_07_22_000023_create_wallet_system.sql',
+        '2026_07_27_000035_create_wallet_recharge_cards.sql',
+        '2026_08_12_000049_create_tax_rules_table.sql',
+        '2026_07_22_000022_create_plan_pricing_display_table.sql',
+    ];
+
+    $migrationsDir = TOURFECTO_ROOT . '/database/migrations';
+
+    foreach ($migrations as $file) {
+        $path = $migrationsDir . '/' . $file;
+        if (!file_exists($path)) {
+            continue;
+        }
+        try {
+            $sql = file_get_contents($path);
+            $queries = explode(';', $sql);
+            foreach ($queries as $query) {
+                $query = trim($query);
+                if (empty($query)) {
+                    continue;
+                }
+                $db->query($query);
+            }
+        } catch (Exception $e) {
+            echo "⚠️ Migration {$file} skipped: " . $e->getMessage() . "\n";
+        }
+    }
+
+    echo "✅ Test migrations applied successfully\n";
 }
 
 // ============================================
@@ -448,6 +517,7 @@ echo "============================\n\n";
 // إعداد قاعدة البيانات
 setupTestDatabase();
 loadDatabaseSchema();
+applyTestMigrations();
 loadTestFixtures();
 
 echo "\n✅ Bootstrap completed successfully!\n";

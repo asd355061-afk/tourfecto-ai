@@ -140,7 +140,8 @@ class AuditLog extends Model
      *
      * @return array مصفوفة من الصفوف اللي لسه فاضية من الفلاتر
      */
-    public static function exportFor(int $userId, array $filters = [], int $maxRows = 5000, int $offset = 0): array {
+    public static function exportFor(int $userId, array $filters = [], int $maxRows = 5000, int $offset = 0): array
+    {
         $db = Database::getInstance();
 
         $where = ['user_id = :user_id'];
@@ -181,7 +182,8 @@ class AuditLog extends Model
      * إجمالي عدد الصفوف المطابقة لنفس فلاتر exportFor - بيسمح للتصدير
      * يدور على الدفعات لحد ما يوصل للنهاية (Pagination beyond 5000).
      */
-    public static function countFor(int $userId, array $filters = []): int {
+    public static function countFor(int $userId, array $filters = []): int
+    {
         $db = Database::getInstance();
 
         $where = ['user_id = :user_id'];

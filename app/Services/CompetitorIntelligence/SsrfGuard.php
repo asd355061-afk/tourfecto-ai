@@ -105,7 +105,8 @@ class SsrfGuard
     }
 
     /** هل IP (IPv4 أو IPv6) عنوان عام حقيقي؟ */
-    private static function isPublicIp(string $ip): bool {
+    private static function isPublicIp(string $ip): bool
+    {
         // IPv4-mapped IPv6 (::ffff:192.168.1.1) - بنفك التغليف ونفحص الـ
         // IPv4 الداخلي، لأن filter_var مش بيراعي حالة الـ mapping دي.
         if (preg_match('/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i', $ip, $m)) {
@@ -120,7 +121,8 @@ class SsrfGuard
      * fallback تدريجي لو `dns_get_record` متعطّلة في البيئة (disable_functions).
      * @return string[]
      */
-    private static function resolveAllIps(string $host): array {
+    private static function resolveAllIps(string $host): array
+    {
         $ips = [];
 
         if (function_exists('dns_get_record')) {

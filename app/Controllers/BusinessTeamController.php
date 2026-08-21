@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Team Controller
  * Team Management + RBAC - Business Control Center Phase 10
@@ -14,15 +15,16 @@
  *     بس) محسومة جوه BusinessTeamService.
  *   - POST accept: أي مستخدم مسجل - بيقبل دعوة موجهة لبریده بالتوكن.
  */
-class BusinessTeamController extends Controller {
-
+class BusinessTeamController extends Controller
+{
     /**
      * نفس نسخة BusinessAccessService جوه الطلب الواحد - عشان الـroleCache
      * الجوه الـService يشتغل (بدل استعلامات متكررة لكل فحص). M3 + H1 (Phase 27).
      */
     private ?BusinessAccessService $accessService = null;
 
-    private function access(): BusinessAccessService {
+    private function access(): BusinessAccessService
+    {
         if ($this->accessService === null) {
             $this->accessService = new BusinessAccessService();
         }
@@ -34,12 +36,14 @@ class BusinessTeamController extends Controller {
      * بيرجع null لو مفيش وصول إطلاقًا - الـController بيميز الـ404
      * (مش مملوك/مش معروف) من الـ403 (viewer بيحاول يكتب).
      */
-    private function loadAccessibleBusiness(int $businessId, int $userId): ?Business {
+    private function loadAccessibleBusiness(int $businessId, int $userId): ?Business
+    {
         return $this->access()->getAccessibleBusiness($businessId, $userId);
     }
 
     /** GET /api/business/{businessId}/team */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -58,7 +62,8 @@ class BusinessTeamController extends Controller {
      * POST /api/business/{businessId}/team/invite
      * body: { email, role } - role من admin/member/viewer.
      */
-    public function invite(array $params = []): array {
+    public function invite(array $params = []): array
+    {
         if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -111,7 +116,8 @@ class BusinessTeamController extends Controller {
      * POST /api/business/{businessId}/team/invite/{token}/accept
      * قبول دعوة معلقة - اللي بيدخل لازم يكون بريده هو بريد الدعوة.
      */
-    public function acceptInvite(array $params = []): array {
+    public function acceptInvite(array $params = []): array
+    {
         if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -138,7 +144,8 @@ class BusinessTeamController extends Controller {
      * DELETE /api/business/{businessId}/team/members/{memberId}
      * حذف عضو - القاعدة الدقيقة جوه الـService.
      */
-    public function remove(array $params = []): array {
+    public function remove(array $params = []): array
+    {
         if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -168,7 +175,8 @@ class BusinessTeamController extends Controller {
      * PUT /api/business/{businessId}/team/members/{memberId}/role
      * body: { role } - القاعدة الدقيقة جوه الـService.
      */
-    public function changeRole(array $params = []): array {
+    public function changeRole(array $params = []): array
+    {
         if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }

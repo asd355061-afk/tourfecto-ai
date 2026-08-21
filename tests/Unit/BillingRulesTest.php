@@ -25,7 +25,7 @@ final class BillingRulesTest extends TestCase
         $this->assertSame($expected, BillingRules::planChangeCharge($oldPrice, $newPrice));
     }
 
-    public function planChangeChargeProvider(): array
+    public static function planChangeChargeProvider(): array
     {
         return [
             'upgrade positive diff'        => [10.0, 25.0, 15.0],
@@ -72,7 +72,7 @@ final class BillingRulesTest extends TestCase
         $this->assertSame($expected, BillingRules::proratedCredit($oldPrice, $newPrice, $remaining, $period));
     }
 
-    public function proratedCreditProvider(): array
+    public static function proratedCreditProvider(): array
     {
         return [
             'full period left -> full diff'    => [30.0, 20.0, 30, 30, 10.0],
@@ -94,7 +94,7 @@ final class BillingRulesTest extends TestCase
         $this->assertSame($expected, BillingRules::isInDunningWindow($elapsedDays));
     }
 
-    public function dunningWindowProvider(): array
+    public static function dunningWindowProvider(): array
     {
         return [
             'start of grace'   => [0, false],
@@ -114,7 +114,7 @@ final class BillingRulesTest extends TestCase
         $this->assertSame($expected, BillingRules::gracePeriodExpired($elapsedDays));
     }
 
-    public function graceProvider(): array
+    public static function graceProvider(): array
     {
         return [
             'not yet expired'  => [6, false],
@@ -132,7 +132,7 @@ final class BillingRulesTest extends TestCase
         $this->assertSame($expected, BillingRules::isInReminderWindow($daysUntilEnd, $reminderDays));
     }
 
-    public function reminderWindowProvider(): array
+    public static function reminderWindowProvider(): array
     {
         return [
             'due today'            => [0, 3, true],

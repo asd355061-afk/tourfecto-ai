@@ -102,8 +102,10 @@ class ImageOptimizationService
             function ($matches) use (&$firstImageSkipped) {
                 $tag = $matches[0];
 
-                // Already has loading attribute
-                if (preg_match('/\sloading\s*=\s*["'][^"']*["']/i', $tag)) {
+                // Already has loading attribute - تحسب كأول صورة (hero)
+                // فوق الـ fold، فبنعتبر الصورة الأولى خلاص اتخطت.
+                if (preg_match("/\sloading\s*=\s*[\"'][^\"']*[\"']/i", $tag)) {
+                    $firstImageSkipped = true;
                     return $tag;
                 }
 
@@ -126,7 +128,7 @@ class ImageOptimizationService
     public function rewriteImageSrc(string $html, string $baseUrl): string
     {
         return preg_replace_callback(
-            '/<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/i',
+            "/<img\b[^>]*\bsrc\s*=\s*[\"']([^\"']+)[\"'][^>]*>/i",
             function ($matches) use ($baseUrl) {
                 $originalTag = $matches[0];
                 $src = $matches[1];

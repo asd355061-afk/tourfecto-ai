@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Centralized Constants
  * @version 1.0.0
@@ -9,7 +10,8 @@
  * ممكن تتحرف في نسخة وتنسى في نسخة - ده بيقلل أخطاء الـ typo وبيخلي
  * معنى أي قيمة في الداتابيز واضح من مكان واحد.
  */
-class CiConstants {
+class CiConstants
+{
     /** تصنيف المنافسين - زي ما هو مخزّن في عمود `category` بجدول competitors */
     public const CATEGORIES = ['direct', 'indirect', 'emerging', 'potential'];
 
@@ -38,7 +40,8 @@ class CiConstants {
     public const BULK_IMPORT_MAX_ROWS = 200;
 
     /** إرجاع هل القيمة ضمن قائمة مسموحة، مع default بديل لو مش موجودة */
-    public static function within(array $allowed, mixed $value, mixed $default): mixed {
+    public static function within(array $allowed, mixed $value, mixed $default): mixed
+    {
         return in_array($value, $allowed, true) ? $value : $default;
     }
 }

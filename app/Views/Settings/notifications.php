@@ -1,4 +1,5 @@
 <?php
+
 /**
  * View: Settings - notifications section (extracted Phase 16F).
  */

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Contact Lifecycle Service (المرحلة 13 - G6)
  * @version 1.0.0
@@ -11,14 +12,17 @@
  * (إضافة خالصة لا تمس الاستعلامات القائمة) + جدول مراحل قابلة للتخصيص.
  * لا يعدّل أي منطق في CrmController الأصلي.
  */
-class CrmLifecycleService {
+class CrmLifecycleService
+{
     /** المراحل المتاحة للحساب (افتراضية عامة + مخصصة) */
-    public function listStages(int $userId): array {
+    public function listStages(int $userId): array
+    {
         return (new CrmLifecycleStage())->availableForUser($userId);
     }
 
     /** تحديد مرحلة دورة حياة لجهة اتصال (بـ stage_key أو بتعريف مخصص) */
-    public function setStage(int $userId, int $contactId, ?string $stageKey): CrmContact {
+    public function setStage(int $userId, int $contactId, ?string $stageKey): CrmContact
+    {
         $contact = (new CrmContact())->find($contactId);
         if (!$contact || (int) $contact->getAttribute('user_id') !== $userId) {
             throw new Exception('جهة الاتصال غير موجودة', 404);
@@ -44,7 +48,8 @@ class CrmLifecycleService {
     }
 
     /** جهات الاتصال حسب المرحلة (فلترة دورة حياة) */
-    public function contactsByStage(int $userId, ?string $stageKey = null): array {
+    public function contactsByStage(int $userId, ?string $stageKey = null): array
+    {
         $sql = "SELECT * FROM crm_contacts WHERE user_id = ?";
         $params = [$userId];
         if ($stageKey !== null && $stageKey !== '') {
@@ -58,7 +63,8 @@ class CrmLifecycleService {
     }
 
     /** توزيع الحساب حسب المرحلة (للرسوم/التقارير) */
-    public function distribution(int $userId): array {
+    public function distribution(int $userId): array
+    {
         $rows = $this->db()->query(
             "SELECT lifecycle_stage, COUNT(*) AS total
              FROM crm_contacts
@@ -87,7 +93,8 @@ class CrmLifecycleService {
     // مراحل مخصصة (CRUD)
     // ------------------------------------------------------------
 
-    public function createStage(int $userId, array $data): CrmLifecycleStage {
+    public function createStage(int $userId, array $data): CrmLifecycleStage
+    {
         $key = strtolower(trim((string) ($data['stage_key'] ?? '')));
         $key = preg_replace('/[^a-z0-9]+/', '_', $key);
         $key = trim($key, '_');
@@ -115,23 +122,31 @@ class CrmLifecycleService {
         return $stage;
     }
 
-    public function updateStage(int $userId, int $stageId, array $data): CrmLifecycleStage {
+    public function updateStage(int $userId, int $stageId, array $data): CrmLifecycleStage
+    {
         $stage = (new CrmLifecycleStage())->findOwned($userId, $stageId);
         if (!$stage) {
             throw new Exception('المرحلة غير موجودة (لا يمكن تعديل مرحلة عامة)', 404);
         }
         if (isset($data['name'])) {
             $name = trim((string) $data['name']);
-            if ($name === '') throw new Exception('اسم المرحلة مطلوب', 422);
+            if ($name === '') {
+                throw new Exception('اسم المرحلة مطلوب', 422);
+            }
             $stage->setAttribute('name', $name);
         }
-        if (isset($data['color'])) $stage->setAttribute('color', (string) $data['color']);
-        if (isset($data['sort_order'])) $stage->setAttribute('sort_order', (int) $data['sort_order']);
+        if (isset($data['color'])) {
+            $stage->setAttribute('color', (string) $data['color']);
+        }
+        if (isset($data['sort_order'])) {
+            $stage->setAttribute('sort_order', (int) $data['sort_order']);
+        }
         $stage->save();
         return $stage;
     }
 
-    public function deleteStage(int $userId, int $stageId): bool {
+    public function deleteStage(int $userId, int $stageId): bool
+    {
         $stage = (new CrmLifecycleStage())->findOwned($userId, $stageId);
         if (!$stage) {
             throw new Exception('المرحلة غير موجودة (لا يمكن حذف مرحلة عامة)', 404);
@@ -145,7 +160,8 @@ class CrmLifecycleService {
         return $stage->delete();
     }
 
-    private function db() {
+    private function db()
+    {
         return Database::getInstance();
     }
 }

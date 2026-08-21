@@ -1,4 +1,5 @@
 <?php
+
 /**
  * View: Settings - JS (extracted from renderSettingsPage Phase 16F).
  */

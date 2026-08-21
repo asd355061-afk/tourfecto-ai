@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Audit Log Controller
  * Business Control Center Phase 13-14: Centralized Business Audit Log
@@ -12,10 +13,11 @@
  *
  * أمان: getAccessibleBusiness (404 للـbusinesses غير مصرّح بيها) + canReadAudit.
  */
-class BusinessAuditLogController extends Controller {
-
+class BusinessAuditLogController extends Controller
+{
     /** GET /api/business/{businessId}/audit-log */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('غير مسجل دخول', 401);
         }

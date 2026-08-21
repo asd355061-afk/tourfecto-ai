@@ -89,7 +89,8 @@ class SubscriptionLifecycleService
      *
      * @return array{attempted: int, renewed: int, insufficient_balance: int, skipped: int, failed: int, errors: array}
      */
-    private function attemptAutoRenewals(): array {
+    private function attemptAutoRenewals(): array
+    {
         $result = ['attempted' => 0, 'renewed' => 0, 'insufficient_balance' => 0, 'skipped' => 0, 'failed' => 0, 'errors' => []];
         try {
             $rows = $this->db->query(
@@ -157,7 +158,8 @@ class SubscriptionLifecycleService
      * التجديد وهوا عليه cancel_at_period_end مش بيتم تجديده أصلًا
      * (WalletService بيكشفها وبيـ skip).
      */
-    private function transitionCancelledAtPeriodEnd(): int {
+    private function transitionCancelledAtPeriodEnd(): int
+    {
         try {
             $rows = $this->db->query(
                 "SELECT id, user_id FROM subscriptions
@@ -165,8 +167,13 @@ class SubscriptionLifecycleService
             );
             foreach ($rows as $row) {
                 $this->db->exec("UPDATE subscriptions SET status = 'cancelled', updated_at = NOW() WHERE id = ?", [(int) $row['id']]);
-                $this->notifyAndLog((int) $row['id'], (int) $row['user_id'], 'expired',
-                    'انتهى اشتراكك', 'تم إيقاف اشتراكك في نهاية الفترة زي ما طلبت - تقدر تشترك تاني في أي وقت.');
+                $this->notifyAndLog(
+                    (int) $row['id'],
+                    (int) $row['user_id'],
+                    'expired',
+                    'انتهى اشتراكك',
+                    'تم إيقاف اشتراكك في نهاية الفترة زي ما طلبت - تقدر تشترك تاني في أي وقت.'
+                );
             }
             return count($rows);
         } catch (Exception $e) {

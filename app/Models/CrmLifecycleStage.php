@@ -1,11 +1,14 @@
 <?php
+
 /** Tourfecto - CRM Lifecycle Stage Model (المرحلة 13 - G6) @version 1.0.0 */
-class CrmLifecycleStage extends Model {
+class CrmLifecycleStage extends Model
+{
     protected $table = 'crm_lifecycle_stages';
     protected $fillable = ['user_id', 'stage_key', 'name', 'color', 'sort_order', 'is_system'];
 
     /** المراحل المتاحة للحساب: الافتراضية العامة + المخصصة */
-    public function availableForUser(int $userId): array {
+    public function availableForUser(int $userId): array
+    {
         return $this->db->query(
             "SELECT * FROM crm_lifecycle_stages WHERE user_id IS NULL OR user_id = ?
              ORDER BY sort_order ASC, id ASC",
@@ -14,7 +17,8 @@ class CrmLifecycleStage extends Model {
     }
 
     /** مرحلة عامة أو خاصة بحساب - للتحقق من صحة stage_key */
-    public function findByKey(int $userId, string $stageKey): ?CrmLifecycleStage {
+    public function findByKey(int $userId, string $stageKey): ?CrmLifecycleStage
+    {
         $rows = $this->db->query(
             "SELECT * FROM crm_lifecycle_stages WHERE stage_key = ? AND (user_id IS NULL OR user_id = ?) LIMIT 1",
             [$stageKey, $userId]
@@ -28,7 +32,8 @@ class CrmLifecycleStage extends Model {
     }
 
     /** مرحلة مملوكة للحساب (للتعديل/الحذف) */
-    public function findOwned(int $userId, int $stageId): ?CrmLifecycleStage {
+    public function findOwned(int $userId, int $stageId): ?CrmLifecycleStage
+    {
         $rows = $this->db->query(
             "SELECT * FROM crm_lifecycle_stages WHERE id = ? AND user_id = ? LIMIT 1",
             [$stageId, $userId]

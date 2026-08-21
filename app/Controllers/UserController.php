@@ -1137,7 +1137,8 @@ JS;
      * يسترجع). من غير كده أي شخص عنده جلسة مسروقة يقدر يبطل أكواد
      * طوارئ صاحبها وياخد أكواد جديدة بدلها.
      */
-    public function regenerateRecoveryCodes(array $params = []): array {
+    public function regenerateRecoveryCodes(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -1206,7 +1207,8 @@ JS;
      * وتفعيل فعلي مش بيحصل إلا بعد كود TOTP حقيقي من الجهاز الجديد في
      * enableTwoFactor().
      */
-    public function reEnrollTwoFactor(array $params = []): array {
+    public function reEnrollTwoFactor(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);
@@ -1860,7 +1862,8 @@ JS;
      * frontend بيطلب دفعات متتالية بـ offset لحد ما يوصل للنهاية
      * (Phase 16D - Audit Export Pagination) وبيجمّعها في CSV واحد.
      */
-    public function exportAuditLog(array $params = []): array {
+    public function exportAuditLog(array $params = []): array
+    {
         $user = $this->currentUser();
         if (!$user) {
             return $this->error('غير مسجل دخول', 401);

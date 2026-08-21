@@ -1,30 +1,34 @@
 <?php
+
 /**
  * Tourfecto - Business Service Controller
  * Business Control Center - Phase 4
  * @version 1.0.0
  */
-class BusinessServiceController extends Controller {
-
+class BusinessServiceController extends Controller
+{
     /**
      * نفس نسخة BusinessAccessService جوه الطلب الواحد - عشان الـroleCache
      * الجوه الـService يشتغل (بدل استعلامات متكررة لكل فحص). Phase 27.
      */
     private ?BusinessAccessService $accessService = null;
 
-    private function access(): BusinessAccessService {
+    private function access(): BusinessAccessService
+    {
         if ($this->accessService === null) {
             $this->accessService = new BusinessAccessService();
         }
         return $this->accessService;
     }
 
-    private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
+    private function loadOwnedBusiness(int $businessId, int $userId): ?Business
+    {
         return $this->access()->getAccessibleBusiness($businessId, $userId);
     }
 
     /** يحمّل Service مع فحص صلاحية التعديل على الـBusiness التابعة لها (viewer مش بيعدّل) */
-    private function loadOwnedService(int $serviceId, int $userId): ?BusinessService {
+    private function loadOwnedService(int $serviceId, int $userId): ?BusinessService
+    {
         $service = (new BusinessService())->find($serviceId);
         if (!$service) {
             return null;
@@ -36,7 +40,8 @@ class BusinessServiceController extends Controller {
     }
 
     /** GET /api/business/{businessId}/services */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -51,11 +56,12 @@ class BusinessServiceController extends Controller {
             ['active' => 'DESC', 'name' => 'ASC']
         );
 
-        return $this->success(['services' => array_map(fn($s) => $s->toArray(), $services)]);
+        return $this->success(['services' => array_map(fn ($s) => $s->toArray(), $services)]);
     }
 
     /** POST /api/business/{businessId}/services */
-    public function store(array $params = []): array {
+    public function store(array $params = []): array
+    {
         if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -100,7 +106,8 @@ class BusinessServiceController extends Controller {
     }
 
     /** PUT /api/business/services/{id} */
-    public function update(array $params = []): array {
+    public function update(array $params = []): array
+    {
         if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -161,7 +168,8 @@ class BusinessServiceController extends Controller {
     }
 
     /** DELETE /api/business/services/{id} */
-    public function destroy(array $params = []): array {
+    public function destroy(array $params = []): array
+    {
         if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -184,7 +192,8 @@ class BusinessServiceController extends Controller {
         return $this->success([], 'تم حذف الخدمة');
     }
 
-    private function applyOptionalFields(BusinessService $service): void {
+    private function applyOptionalFields(BusinessService $service): void
+    {
         if ($this->has('description')) {
             $service->setAttribute('description', trim((string) $this->get('description')));
         }
@@ -209,7 +218,8 @@ class BusinessServiceController extends Controller {
      * نفس قيد ISO اللي في BusinessTargetMarketController.
      * @return array{ok:bool,error?:array}
      */
-    private function validateTargetArrays(): array {
+    private function validateTargetArrays(): array
+    {
         if ($this->has('target_markets') && $this->get('target_markets') !== null) {
             if (!is_array($this->get('target_markets'))) {
                 return ['ok' => false, 'error' => ['target_markets' => ['يجب أن تكون قائمة (Array)']]];

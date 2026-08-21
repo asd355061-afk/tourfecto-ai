@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: CiRateLimiter Test
  * @version 1.0.0
@@ -13,9 +14,10 @@
 require_once __DIR__ . '/CiOfflineTestCase.php';
 require_once dirname(__DIR__, 3) . '/app/Services/CompetitorIntelligence/CiRateLimiter.php';
 
-class CiRateLimiterTest extends CiOfflineTestCase {
-
-    public function runAll(): void {
+class CiRateLimiterTest extends CiOfflineTestCase
+{
+    public function runAll(): void
+    {
         echo "\nCiRateLimiter Tests\n===================\n";
 
         $this->testWindowStart();
@@ -24,7 +26,8 @@ class CiRateLimiterTest extends CiOfflineTestCase {
         $this->printSummary();
     }
 
-    private function testWindowStart(): void {
+    private function testWindowStart(): void
+    {
         $this->startTest('windowStart() aligns to window boundaries');
 
         // تانية 100 ثانية ونافذة 60 -> بداية النافذة الحالية 60
@@ -43,7 +46,8 @@ class CiRateLimiterTest extends CiOfflineTestCase {
         $this->assertSame(86400, CiRateLimiter::windowStart(90000, 86400), 't=90000 / window=86400');
     }
 
-    private function testWindowStartEdgeCases(): void {
+    private function testWindowStartEdgeCases(): void
+    {
         $this->startTest('windowStart() edge cases');
 
         // نافذة صغيرة جدًا - كل ثانية نافذة لوحدها

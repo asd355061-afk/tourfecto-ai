@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business API Key Model
  * Business-scoped API Keys - Business Control Center Phase 12
@@ -13,7 +14,8 @@
  * سريع من غير password_verify على كل الصفوف.
  */
 
-class BusinessApiKey extends Model {
+class BusinessApiKey extends Model
+{
     protected $table = 'business_api_keys';
 
     protected $fillable = [
@@ -37,7 +39,8 @@ class BusinessApiKey extends Model {
     private const DISPLAY_PREFIX_LENGTH = 13;
 
     /** النطاقات المسموحة - كود مش DB ENUM عمدًا (إضافة scope جديد = سطر هنا) */
-    public static function allowedScopes(): array {
+    public static function allowedScopes(): array
+    {
         return ['read', 'write'];
     }
 
@@ -47,7 +50,8 @@ class BusinessApiKey extends Model {
      *
      * @return array{model: BusinessApiKey, raw_key: string}
      */
-    public static function generateFor(int $businessId, int $createdByUserId, string $name, string $scope = 'read'): array {
+    public static function generateFor(int $businessId, int $createdByUserId, string $name, string $scope = 'read'): array
+    {
         $scope = in_array($scope, self::allowedScopes(), true) ? $scope : 'read';
         $rawKey = self::KEY_PREFIX_TAG . bin2hex(random_bytes(self::RAW_RANDOM_BYTES));
 
@@ -65,7 +69,8 @@ class BusinessApiKey extends Model {
     }
 
     /** هل التوكن الخام ده شكله مفتاح Business أصلاً؟ (فحص قبل أي DB) */
-    public static function looksLikeBusinessApiKey(string $rawKey): bool {
+    public static function looksLikeBusinessApiKey(string $rawKey): bool
+    {
         return strpos($rawKey, self::KEY_PREFIX_TAG) === 0;
     }
 
@@ -73,7 +78,8 @@ class BusinessApiKey extends Model {
      * التحقق من مفتاح خام، وإرجاع السجل المطابق لو موجود وسليم وغير ملغي.
      * بتدوّر بس على المفاتيح اللي عندها نفس الـprefix (أداء أفضل).
      */
-    public static function verify(string $rawKey): ?self {
+    public static function verify(string $rawKey): ?self
+    {
         if (!self::looksLikeBusinessApiKey($rawKey) || strlen($rawKey) < self::DISPLAY_PREFIX_LENGTH) {
             return null;
         }
@@ -94,7 +100,8 @@ class BusinessApiKey extends Model {
     }
 
     /** هل المفتاح (نطاقه) بيسمح بالصلاحية المطلوبة؟ pure */
-    public static function scopeAllows(string $keyScope, string $required): bool {
+    public static function scopeAllows(string $keyScope, string $required): bool
+    {
         if ($required === 'read') {
             return in_array($keyScope, ['read', 'write'], true);
         }
@@ -105,7 +112,8 @@ class BusinessApiKey extends Model {
     }
 
     /** تحديث وقت آخر استخدام - بدون ما يفشل الطلب لو حصل خطأ بسيط */
-    public function touchUsage(): void {
+    public function touchUsage(): void
+    {
         try {
             $this->setAttribute('last_used_at', date('Y-m-d H:i:s'));
             $this->save();
@@ -115,13 +123,15 @@ class BusinessApiKey extends Model {
     }
 
     /** إلغاء المفتاح فورًا */
-    public function revoke(): bool {
+    public function revoke(): bool
+    {
         $this->setAttribute('revoked_at', date('Y-m-d H:i:s'));
         return (bool) $this->save();
     }
 
     /** تمثيل آمن للعرض في الواجهة - بدون أي جزء من الـhash */
-    public function toSafeArray(): array {
+    public function toSafeArray(): array
+    {
         return [
             'id' => (int) $this->getAttribute('id'),
             'business_id' => (int) $this->getAttribute('business_id'),

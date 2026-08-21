@@ -1,13 +1,16 @@
 <?php
+
 /** Tourfecto - CRM Sequence Enrollment Model (المرحلة 15 - G12) @version 1.0.0 */
-class CrmSequenceEnrollment extends Model {
+class CrmSequenceEnrollment extends Model
+{
     protected $table = 'crm_sequence_enrollments';
     protected $fillable = [
         'user_id', 'sequence_id', 'related_type', 'related_id',
         'current_step', 'next_run_at', 'status', 'completed_at',
     ];
 
-    public function forUser(int $userId, string $status = 'active', int $limit = 100): array {
+    public function forUser(int $userId, string $status = 'active', int $limit = 100): array
+    {
         return $this->db->query(
             "SELECT e.*, s.name AS sequence_name
              FROM crm_sequence_enrollments e
@@ -19,7 +22,8 @@ class CrmSequenceEnrollment extends Model {
     }
 
     /** تسجيل جارٍ نشط لنفس الكيان في نفس الـSequence (منع التكرار) */
-    public function findActiveEnrollment(int $userId, int $sequenceId, string $relatedType, int $relatedId): ?CrmSequenceEnrollment {
+    public function findActiveEnrollment(int $userId, int $sequenceId, string $relatedType, int $relatedId): ?CrmSequenceEnrollment
+    {
         $rows = $this->db->query(
             "SELECT * FROM crm_sequence_enrollments
              WHERE user_id = ? AND sequence_id = ? AND related_type = ? AND related_id = ?
@@ -34,7 +38,8 @@ class CrmSequenceEnrollment extends Model {
         return $model;
     }
 
-    public function findOwned(int $userId, int $enrollmentId): ?CrmSequenceEnrollment {
+    public function findOwned(int $userId, int $enrollmentId): ?CrmSequenceEnrollment
+    {
         $rows = $this->db->query(
             "SELECT * FROM crm_sequence_enrollments WHERE id = ? AND user_id = ? LIMIT 1",
             [$enrollmentId, $userId]

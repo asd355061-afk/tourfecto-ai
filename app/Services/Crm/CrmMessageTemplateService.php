@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Message Template Service (المرحلة 12 - G1)
  * @version 1.0.0
@@ -11,7 +12,8 @@
  * القائمة المرجعية الوحيدة للمتغيرات المسموحة هي `VARIABLES` - أي متغير
  * بره القائمة لا يُستبدل (يبقى كما هو في النص، بلا اختراع قيم).
  */
-class CrmMessageTemplateService {
+class CrmMessageTemplateService
+{
     /** المتغيرات المسموحة (الـmapping مع قيمها يحدث وقت الـrender حسب السياق) */
     private const VARIABLES = [
         ['key' => 'name', 'label' => 'crm.templates.var.name'],
@@ -24,11 +26,13 @@ class CrmMessageTemplateService {
         ['key' => 'signature', 'label' => 'crm.templates.var.signature'],
     ];
 
-    public function listForUser(int $userId, string $channel = ''): array {
+    public function listForUser(int $userId, string $channel = ''): array
+    {
         return (new CrmMessageTemplate())->forUser($userId, $channel);
     }
 
-    public function variables(): array {
+    public function variables(): array
+    {
         return self::VARIABLES;
     }
 
@@ -36,7 +40,8 @@ class CrmMessageTemplateService {
      * إنشاء قالب جديد.
      * @param array $data {channel, name, subject?, body, variables?}
      */
-    public function create(int $userId, int $actorUserId, array $data): CrmMessageTemplate {
+    public function create(int $userId, int $actorUserId, array $data): CrmMessageTemplate
+    {
         $channel = (string) ($data['channel'] ?? '');
         $name = trim((string) ($data['name'] ?? ''));
         $body = trim((string) ($data['body'] ?? ''));
@@ -72,7 +77,8 @@ class CrmMessageTemplateService {
     }
 
     /** تحديث قالب (الاسم/القناة/النص/الموضوع) */
-    public function update(int $userId, int $templateId, array $data): CrmMessageTemplate {
+    public function update(int $userId, int $templateId, array $data): CrmMessageTemplate
+    {
         $template = (new CrmMessageTemplate())->findOwned($userId, $templateId);
         if (!$template) {
             throw new Exception('القالب غير موجود', 404);
@@ -87,7 +93,9 @@ class CrmMessageTemplateService {
         }
         if (isset($data['name'])) {
             $name = trim((string) $data['name']);
-            if ($name === '') throw new Exception('اسم القالب مطلوب', 422);
+            if ($name === '') {
+                throw new Exception('اسم القالب مطلوب', 422);
+            }
             $template->setAttribute('name', $name);
         }
         if (isset($data['subject'])) {
@@ -95,7 +103,9 @@ class CrmMessageTemplateService {
         }
         if (isset($data['body'])) {
             $body = trim((string) $data['body']);
-            if ($body === '') throw new Exception('نص القالب مطلوب', 422);
+            if ($body === '') {
+                throw new Exception('نص القالب مطلوب', 422);
+            }
             $template->setAttribute('body', $body);
         }
         if (isset($data['variables'])) {
@@ -106,7 +116,8 @@ class CrmMessageTemplateService {
     }
 
     /** حذف قالب (فقط المملوك للحساب) */
-    public function delete(int $userId, int $templateId): bool {
+    public function delete(int $userId, int $templateId): bool
+    {
         $template = (new CrmMessageTemplate())->findOwned($userId, $templateId);
         if (!$template) {
             throw new Exception('القالب غير موجود', 404);
@@ -122,7 +133,8 @@ class CrmMessageTemplateService {
      * @param array $context القيم الفعلية مثل ['name' => 'أحمد', 'deal_value' => '5000']
      * @return array {subject: string, body: string}
      */
-    public function render(int $userId, int $templateId, array $context): array {
+    public function render(int $userId, int $templateId, array $context): array
+    {
         $template = (new CrmMessageTemplate())->findOwned($userId, $templateId);
         if (!$template) {
             throw new Exception('القالب غير موجود', 404);
@@ -131,7 +143,7 @@ class CrmMessageTemplateService {
         $subject = (string) $template->getAttribute('subject');
         $body = (string) $template->getAttribute('body');
 
-        $context = array_filter($context, fn($v) => $v !== null);
+        $context = array_filter($context, fn ($v) => $v !== null);
         foreach (self::VARIABLES as $var) {
             $key = $var['key'];
             if (!array_key_exists($key, $context)) {

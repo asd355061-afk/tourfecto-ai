@@ -42,7 +42,8 @@ class WorkspaceController extends Controller
      * كلهم بيفرضوا القاعدة دي). المالك نفسه مش بيتحسب أدمن هنا لأنه
      * محمي منفصلًا في كل عملية.
      */
-    private function isLastActiveAdmin(User $owner, int $targetUserId): bool {
+    private function isLastActiveAdmin(User $owner, int $targetUserId): bool
+    {
         $members = (new User())->where(['owner_user_id' => (int) $owner->getAttribute('id')], [], 0);
         foreach ($members as $member) {
             if ((int) $member->getAttribute('id') === $targetUserId) {

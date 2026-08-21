@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: CiConstants Test
  * @version 1.0.0
@@ -13,9 +14,10 @@
 require_once __DIR__ . '/CiOfflineTestCase.php';
 require_once dirname(__DIR__, 3) . '/app/Services/CompetitorIntelligence/CiConstants.php';
 
-class CiConstantsTest extends CiOfflineTestCase {
-
-    public function runAll(): void {
+class CiConstantsTest extends CiOfflineTestCase
+{
+    public function runAll(): void
+    {
         echo "\nCiConstants Tests\n=================\n";
 
         $this->testAllowedLists();
@@ -25,7 +27,8 @@ class CiConstantsTest extends CiOfflineTestCase {
         $this->printSummary();
     }
 
-    private function testAllowedLists(): void {
+    private function testAllowedLists(): void
+    {
         $this->startTest('allowed lists stay aligned with DB enums');
 
         $this->assertSame(['direct', 'indirect', 'emerging', 'potential'], CiConstants::CATEGORIES, 'categories match competitors.category');
@@ -38,7 +41,8 @@ class CiConstantsTest extends CiOfflineTestCase {
         $this->assertTrue(in_array('careers', CiConstants::PAGE_TYPES, true), 'PAGE_TYPES includes careers (hiring signal)');
     }
 
-    private function testWithin(): void {
+    private function testWithin(): void
+    {
         $this->startTest('within() returns value only when allowed, else default');
 
         $this->assertSame('direct', CiConstants::within(CiConstants::CATEGORIES, 'direct', 'fallback'), 'allowed value passes through');
@@ -49,7 +53,8 @@ class CiConstantsTest extends CiOfflineTestCase {
         $this->assertSame('daily', CiConstants::within(CiConstants::FREQUENCIES, 'hourly', 'daily'), 'hourly not allowed -> daily');
     }
 
-    private function testSeverityRankConsistency(): void {
+    private function testSeverityRankConsistency(): void
+    {
         $this->startTest('severity rank is monotonic across all severities');
 
         $ranks = array_values(CiConstants::SEVERITY_RANK);

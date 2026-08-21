@@ -1,4 +1,5 @@
 <?php
+
 /**
  * View: Settings - team section (extracted Phase 16F).
  */

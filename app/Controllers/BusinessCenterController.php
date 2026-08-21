@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Center Controller
  * Business Control Center Phase 23 - Frontend UX
@@ -12,10 +13,11 @@
  * (من يشوف/يعدّل مين) بتتحل جوه الـAPI اللي الصفحة بتنادي عليه، فمفيش
  * طريقة لتجاوز الـRBAC من الواجهة.
  */
-class BusinessCenterController extends Controller {
-
+class BusinessCenterController extends Controller
+{
     /** GET /business-center */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $body = $this->buildBody();
         $script = $this->buildScript();
 
@@ -30,7 +32,8 @@ class BusinessCenterController extends Controller {
         exit;
     }
 
-    private function buildBody(): string {
+    private function buildBody(): string
+    {
         $tOverview = $this->tr('business_center.tab.overview');
         $tTeam = $this->tr('business_center.tab.team');
         $tKeys = $this->tr('business_center.tab.keys');
@@ -180,7 +183,8 @@ class BusinessCenterController extends Controller {
 HTML;
     }
 
-    private function buildScript(): string {
+    private function buildScript(): string
+    {
         return <<<'JS'
 (function () {
     const P = window.Panel;

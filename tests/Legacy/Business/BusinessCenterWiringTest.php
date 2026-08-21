@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Center Frontend Wiring Test (Phase 23)
  * @version 1.0.0
@@ -11,12 +12,14 @@
  *   4) مفاتيح الترجمة business_center.* موجودة في اللغات الأربع
  *   5) الـJS في الكنترولر بينادي على الـEndpoints الصحيحة
  */
-class BusinessCenterWiringTest {
+class BusinessCenterWiringTest
+{
     private $passed = 0;
     private $failed = 0;
     private $root;
 
-    public function runAll(): void {
+    public function runAll(): void
+    {
         echo "\nBusiness Center Frontend Wiring (Phase 23) Tests\n";
         echo "=================================================\n\n";
         $this->root = dirname(__DIR__, 3);
@@ -31,7 +34,8 @@ class BusinessCenterWiringTest {
         $this->printSummary();
     }
 
-    private function testRouteRegistered(): void {
+    private function testRouteRegistered(): void
+    {
         $this->startTest('Web route /business-center => BusinessCenterController::index');
         $web = $this->readFile('app/routes/web.php');
         $ok = preg_match(
@@ -41,21 +45,24 @@ class BusinessCenterWiringTest {
         $ok ? $this->pass('route with AuthMiddleware found') : $this->fail('route not found / wrong signature');
     }
 
-    private function testSidebarEntry(): void {
+    private function testSidebarEntry(): void
+    {
         $this->startTest('Sidebar entry business_center in Core/Controller');
         $core = $this->readFile('app/Core/Controller.php');
         $ok = strpos($core, "'business_center' => [t('sidebar.business_center')") !== false;
         $ok ? $this->pass('business_center link present') : $this->fail('sidebar entry missing');
     }
 
-    private function testClassmapRegistered(): void {
+    private function testClassmapRegistered(): void
+    {
         $this->startTest('Classmap registration in public_html/index.php');
         $idx = $this->readFile('public_html/index.php');
         $ok = preg_match("#APP_PATH \. '/Controllers/BusinessCenterController\.php'#", $idx) === 1;
         $ok ? $this->pass('controller registered in optionalNewClassFiles') : $this->fail('classmap entry missing');
     }
 
-    private function testControllerExportsIndex(): void {
+    private function testControllerExportsIndex(): void
+    {
         $this->startTest('BusinessCenterController has index() rendering the panel page');
         $ctrl = $this->readFile('app/Controllers/BusinessCenterController.php');
         $ok = preg_match("#public function index\(array#", $ctrl) === 1
@@ -64,7 +71,8 @@ class BusinessCenterWiringTest {
         $ok ? $this->pass('index() + renderPanelPage + activeTab key present') : $this->fail('controller structure wrong');
     }
 
-    private function testEndpointsWired(): void {
+    private function testEndpointsWired(): void
+    {
         $this->startTest('Frontend JS wires the correct business API endpoints');
         $ctrl = $this->readFile('app/Controllers/BusinessCenterController.php');
         $required = [
@@ -84,7 +92,8 @@ class BusinessCenterWiringTest {
         $ok ? $this->pass('all five API endpoints wired in JS') : null;
     }
 
-    private function testTranslationsComplete(): void {
+    private function testTranslationsComplete(): void
+    {
         $this->startTest('business_center.* keys present in all four languages');
         $required = [
             'business_center.page.title',
@@ -111,16 +120,29 @@ class BusinessCenterWiringTest {
         $ok ? $this->pass('10 core keys x 4 languages all present') : null;
     }
 
-    private function readFile(string $rel): string {
+    private function readFile(string $rel): string
+    {
         $path = $this->root . '/' . $rel;
         return is_file($path) ? (string) file_get_contents($path) : '';
     }
 
-    private function startTest(string $name): void { echo "\n  > {$name}\n"; }
-    private function pass(string $message): void { echo "    [PASS] {$message}\n"; $this->passed++; }
-    private function fail(string $message): void { echo "    [FAIL] {$message}\n"; $this->failed++; }
+    private function startTest(string $name): void
+    {
+        echo "\n  > {$name}\n";
+    }
+    private function pass(string $message): void
+    {
+        echo "    [PASS] {$message}\n";
+        $this->passed++;
+    }
+    private function fail(string $message): void
+    {
+        echo "    [FAIL] {$message}\n";
+        $this->failed++;
+    }
 
-    private function printSummary(): void {
+    private function printSummary(): void
+    {
         $total = $this->passed + $this->failed;
         $percentage = $total > 0 ? round(($this->passed / $total) * 100, 2) : 0;
         echo "\n" . str_repeat('=', 50) . "\n";

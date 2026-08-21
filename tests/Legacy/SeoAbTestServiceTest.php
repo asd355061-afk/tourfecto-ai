@@ -4,7 +4,7 @@
  * Tourfecto - SEO A/B Testing Service Test
  * اختبارات منطق SeoAbTestService (توحيد الـ URL + تجميع مقاييس CTR).
  *
- * بيعمل offline بالكامل (من غير قاعدة بيانات حقيقية) باستخدام FakeDatabase
+ * بيعمل offline بالكامل (من غير قاعدة بيانات حقيقية) باستخدام SeoAbFakeDatabase
  * بيعيد تعريف query()/exec() - نفس أسلوب الاختبارات النقية (Section 22).
  *
  * التشغيل: php tests/Unit/SeoAbTestServiceTest.php
@@ -19,7 +19,7 @@ require_once __DIR__ . '/../../app/Core/Database.php';
  * نسخة وهمية من Database بتعيد تعريف query()/exec() لترجع بيانات ثابتة
  * من غير أي اتصال بـ PDO - عشان نختبر منطق التجميع بشكل معزول.
  */
-class FakeDatabase extends Database
+class SeoAbFakeDatabase extends Database
 {
     public $variantRows = [];
     public $servingRows = [];
@@ -171,9 +171,9 @@ class SeoAbTestServiceTest
         $this->assertTrue($result['suggested_winner_variant_id'] === null, 'No winner when no variants');
     }
 
-    private function makeDb(array $variants, array $servings): FakeDatabase
+    private function makeDb(array $variants, array $servings): SeoAbFakeDatabase
     {
-        $db = new FakeDatabase();
+        $db = new SeoAbFakeDatabase();
         $db->variantRows = $variants;
         $db->servingRows = $servings;
         return $db;

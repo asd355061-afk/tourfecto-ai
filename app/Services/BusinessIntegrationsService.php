@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Integrations Service
  * Business Control Center Phase 8-9: Integrations Center (business-scoped)
@@ -17,10 +18,11 @@
  * للاختبار offline - الفحوص اللي محتاجة DB (statusForWebsite) بتبني
  * على الطبقة الخالصة دي.
  */
-class BusinessIntegrationsService {
-
+class BusinessIntegrationsService
+{
     /** الكتالوج المعروف للتكاملات - الكود مصدر الحقيقة، مش جدول DB */
-    public static function catalogIntegrations(): array {
+    public static function catalogIntegrations(): array
+    {
         return [
             [
                 'key' => 'google_business',
@@ -95,7 +97,8 @@ class BusinessIntegrationsService {
      * @param int $ownerUserId صاحب الـBusiness (اللي بيتملك الاتصالات)
      * @return array<string,array> key => { connected: bool, detail: ?string }
      */
-    public function statusForWebsite(int $websiteId, int $ownerUserId): array {
+    public function statusForWebsite(int $websiteId, int $ownerUserId): array
+    {
         $status = [
             'google_business' => ['connected' => false, 'detail' => null],
             'tripadvisor' => ['connected' => false, 'detail' => null],
@@ -196,7 +199,8 @@ class BusinessIntegrationsService {
      *
      * @param array<int,array<string,array{connected:bool,detail:?string}>> $perWebsite
      */
-    public function mergeStatuses(array $perWebsite): array {
+    public function mergeStatuses(array $perWebsite): array
+    {
         $merged = [];
         foreach ($perWebsite as $websiteStatus) {
             foreach ($websiteStatus as $key => $entry) {
@@ -221,7 +225,8 @@ class BusinessIntegrationsService {
      * @param int $businessId
      * @return array{integrations: array, connected_count: int, total_count: int}
      */
-    public function getBusinessStatus(int $businessId): array {
+    public function getBusinessStatus(int $businessId): array
+    {
         $business = (new Business())->find($businessId);
         if (!$business) {
             return ['integrations' => [], 'connected_count' => 0, 'total_count' => 0];

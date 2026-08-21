@@ -1,4 +1,5 @@
 <?php
+
 /**
  * View: Settings - integrations section (extracted Phase 16F).
  */

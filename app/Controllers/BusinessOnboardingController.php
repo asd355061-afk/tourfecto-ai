@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Onboarding Controller
  * Business Control Center Phase 17: Onboarding wizard progress (business-scoped)
@@ -8,10 +9,11 @@
  * الوصول: أي عضو فريق له دور view فأعلى - التقدم مش سر، لازم الفريق
  * كله يشوف إيه ناقص.
  */
-class BusinessOnboardingController extends Controller {
-
+class BusinessOnboardingController extends Controller
+{
     /** GET /api/business/{businessId}/onboarding */
-    public function status(array $params = []): array {
+    public function status(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('غير مسجل دخول', 401);
         }

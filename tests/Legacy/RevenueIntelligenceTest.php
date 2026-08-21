@@ -497,7 +497,8 @@ class RevenueIntelligenceTest
     // v1.4.0: Copilot, Retention, Digest
     // ============================================================
 
-    private function testCopilotBuildPrompt(): void {
+    private function testCopilotBuildPrompt(): void
+    {
         $this->startTest('Copilot: buildPrompt embeds the verified answer only, never invents');
         $answer = [
             'finding' => 'Revenue grew by 12.5% this month.',
@@ -514,13 +515,17 @@ class RevenueIntelligenceTest
         $this->assertTrue(strpos($prompt, 'العربية') !== false, 'Arabic output rule included for lang=ar');
     }
 
-    private function testCopilotEnhanceFallback(): void {
+    private function testCopilotEnhanceFallback(): void
+    {
         $this->startTest('Copilot: any LLM failure falls back to the original strict answer');
         $answer = ['finding' => 'Not enough data.', 'evidence' => [], 'recommended_action' => null, 'confidence' => null];
 
         // mock يرمي exception
-        $throwing = new class {
-            public function generateContent($prompt, $opts = []) { throw new RuntimeException('boom'); }
+        $throwing = new class () {
+            public function generateContent($prompt, $opts = [])
+            {
+                throw new RuntimeException('boom');
+            }
         };
         $res = RevenueCopilotService::enhance($answer, 'unknown', 'أي سؤال', 'ar', $throwing);
         $this->assertTrue(($res['copilot_used'] ?? true) === false, 'Exception in LLM call -> copilot_used=false');
@@ -528,8 +533,11 @@ class RevenueIntelligenceTest
         $this->assertTrue(!isset($res['copilot_narrative']), 'No narrative is added on failure');
 
         // mock يرجع فشل
-        $failing = new class {
-            public function generateContent($prompt, $opts = []) { return ['success' => false, 'error' => 'nope']; }
+        $failing = new class () {
+            public function generateContent($prompt, $opts = [])
+            {
+                return ['success' => false, 'error' => 'nope'];
+            }
         };
         $res2 = RevenueCopilotService::enhance($answer, 'unknown', 'أي سؤال', 'ar', $failing);
         $this->assertTrue(($res2['copilot_used'] ?? true) === false, 'LLM success=false -> copilot_used=false');
@@ -541,7 +549,8 @@ class RevenueIntelligenceTest
         $this->assertTrue(($res3['copilot_used'] ?? true) === false, 'LLM without generateContent -> safe fallback');
     }
 
-    private function testCopilotEnhanceSuccess(): void {
+    private function testCopilotEnhanceSuccess(): void
+    {
         $this->startTest('Copilot: successful LLM adds narrative without altering any number');
         $answer = [
             'finding' => 'Revenue grew by 12.5% this month.',
@@ -549,8 +558,11 @@ class RevenueIntelligenceTest
             'recommended_action' => 'Focus on the top segment.',
             'confidence' => 'high',
         ];
-        $llm = new class {
-            public function generateContent($prompt, $opts = []) { return ['success' => true, 'data' => 'إيراداتك نمت 12.5%. استمر في التركيز على أفضل شريحة.', 'tokens_used' => 10, 'cost' => 0.001]; }
+        $llm = new class () {
+            public function generateContent($prompt, $opts = [])
+            {
+                return ['success' => true, 'data' => 'إيراداتك نمت 12.5%. استمر في التركيز على أفضل شريحة.', 'tokens_used' => 10, 'cost' => 0.001];
+            }
         };
         $res = RevenueCopilotService::enhance($answer, 'is_trending_up', 'الوضع عامل إيه', 'ar', $llm);
         $this->assertTrue(($res['copilot_used'] ?? false) === true, 'Successful LLM marks copilot_used=true');
@@ -558,7 +570,8 @@ class RevenueIntelligenceTest
         $this->assertTrue(strpos($res['copilot_narrative'], '12.5%') !== false, 'Narrative reuses the real number');
     }
 
-    private function testRetentionCohort(): void {
+    private function testRetentionCohort(): void
+    {
         $this->startTest('Retention: cohort retention is computed from real won-deal purchase months');
         $deals = [
             ['contact_id' => 1, 'closed_at' => '2026-01-10', 'value' => 100], // cohort 2026-01
@@ -570,7 +583,9 @@ class RevenueIntelligenceTest
         $result = RevenueRetentionService::computeCohortRetention($deals, '2026-06-01');
         $this->assertTrue($result['has_data'] === true, 'Has data to build cohorts');
         $byMonth = [];
-        foreach ($result['cohorts'] as $c) { $byMonth[$c['cohort_month']] = $c; }
+        foreach ($result['cohorts'] as $c) {
+            $byMonth[$c['cohort_month']] = $c;
+        }
         $this->assertTrue(isset($byMonth['2026-01']), 'Cohort for 2026-01 exists');
         $this->assertTrue($byMonth['2026-01']['customers'] === 2, 'Two customers in the 2026-01 cohort');
         $this->assertTrue($byMonth['2026-01']['retention_rates'][1] === 50.0, '1 of 2 customers returned in +1 month -> 50%');
@@ -578,7 +593,8 @@ class RevenueIntelligenceTest
         $this->assertTrue(!isset($byMonth['2026-03']['retention_rates'][5]), 'Future months beyond the horizon are never computed');
     }
 
-    private function testRetentionRepeatPurchase(): void {
+    private function testRetentionRepeatPurchase(): void
+    {
         $this->startTest('Retention: repeat purchase rate counts customers who bought more than once');
         $deals = [
             ['contact_id' => 1, 'closed_at' => '2026-01-01'], ['contact_id' => 1, 'closed_at' => '2026-02-01'],
@@ -596,7 +612,8 @@ class RevenueIntelligenceTest
         $this->assertTrue($empty['repeat_purchase_rate_percent'] === null, 'Rate is null when no data');
     }
 
-    private function testRetentionRecurringStability(): void {
+    private function testRetentionRecurringStability(): void
+    {
         $this->startTest('Retention: recurring stability detects gaps and never invents smoothness');
         $series = [
             ['month' => '2026-01', 'total' => 1000],
@@ -616,7 +633,8 @@ class RevenueIntelligenceTest
         $this->assertTrue($empty['has_data'] === false, 'No recurring records -> not enough data');
     }
 
-    private function testRetentionRevenueRetentionRate(): void {
+    private function testRetentionRevenueRetentionRate(): void
+    {
         $this->startTest('Retention: revenue retention rate is the honest GRR-style approximation');
         $previous = [['contact_id' => 1, 'value' => 1000], ['contact_id' => 2, 'value' => 500]];
         $current = [['contact_id' => 1, 'value' => 1200], ['contact_id' => 2, 'value' => 300], ['contact_id' => 3, 'value' => 700]];
@@ -631,18 +649,26 @@ class RevenueIntelligenceTest
         $this->assertTrue($noPrev['has_data'] === false, 'Missing previous period -> not enough data, no invented rate');
     }
 
-    private function testRetentionNoInventedData(): void {
+    private function testRetentionNoInventedData(): void
+    {
         $this->startTest('Retention: getRetentionAnalytics carries the honest NRR/GRR disclosure');
-        $service = new RevenueRetentionService(new class extends RevenueDataGateway {
-            public function getWonDealsByContact(int $userId): array { return []; }
-            public function getMonthlyRevenueSeries(int $userId, int $months, string $source): array { return []; }
+        $service = new RevenueRetentionService(new class () extends RevenueDataGateway {
+            public function getWonDealsByContact(int $userId): array
+            {
+                return [];
+            }
+            public function getMonthlyRevenueSeries(int $userId, int $months, string $source): array
+            {
+                return [];
+            }
         });
         $result = $service->getRetentionAnalytics(42, '2026-06-01');
         $this->assertTrue($result['has_data'] === false, 'No won deals -> has_data=false');
         $this->assertTrue(strpos($result['mrr_grr_note'], 'Not enough data') !== false, 'Honest NRR/GRR disclaimer instead of an invented metric');
     }
 
-    private function testDigestHtml(): void {
+    private function testDigestHtml(): void
+    {
         $this->startTest('Digest: buildDigestHtml renders real numbers only, with forecast and risks');
         if (!class_exists('SendRevenueDigestJob')) {
             $this->assertTrue(true, 'Digest job not present in this checkout - skipped gracefully');
@@ -670,7 +696,8 @@ class RevenueIntelligenceTest
     // v1.5.0: Subscriptions (MRR/ARR/NRR/GRR/Churn) - pure functions
     // ============================================================
 
-    private function testSubscriptionsMrrArr(): void {
+    private function testSubscriptionsMrrArr(): void
+    {
         $this->startTest('Subscriptions: computeMrr + computeArrFromMrr from real rows');
         $subs = [
             ['customer_name' => 'A', 'status' => 'active', 'mrr' => 100],
@@ -684,7 +711,8 @@ class RevenueIntelligenceTest
         $this->assertTrue(BizSubscriptionService::computeMrr([]) === 0.0, 'Empty -> 0 (no invented revenue)');
     }
 
-    private function testSubscriptionsMrrBreakdown(): void {
+    private function testSubscriptionsMrrBreakdown(): void
+    {
         $this->startTest('Subscriptions: computeMrrBreakdown from real events');
         $events = [
             ['event_type' => 'new', 'mrr_delta' => 300, 'occurred_at' => '2026-08-01 10:00:00'],
@@ -705,7 +733,8 @@ class RevenueIntelligenceTest
         $this->assertTrue(BizSubscriptionService::computeMrrBreakdown([])['has_data'] === false, 'Empty events -> has_data=false');
     }
 
-    private function testSubscriptionsNrr(): void {
+    private function testSubscriptionsNrr(): void
+    {
         $this->startTest('Subscriptions: computeNrr literal from anchor period');
         $past = [
             ['contact_id' => 1, 'mrr' => 100, 'status' => 'active'],
@@ -722,7 +751,8 @@ class RevenueIntelligenceTest
         $this->assertTrue(BizSubscriptionService::computeNrr([], [])['has_data'] === false, 'No anchor -> has_data=false');
     }
 
-    private function testSubscriptionsGrr(): void {
+    private function testSubscriptionsGrr(): void
+    {
         $this->startTest('Subscriptions: computeGrr literal (retained anchor MRR)');
         $past = [
             ['contact_id' => 1, 'mrr' => 100, 'status' => 'active'],
@@ -738,7 +768,8 @@ class RevenueIntelligenceTest
         $this->assertTrue(BizSubscriptionService::computeGrr([], [])['has_data'] === false, 'No anchor -> has_data=false');
     }
 
-    private function testSubscriptionsChurn(): void {
+    private function testSubscriptionsChurn(): void
+    {
         $this->startTest('Subscriptions: computeChurnRate from real events + base');
         $subs = [
             ['status' => 'active'],
@@ -758,20 +789,33 @@ class RevenueIntelligenceTest
         $this->assertTrue(BizSubscriptionService::computeChurnRate([], [])['has_data'] === false, 'No base -> has_data=false');
     }
 
-    private function testSubscriptionsNotEnoughData(): void {
+    private function testSubscriptionsNotEnoughData(): void
+    {
         $this->startTest('Subscriptions: service returns honest reason when tables/data missing');
-        $service = new BizSubscriptionService(new class extends RevenueDataGateway {
-            public function hasBizSubscriptionTables(): bool { return true; }
-            public function getBizSubscriptions(int $userId): array { return []; }
-            public function getBizSubscriptionEvents(int $userId): array { return []; }
+        $service = new BizSubscriptionService(new class () extends RevenueDataGateway {
+            public function hasBizSubscriptionTables(): bool
+            {
+                return true;
+            }
+            public function getBizSubscriptions(int $userId): array
+            {
+                return [];
+            }
+            public function getBizSubscriptionEvents(int $userId): array
+            {
+                return [];
+            }
         });
         $metrics = $service->getSubscriptionMetrics(42);
         $this->assertTrue($metrics['has_data'] === false, 'No subscriptions -> has_data=false');
         $this->assertTrue(strpos($metrics['reason'], 'No biz subscriptions') !== false, 'Clear honest reason');
         $this->assertTrue($metrics['mrr'] === 0.0, 'MRR is 0 (never invented)');
 
-        $service2 = new BizSubscriptionService(new class extends RevenueDataGateway {
-            public function hasBizSubscriptionTables(): bool { return false; }
+        $service2 = new BizSubscriptionService(new class () extends RevenueDataGateway {
+            public function hasBizSubscriptionTables(): bool
+            {
+                return false;
+            }
         });
         $metrics2 = $service2->getSubscriptionMetrics(42);
         $this->assertTrue(strpos($metrics2['reason'], 'not installed') !== false, 'Tables-missing disclosure');
@@ -781,14 +825,16 @@ class RevenueIntelligenceTest
     // v1.5.0 (A): Stripe Revenue Mapper - pure functions
     // ============================================================
 
-    private function testStripeMapperNormalizeAmount(): void {
+    private function testStripeMapperNormalizeAmount(): void
+    {
         $this->startTest('Stripe Mapper: normalizeAmountForCurrency (cents to currency)');
         $this->assertTrue(StripeRevenueMapper::normalizeAmountForCurrency(1000, 'usd') === 10.0, '1000 cents USD = 10.0');
         $this->assertTrue(StripeRevenueMapper::normalizeAmountForCurrency(1000, 'jpy') === 1000.0, 'JPY has no decimals');
         $this->assertTrue(StripeRevenueMapper::normalizeAmountForCurrency(250, 'eur') === 2.5, 'EUR cents');
     }
 
-    private function testStripeMapperMapInterval(): void {
+    private function testStripeMapperMapInterval(): void
+    {
         $this->startTest('Stripe Mapper: mapIntervalToCycle');
         $this->assertTrue(StripeRevenueMapper::mapIntervalToCycle('month') === 'monthly', 'month -> monthly');
         $this->assertTrue(StripeRevenueMapper::mapIntervalToCycle('year') === 'yearly', 'year -> yearly');
@@ -796,14 +842,16 @@ class RevenueIntelligenceTest
         $this->assertTrue(StripeRevenueMapper::mapIntervalToCycle('weird') === 'monthly', 'unknown -> monthly (safe default)');
     }
 
-    private function testStripeMapperConvertToMrr(): void {
+    private function testStripeMapperConvertToMrr(): void
+    {
         $this->startTest('Stripe Mapper: convertSubscriptionToMrr');
         $this->assertTrue(StripeRevenueMapper::convertSubscriptionToMrr(120.0, 'yearly') === 10.0, '120/yr = 10 MRR');
         $this->assertTrue(StripeRevenueMapper::convertSubscriptionToMrr(30.0, 'quarterly') === 10.0, '30/quarter = 10 MRR');
         $this->assertTrue(StripeRevenueMapper::convertSubscriptionToMrr(15.0, 'monthly') === 15.0, 'monthly unchanged');
     }
 
-    private function testStripeMapperSubscriptionCreated(): void {
+    private function testStripeMapperSubscriptionCreated(): void
+    {
         $this->startTest('Stripe Mapper: mapSubscriptionCreated -> biz rows');
         $payload = [
             'id' => 'evt_1',
@@ -822,7 +870,8 @@ class RevenueIntelligenceTest
         $this->assertTrue($result['event']['mrr_delta'] === 10.0, 'New event delta = MRR');
     }
 
-    private function testStripeMapperInvoicePaid(): void {
+    private function testStripeMapperInvoicePaid(): void
+    {
         $this->startTest('Stripe Mapper: mapInvoicePaymentSucceeded -> expansion event');
         $payload = [
             'id' => 'evt_2', 'created' => 1755000000,
@@ -839,7 +888,8 @@ class RevenueIntelligenceTest
         $this->assertTrue($result['event']['stripe_customer_id'] === 'cus_456', 'Customer attached');
     }
 
-    private function testStripeMapperSubscriptionDeleted(): void {
+    private function testStripeMapperSubscriptionDeleted(): void
+    {
         $this->startTest('Stripe Mapper: mapSubscriptionDeleted -> churn event (negative delta)');
         $payload = [
             'id' => 'evt_3', 'created' => 1755000000,
@@ -857,7 +907,8 @@ class RevenueIntelligenceTest
     // v1.5.0 (B): Deal-level forecast + Sales attribution
     // ============================================================
 
-    private function testDealForecastBuckets(): void {
+    private function testDealForecastBuckets(): void
+    {
         $this->startTest('Deal Forecast: buckets this month / this quarter / later');
         $deals = [
             ['status' => 'open', 'value' => 1000, 'probability' => 50, 'expected_close_date' => '2026-08-20'],
@@ -874,7 +925,8 @@ class RevenueIntelligenceTest
         $this->assertTrue($f['total_weighted'] === 5000.0, 'Total weighted = 500 + 1500 + 3000');
     }
 
-    private function testDealForecastUndated(): void {
+    private function testDealForecastUndated(): void
+    {
         $this->startTest('Deal Forecast: undated deals excluded from time buckets, never invented');
         $deals = [
             ['status' => 'open', 'value' => 5000, 'probability' => 50, 'expected_close_date' => ''],
@@ -887,14 +939,16 @@ class RevenueIntelligenceTest
         $this->assertTrue(strpos($f['note'], 'Undated') !== false, 'Honest note about undated handling');
     }
 
-    private function testDealForecastWeightedValue(): void {
+    private function testDealForecastWeightedValue(): void
+    {
         $this->startTest('Deal Forecast: weightedDealValue uses probability then stage fallback');
         $this->assertTrue(DealLevelForecastService::weightedDealValue(['value' => 1000, 'probability' => 40]) === 400.0, 'Value * probability');
         $this->assertTrue(DealLevelForecastService::weightedDealValue(['value' => 1000, 'probability' => null, 'stage_win_probability' => 25]) === 250.0, 'Stage win_probability fallback');
         $this->assertTrue(DealLevelForecastService::weightedDealValue(['value' => 1000, 'probability' => null]) === 0.0, 'No probability -> 0 (no hidden assumption)');
     }
 
-    private function testSalesAttributionByRep(): void {
+    private function testSalesAttributionByRep(): void
+    {
         $this->startTest('Sales Attribution: aggregateByRep');
         $deals = [
             ['status' => 'open', 'value' => 1000, 'probability' => 50, 'assigned_rep_id' => 1, 'rep_name' => 'Alice', 'team_name' => 'SMB'],
@@ -914,7 +968,8 @@ class RevenueIntelligenceTest
         $this->assertTrue(isset($byName['Unassigned']) && $byName['Unassigned']['open_weighted'] === 900.0, 'Unassigned surfaced honestly');
     }
 
-    private function testSalesAttributionByTeam(): void {
+    private function testSalesAttributionByTeam(): void
+    {
         $this->startTest('Sales Attribution: aggregateByTeam');
         $deals = [
             ['status' => 'open', 'value' => 1000, 'probability' => 50, 'assigned_rep_id' => 1, 'rep_name' => 'Alice', 'team_id' => 1, 'team_name' => 'SMB'],
@@ -935,7 +990,8 @@ class RevenueIntelligenceTest
     // v1.5.0 (C): Benchmarks + Churn analytics
     // ============================================================
 
-    private function testBenchmarkClassifyChurnReason(): void {
+    private function testBenchmarkClassifyChurnReason(): void
+    {
         $this->startTest('Benchmark: classifyChurnReason prioritizes real data');
         $explicit = RevenueBenchmarkService::classifyChurnReason(['status' => 'lost', 'lost_reason' => 'Budget cut']);
         $this->assertTrue($explicit['reason'] === 'explicit' && $explicit['label'] === 'Budget cut', 'Explicit lost_reason wins');
@@ -949,7 +1005,8 @@ class RevenueIntelligenceTest
         $this->assertTrue($unknown['label'] === 'Not enough data', 'No data -> honest unknown');
     }
 
-    private function testBenchmarkAggregateChurnReasons(): void {
+    private function testBenchmarkAggregateChurnReasons(): void
+    {
         $this->startTest('Benchmark: aggregateChurnReasons groups real reasons');
         $deals = [
             ['status' => 'lost', 'lost_reason' => 'Budget'],
@@ -965,31 +1022,44 @@ class RevenueIntelligenceTest
         $this->assertTrue($empty['has_data'] === false, 'No churn data -> has_data=false');
     }
 
-    private function testBenchmarkServiceNotInstalled(): void {
+    private function testBenchmarkServiceNotInstalled(): void
+    {
         $this->startTest('Benchmark: service discloses when table missing');
-        $service = new RevenueBenchmarkService(new class extends RevenueDataGateway {
-            public function hasBenchmarkTables(): bool { return false; }
+        $service = new RevenueBenchmarkService(new class () extends RevenueDataGateway {
+            public function hasBenchmarkTables(): bool
+            {
+                return false;
+            }
         });
         $result = $service->getBenchmarks(42);
         $this->assertTrue($result['has_data'] === false, 'has_data=false');
         $this->assertTrue(strpos($result['reason'], 'not installed') !== false, 'Clear install disclosure');
     }
 
-    private function testChurnAnalyticsNotEnoughData(): void {
+    private function testChurnAnalyticsNotEnoughData(): void
+    {
         $this->startTest('Churn: no data -> honest reason, no invented reasons');
-        $service = new RevenueChurnService(new class extends RevenueDataGateway {
-            public function getDealsWithRep(int $userId): array { return []; }
-            public function hasBizSubscriptionTables(): bool { return false; }
+        $service = new RevenueChurnService(new class () extends RevenueDataGateway {
+            public function getDealsWithRep(int $userId): array
+            {
+                return [];
+            }
+            public function hasBizSubscriptionTables(): bool
+            {
+                return false;
+            }
         });
         $result = $service->getChurnAnalytics(42);
         $this->assertTrue($result['has_data'] === false, 'has_data=false');
         $this->assertTrue(strpos($result['reason'], 'Not enough data') !== false, 'Exact honest message');
     }
 
-    private function testChurnAnalyticsReasons(): void {
+    private function testChurnAnalyticsReasons(): void
+    {
         $this->startTest('Churn: aggregates real reasons from lost deals');
-        $service = new RevenueChurnService(new class extends RevenueDataGateway {
-            public function getDealsWithRep(int $userId): array {
+        $service = new RevenueChurnService(new class () extends RevenueDataGateway {
+            public function getDealsWithRep(int $userId): array
+            {
                 return [
                     ['status' => 'lost', 'lost_reason' => 'Price'],
                     ['status' => 'lost', 'lost_reason' => 'Price'],
@@ -997,7 +1067,10 @@ class RevenueIntelligenceTest
                     ['status' => 'open', 'lost_reason' => ''],
                 ];
             }
-            public function hasBizSubscriptionTables(): bool { return false; }
+            public function hasBizSubscriptionTables(): bool
+            {
+                return false;
+            }
         });
         $result = $service->getChurnAnalytics(42);
         $this->assertTrue($result['has_data'] === true, 'has_data=true');

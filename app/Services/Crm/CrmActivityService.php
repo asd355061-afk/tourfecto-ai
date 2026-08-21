@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Custom Activity Types Service (المرحلة 14 - G10)
  * @version 1.0.0
@@ -10,15 +11,17 @@
  * لا يعدّل أي منطق/جدول قائم. الأنواع الافتراضية عامة (user_id NULL)
  * للمستخدم أن يضيف عليها أنواعًا مخصصة خاصة بحسابه.
  */
-class CrmActivityService {
-
+class CrmActivityService
+{
     /** أنواع الأنشطة المتاحة للحساب (عامة + مخصصة) */
-    public function listTypes(int $userId): array {
+    public function listTypes(int $userId): array
+    {
         return (new CrmActivityType())->availableForUser($userId);
     }
 
     /** إنشاء نوع مخصص خاص بالحساب */
-    public function createType(int $userId, array $data): CrmActivityType {
+    public function createType(int $userId, array $data): CrmActivityType
+    {
         $name = trim((string) ($data['name'] ?? ''));
         if ($name === '') {
             throw new Exception('اسم النشاط مطلوب', 422);
@@ -58,7 +61,8 @@ class CrmActivityService {
     }
 
     /** تحديث نوع مخصص (لا يمكن تعديل الأنواع النظامية العامة) */
-    public function updateType(int $userId, int $typeId, array $data): CrmActivityType {
+    public function updateType(int $userId, int $typeId, array $data): CrmActivityType
+    {
         $type = (new CrmActivityType())->findOwned($userId, $typeId);
         if (!$type) {
             throw new Exception('النوع غير موجود أو لا تملك صلاحية تعديله', 404);
@@ -82,7 +86,8 @@ class CrmActivityService {
     }
 
     /** حذف نوع مخصص (لا يمكن حذف الأنواع النظامية العامة) */
-    public function deleteType(int $userId, int $typeId): bool {
+    public function deleteType(int $userId, int $typeId): bool
+    {
         $type = (new CrmActivityType())->findOwned($userId, $typeId);
         if (!$type) {
             throw new Exception('النوع غير موجود أو لا تملك صلاحية حذفه', 404);
@@ -91,7 +96,8 @@ class CrmActivityService {
     }
 
     /** تسجيل نشاط جديد على كيان CRM */
-    public function recordActivity(int $userId, array $data): CrmActivity {
+    public function recordActivity(int $userId, array $data): CrmActivity
+    {
         $subject = trim((string) ($data['subject'] ?? ''));
         if ($subject === '') {
             throw new Exception('عنوان النشاط مطلوب', 422);
@@ -124,12 +130,14 @@ class CrmActivityService {
     }
 
     /** أنشطة الحساب (فلترة حسب الكيان/النوع) */
-    public function listActivities(int $userId, ?string $relatedType = null, ?int $relatedId = null, ?int $activityTypeId = null, int $limit = 100): array {
+    public function listActivities(int $userId, ?string $relatedType = null, ?int $relatedId = null, ?int $activityTypeId = null, int $limit = 100): array
+    {
         return (new CrmActivity())->forUser($userId, $relatedType, $relatedId, $activityTypeId, $limit);
     }
 
     /** حذف نشاط خاص بالحساب */
-    public function deleteActivity(int $userId, int $activityId): bool {
+    public function deleteActivity(int $userId, int $activityId): bool
+    {
         $rows = $this->db()->query(
             "SELECT id FROM crm_activities WHERE id = ? AND user_id = ? LIMIT 1",
             [$activityId, $userId]
@@ -141,7 +149,8 @@ class CrmActivityService {
     }
 
     /** توزيع الأنشطة حسب النوع (للرسوم البيانية) */
-    public function distributionByType(int $userId): array {
+    public function distributionByType(int $userId): array
+    {
         $rows = $this->db()->query(
             "SELECT t.name AS type_name, t.icon AS type_icon, t.color AS type_color, COUNT(a.id) AS cnt
              FROM crm_activity_types t
@@ -154,7 +163,8 @@ class CrmActivityService {
         return $rows;
     }
 
-    private function db() {
+    private function db()
+    {
         return Database::getInstance();
     }
 }

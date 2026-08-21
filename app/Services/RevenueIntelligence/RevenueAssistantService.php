@@ -104,7 +104,8 @@ class RevenueAssistantService
      * @param bool   $persist
      * @param string $lang 'ar' | 'en'
      */
-    public function askWithCopilot(int $userId, string $question, bool $persist = true, string $lang = 'ar'): array {
+    public function askWithCopilot(int $userId, string $question, bool $persist = true, string $lang = 'ar'): array
+    {
         $intent = self::matchIntent($question);
         $answer = $this->ask($userId, $question, $persist);
 

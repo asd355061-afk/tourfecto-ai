@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Access Service
  * Team Management + RBAC - Business Control Center Phase 11
@@ -23,8 +24,8 @@
  * المسؤول إنه يبعت businessId صحيح (مش بياخده من مكان خارجي متلاعب فيه
  * غير الـURL param، والفحص نفسه هو اللي بيقرر الصلاحية).
  */
-class BusinessAccessService {
-
+class BusinessAccessService
+{
     public const ROLE_OWNER = 'owner';
     public const ROLE_ADMIN = 'admin';
     public const ROLE_MEMBER = 'member';
@@ -42,7 +43,8 @@ class BusinessAccessService {
      * الأدوار المسموح تخزينها في `business_members` (owner مش بيتخزن هنا).
      * @return string[]
      */
-    public static function allowedMemberRoles(): array {
+    public static function allowedMemberRoles(): array
+    {
         return [self::ROLE_ADMIN, self::ROLE_MEMBER, self::ROLE_VIEWER];
     }
 
@@ -50,7 +52,8 @@ class BusinessAccessService {
      * ترتيب الدور رقميًا (owner أعلاها) - عشان مقارنات "هل دوري أعلى/يساوي"
      * تبقي واضحة بدل if chains طويلة. Pure - بيتستخدم في الاختبارات.
      */
-    public static function roleRank(string $role): int {
+    public static function roleRank(string $role): int
+    {
         switch ($role) {
             case self::ROLE_OWNER:
                 return 4;
@@ -69,7 +72,8 @@ class BusinessAccessService {
      * هل الدور ده بيسمح بالصلاحية المطلوبة؟ خريطة الصلاحيات الوحيدة -
      * أي تغيير في سياسة الوصول بيتعمل هنا مش في المتحكمات. Pure.
      */
-    public static function roleAllows(string $role, string $capability): bool {
+    public static function roleAllows(string $role, string $capability): bool
+    {
         switch ($capability) {
             case self::CAP_VIEW:
                 return in_array($role, [self::ROLE_OWNER, self::ROLE_ADMIN, self::ROLE_MEMBER, self::ROLE_VIEWER], true);
@@ -103,7 +107,8 @@ class BusinessAccessService {
      * owner بيتفحص الأول (مصدر الحقيقة businesses.owner_user_id)، وبعدين
      * عضو نشط في business_members.
      */
-    public function roleOf(int $businessId, int $userId): ?string {
+    public function roleOf(int $businessId, int $userId): ?string
+    {
         $cacheKey = $businessId . ':' . $userId;
         if (array_key_exists($cacheKey, $this->roleCache)) {
             return $this->roleCache[$cacheKey];
@@ -129,34 +134,40 @@ class BusinessAccessService {
         return $this->roleCache[$cacheKey] = $role;
     }
 
-    public function canView(int $businessId, int $userId): bool {
+    public function canView(int $businessId, int $userId): bool
+    {
         $role = $this->roleOf($businessId, $userId);
         return $role !== null && self::roleAllows($role, self::CAP_VIEW);
     }
 
-    public function canEdit(int $businessId, int $userId): bool {
+    public function canEdit(int $businessId, int $userId): bool
+    {
         $role = $this->roleOf($businessId, $userId);
         return $role !== null && self::roleAllows($role, self::CAP_EDIT);
     }
 
-    public function canManageTeam(int $businessId, int $userId): bool {
+    public function canManageTeam(int $businessId, int $userId): bool
+    {
         $role = $this->roleOf($businessId, $userId);
         return $role !== null && self::roleAllows($role, self::CAP_MANAGE_TEAM);
     }
 
-    public function canAdministerTeam(int $businessId, int $userId): bool {
+    public function canAdministerTeam(int $businessId, int $userId): bool
+    {
         $role = $this->roleOf($businessId, $userId);
         return $role !== null && self::roleAllows($role, self::CAP_ADMINISTER_TEAM);
     }
 
     /** إدارة مفاتيح API الخاصة بالـBusiness - owner/admin بس (تفاصيل أمنية حساسة) */
-    public function canManageKeys(int $businessId, int $userId): bool {
+    public function canManageKeys(int $businessId, int $userId): bool
+    {
         $role = $this->roleOf($businessId, $userId);
         return $role !== null && self::roleAllows($role, self::CAP_MANAGE_KEYS);
     }
 
     /** قراءة سجل الـBusiness - owner/admin بس (التفاصيل الأمنية مش للعرض العام) */
-    public function canReadAudit(int $businessId, int $userId): bool {
+    public function canReadAudit(int $businessId, int $userId): bool
+    {
         $role = $this->roleOf($businessId, $userId);
         return $role !== null && self::roleAllows($role, self::CAP_READ_AUDIT);
     }
@@ -169,7 +180,8 @@ class BusinessAccessService {
      * (منع تسريب وجود موارد لمستخدمين تانيين) - لكن الـviewer المصرّح
      * له بيعرف الـBusiness موجودة (هو عضو فيها)، فبياخد 403 على الكتابة.
      */
-    public function getAccessibleBusiness(int $businessId, int $userId): ?Business {
+    public function getAccessibleBusiness(int $businessId, int $userId): ?Business
+    {
         $role = $this->roleOf($businessId, $userId);
         if ($role === null || !self::roleAllows($role, self::CAP_VIEW)) {
             return null;
@@ -184,7 +196,8 @@ class BusinessAccessService {
      * Business هو عضو نشط فيها (شريك/موظف) - عشان فريق كامل يفتح
      * /api/business و /api/business/overview ويشوفوا نفس الشركة.
      */
-    public function resolveUserBusiness(int $userId): ?Business {
+    public function resolveUserBusiness(int $userId): ?Business
+    {
         $owned = (new Business())->where(['owner_user_id' => $userId], ['id' => 'ASC'], 1);
         if (!empty($owned)) {
             return $owned[0];

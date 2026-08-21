@@ -204,16 +204,16 @@ define('SUPPORTED_TIMEZONES', [
 // الملف ده اتحمّل بعد app.php في أي سياق مستقبلي.
 // ============================================
 if (!defined('SUPPORTED_LANGUAGES')) {
-define('SUPPORTED_LANGUAGES', [
-    'ar' => 'العربية',
-    'en' => 'English',
-    'fr' => 'Français',
-    'de' => 'Deutsch',
-    'es' => 'Español',
-    'it' => 'Italiano',
-    'pt' => 'Português',
-    'ru' => 'Русский',
-    'zh' => '中文',
-    'ja' => '日本語'
-]);
+    define('SUPPORTED_LANGUAGES', [
+        'ar' => 'العربية',
+        'en' => 'English',
+        'fr' => 'Français',
+        'de' => 'Deutsch',
+        'es' => 'Español',
+        'it' => 'Italiano',
+        'pt' => 'Português',
+        'ru' => 'Русский',
+        'zh' => '中文',
+        'ja' => '日本語'
+    ]);
 }

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * Business Hours Service - ساعات عمل الشركة وإدراكها في أتمتة المحادثات.
@@ -26,8 +27,8 @@
  * @version 1.0.0
  */
 
-class BusinessHoursService {
-
+class BusinessHoursService
+{
     /** أيام إنجليزية (اسم مختصر/كامل) -> رقم PHP date('N') حيث 1=الاثنين */
     private const DAYS_EN = [
         'monday' => 1, 'mon' => 1,
@@ -55,7 +56,8 @@ class BusinessHoursService {
      * @return array|null الجدول بصيغة [dayOfWeekN => [[startMin, endMin], ...]]،
      *                    أو null لو لا يوجد أي ساعات عمل قابلة للفهم (يعني 24/7).
      */
-    public static function fromEntries(array $rows): ?array {
+    public static function fromEntries(array $rows): ?array
+    {
         $schedule = null;
 
         foreach ($rows as $row) {
@@ -88,7 +90,8 @@ class BusinessHoursService {
      * @param DateTimeZone|null $timezone
      * @return bool
      */
-    public static function isOpenAt(int $timestamp, ?array $schedule, ?DateTimeZone $timezone = null): bool {
+    public static function isOpenAt(int $timestamp, ?array $schedule, ?DateTimeZone $timezone = null): bool
+    {
         if ($schedule === null) {
             return true;
         }
@@ -125,7 +128,8 @@ class BusinessHoursService {
      * @param DateTimeZone|null $timezone
      * @return int
      */
-    public static function nextOpenTime(int $timestamp, ?array $schedule, ?DateTimeZone $timezone = null): int {
+    public static function nextOpenTime(int $timestamp, ?array $schedule, ?DateTimeZone $timezone = null): int
+    {
         if ($schedule === null || self::isOpenAt($timestamp, $schedule, $timezone)) {
             return $timestamp;
         }
@@ -160,7 +164,8 @@ class BusinessHoursService {
      * @param array $data
      * @return array|null
      */
-    private static function parseStructured(array $data): ?array {
+    private static function parseStructured(array $data): ?array
+    {
         $schedule = [];
         foreach ($data as $key => $value) {
             $dow = self::dayKeyToNumber($key);
@@ -181,7 +186,8 @@ class BusinessHoursService {
      * @param mixed $value
      * @return array
      */
-    private static function extractRangesFromValue($value): array {
+    private static function extractRangesFromValue($value): array
+    {
         if (is_string($value)) {
             return self::parseRangesFromText($value);
         }
@@ -213,7 +219,8 @@ class BusinessHoursService {
      * @param string $text
      * @return array|null
      */
-    public static function parseFreeText(string $text): ?array {
+    public static function parseFreeText(string $text): ?array
+    {
         $text = self::normalizeArabic((string) $text);
         $text = preg_replace('/\s+/u', ' ', trim($text));
         if ($text === '') {
@@ -264,7 +271,8 @@ class BusinessHoursService {
      * @param string $segment
      * @return int[]
      */
-    private static function extractDayRange(string $segment): array {
+    private static function extractDayRange(string $segment): array
+    {
         $days = [];
         $lower = mb_strtolower($segment, 'UTF-8');
 
@@ -310,7 +318,8 @@ class BusinessHoursService {
      * @param int $to
      * @return int[]
      */
-    private static function expandDayRange(int $from, int $to): array {
+    private static function expandDayRange(int $from, int $to): array
+    {
         $days = [];
         $d = $from;
         while (true) {
@@ -331,7 +340,8 @@ class BusinessHoursService {
      * @param string $text
      * @return array قائمة [startMin, endMin]
      */
-    private static function parseRangesFromText(string $text): array {
+    private static function parseRangesFromText(string $text): array
+    {
         // 24 ساعة مفتوح
         if (preg_match('/24\s*(?:ساعة|h|hrs)?/i', $text) && !preg_match('/\d{1,2}[:.]\d{2}\s*[-–—]\s*\d{1,2}[:.]\d{2}/', $text)) {
             return [[0, self::MINUTES_PER_DAY]];
@@ -359,7 +369,8 @@ class BusinessHoursService {
      * @param string $token
      * @return string 'am'|'pm'|''
      */
-    private static function amPmFromToken(string $token): string {
+    private static function amPmFromToken(string $token): string
+    {
         $token = mb_strtolower($token, 'UTF-8');
         if (in_array($token, ['am'], true)) {
             return 'am';
@@ -377,7 +388,8 @@ class BusinessHoursService {
      * @param string $amPm
      * @return int
      */
-    private static function timeToMinutes(int $hour, int $minute, string $amPm): int {
+    private static function timeToMinutes(int $hour, int $minute, string $amPm): int
+    {
         if ($amPm === 'pm' && $hour < 12) {
             $hour += 12;
         } elseif ($amPm === 'am' && $hour === 12) {
@@ -391,7 +403,8 @@ class BusinessHoursService {
      * @param string $closeText
      * @return array [startMin, endMin]
      */
-    private static function rangeToMinutes(string $openText, string $closeText): array {
+    private static function rangeToMinutes(string $openText, string $closeText): array
+    {
         $ranges = self::parseRangesFromText($openText . '-' . $closeText);
         return $ranges[0] ?? [0, self::MINUTES_PER_DAY];
     }
@@ -403,7 +416,8 @@ class BusinessHoursService {
      * @param int $end
      * @return bool
      */
-    private static function minuteInRange(int $minute, int $start, int $end): bool {
+    private static function minuteInRange(int $minute, int $start, int $end): bool
+    {
         if ($end <= $start) {
             return $minute >= $start || $minute < $end; // يعبر منتصف الليل
         }
@@ -413,7 +427,8 @@ class BusinessHoursService {
     /**
      * @return array جدول "كل الأيام مفتوح 24/7"
      */
-    private static function allWeekRanges(): array {
+    private static function allWeekRanges(): array
+    {
         $all = [];
         for ($dow = 1; $dow <= 7; $dow++) {
             $all[$dow] = [[0, self::MINUTES_PER_DAY]];
@@ -426,7 +441,8 @@ class BusinessHoursService {
      * @param mixed $key
      * @return int|null
      */
-    private static function dayKeyToNumber($key): ?int {
+    private static function dayKeyToNumber($key): ?int
+    {
         if (is_int($key) || ctype_digit((string) $key)) {
             $n = (int) $key;
             return ($n >= 1 && $n <= 7) ? $n : null;
@@ -446,7 +462,8 @@ class BusinessHoursService {
      * @param string $text
      * @return string
      */
-    private static function normalizeArabic(string $text): string {
+    private static function normalizeArabic(string $text): string
+    {
         $text = preg_replace('/[\x{064B}-\x{0652}\x{0670}]/u', '', $text);
         $text = preg_replace('/[أإآ]/u', 'ا', $text);
         return $text;
@@ -458,12 +475,14 @@ class BusinessHoursService {
      * @param DateTimeZone|null $timezone
      * @return DateTimeImmutable
      */
-    private static function localDateTime(int $timestamp, ?DateTimeZone $timezone): DateTimeImmutable {
+    private static function localDateTime(int $timestamp, ?DateTimeZone $timezone): DateTimeImmutable
+    {
         $dt = new DateTimeImmutable('@' . $timestamp);
         return $dt->setTimezone($timezone ?: self::defaultTimezone());
     }
 
-    private static function defaultTimezone(): DateTimeZone {
+    private static function defaultTimezone(): DateTimeZone
+    {
         $tz = date_default_timezone_get();
         try {
             return new DateTimeZone($tz);

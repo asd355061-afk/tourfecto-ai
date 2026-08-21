@@ -104,7 +104,8 @@ class RevenueDataGateway
      * نرجّع صفًا لكل شهر فيه سجلات فقط (الشهر اللي مفيش فيه سجلات بيختفي
      * من الناتج = إشارة "gap" قابلة للاكتشاف في الـRetentionService).
      */
-    public function getMonthlyRevenueSeries(int $userId, int $months = 6, ?string $source = null): array {
+    public function getMonthlyRevenueSeries(int $userId, int $months = 6, ?string $source = null): array
+    {
         $params = [$userId];
         $sourceFilter = '';
         if ($source !== null) {

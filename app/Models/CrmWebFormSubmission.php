@@ -1,6 +1,8 @@
 <?php
+
 /** Tourfecto - CRM Web Form Submission Model (المرحلة 15 - G11) @version 1.0.0 */
-class CrmWebFormSubmission extends Model {
+class CrmWebFormSubmission extends Model
+{
     protected $table = 'crm_web_form_submissions';
     protected $fillable = [
         'user_id', 'web_form_id', 'contact_id', 'lead_id',
@@ -8,7 +10,8 @@ class CrmWebFormSubmission extends Model {
     ];
 
     /** إرسالات الحساب (اختياري: لتسجيل واحد) مع بيانات الـContact */
-    public function forUser(int $userId, ?int $webFormId = null, int $limit = 100): array {
+    public function forUser(int $userId, ?int $webFormId = null, int $limit = 100): array
+    {
         $sql = "SELECT s.*, c.name AS contact_name, c.email AS contact_email
                 FROM crm_web_form_submissions s
                 LEFT JOIN crm_contacts c ON c.id = s.contact_id

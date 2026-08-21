@@ -78,7 +78,7 @@ class FixtureLoader
      */
     private function loadUsers(): void
     {
-        $fixtures = require_once __DIR__ . '/users_fixtures.php';
+        $fixtures = require __DIR__ . '/users_fixtures.php';
         $users = $fixtures['users'] ?? [];
 
         foreach ($users as $user) {
@@ -102,10 +102,16 @@ class FixtureLoader
      */
     private function loadWebsites(): void
     {
-        $fixtures = require_once __DIR__ . '/users_fixtures.php';
+        $fixtures = require __DIR__ . '/users_fixtures.php';
         $websites = $fixtures['websites'] ?? [];
 
         foreach ($websites as $website) {
+            $website = array_merge([
+                'competitor_1_url' => null,
+                'competitor_2_url' => null,
+                'competitor_3_url' => null,
+            ], $website);
+
             $sql = "INSERT INTO websites (
                 user_id, main_url, company_name, industry, target_language,
                 target_country, meta_description, competitor_1_url, competitor_2_url,
@@ -128,7 +134,7 @@ class FixtureLoader
      */
     private function loadSubscriptions(): void
     {
-        $fixtures = require_once __DIR__ . '/subscriptions_fixtures.php';
+        $fixtures = require __DIR__ . '/subscriptions_fixtures.php';
         $subscriptions = $fixtures['subscriptions'] ?? [];
 
         foreach ($subscriptions as $sub) {
@@ -158,7 +164,7 @@ class FixtureLoader
      */
     private function loadReports(): void
     {
-        $fixtures = require_once __DIR__ . '/reports_fixtures.php';
+        $fixtures = require __DIR__ . '/reports_fixtures.php';
 
         $reportTypes = ['seo_reports', 'aeo_reports', 'geo_reports', 'full_reports'];
         $totalLoaded = 0;
@@ -167,6 +173,10 @@ class FixtureLoader
             $reports = $fixtures[$type] ?? [];
 
             foreach ($reports as $report) {
+                // الفيتشرات بتخصص لكل نوع تقرير (seo/aeo/geo/full) الأعمدة
+                // الخاصة بيه بس، فالأعمدة المش موجودة بتفضل NULL هنا.
+                $report = array_merge($this->reportDefaults(), $report);
+
                 $sql = "INSERT INTO ai_reports (
                     website_id, user_id, report_type, target_url, competitor_urls,
                     target_language, seo_keywords, seo_title_suggestions, seo_meta_suggestions,
@@ -194,6 +204,30 @@ class FixtureLoader
         }
 
         echo "📊 Loaded " . $totalLoaded . " reports\n";
+    }
+
+    /**
+     * القيم الافتراضية لأعمدة تقارير AI - الفيتشرات بتحدد فقط الأعمدة
+     * الخاصة بكل نوع تقرير والباقي يُكمل بـ null (متوافق مع DEFAULT NULL
+     * في المخطط).
+     * @return array
+     */
+    private function reportDefaults(): array
+    {
+        return [
+            'seo_keywords' => null,
+            'seo_title_suggestions' => null,
+            'seo_meta_suggestions' => null,
+            'seo_content_gaps' => null,
+            'aeo_direct_answers' => null,
+            'aeo_trust_signals' => null,
+            'aeo_positioning_strategy' => null,
+            'geo_faq_schema' => null,
+            'geo_questions_generated' => null,
+            'geo_map_integration' => null,
+            'geo_improvement_suggestions' => null,
+            'error_message' => null,
+        ];
     }
 
     /**
@@ -453,7 +487,7 @@ class FixtureLoader
 // ============================================
 // تنفيذ التحميل
 // ============================================
-if (basename(__FILE__) === basename($_SERVER['PHP_SELF'])) {
+if (isset($argv[0]) && realpath($argv[0]) === __FILE__) {
     $loader = new FixtureLoader();
     $result = $loader->loadAll(true);
 

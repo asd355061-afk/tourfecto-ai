@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Audit Service
  * Business Control Center Phase 13-14: Centralized Business Audit Log
@@ -12,8 +13,8 @@
  *
  * pure: actionLabels() بتعلّم الأسماء القابلة للعرض بدون DB.
  */
-class BusinessAuditService {
-
+class BusinessAuditService
+{
     /** أسماء الأحداث المعروفة على مستوى الـBusiness - مصدر الحقيقة الوحيد */
     public const ACTION_BUSINESS_CREATED = 'business_created';
     public const ACTION_BUSINESS_UPDATED = 'business_updated';
@@ -37,7 +38,8 @@ class BusinessAuditService {
     /**
      * اسم عربي/واجهة قابل للعرض لكل حدث - pure.
      */
-    public static function actionLabels(): array {
+    public static function actionLabels(): array
+    {
         return [
             self::ACTION_BUSINESS_CREATED => 'إنشاء الـBusiness',
             self::ACTION_BUSINESS_UPDATED => 'تعديل بيانات الـBusiness',
@@ -60,7 +62,8 @@ class BusinessAuditService {
         ];
     }
 
-    public static function labelFor(string $action): string {
+    public static function labelFor(string $action): string
+    {
         $labels = self::actionLabels();
         return $labels[$action] ?? $action;
     }
@@ -85,7 +88,8 @@ class BusinessAuditService {
      *
      * @return array{rows: array, total: int}
      */
-    public static function list(int $businessId, array $filters = [], int $page = 1, int $perPage = 20): array {
+    public static function list(int $businessId, array $filters = [], int $page = 1, int $perPage = 20): array
+    {
         $result = BusinessAuditLog::listFor($businessId, $filters, $page, $perPage);
         foreach ($result['rows'] as &$row) {
             $row['action_label'] = self::labelFor((string) ($row['action'] ?? ''));

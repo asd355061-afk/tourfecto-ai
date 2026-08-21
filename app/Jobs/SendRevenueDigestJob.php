@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Send Revenue Digest Email Job
  * @version 1.0.0
@@ -13,8 +14,10 @@
  * SendCompetitorAlertEmailJob) - لا إزعاج للمستخدم بمحاولات Retry بلا
  * جدوى ولا رسالة خاطئة.
  */
-class SendRevenueDigestJob implements QueueJobInterface {
-    public function handle(array $payload): void {
+class SendRevenueDigestJob implements QueueJobInterface
+{
+    public function handle(array $payload): void
+    {
         $userId = (int) ($payload['user_id'] ?? 0);
         if ($userId <= 0) {
             throw new Exception('SendRevenueDigestJob: missing/invalid user_id in payload');
@@ -81,7 +84,8 @@ class SendRevenueDigestJob implements QueueJobInterface {
     }
 
     /** Pure function - يبني HTML الملخص من أرقام حقيقية فقط (قابل للاختبار). */
-    public static function buildDigestHtml(array $overview, array $forecast, array $topRisks = []): string {
+    public static function buildDigestHtml(array $overview, array $forecast, array $topRisks = []): string
+    {
         $fmt = static function ($v) {
             return $v === null ? '—' : number_format((float) $v, 2);
         };

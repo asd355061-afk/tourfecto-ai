@@ -1,18 +1,20 @@
 <?php
+
 /**
  * Tourfecto - Business Controller
  * Business Profile (منفصل عن User Profile) - Business Control Center Phase 2
  * @version 1.0.0
  */
-class BusinessController extends Controller {
-
+class BusinessController extends Controller
+{
     /**
      * نفس نسخة BusinessAccessService جوه الطلب الواحد - عشان الـroleCache
      * الجوه الـService يشتغل (بدل استعلامات متكررة لكل فحص). Phase 27.
      */
     private ?BusinessAccessService $accessService = null;
 
-    private function access(): BusinessAccessService {
+    private function access(): BusinessAccessService
+    {
         if ($this->accessService === null) {
             $this->accessService = new BusinessAccessService();
         }
@@ -32,12 +34,14 @@ class BusinessController extends Controller {
      * - فبيدعم إن فريق كامل (owner/admin/member/viewer) يشتغل على نفس
      * الـBusiness، مش المالك بس.
      */
-    private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
+    private function loadOwnedBusiness(int $businessId, int $userId): ?Business
+    {
         return $this->access()->getAccessibleBusiness($businessId, $userId);
     }
 
     /** GET /api/business - الـBusiness (أو أول واحد) بتاع المستخدم الحالي */
-    public function show(array $params = []): array {
+    public function show(array $params = []): array
+    {
         if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -57,7 +61,8 @@ class BusinessController extends Controller {
      * Management في مرحلة لاحقة). لو عنده واحد بالفعل، بنرفض إنشاء
      * تاني هنا - التعديل بيبقى عن طريق update() مش إنشاء نسخة تانية.
      */
-    public function store(array $params = []): array {
+    public function store(array $params = []): array
+    {
         if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -96,7 +101,8 @@ class BusinessController extends Controller {
      * المطلوب في الـSpec (Phase 19) - من غير ما يحتاج الـFrontend يلم
      * 6 Endpoints مختلفة ويعيد تركيب الصورة بنفسه.
      */
-    public function overview(array $params = []): array {
+    public function overview(array $params = []): array
+    {
         if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -135,7 +141,8 @@ class BusinessController extends Controller {
     }
 
     /** PUT /api/business/{id} - تحديث. Authorization: Owner فقط */
-    public function update(array $params = []): array {
+    public function update(array $params = []): array
+    {
         if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -179,7 +186,8 @@ class BusinessController extends Controller {
      * بيفرّق بين Create (كل الحقول المطلوبة اختيارية التحقق من وجودها)
      * و Update (زي ما هي، مفيش حقول Required إجبارية غير legal_name).
      */
-    private function validateBusinessInput(bool $isUpdate): ?array {
+    private function validateBusinessInput(bool $isUpdate): ?array
+    {
         $rules = [
             'legal_name' => ($isUpdate ? '' : 'required|') . 'max_length:255',
             'trade_name' => 'max_length:255',
@@ -195,7 +203,7 @@ class BusinessController extends Controller {
             'tax_number' => 'max_length:100',
         ];
         // إزالة أي قاعدة فاضية (لو الحقل مش required عند التحديث)
-        $rules = array_filter($rules, fn($r) => trim($r, '|') !== '');
+        $rules = array_filter($rules, fn ($r) => trim($r, '|') !== '');
 
         if (!$this->validate($rules)) {
             return $this->error('بيانات غير صحيحة', 422, $this->getErrors());
@@ -272,7 +280,8 @@ class BusinessController extends Controller {
     }
 
     /** يطبّق كل الحقول اللي اتبعتت فعليًا (has()) على الـBusiness Model - نفس نمط UserController::updateProfile() */
-    private function applyBusinessFields(Business $business): void {
+    private function applyBusinessFields(Business $business): void
+    {
         $fields = [
             'legal_name', 'trade_name', 'logo_url', 'description', 'website_url',
             'business_email', 'business_phone', 'whatsapp_number', 'city', 'address',

@@ -1,11 +1,14 @@
 <?php
+
 /** Tourfecto - CRM Message Template Model (المرحلة 12 - G1) @version 1.0.0 */
-class CrmMessageTemplate extends Model {
+class CrmMessageTemplate extends Model
+{
     protected $table = 'crm_message_templates';
     protected $fillable = ['user_id', 'channel', 'name', 'subject', 'body', 'variables', 'created_by_user_id'];
 
     /** قوالب الحساب نفسه حسب القناة (اختياري: كل القنوات لو فاضية) */
-    public function forUser(int $userId, string $channel = ''): array {
+    public function forUser(int $userId, string $channel = ''): array
+    {
         $sql = "SELECT * FROM crm_message_templates WHERE user_id = ?";
         $params = [$userId];
         if ($channel !== '') {
@@ -17,7 +20,8 @@ class CrmMessageTemplate extends Model {
     }
 
     /** قالب واحد مملوك للحساب (عزل تينانت) */
-    public function findOwned(int $userId, int $templateId): ?CrmMessageTemplate {
+    public function findOwned(int $userId, int $templateId): ?CrmMessageTemplate
+    {
         $rows = $this->db->query(
             "SELECT * FROM crm_message_templates WHERE id = ? AND user_id = ? LIMIT 1",
             [$templateId, $userId]
@@ -31,7 +35,8 @@ class CrmMessageTemplate extends Model {
     }
 
     /** المتغيرات كـ JSON decodable (أو [] لو مش موجود) */
-    public function variablesList(): array {
+    public function variablesList(): array
+    {
         $json = (string) $this->getAttribute('variables');
         return $json !== '' ? (json_decode($json, true) ?: []) : [];
     }

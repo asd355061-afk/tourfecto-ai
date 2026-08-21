@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Price Extractor
  * @version 1.5.1
@@ -15,8 +16,8 @@
  * الاستخدام: PriceExtractor::extract('Package costs $1,299.00 /month')
  *   => ['amount' => 1299.0, 'currency' => 'USD']
  */
-class PriceExtractor {
-
+class PriceExtractor
+{
     private const CURRENCY_CODES = [
         'AED', 'AUD', 'BHD', 'CAD', 'CHF', 'CNY', 'EGP', 'EUR', 'GBP',
         'INR', 'JOD', 'JPY', 'KWD', 'OMR', 'QAR', 'SAR', 'TRY', 'USD',
@@ -35,7 +36,8 @@ class PriceExtractor {
      * يستخرج أول سعر واضح من النص.
      * @return array{amount:float, currency:string}|null
      */
-    public static function extract(string $text): ?array {
+    public static function extract(string $text): ?array
+    {
         $normalized = self::normalizeDigits($text);
         if ($normalized === '') {
             return null;
@@ -85,7 +87,8 @@ class PriceExtractor {
      * بالاتجاهين ("1,299.00" و"1.299,00") والأرقام العربية-الهندية.
      * @return float|null null لو النص مش رقم سعر صالح
      */
-    public static function parseAmount(string $raw): ?float {
+    public static function parseAmount(string $raw): ?float
+    {
         $s = trim(self::normalizeDigits($raw));
         if ($s === '' || !preg_match('/^\d[\d\s,.]*$/', $s)) {
             return null;
@@ -135,7 +138,8 @@ class PriceExtractor {
         return round($amount, 2);
     }
 
-    private static function resolveCurrency(string $code, string $symbol, string $arabic): ?string {
+    private static function resolveCurrency(string $code, string $symbol, string $arabic): ?string
+    {
         if ($code !== '') {
             return strtoupper($code);
         }
@@ -153,7 +157,8 @@ class PriceExtractor {
      * مع تطبيع الحروف الفارسية الشائعة (ی→ي، ک→ك) عشان كلمات العملة
      * تتبقى مُطابقة بغض النظر عن الأسلوب.
      */
-    private static function normalizeDigits(string $text): string {
+    private static function normalizeDigits(string $text): string
+    {
         $map = [
             '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4',
             '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Revenue Retention Service
  * @version 1.0.0
@@ -24,16 +25,19 @@
  *       4) Recurring Stability - استقرار الإيراد المتكرر المسجّل
  *          (source='subscription' في rev_revenue_records) شهر بشهر.
  */
-class RevenueRetentionService {
+class RevenueRetentionService
+{
     /** @var RevenueDataGateway */
     private $gateway;
 
-    public function __construct(?RevenueDataGateway $gateway = null) {
+    public function __construct(?RevenueDataGateway $gateway = null)
+    {
         $this->gateway = $gateway ?? new RevenueDataGateway();
     }
 
     /** كل تحليلات الاحتفاظ المتاحة بصدق لمستخدم معيّن. */
-    public function getRetentionAnalytics(int $userId, ?string $nowStr = null): array {
+    public function getRetentionAnalytics(int $userId, ?string $nowStr = null): array
+    {
         $wonDeals = $this->gateway->getWonDealsByContact($userId);
         $now = $nowStr ?? 'now';
 
@@ -60,7 +64,8 @@ class RevenueRetentionService {
      * @param array  $wonDeals صفقات مكسوبة [['contact_id'=>, 'closed_at'=>, 'value'=>], ...]
      * @param string $nowStr   Y-m-d (للاختبار)
      */
-    public static function computeCohortRetention(array $wonDeals, string $nowStr = 'now'): array {
+    public static function computeCohortRetention(array $wonDeals, string $nowStr = 'now'): array
+    {
         if (empty($wonDeals)) {
             return ['has_data' => false, 'cohorts' => []];
         }
@@ -117,12 +122,15 @@ class RevenueRetentionService {
             $cohorts[] = $row;
         }
 
-        usort($cohorts, static function ($a, $b) { return strcmp($a['cohort_month'], $b['cohort_month']); });
+        usort($cohorts, static function ($a, $b) {
+            return strcmp($a['cohort_month'], $b['cohort_month']);
+        });
         return ['has_data' => true, 'cohorts' => $cohorts];
     }
 
     /** نسبة العملاء اللي اشتروا أكتر من مرة (من إجمالي عملاء له صفقات مكسوبة). */
-    public static function computeRepeatPurchaseRate(array $wonDeals): array {
+    public static function computeRepeatPurchaseRate(array $wonDeals): array
+    {
         $customers = [];
         foreach ($wonDeals as $deal) {
             $cid = (int) $deal['contact_id'];
@@ -132,7 +140,9 @@ class RevenueRetentionService {
         if ($total === 0) {
             return ['has_data' => false, 'repeat_purchase_rate_percent' => null, 'repeat_customers' => 0, 'total_customers' => 0];
         }
-        $repeat = count(array_filter($customers, static function ($n) { return $n >= 2; }));
+        $repeat = count(array_filter($customers, static function ($n) {
+            return $n >= 2;
+        }));
         return [
             'has_data' => true,
             'repeat_purchase_rate_percent' => round(($repeat / $total) * 100, 1),
@@ -146,7 +156,8 @@ class RevenueRetentionService {
      * يكتشف "فجوات" (شهر بلا إيراد متكرر بين شهرين فيهما) كإشارة تشوّر
      * صادقة - وليس حكمًا مفبركًا.
      */
-    public static function computeRecurringStability(array $monthlySeries, string $nowStr = 'now'): array {
+    public static function computeRecurringStability(array $monthlySeries, string $nowStr = 'now'): array
+    {
         if (empty($monthlySeries)) {
             return ['has_data' => false, 'message' => 'Not enough data. No recurring (source=subscription) revenue records found.', 'months' => []];
         }
@@ -185,7 +196,9 @@ class RevenueRetentionService {
 
         return [
             'has_data' => true,
-            'months' => array_map(static function ($m, $t) { return ['month' => $m, 'total' => round($t, 2)]; }, $months, $values),
+            'months' => array_map(static function ($m, $t) {
+                return ['month' => $m, 'total' => round($t, 2)];
+            }, $months, $values),
             'recurring_months' => $count,
             'monthly_gaps_detected' => $gaps,
             'average_monthly_recurring' => round($avg, 2),
@@ -204,7 +217,8 @@ class RevenueRetentionService {
      * @param array $currentDeals  صفقات الفترة الحالية (بـ contact_id + value)
      * @param array $previousDeals صفقات الفترة السابقة (بـ contact_id)
      */
-    public static function computeRevenueRetentionRate(array $currentDeals, array $previousDeals): array {
+    public static function computeRevenueRetentionRate(array $currentDeals, array $previousDeals): array
+    {
         if (empty($currentDeals) || empty($previousDeals)) {
             return ['has_data' => false, 'revenue_retention_rate_percent' => null, 'reason' => 'Not enough data for period-over-period comparison.'];
         }

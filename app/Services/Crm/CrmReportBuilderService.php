@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Report Builder Service (المرحلة 15 - G13)
  * @version 1.0.0
@@ -13,10 +14,12 @@
  * (entity + fields + filters + group_by + order_by + limit) وتُبنى
  * الاستعلامات من قوائم بيضاء ثابتة للحقول لكل كيان (بند 34).
  */
-class CrmReportBuilderService {
+class CrmReportBuilderService
+{
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
@@ -58,7 +61,8 @@ class CrmReportBuilderService {
         ],
     ];
 
-    public function schema(): array {
+    public function schema(): array
+    {
         $schema = [];
         foreach (self::ENTITIES as $entity => $meta) {
             $groupable = self::ENTITY_SQL[$entity]['groupable'];
@@ -72,7 +76,8 @@ class CrmReportBuilderService {
     }
 
     /** حفظ تعريف تقرير جديد */
-    public function save(int $userId, array $data, ?int $reportId = null): CrmSavedReport {
+    public function save(int $userId, array $data, ?int $reportId = null): CrmSavedReport
+    {
         $name = trim((string) ($data['name'] ?? ''));
         $entity = (string) ($data['entity'] ?? '');
         if ($name === '') {
@@ -107,7 +112,8 @@ class CrmReportBuilderService {
     }
 
     /** تنفيذ تقرير محفوظ وإرجاع الصفوف */
-    public function run(int $userId, int $reportId): array {
+    public function run(int $userId, int $reportId): array
+    {
         $report = (new CrmSavedReport())->findOwned($userId, $reportId);
         if (!$report) {
             throw new Exception('التقرير غير موجود', 404);
@@ -116,7 +122,8 @@ class CrmReportBuilderService {
     }
 
     /** تنفيذ تقرير مباشر (بدون حفظ) من config + entity */
-    public function execute(int $userId, string $entity, array $config): array {
+    public function execute(int $userId, string $entity, array $config): array
+    {
         if (!isset(self::ENTITIES[$entity])) {
             throw new Exception('كيان غير معروف للتقرير', 422);
         }
@@ -184,11 +191,13 @@ class CrmReportBuilderService {
         return ['entity' => $entity, 'config' => $config, 'rows' => $rows, 'row_count' => count($rows)];
     }
 
-    public function listForUser(int $userId): array {
+    public function listForUser(int $userId): array
+    {
         return (new CrmSavedReport())->forUser($userId);
     }
 
-    public function delete(int $userId, int $reportId): bool {
+    public function delete(int $userId, int $reportId): bool
+    {
         $report = (new CrmSavedReport())->findOwned($userId, $reportId);
         if (!$report) {
             throw new Exception('التقرير غير موجود', 404);
@@ -203,7 +212,8 @@ class CrmReportBuilderService {
     // أدوات داخلية
     // ================================================================
 
-    private function validateConfig(array $config, string $entity): array {
+    private function validateConfig(array $config, string $entity): array
+    {
         $fieldsWhitelist = self::ENTITIES[$entity]['fields'];
         $groupable = self::ENTITY_SQL[$entity]['groupable'];
 
@@ -237,11 +247,13 @@ class CrmReportBuilderService {
     }
 
     /** مرجع عمود آمن (قائمة بيضاء مفروضة قبل الاستدعاء) */
-    private function fieldRef(string $field): string {
+    private function fieldRef(string $field): string
+    {
         return $field;
     }
 
-    private function operatorParam(string $op, string $col, $value): ?array {
+    private function operatorParam(string $op, string $col, $value): ?array
+    {
         if ($op === 'is_null') {
             return ['sql' => $col . ' IS NULL', 'value' => null];
         }

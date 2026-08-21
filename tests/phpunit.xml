@@ -7,15 +7,18 @@
     @copyright 2026 Tourfecto
 -->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.3/phpunit.xsd"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.5/phpunit.xsd"
          bootstrap="bootstrap.php"
          colors="true"
-         verbose="true"
          stopOnFailure="false"
          failOnRisky="true"
          failOnWarning="true"
-         cacheResult="false">
-    
+         cacheResult="false"
+         executionOrder="random"
+         resolveDependencies="true"
+         processIsolation="false"
+         columns="max">
+
     <!-- ============================================
          مجموعات الاختبارات
          ============================================ -->
@@ -24,16 +27,17 @@
             <directory>Unit</directory>
             <exclude>Unit/Integration</exclude>
         </testsuite>
-        
+
         <testsuite name="Integration">
             <directory>Integration</directory>
         </testsuite>
-        
+
         <testsuite name="All">
             <directory>.</directory>
+            <exclude>Legacy</exclude>
         </testsuite>
     </testsuites>
-    
+
     <!-- ============================================
          متغيرات البيئة
          ============================================ -->
@@ -53,43 +57,9 @@
         <env name="SESSION_DRIVER" value="file"/>
         <env name="GEMINI_API_KEY" value="test_key"/>
         <env name="GEMINI_MODEL" value="gemini-1.5-flash"/>
-        <env name="ENCRYPTION_KEY" value="base64:5m9nP3k8W2xV7tY4rS6dF8jH1aB3cE5g="/>
+        <env name="ENCRYPTION_KEY" value="base64:qReEaY2ccT0ThiHgShKfM6gZd6JzZJH3upaZshbtGv4="/>
     </php>
-    
-    <!-- ============================================
-         قائمة الملفات التي سيتم تجاهلها
-         ============================================ -->
-    <exclude>
-        <directory>vendor</directory>
-        <directory>storage</directory>
-        <directory>tests/Fixtures</directory>
-    </exclude>
-    
-    <!-- ============================================
-         إعدادات التغطية (Code Coverage)
-         ============================================ -->
-    <coverage>
-        <include>
-            <directory suffix=".php">../app</directory>
-        </include>
-        
-        <exclude>
-            <directory suffix=".php">../app/Config</directory>
-            <directory suffix=".php">../app/Exceptions</directory>
-            <directory suffix=".php">../app/Helpers</directory>
-            <directory suffix=".php">../app/Middleware</directory>
-            <directory suffix=".php">../app/Controllers</directory>
-        </exclude>
-        
-        <report>
-            <html outputDirectory="coverage"/>
-            <text outputFile="coverage.txt"/>
-            <clover outputFile="clover.xml"/>
-            <crap4j outputFile="crap4j.xml"/>
-            <php outputFile="coverage.php"/>
-        </report>
-    </coverage>
-    
+
     <!-- ============================================
          إعدادات السجلات
          ============================================ -->
@@ -98,15 +68,4 @@
         <testdoxHtml outputFile="testdox.html"/>
         <testdoxText outputFile="testdox.txt"/>
     </logging>
-    
-    <!-- ============================================
-         إعدادات الأداء
-         ============================================ -->
-    <phpunit
-        executionOrder="random"
-        resolveDependencies="true"
-        processIsolation="false"
-        columns="max"
-        printerClass="PHPUnit\TextUI\DefaultResultPrinter">
-    </phpunit>
 </phpunit>

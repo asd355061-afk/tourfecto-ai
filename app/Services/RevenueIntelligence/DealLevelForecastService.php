@@ -16,7 +16,8 @@
  *   - aggregateByRep(array $deals)               - توزيع الـ pipeline/الإيراد على المندوبين
  *   - aggregateByTeam(array $deals)              - التوزيع على الفرق
  */
-class DealLevelForecastService {
+class DealLevelForecastService
+{
     /**
      * توزيع الصفقات المفتوحة حسب نافذة الإغلاق (هذا الشهر/الربع/لاحقًا/غير موقّت).
      * Pure function.
@@ -25,7 +26,8 @@ class DealLevelForecastService {
      *                    'expected_close_date','status','assigned_rep_id',...]]
      * @param string $todayStr Y-m-d
      */
-    public static function groupOpenDealsByCloseWindow(array $deals, string $todayStr = 'now'): array {
+    public static function groupOpenDealsByCloseWindow(array $deals, string $todayStr = 'now'): array
+    {
         $today = new DateTime($todayStr);
         $monthEnd = (clone $today)->modify('last day of this month');
         $quarterEnd = self::quarterEnd($today);
@@ -92,7 +94,8 @@ class DealLevelForecastService {
      * نهاية الربع الحالي (آخر يوم في آخر شهر من الربع) - PHP's modify
      * لا يدعم 'last day of this quarter'، لذا نحسبها يدويًا.
      */
-    private static function quarterEnd(DateTime $today): DateTime {
+    private static function quarterEnd(DateTime $today): DateTime
+    {
         $month = (int) $today->format('n');
         $quarter = (int) ceil($month / 3);
         $endMonth = $quarter * 3;
@@ -105,7 +108,8 @@ class DealLevelForecastService {
      * القيمة الموزونة لصفقة واحدة: value * probability.
      * لو probability مفقودة/فارغة نرجع 0 (لا افتراض خفي) — ليتعامل المتصل معها.
      */
-    public static function weightedDealValue(array $deal): float {
+    public static function weightedDealValue(array $deal): float
+    {
         $value = (float) ($deal['value'] ?? 0);
         $probability = $deal['probability'] ?? null;
         if ($probability === null || $probability === '') {
@@ -122,7 +126,8 @@ class DealLevelForecastService {
      * توزيع إيراد/خط الصفقات على المندوبين (Sales Attribution - Clari-style).
      * Pure function. المندوب اللي من غير ما أسند له أي صفقة -> "unassigned".
      */
-    public static function aggregateByRep(array $deals): array {
+    public static function aggregateByRep(array $deals): array
+    {
         $reps = [];
         $unassigned = ['rep_id' => null, 'rep_name' => 'Unassigned', 'team_name' => null, 'open_weighted' => 0.0, 'open_value' => 0.0, 'won_value' => 0.0, 'open_count' => 0, 'won_count' => 0];
         $hasData = false;
@@ -179,7 +184,8 @@ class DealLevelForecastService {
     }
 
     /** توزيع على مستوى الفرق (يجمع مندوبي كل فريق + من غير فريق). */
-    public static function aggregateByTeam(array $deals): array {
+    public static function aggregateByTeam(array $deals): array
+    {
         $teams = [];
         $unassigned = ['team_id' => null, 'team_name' => 'Unassigned', 'open_weighted' => 0.0, 'open_value' => 0.0, 'won_value' => 0.0, 'open_count' => 0, 'won_count' => 0, 'reps' => 0];
         $hasData = false;

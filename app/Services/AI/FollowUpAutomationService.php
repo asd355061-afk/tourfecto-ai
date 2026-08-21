@@ -272,7 +272,8 @@ class FollowUpAutomationService
      * @param int[] $websiteIds
      * @return array [websiteId => array|null]
      */
-    private function businessSchedulesFor(array $websiteIds): array {
+    private function businessSchedulesFor(array $websiteIds): array
+    {
         $schedules = [];
         foreach ($websiteIds as $websiteId) {
             $schedules[(int) $websiteId] = null;

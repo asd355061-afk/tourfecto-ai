@@ -75,10 +75,10 @@ class SitemapMonitor
         $pageType = $hasCareersSignal ? 'careers' : 'sitemap';
 
         $visibleNewValue = array_merge(
-            array_map(fn($u) => "[careers] {$u}", $careersAdded),
+            array_map(fn ($u) => "[careers] {$u}", $careersAdded),
             array_diff($addedUrls, $careersAdded),
-            array_map(fn($u) => "[careers-removed] {$u}", $careersRemoved),
-            array_map(fn($u) => "[removed] {$u}", array_diff($removedUrls, $careersRemoved))
+            array_map(fn ($u) => "[careers-removed] {$u}", $careersRemoved),
+            array_map(fn ($u) => "[removed] {$u}", array_diff($removedUrls, $careersRemoved))
         );
 
         $change = new CiChange([
@@ -109,7 +109,8 @@ class SitemapMonitor
      * بداية/نهاية أو بعد / أو . للسوب دومين)، مش جزءًا من كلمة مركبة
      * (joinery أو jobs-in-seo مثلًا). عامة وثابتة عشان قابلة للاختبار offline.
      */
-    public static function isCareerUrl(string $url): bool {
+    public static function isCareerUrl(string $url): bool
+    {
         $haystack = (string) (parse_url($url, PHP_URL_HOST) ?? '') . (string) (parse_url($url, PHP_URL_PATH) ?? '');
 
         if (preg_match('#(?:^|[/.])(?:careers?|jobs?|hiring|vacancies)(?:$|[/.])#i', $haystack)) {

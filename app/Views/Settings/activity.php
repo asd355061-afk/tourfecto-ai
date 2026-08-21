@@ -1,4 +1,5 @@
 <?php
+
 /**
  * View: Settings - activity section (extracted Phase 16F).
  */

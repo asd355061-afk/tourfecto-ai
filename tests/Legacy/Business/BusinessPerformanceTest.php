@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Performance Audit Fixes Test (Phase 27)
  * @version 1.0.0
@@ -14,55 +15,94 @@
  */
 
 if (!class_exists('Model')) {
-    class Model {
+    class Model
+    {
         protected $table = '';
         protected $fillable = [];
         protected $hidden = [];
         protected $attrs = [];
-        public function __construct(array $data = []) { $this->attrs = $data; }
-        public function getAttribute(string $key) { return $this->attrs[$key] ?? null; }
-        public function setAttribute(string $key, $value) { $this->attrs[$key] = $value; }
-        public function save() { return true; }
-        public function toArray(): array {
+        public function __construct(array $data = [])
+        {
+            $this->attrs = $data;
+        }
+        public function getAttribute(string $key)
+        {
+            return $this->attrs[$key] ?? null;
+        }
+        public function setAttribute(string $key, $value)
+        {
+            $this->attrs[$key] = $value;
+        }
+        public function save()
+        {
+            return true;
+        }
+        public function toArray(): array
+        {
             $out = [];
             foreach ($this->attrs as $k => $v) {
-                if (in_array($k, $this->hidden, true)) { continue; }
+                if (in_array($k, $this->hidden, true)) {
+                    continue;
+                }
                 $out[$k] = $v;
             }
             return $out;
         }
-        public function where(array $conditions = [], array $order = [], int $limit = 0) { return []; }
-        public function find(int $id) { return null; }
-        public function delete() { return true; }
+        public function where(array $conditions = [], array $order = [], int $limit = 0)
+        {
+            return [];
+        }
+        public function find(int $id)
+        {
+            return null;
+        }
+        public function delete()
+        {
+            return true;
+        }
     }
 }
 
 // Stubs معدودة: كل استعلام بيزود العدّاد العالمي - عشان نعرف عدد
 // الاستعلامات الفعلي اللي عمله الـService في الطلب الواحد.
 if (!class_exists('Business')) {
-    class Business extends Model {
+    class Business extends Model
+    {
         protected $table = 'businesses';
         protected $fillable = ['id', 'owner_user_id', 'legal_name', 'trade_name'];
         protected static $counters = ['find' => 0, 'where' => 0];
-        public function find(int $id) {
+        public function find(int $id)
+        {
             self::$counters['find']++;
             return new static(['id' => $id, 'owner_user_id' => 10, 'legal_name' => 'Stub Co', 'trade_name' => 'Stub']);
         }
-        public function where(array $conditions = [], array $order = [], int $limit = 0) {
+        public function where(array $conditions = [], array $order = [], int $limit = 0)
+        {
             self::$counters['where']++;
             return [];
         }
-        public static function resetCounters(): void { self::$counters = ['find' => 0, 'where' => 0]; }
-        public static function findCount(): int { return self::$counters['find']; }
-        public static function whereCount(): int { return self::$counters['where']; }
+        public static function resetCounters(): void
+        {
+            self::$counters = ['find' => 0, 'where' => 0];
+        }
+        public static function findCount(): int
+        {
+            return self::$counters['find'];
+        }
+        public static function whereCount(): int
+        {
+            return self::$counters['where'];
+        }
     }
 }
 if (!class_exists('BusinessMember')) {
-    class BusinessMember extends Model {
+    class BusinessMember extends Model
+    {
         protected $table = 'business_members';
         protected $fillable = ['id', 'business_id', 'user_id', 'role', 'status'];
         protected static $counter = 0;
-        public function where(array $conditions = [], array $order = [], int $limit = 0) {
+        public function where(array $conditions = [], array $order = [], int $limit = 0)
+        {
             self::$counter++;
             // user 11 هو member نشط دور member - أي مستخدم تاني مالهوش وصول.
             if (($conditions['user_id'] ?? null) == 11 && ($conditions['status'] ?? '') === 'active') {
@@ -70,18 +110,26 @@ if (!class_exists('BusinessMember')) {
             }
             return [];
         }
-        public static function resetCounter(): void { self::$counter = 0; }
-        public static function count(): int { return self::$counter; }
+        public static function resetCounter(): void
+        {
+            self::$counter = 0;
+        }
+        public static function count(): int
+        {
+            return self::$counter;
+        }
     }
 }
 
 require_once dirname(__DIR__, 3) . '/app/Services/BusinessAccessService.php';
 
-class BusinessPerformanceTest {
+class BusinessPerformanceTest
+{
     private $passed = 0;
     private $failed = 0;
 
-    public function runAll(): void {
+    public function runAll(): void
+    {
         echo "\nBusiness Performance Audit Fixes (Phase 27) Tests\n";
         echo "===================================================\n\n";
 
@@ -92,7 +140,8 @@ class BusinessPerformanceTest {
         $this->printSummary();
     }
 
-    private function testRoleOfSingleQueryPerPair(): void {
+    private function testRoleOfSingleQueryPerPair(): void
+    {
         $this->startTest('H1: roleOf() query once, cached on repeat (same pair)');
         Business::resetCounters();
         BusinessMember::resetCounter();
@@ -111,7 +160,8 @@ class BusinessPerformanceTest {
             : $this->fail("expected no repeat queries, total went {$queriesAfterFirst} -> {$queriesAfterSecond}");
     }
 
-    private function testGetAccessibleBusinessNoDuplicateBusinessQuery(): void {
+    private function testGetAccessibleBusinessNoDuplicateBusinessQuery(): void
+    {
         $this->startTest('H2: getAccessibleBusiness() reuses business from role check');
         Business::resetCounters();
         BusinessMember::resetCounter();
@@ -126,7 +176,8 @@ class BusinessPerformanceTest {
             : $this->fail("expected 1+1 queries, got find={$findCalls} members={$whereCalls}");
     }
 
-    private function testGetAccessibleBusinessReturnsLoadedBusiness(): void {
+    private function testGetAccessibleBusinessReturnsLoadedBusiness(): void
+    {
         $this->startTest('H2: returned Business carries correct owner data');
         Business::resetCounters();
         BusinessMember::resetCounter();
@@ -139,11 +190,23 @@ class BusinessPerformanceTest {
         $ok ? $this->pass('returned business id=1 owner=10') : $this->fail('returned wrong business');
     }
 
-    private function startTest(string $name): void { echo "\n  > {$name}\n"; }
-    private function pass(string $message): void { echo "    [PASS] {$message}\n"; $this->passed++; }
-    private function fail(string $message): void { echo "    [FAIL] {$message}\n"; $this->failed++; }
+    private function startTest(string $name): void
+    {
+        echo "\n  > {$name}\n";
+    }
+    private function pass(string $message): void
+    {
+        echo "    [PASS] {$message}\n";
+        $this->passed++;
+    }
+    private function fail(string $message): void
+    {
+        echo "    [FAIL] {$message}\n";
+        $this->failed++;
+    }
 
-    private function printSummary(): void {
+    private function printSummary(): void
+    {
         $total = $this->passed + $this->failed;
         $percentage = $total > 0 ? round(($this->passed / $total) * 100, 2) : 0;
         echo "\n" . str_repeat('=', 55) . "\n";

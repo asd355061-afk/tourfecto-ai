@@ -1,6 +1,8 @@
 <?php
+
 /** Tourfecto - CRM Deal Item Model (المرحلة 13 - G3) @version 1.0.0 */
-class CrmDealItem extends Model {
+class CrmDealItem extends Model
+{
     protected $table = 'crm_deal_items';
     protected $fillable = [
         'user_id', 'deal_id', 'product_id', 'product_name', 'description',
@@ -8,7 +10,8 @@ class CrmDealItem extends Model {
     ];
 
     /** بنود صفقة (مع التأكد أنها مملوكة للحساب عبر الـdeal) */
-    public function forDeal(int $userId, int $dealId): array {
+    public function forDeal(int $userId, int $dealId): array
+    {
         return $this->db->query(
             "SELECT * FROM crm_deal_items WHERE deal_id = ? AND user_id = ? ORDER BY id ASC",
             [$dealId, $userId]
@@ -16,7 +19,8 @@ class CrmDealItem extends Model {
     }
 
     /** بند مملوك (عبر deal + user) */
-    public function findOwned(int $userId, int $dealId, int $itemId): ?CrmDealItem {
+    public function findOwned(int $userId, int $dealId, int $itemId): ?CrmDealItem
+    {
         $rows = $this->db->query(
             "SELECT * FROM crm_deal_items WHERE id = ? AND deal_id = ? AND user_id = ? LIMIT 1",
             [$itemId, $dealId, $userId]
@@ -30,7 +34,8 @@ class CrmDealItem extends Model {
     }
 
     /** مجموع بنود صفقة - لإعادة حساب قيمة الصفقة */
-    public function totalForDeal(int $userId, int $dealId): float {
+    public function totalForDeal(int $userId, int $dealId): float
+    {
         $rows = $this->db->query(
             "SELECT COALESCE(SUM(line_total), 0) AS total FROM crm_deal_items WHERE deal_id = ? AND user_id = ?",
             [$dealId, $userId]

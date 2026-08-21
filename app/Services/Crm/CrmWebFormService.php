@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Web Form Service (المرحلة 15 - G11)
  * @version 1.0.0
@@ -11,15 +12,17 @@
  * (نفس منطق CrmLeadService::createContact/createLeadWithData) مع تسجيل
  * الإرسال وربطه بالـContact/الـLead.
  */
-class CrmWebFormService {
-
+class CrmWebFormService
+{
     /** نماذج الحساب */
-    public function listForms(int $userId): array {
+    public function listForms(int $userId): array
+    {
         return (new CrmWebForm())->forUser($userId);
     }
 
     /** إنشاء/تحديث نموذج */
-    public function saveForm(int $userId, array $data, ?int $formId = null): CrmWebForm {
+    public function saveForm(int $userId, array $data, ?int $formId = null): CrmWebForm
+    {
         $name = trim((string) ($data['name'] ?? ''));
         if ($name === '') {
             throw new Exception('اسم النموذج مطلوب', 422);
@@ -94,7 +97,8 @@ class CrmWebFormService {
     }
 
     /** حذف نموذج */
-    public function deleteForm(int $userId, int $formId): bool {
+    public function deleteForm(int $userId, int $formId): bool
+    {
         $form = (new CrmWebForm())->findOwned($userId, $formId);
         if (!$form) {
             throw new Exception('النموذج غير موجود', 404);
@@ -107,7 +111,8 @@ class CrmWebFormService {
      * يُنشئ Contact + Lead ويسجّل الإرسال. آمن: لا يقرأ جلسة، ويفحص
      * حقل anti-bot اختياري (honeypot) في البيانات المُرسلة.
      */
-    public function handleSubmission(string $slug, array $payload): array {
+    public function handleSubmission(string $slug, array $payload): array
+    {
         $form = (new CrmWebForm())->findBySlug($slug);
         if (!$form) {
             throw new Exception('النموذج غير موجود أو غير نشط', 404);
@@ -194,7 +199,8 @@ class CrmWebFormService {
     }
 
     /** إرسالات النموذج (مع اسم/بريد الـContact) */
-    public function submissions(int $userId, ?int $formId = null, int $limit = 100): array {
+    public function submissions(int $userId, ?int $formId = null, int $limit = 100): array
+    {
         $sql = "SELECT s.*, c.name AS contact_name, c.email AS contact_email
                 FROM crm_web_form_submissions s
                 LEFT JOIN crm_contacts c ON c.id = s.contact_id
@@ -208,7 +214,8 @@ class CrmWebFormService {
         return $this->db()->query($sql, $params);
     }
 
-    private function db() {
+    private function db()
+    {
         return Database::getInstance();
     }
 }

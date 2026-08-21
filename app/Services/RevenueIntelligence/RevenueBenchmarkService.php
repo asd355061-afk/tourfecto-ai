@@ -16,15 +16,18 @@
  *   - classifyChurnReason(array $deal, array $events) - تصنيف سبب التوقف
  *   - aggregateChurnReasons(array $deals, array $events) - إجماليات الأسباب
  */
-class RevenueBenchmarkService {
+class RevenueBenchmarkService
+{
     /** @var RevenueDataGateway */
     private $gateway;
 
-    public function __construct(?RevenueDataGateway $gateway = null) {
+    public function __construct(?RevenueDataGateway $gateway = null)
+    {
         $this->gateway = $gateway ?? new RevenueDataGateway();
     }
 
-    public function tablesAvailable(): bool {
+    public function tablesAvailable(): bool
+    {
         return $this->gateway->hasBenchmarkTables();
     }
 
@@ -32,7 +35,8 @@ class RevenueBenchmarkService {
      * سحب صفوف benchmarks الخاصة بالمستخدم مع fallback منصّي
      * (لو المستخدم مالهاش صفوفه، نعرض صفوف platform المجهولة).
      */
-    public function getBenchmarks(int $userId): array {
+    public function getBenchmarks(int $userId): array
+    {
         if (!$this->tablesAvailable()) {
             return ['has_data' => false, 'reason' => 'revai_benchmarks table is not installed. Install database/migrations/2026_08_16_000010_create_revai_subscriptions_teams_benchmarks.sql.'];
         }
@@ -48,7 +52,8 @@ class RevenueBenchmarkService {
     }
 
     /** Pure: تصنيف سبب التوقف من بيانات الصفقة + أحداث الاشتراكات. */
-    public static function classifyChurnReason(array $deal, array $events = []): array {
+    public static function classifyChurnReason(array $deal, array $events = []): array
+    {
         $status = (string) ($deal['status'] ?? '');
         $stage = (string) ($deal['stage_name'] ?? '');
         $closedLostReason = trim((string) ($deal['lost_reason'] ?? $deal['close_reason'] ?? ''));
@@ -88,7 +93,8 @@ class RevenueBenchmarkService {
     }
 
     /** Pure: إجمالي أسباب churn عبر الصفقات (+ optional أحداث). */
-    public static function aggregateChurnReasons(array $deals, array $events = []): array {
+    public static function aggregateChurnReasons(array $deals, array $events = []): array
+    {
         $byReason = [];
         $total = 0;
         $hasData = false;

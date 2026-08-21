@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business API Keys Controller
  * Business Control Center Phase 12: Business-scoped API Keys
@@ -11,10 +12,11 @@
  * getAccessibleBusiness (404 للـbusinesses غير مصرّح بيها) + canManageKeys
  * (403 للـviewer/member المصرّح له بالعرض).
  */
-class BusinessApiKeyController extends Controller {
-
+class BusinessApiKeyController extends Controller
+{
     /** GET /api/business/{businessId}/api-keys */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -35,7 +37,8 @@ class BusinessApiKeyController extends Controller {
     }
 
     /** POST /api/business/{businessId}/api-keys - { name, scope } */
-    public function store(array $params = []): array {
+    public function store(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -68,7 +71,8 @@ class BusinessApiKeyController extends Controller {
     }
 
     /** POST /api/business/{businessId}/api-keys/{id}/revoke */
-    public function revoke(array $params = []): array {
+    public function revoke(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('غير مسجل دخول', 401);
         }

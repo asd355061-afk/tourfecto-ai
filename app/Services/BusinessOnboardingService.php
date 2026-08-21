@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Onboarding Service
  * Business Control Center Phase 17: Onboarding wizard progress
@@ -15,8 +16,8 @@
  * 1) progressFromContext(array $context): pure logic - قابل للاختبار offline.
  * 2) progress(int $businessId): wrapper بيجيب الـContext ويمرره.
  */
-class BusinessOnboardingService {
-
+class BusinessOnboardingService
+{
     /** خطوات الـOnboarding بالترتيب مع مفتاح الفحص في الـcontext */
     public const STEPS = [
         ['key' => 'business_identity', 'label' => 'بيانات النشاط الأساسية'],
@@ -43,7 +44,8 @@ class BusinessOnboardingService {
      *   next_step: ?string
      * }
      */
-    public function progressFromContext(array $context): array {
+    public function progressFromContext(array $context): array
+    {
         if (empty($context['exists'])) {
             return [
                 'exists' => false,
@@ -65,7 +67,7 @@ class BusinessOnboardingService {
             ];
         }
 
-        $completed = count(array_filter($steps, fn($s) => $s['completed']));
+        $completed = count(array_filter($steps, fn ($s) => $s['completed']));
         $total = count($steps);
         $percent = $total > 0 ? (int) round($completed * 100 / $total) : 0;
         $nextStep = null;
@@ -88,7 +90,8 @@ class BusinessOnboardingService {
     }
 
     /** wrapper - نفس progressFromContext لكن بيجيب الـContext من الكاش/DB */
-    public function progress(int $businessId): array {
+    public function progress(int $businessId): array
+    {
         $context = (new BusinessContextService())->getContext($businessId);
         return $this->progressFromContext($context);
     }
@@ -97,7 +100,8 @@ class BusinessOnboardingService {
     // Pure step checks (قابلة للاختبار بشكل مستقل)
     // ============================================
 
-    public function isStepCompleted(string $stepKey, array $context): bool {
+    public function isStepCompleted(string $stepKey, array $context): bool
+    {
         switch ($stepKey) {
             case 'business_identity':
                 return $this->hasIdentity($context);
@@ -121,7 +125,8 @@ class BusinessOnboardingService {
     }
 
     /** هل الهوية الأساسية مكتملة؟ (الاسم القانوني + النوع على الأقل) */
-    public function hasIdentity(array $context): bool {
+    public function hasIdentity(array $context): bool
+    {
         $business = $context['business'] ?? [];
         $legal = (string) ($business['legal_name'] ?? '');
         $type = (string) ($business['business_type'] ?? '');
@@ -129,7 +134,8 @@ class BusinessOnboardingService {
     }
 
     /** هل فيه وسيلة تواصل واحدة على الأقل؟ */
-    public function hasContact(array $context): bool {
+    public function hasContact(array $context): bool
+    {
         $business = $context['business'] ?? [];
         return !empty($business['business_email'])
             || !empty($business['business_phone'])
@@ -138,7 +144,8 @@ class BusinessOnboardingService {
     }
 
     /** هل حدد أسواق مستهدفة (دول أو لغات أو عملاء)؟ */
-    public function hasTargetMarkets(array $context): bool {
+    public function hasTargetMarkets(array $context): bool
+    {
         $markets = $context['target_markets'] ?? [];
         $countries = $markets['countries'] ?? [];
         $languages = $markets['languages'] ?? [];
@@ -154,7 +161,8 @@ class BusinessOnboardingService {
      * اختياري، والمالك نفسه فريق شرعي. لو عايز نلزم بدعوة فعلية، نعدّل
      * السطر هنا بس.
      */
-    public function hasTeam(array $context): bool {
+    public function hasTeam(array $context): bool
+    {
         return !empty($context['business']['id']);
     }
 }

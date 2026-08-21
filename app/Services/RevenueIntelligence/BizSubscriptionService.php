@@ -23,16 +23,19 @@
  *   - computeGrr(array $currentSubs, array $pastSubs) - Gross Revenue Retention
  *   - computeChurnRate(array $subscriptions, array $events, string $period) - Churn
  */
-class BizSubscriptionService {
+class BizSubscriptionService
+{
     /** @var RevenueDataGateway */
     private $gateway;
 
-    public function __construct(?RevenueDataGateway $gateway = null) {
+    public function __construct(?RevenueDataGateway $gateway = null)
+    {
         $this->gateway = $gateway ?? new RevenueDataGateway();
     }
 
     /** لو الجداول غير موجودة/مش مثبتة - نرجع فورًا بلا فشل. */
-    public function tablesAvailable(): bool {
+    public function tablesAvailable(): bool
+    {
         return $this->gateway->hasBizSubscriptionTables();
     }
 
@@ -40,7 +43,8 @@ class BizSubscriptionService {
      * ملخص كامل لمقاييس الاشتراك الحقيقية لمستخدم معيّن.
      * أي مقياس غير قابل للحساب بصدق -> null مع سبب واضح.
      */
-    public function getSubscriptionMetrics(int $userId): array {
+    public function getSubscriptionMetrics(int $userId): array
+    {
         if (!$this->tablesAvailable()) {
             return [
                 'has_data' => false,
@@ -79,7 +83,8 @@ class BizSubscriptionService {
     }
 
     /** إجمالي الـ MRR الحالي = مجموع mrr للاشتراكات النشطة (أو التجريبية). */
-    public static function computeMrr(array $subscriptions): float {
+    public static function computeMrr(array $subscriptions): float
+    {
         $total = 0.0;
         foreach ($subscriptions as $s) {
             $status = $s['status'] ?? 'active';
@@ -92,12 +97,14 @@ class BizSubscriptionService {
     }
 
     /** ARR = MRR * 12 (Baremetrics convention). */
-    public static function computeArrFromMrr(float $mrr): float {
+    public static function computeArrFromMrr(float $mrr): float
+    {
         return round($mrr * 12, 2);
     }
 
     /** توزيع MRR حسب دورة الفوترة (Monthly/Quarterly/Yearly). */
-    public static function computeMrrByCycle(array $subscriptions): array {
+    public static function computeMrrByCycle(array $subscriptions): array
+    {
         $byCycle = ['monthly' => 0.0, 'quarterly' => 0.0, 'yearly' => 0.0];
         $counts = ['monthly' => 0, 'quarterly' => 0, 'yearly' => 0];
         $hasData = false;
@@ -126,7 +133,8 @@ class BizSubscriptionService {
      *
      * @param array $events صفوف أحداث [['event_type'=>, 'mrr_delta'=>, 'occurred_at'=>], ...]
      */
-    public static function computeMrrBreakdown(array $events, ?string $month = null): array {
+    public static function computeMrrBreakdown(array $events, ?string $month = null): array
+    {
         if (empty($events)) {
             return ['has_data' => false, 'reason' => 'No biz_subscription_events recorded.', 'new' => null, 'expansion' => null, 'contraction' => null, 'churn' => null, 'net' => null];
         }
@@ -183,7 +191,8 @@ class BizSubscriptionService {
      * @param array $currentSubs اشتراكات الحالة الحالية (بـ contact_id/customer + mrr + status)
      * @param array $pastSubs    اشتراكات الفترة السابقة (نفس الشكل)
      */
-    public static function computeNrr(array $currentSubs, array $pastSubs): array {
+    public static function computeNrr(array $currentSubs, array $pastSubs): array
+    {
         if (empty($pastSubs)) {
             return ['has_data' => false, 'reason' => 'No prior-period subscriptions to anchor NRR.', 'nrr_percent' => null];
         }
@@ -235,7 +244,8 @@ class BizSubscriptionService {
      * كما هي (الاشتراكات لا تسجل "توسعة منفصلة" بشكل موثوق في نفس الصف).
      * لذلك GRR هنا = نسبة العملاء الأصليين اللي لسه نشطين (بقيمهم الحالية).
      */
-    public static function computeGrr(array $currentSubs, array $pastSubs): array {
+    public static function computeGrr(array $currentSubs, array $pastSubs): array
+    {
         if (empty($pastSubs)) {
             return ['has_data' => false, 'reason' => 'No prior-period subscriptions to anchor GRR.', 'grr_percent' => null];
         }
@@ -286,7 +296,8 @@ class BizSubscriptionService {
      * @param array  $events        الأحداث
      * @param string $period        'monthly' (افتراضي)
      */
-    public static function computeChurnRate(array $subscriptions, array $events, string $period = 'monthly'): array {
+    public static function computeChurnRate(array $subscriptions, array $events, string $period = 'monthly'): array
+    {
         // نعتمد على أحداث churn المسجلة + الاشتراكات المليها cancelled_at حاليًا.
         $churnedCount = 0;
         foreach ($events as $e) {
@@ -318,7 +329,8 @@ class BizSubscriptionService {
     }
 
     /** مفتاح تعرّف عميل مستقر عبر الفترات (contact_id أولًا، ثم customer_name). */
-    private static function subscriptionKey(array $s): ?string {
+    private static function subscriptionKey(array $s): ?string
+    {
         if (isset($s['contact_id']) && $s['contact_id'] !== null && (int) $s['contact_id'] > 0) {
             return 'c' . (int) $s['contact_id'];
         }

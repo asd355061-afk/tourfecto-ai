@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Security Audit Fixes Test (Phase 26)
  * @version 1.0.0
@@ -11,16 +12,30 @@
  */
 
 if (!class_exists('Model')) {
-    class Model {
+    class Model
+    {
         protected $table = '';
         protected $fillable = [];
         protected $hidden = [];
         protected $attrs = [];
-        public function __construct(array $data = []) { $this->attrs = $data; }
-        public function getAttribute(string $key) { return $this->attrs[$key] ?? null; }
-        public function setAttribute(string $key, $value) { $this->attrs[$key] = $value; }
-        public function save() { return true; }
-        public function toArray(): array {
+        public function __construct(array $data = [])
+        {
+            $this->attrs = $data;
+        }
+        public function getAttribute(string $key)
+        {
+            return $this->attrs[$key] ?? null;
+        }
+        public function setAttribute(string $key, $value)
+        {
+            $this->attrs[$key] = $value;
+        }
+        public function save()
+        {
+            return true;
+        }
+        public function toArray(): array
+        {
             $out = [];
             foreach ($this->attrs as $k => $v) {
                 if (in_array($k, $this->hidden, true)) {
@@ -30,9 +45,18 @@ if (!class_exists('Model')) {
             }
             return $out;
         }
-        public function where(array $conditions = [], array $order = [], int $limit = 0) { return []; }
-        public function find(int $id) { return null; }
-        public function delete() { return true; }
+        public function where(array $conditions = [], array $order = [], int $limit = 0)
+        {
+            return [];
+        }
+        public function find(int $id)
+        {
+            return null;
+        }
+        public function delete()
+        {
+            return true;
+        }
     }
 }
 
@@ -40,11 +64,13 @@ require_once dirname(__DIR__, 3) . '/app/Services/BusinessAccessService.php';
 require_once dirname(__DIR__, 3) . '/app/Models/BusinessMember.php';
 require_once dirname(__DIR__, 3) . '/app/Services/BusinessTeamService.php';
 
-class BusinessSecurityTest {
+class BusinessSecurityTest
+{
     private $passed = 0;
     private $failed = 0;
 
-    public function runAll(): void {
+    public function runAll(): void
+    {
         echo "\nBusiness Security Audit Fixes (Phase 26) Tests\n";
         echo "===============================================\n\n";
 
@@ -57,20 +83,23 @@ class BusinessSecurityTest {
         $this->printSummary();
     }
 
-    private function testInviteConstantExists(): void {
+    private function testInviteConstantExists(): void
+    {
         $this->startTest('MAX_PENDING_INVITES constant exists and is positive');
         $ok = defined('BusinessTeamService::MAX_PENDING_INVITES')
             && BusinessTeamService::MAX_PENDING_INVITES > 0;
         $ok ? $this->pass('MAX_PENDING_INVITES = ' . BusinessTeamService::MAX_PENDING_INVITES) : $this->fail('constant missing/zero');
     }
 
-    private function testMaxPendingInvitesConstant(): void {
+    private function testMaxPendingInvitesConstant(): void
+    {
         $this->startTest('MAX_PENDING_INVITES is a sensible cap');
         $ok = BusinessTeamService::MAX_PENDING_INVITES <= 100;
         $ok ? $this->pass('cap within sane bound (' . BusinessTeamService::MAX_PENDING_INVITES . ')') : $this->fail('cap too high');
     }
 
-    private function testInviteTokenHidden(): void {
+    private function testInviteTokenHidden(): void
+    {
         $this->startTest('F3: invite_token is hidden from toArray()');
         $m = new BusinessMember([
             'id' => 1,
@@ -88,7 +117,8 @@ class BusinessSecurityTest {
         $ok ? $this->pass('token + expiry not present in toArray()') : $this->fail('sensitive fields leaked');
     }
 
-    private function testAdminInviteRuleServiceEnforced(): void {
+    private function testAdminInviteRuleServiceEnforced(): void
+    {
         $this->startTest('F2: service rejects admin invite for non-owner actor role');
         // Stub User::findByEmail -> null (لمستخدم غير مسجل) عشان نستطيع
         // فحص مسار الدعوة المعلقة قبل ما نضرب في أي DB.
@@ -102,7 +132,8 @@ class BusinessSecurityTest {
         $ok ? $this->pass('admin actor cannot grant admin role: ' . $result['error']) : $this->fail('admin invite not blocked: ' . json_encode($result));
     }
 
-    private function testNonOwnerCannotInviteAdmin(): void {
+    private function testNonOwnerCannotInviteAdmin(): void
+    {
         $this->startTest('F2: member/viewer actor role also rejected');
         $svc = new BusinessTeamService();
         $result = $svc->invite(2, 5, 'guest2@example.com', 'admin', 'member');
@@ -110,11 +141,23 @@ class BusinessSecurityTest {
         $ok ? $this->pass('non-owner blocked for admin role: ' . $result['error']) : $this->fail('non-owner admin invite not blocked');
     }
 
-    private function startTest(string $name): void { echo "\n  > {$name}\n"; }
-    private function pass(string $message): void { echo "    [PASS] {$message}\n"; $this->passed++; }
-    private function fail(string $message): void { echo "    [FAIL] {$message}\n"; $this->failed++; }
+    private function startTest(string $name): void
+    {
+        echo "\n  > {$name}\n";
+    }
+    private function pass(string $message): void
+    {
+        echo "    [PASS] {$message}\n";
+        $this->passed++;
+    }
+    private function fail(string $message): void
+    {
+        echo "    [FAIL] {$message}\n";
+        $this->failed++;
+    }
 
-    private function printSummary(): void {
+    private function printSummary(): void
+    {
         $total = $this->passed + $this->failed;
         $percentage = $total > 0 ? round(($this->passed / $total) * 100, 2) : 0;
         echo "\n" . str_repeat('=', 50) . "\n";

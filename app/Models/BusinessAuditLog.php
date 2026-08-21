@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Audit Log Model
  * Centralized Business Audit Log - Business Control Center Phase 13-14
@@ -13,7 +14,8 @@
  * زي AuditLog::listFor() بالظبط، لكن بمفتاح business_id.
  */
 
-class BusinessAuditLog extends Model {
+class BusinessAuditLog extends Model
+{
     protected $table = 'business_audit_logs';
 
     protected $fillable = [
@@ -67,7 +69,8 @@ class BusinessAuditLog extends Model {
      *
      * @return array{rows: array, total: int}
      */
-    public static function listFor(int $businessId, array $filters = [], int $page = 1, int $perPage = 20): array {
+    public static function listFor(int $businessId, array $filters = [], int $page = 1, int $perPage = 20): array
+    {
         $db = Database::getInstance();
 
         $where = ['business_id = :business_id'];

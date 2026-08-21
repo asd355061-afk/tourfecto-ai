@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Access Service Test
  * @version 1.0.0
@@ -13,11 +14,13 @@
  */
 require_once dirname(__DIR__, 3) . '/app/Services/BusinessAccessService.php';
 
-class BusinessAccessServiceTest {
+class BusinessAccessServiceTest
+{
     private $passed = 0;
     private $failed = 0;
 
-    public function runAll(): void {
+    public function runAll(): void
+    {
         echo "\nBusiness Access Service Tests (RBAC pure logic)\n";
         echo "==================================================\n\n";
 
@@ -34,7 +37,8 @@ class BusinessAccessServiceTest {
         $this->printSummary();
     }
 
-    private function testRoleRankOrdering(): void {
+    private function testRoleRankOrdering(): void
+    {
         $this->startTest('Role rank ordering (owner highest)');
         $expected = [
             BusinessAccessService::ROLE_OWNER => 4,
@@ -55,7 +59,8 @@ class BusinessAccessServiceTest {
         $ok ? $this->pass('owner=4 > admin=3 > member=2 > viewer=1, unknown=0') : $this->fail('Ranking mismatch');
     }
 
-    private function testAllowedMemberRolesExcludesOwner(): void {
+    private function testAllowedMemberRolesExcludesOwner(): void
+    {
         $this->startTest('allowedMemberRoles excludes owner (owner is derived, not stored)');
         $roles = BusinessAccessService::allowedMemberRoles();
         $ok = in_array('admin', $roles, true)
@@ -65,7 +70,8 @@ class BusinessAccessServiceTest {
         $ok ? $this->pass('contains admin/member/viewer only') : $this->fail('Unexpected roles: ' . implode(',', $roles));
     }
 
-    private function testViewCapability(): void {
+    private function testViewCapability(): void
+    {
         $this->startTest('view allowed for all four roles');
         $all = ['owner', 'admin', 'member', 'viewer'];
         $ok = true;
@@ -78,7 +84,8 @@ class BusinessAccessServiceTest {
         $ok ? $this->pass('owner/admin/member/viewer can all view') : $this->fail('view should be allowed for all roles');
     }
 
-    private function testEditCapability(): void {
+    private function testEditCapability(): void
+    {
         $this->startTest('edit denied for viewer (read-only)');
         $ok = BusinessAccessService::roleAllows('owner', 'edit')
             && BusinessAccessService::roleAllows('admin', 'edit')
@@ -87,7 +94,8 @@ class BusinessAccessServiceTest {
         $ok ? $this->pass('owner/admin/member edit; viewer cannot') : $this->fail('edit capability mismatch');
     }
 
-    private function testManageTeamCapability(): void {
+    private function testManageTeamCapability(): void
+    {
         $this->startTest('manage_team limited to owner/admin');
         $ok = BusinessAccessService::roleAllows('owner', 'manage_team')
             && BusinessAccessService::roleAllows('admin', 'manage_team')
@@ -96,7 +104,8 @@ class BusinessAccessServiceTest {
         $ok ? $this->pass('owner/admin manage team; member/viewer cannot') : $this->fail('manage_team capability mismatch');
     }
 
-    private function testAdministerTeamCapability(): void {
+    private function testAdministerTeamCapability(): void
+    {
         $this->startTest('administer_team (admin-role operations) owner-only');
         $ok = BusinessAccessService::roleAllows('owner', 'administer_team')
             && !BusinessAccessService::roleAllows('admin', 'administer_team')
@@ -105,19 +114,29 @@ class BusinessAccessServiceTest {
         $ok ? $this->pass('only owner can administer admin-level team ops') : $this->fail('administer_team capability mismatch');
     }
 
-    private function testSensitiveCapabilities(): void {
+    private function testSensitiveCapabilities(): void
+    {
         $this->startTest('manage_keys / read_audit limited to owner/admin (Phase 22 refinement)');
         $ok = true;
         foreach (['manage_keys', 'read_audit'] as $cap) {
-            if (!BusinessAccessService::roleAllows('owner', $cap)) { $ok = false; }
-            if (!BusinessAccessService::roleAllows('admin', $cap)) { $ok = false; }
-            if (BusinessAccessService::roleAllows('member', $cap)) { $ok = false; }
-            if (BusinessAccessService::roleAllows('viewer', $cap)) { $ok = false; }
+            if (!BusinessAccessService::roleAllows('owner', $cap)) {
+                $ok = false;
+            }
+            if (!BusinessAccessService::roleAllows('admin', $cap)) {
+                $ok = false;
+            }
+            if (BusinessAccessService::roleAllows('member', $cap)) {
+                $ok = false;
+            }
+            if (BusinessAccessService::roleAllows('viewer', $cap)) {
+                $ok = false;
+            }
         }
         $ok ? $this->pass('owner/admin manage keys + read audit; member/viewer cannot') : $this->fail('sensitive capability mismatch');
     }
 
-    private function testFullCapabilityMatrix(): void {
+    private function testFullCapabilityMatrix(): void
+    {
         $this->startTest('Full capability matrix (5 caps x 4 roles)');
         // Expected truth table: row = capability, col = owner/admin/member/viewer
         $matrix = [
@@ -141,7 +160,8 @@ class BusinessAccessServiceTest {
         $ok ? $this->pass('all 24 role/capability pairs correct') : null;
     }
 
-    private function testUnknownRoleAndCapability(): void {
+    private function testUnknownRoleAndCapability(): void
+    {
         $this->startTest('Unknown role / capability deny safely');
         $ok = !BusinessAccessService::roleAllows('superadmin', 'edit')
             && !BusinessAccessService::roleAllows('owner', 'delete_business')
@@ -149,11 +169,23 @@ class BusinessAccessServiceTest {
         $ok ? $this->pass('unknown role/capability => false, rank 0') : $this->fail('Unknown inputs not denied');
     }
 
-    private function startTest(string $name): void { echo "\n  > {$name}\n"; }
-    private function pass(string $message): void { echo "    [PASS] {$message}\n"; $this->passed++; }
-    private function fail(string $message): void { echo "    [FAIL] {$message}\n"; $this->failed++; }
+    private function startTest(string $name): void
+    {
+        echo "\n  > {$name}\n";
+    }
+    private function pass(string $message): void
+    {
+        echo "    [PASS] {$message}\n";
+        $this->passed++;
+    }
+    private function fail(string $message): void
+    {
+        echo "    [FAIL] {$message}\n";
+        $this->failed++;
+    }
 
-    private function printSummary(): void {
+    private function printSummary(): void
+    {
         $total = $this->passed + $this->failed;
         $percentage = $total > 0 ? round(($this->passed / $total) * 100, 2) : 0;
         echo "\n" . str_repeat('=', 50) . "\n";
