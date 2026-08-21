@@ -474,6 +474,11 @@ abstract class Controller
                     . $this->tr('feature.disabled_message') . '</div></div>';
                 $scriptJs = '';
             }
+            // رابط تسويق البريد في الشريط العلوي: بيظهر لكل المشتركين
+            // طالما الميزة مفعّلة (افتراضيًا متاحة لو مش مسجّلة في feature_flags).
+            $emailMarketingHeader = $featureCheck->isEnabled('email_marketing', (int) $this->user['id']);
+        } else {
+            $emailMarketingHeader = true;
         }
 
         $appName = defined('APP_NAME') ? APP_NAME : 'Tourfecto';
@@ -513,6 +518,11 @@ abstract class Controller
         // Contentsquare، Mixpanel، OneSignal، Calendly) - بتتحقن بس للمفعّل
         // منها. متحسبة في متغير قبل الـ heredoc (نفس درس asset_v).
         $thirdPartyHead = class_exists('ThirdPartyHead') ? ThirdPartyHead::render() : '';
+        // رابط تسويق البريد في الشريط العلوي (مبني قبل الـ heredoc لأن
+        // صيغة {if} مش بتتفسّر جواه - نفس درس asset_v).
+        $emailMarketingLinkHtml = $emailMarketingHeader
+            ? '<a href="/email-marketing" class="icon-btn" title="' . $this->tr('sidebar.email_marketing') . '">📬</a>'
+            : '';
 
         return <<<HTML
 <!DOCTYPE html>
@@ -581,6 +591,7 @@ abstract class Controller
                         <div class="panel-langsel-menu">{$langMenu}</div>
                     </details>
                     <a href="/ai/analyze" class="icon-btn" title="{$this->tr('dashboard.action.new_seo_analysis')}">✨</a>
+                    {$emailMarketingLinkHtml}
                     <a href="/profile/settings" class="icon-btn" title="{$this->tr('sidebar.profile')}">👤</a>
                 </div>
             </header>
