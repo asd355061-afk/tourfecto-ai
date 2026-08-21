@@ -199,7 +199,11 @@ define('SUPPORTED_TIMEZONES', [
 
 // ============================================
 // إعدادات اللغات المدعومة
+// ملاحظة: SUPPORTED_LANGUAGES معرفة أساسًا في Config/app.php (المصدر
+// المعتمد) - هنا فحص defined() عشان نمنع "Constant already defined" لو
+// الملف ده اتحمّل بعد app.php في أي سياق مستقبلي.
 // ============================================
+if (!defined('SUPPORTED_LANGUAGES')) {
 define('SUPPORTED_LANGUAGES', [
     'ar' => 'العربية',
     'en' => 'English',
@@ -212,3 +216,4 @@ define('SUPPORTED_LANGUAGES', [
     'zh' => '中文',
     'ja' => '日本語'
 ]);
+}

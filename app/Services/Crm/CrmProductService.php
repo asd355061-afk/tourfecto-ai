@@ -37,8 +37,8 @@ class CrmProductService {
         $product = new CrmProduct([
             'user_id' => $userId,
             'name' => $name,
-            'description' => ($data['description'] ?? null) !== '' ? trim((string) $data['description']) : null,
-            'sku' => ($data['sku'] ?? null) !== '' ? trim((string) $data['sku']) : null,
+            'description' => !empty($data['description']) ? trim((string) $data['description']) : null,
+            'sku' => !empty($data['sku']) ? trim((string) $data['sku']) : null,
             'price' => $price,
             'currency' => (string) ($data['currency'] ?? 'USD'),
             'is_active' => isset($data['is_active']) ? (int) $data['is_active'] : 1,

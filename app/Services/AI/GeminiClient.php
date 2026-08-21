@@ -52,15 +52,6 @@ class GeminiClient
             ? (new SystemSettingsService())->get('gemini_api_key', GEMINI_API_KEY)
             : GEMINI_API_KEY;
 
-        // تشخيص مؤقت (هيتشال بعد ما نلاقي السبب): نسجّل طول المفتاح
-        // وآخر 6 حروف منه بس - عشان نتأكد أي قيمة فعليًا بتتبعت لجوجل
-        // من غير ما نكشف المفتاح كامل في اللوج.
-        Logger::info('GeminiClient key diagnostic', [
-            'key_length' => strlen($this->apiKey),
-            'key_last6' => substr($this->apiKey, -6),
-            'key_is_empty' => empty($this->apiKey),
-            'source' => class_exists('SystemSettingsService') ? 'SystemSettingsService_or_fallback' : 'direct_constant',
-        ]);
         $this->model = GEMINI_MODEL;
         // تصحيح: GEMINI_API_URL هو الأساس بس (https://.../v1beta) من غير
         // مسار الموديل - أي طلب كان بيروح لرابط ناقص وبيرجع 404 دايمًا،

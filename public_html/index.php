@@ -462,6 +462,15 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/Seo/SeoContentService.php',
     APP_PATH . '/Controllers/SeoContentController.php',
     APP_PATH . '/Jobs/SeoContentGenerateJob.php',
+    // Booking & Availability Engine (merge remote 2026-08-21): الكلاسات دي
+    // مش مسجّلة في classmap composer القديم، فلازم تتحمّل يدويًا هنا وإلا
+    // أي API من /api/bookings أو /api/inventory هتقع "Class not found".
+    // الترتيب: Models قبل Services قبل Controller.
+    APP_PATH . '/Models/Booking.php',
+    APP_PATH . '/Models/InventoryDay.php',
+    APP_PATH . '/Services/BookingEngine.php',
+    APP_PATH . '/Services/InventoryService.php',
+    APP_PATH . '/Controllers/BookingController.php',
 ];
 foreach ($optionalNewClassFiles as $classFile) {
     if (file_exists($classFile)) {

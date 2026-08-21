@@ -186,6 +186,13 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Services/Seo/SeoContentService.php',
     APP_PATH . '/Services/SearchConsole/GoogleSearchConsoleAPI.php',
     APP_PATH . '/Services/Analytics/GoogleAnalyticsAPI.php',
+    // Booking & Availability Engine (merge remote 2026-08-21): الكلاسات دي
+    // مش مسجّلة في classmap القديم على السيرفر، فلازم تتحمّل هنا لو أي كرون
+    // هيتعامل مع الحجوزات/المخزون. الترتيب: Models قبل Services.
+    APP_PATH . '/Models/Booking.php',
+    APP_PATH . '/Models/InventoryDay.php',
+    APP_PATH . '/Services/BookingEngine.php',
+    APP_PATH . '/Services/InventoryService.php',
 ];
 foreach ($optionalJobDependencyFiles as $depFile) {
     if (file_exists($depFile)) {

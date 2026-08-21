@@ -111,3 +111,24 @@ ALTER TABLE `activity_logs`
     MODIFY COLUMN `event_data` LONGTEXT DEFAULT NULL,
     MODIFY COLUMN `session_id` VARCHAR(255) DEFAULT NULL,
     MODIFY COLUMN `user_agent` VARCHAR(500) DEFAULT NULL;
+
+-- 11) websites: أعمدة AutoSEO (2026_08_20_000001_auto_seo_embed + 
+--     2026_08_20_000002_phase2_indexing_ab) - الجداول (auto_seo_* / seo_ab_*)
+--     والعمود على generated_websites/wo_fixes كانوا مطبّقين محليًا، الناقص
+--     أعمدة websites بس. بدونها كان SeoProxy CNAME Check يفشل في كل طلب.
+ALTER TABLE `websites`
+    ADD COLUMN IF NOT EXISTS `is_connected` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'الموقع مربوط بسكربت Tourfecto ولا لأ' AFTER `deleted_at`,
+    ADD COLUMN IF NOT EXISTS `connection_method` ENUM('script','api','wordpress','shopify') NOT NULL DEFAULT 'script' COMMENT 'طريقة الربط' AFTER `is_connected`,
+    ADD COLUMN IF NOT EXISTS `embed_token` VARCHAR(100) DEFAULT NULL COMMENT 'توكن السكربت العام' AFTER `connection_method`,
+    ADD COLUMN IF NOT EXISTS `embed_api_key` VARCHAR(100) DEFAULT NULL COMMENT 'مفتاح API سرّي' AFTER `embed_token`,
+    ADD COLUMN IF NOT EXISTS `auto_pilot_mode` ENUM('off','conservative','balanced','aggressive') NOT NULL DEFAULT 'off' COMMENT 'وضع الطيار الآلي' AFTER `embed_api_key`,
+    ADD COLUMN IF NOT EXISTS `auto_fix_enabled` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'تفعيل التنفيذ التلقائي' AFTER `auto_pilot_mode`,
+    ADD COLUMN IF NOT EXISTS `connected_at` TIMESTAMP NULL DEFAULT NULL AFTER `auto_fix_enabled`,
+    ADD COLUMN IF NOT EXISTS `last_sync_at` TIMESTAMP NULL DEFAULT NULL AFTER `connected_at`,
+    ADD COLUMN IF NOT EXISTS `total_fixes_applied` INT(11) NOT NULL DEFAULT 0 AFTER `last_sync_at`,
+    ADD COLUMN IF NOT EXISTS `total_rollbacks` INT(11) NOT NULL DEFAULT 0 AFTER `total_fixes_applied`,
+    ADD COLUMN IF NOT EXISTS `indexnow_key` VARCHAR(128) DEFAULT NULL,
+    ADD COLUMN IF NOT EXISTS `indexnow_enabled` TINYINT(1) NOT NULL DEFAULT 0;
+ALTER TABLE `websites`
+    ADD UNIQUE KEY IF NOT EXISTS `uniq_embed_token` (`embed_token`),
+    ADD INDEX IF NOT EXISTS `idx_is_connected` (`is_connected`);
