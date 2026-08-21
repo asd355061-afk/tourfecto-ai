@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: CompetitorDomain Test
  * @version 1.0.0
@@ -15,9 +16,10 @@ require_once __DIR__ . '/CiOfflineTestCase.php';
 require_once dirname(__DIR__, 3) . '/app/Services/CompetitorIntelligence/SsrfGuard.php';
 require_once dirname(__DIR__, 3) . '/app/Services/CompetitorIntelligence/CompetitorDomain.php';
 
-class CompetitorDomainTest extends CiOfflineTestCase {
-
-    public function runAll(): void {
+class CompetitorDomainTest extends CiOfflineTestCase
+{
+    public function runAll(): void
+    {
         echo "\nCompetitorDomain Tests\n=====================\n";
 
         $this->testNormalize();
@@ -27,7 +29,8 @@ class CompetitorDomainTest extends CiOfflineTestCase {
         $this->printSummary();
     }
 
-    private function testNormalize(): void {
+    private function testNormalize(): void
+    {
         $this->startTest('normalize() adds https:// when scheme missing');
         $this->assertSame('https://example.com', CompetitorDomain::normalize('example.com'), 'bare domain');
         $this->assertSame('https://example.com/pricing', CompetitorDomain::normalize('example.com/pricing'), 'bare domain with path');
@@ -41,7 +44,8 @@ class CompetitorDomainTest extends CiOfflineTestCase {
         $this->assertSame('', CompetitorDomain::normalize(null), 'null returns empty string');
     }
 
-    private function testHost(): void {
+    private function testHost(): void
+    {
         $this->startTest('host() extracts lowercase host');
         $this->assertSame('example.com', CompetitorDomain::host('https://example.com/pricing'), 'full url');
         $this->assertSame('example.com', CompetitorDomain::host('EXAMPLE.com'), 'bare domain lowercased');
@@ -49,7 +53,8 @@ class CompetitorDomainTest extends CiOfflineTestCase {
         $this->assertSame(null, CompetitorDomain::host(''), 'empty input returns null');
     }
 
-    private function testNormalizeSafe(): void {
+    private function testNormalizeSafe(): void
+    {
         $this->startTest('normalizeSafe() validates SSRF safety');
 
         // unsafe: loopback / private ranges -> null

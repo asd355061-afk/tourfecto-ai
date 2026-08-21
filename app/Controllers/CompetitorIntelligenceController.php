@@ -468,7 +468,9 @@ class CompetitorIntelligenceController extends Controller
         if (!$this->validate(['website_id' => 'required'])) {
             return $this->error($this->tr('ci.error.missing_fields'), 422);
         }
-        if (($limited = $this->assertRateLimit('discovery_run')) !== null) return $limited;
+        if (($limited = $this->assertRateLimit('discovery_run')) !== null) {
+            return $limited;
+        }
 
         $websiteId = (int) $this->get('website_id');
         $industry = $this->get('industry');
@@ -671,8 +673,11 @@ class CompetitorIntelligenceController extends Controller
      * Excel اللي بتقدمها Prisync). بنرجّع النص كـ JSON والواجهة بتحوّله
      * لملف تحميل عبر Blob - مفيش حاجة تتخزن على السيرفر.
      */
-    public function apiComparisonExport(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiComparisonExport(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         if (!$this->validate(['website_id' => 'required', 'competitor_ids' => 'required'])) {
             return $this->error($this->tr('ci.error.missing_fields'), 422);
         }
@@ -681,7 +686,7 @@ class CompetitorIntelligenceController extends Controller
             "SELECT id FROM competitors WHERE user_id = ? AND id IN (" . implode(',', array_fill(0, count($ids), '?')) . ")",
             array_merge([(int) $this->user['id']], $ids)
         );
-        $ownedIds = array_map(fn($r) => (int) $r['id'], $owned);
+        $ownedIds = array_map(fn ($r) => (int) $r['id'], $owned);
         if (empty($ownedIds)) {
             return $this->error('Not found', 404);
         }
@@ -699,7 +704,7 @@ class CompetitorIntelligenceController extends Controller
             $line = [$metric];
             foreach ($rows as $row) {
                 $value = $row[$metric] ?? '';
-                $line[] = is_array($value) ? implode('; ', array_map(fn($k, $v) => "{$k}={$v}", array_keys($value), array_values($value))) : (string) $value;
+                $line[] = is_array($value) ? implode('; ', array_map(fn ($k, $v) => "{$k}={$v}", array_keys($value), array_values($value))) : (string) $value;
             }
             fputcsv($out, $line);
         }
@@ -714,10 +719,15 @@ class CompetitorIntelligenceController extends Controller
     }
 
     /** GET /api/competitor-intelligence/competitors/{id}/price-history */
-    public function apiPriceHistory(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiPriceHistory(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
-        if (!$competitor) return $this->error('Not found', 404);
+        if (!$competitor) {
+            return $this->error('Not found', 404);
+        }
 
         $rows = $this->db->query(
             "SELECT id, change_type, page_type, severity, price_before, price_after, currency, source_url, detected_at
@@ -765,22 +775,31 @@ class CompetitorIntelligenceController extends Controller
     }
 
     /** POST /api/competitor-intelligence/alerts/read-all */
-    public function apiMarkAllAlertsRead(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiMarkAllAlertsRead(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $this->db->query("UPDATE ci_alerts SET is_read = 1 WHERE user_id = ? AND is_read = 0", [(int) $this->user['id']]);
         return $this->success([], $this->tr('common.updated'));
     }
 
     /** GET /api/competitor-intelligence/alerts/unread-count */
-    public function apiUnreadAlertsCount(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiUnreadAlertsCount(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $count = (int) ($this->db->query("SELECT COUNT(*) c FROM ci_alerts WHERE user_id = ? AND is_read = 0", [(int) $this->user['id']])[0]['c'] ?? 0);
         return $this->success(['unread_count' => $count]);
     }
 
     /** POST /api/competitor-intelligence/insights/{id}/status - body: {status: 'reviewed'|'dismissed'|'new'} */
-    public function apiInsightStatus(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiInsightStatus(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $status = CiConstants::within(CiConstants::INSIGHT_STATUSES, (string) $this->get('status'), '');
         if ($status === '') {
             return $this->error($this->tr('ci.error.missing_fields'), 422);
@@ -789,7 +808,9 @@ class CompetitorIntelligenceController extends Controller
         // رؤية معزولة بالمستخدم (tenant isolation) - محدش يعدّل رؤية حد تاني.
         $id = (int) ($params['id'] ?? 0);
         $rows = $this->db->query("SELECT id FROM ci_insights WHERE id = ? AND user_id = ? LIMIT 1", [$id, (int) $this->user['id']]);
-        if (empty($rows)) return $this->error('Not found', 404);
+        if (empty($rows)) {
+            return $this->error('Not found', 404);
+        }
 
         $this->db->query("UPDATE ci_insights SET status = ? WHERE id = ? AND user_id = ?", [$status, $id, (int) $this->user['id']]);
         return $this->success(['status' => $status], $this->tr('common.updated'));
@@ -831,7 +852,9 @@ class CompetitorIntelligenceController extends Controller
         if (!$competitor) {
             return $this->error('Not found', 404);
         }
-        if (($limited = $this->assertRateLimit('ai_insights')) !== null) return $limited;
+        if (($limited = $this->assertRateLimit('ai_insights')) !== null) {
+            return $limited;
+        }
 
         $insights = (new ThreatOpportunityService())->scanCompetitor($competitor, (int) $this->get('days', 30));
         return $this->success(['insights' => array_map(fn ($i) => $i->toArray(), $insights)]);
@@ -847,7 +870,9 @@ class CompetitorIntelligenceController extends Controller
         if (!$competitor) {
             return $this->error('Not found', 404);
         }
-        if (($limited = $this->assertRateLimit('ai_profile')) !== null) return $limited;
+        if (($limited = $this->assertRateLimit('ai_profile')) !== null) {
+            return $limited;
+        }
 
         $result = (new AICompetitiveAnalyst())->analyzeProfile($competitor);
         return $this->success($result);
@@ -899,7 +924,9 @@ class CompetitorIntelligenceController extends Controller
         if (mb_strlen((string) $this->get('question')) > 2000) {
             return $this->error($this->tr('ci.error.input_too_long'), 422);
         }
-        if (($limited = $this->assertRateLimit('ai_ask')) !== null) return $limited;
+        if (($limited = $this->assertRateLimit('ai_ask')) !== null) {
+            return $limited;
+        }
 
         $result = (new AICompetitiveAnalyst())->ask((int) $this->user['id'], (string) $this->get('question'), (int) $this->get('days', 30));
         return $this->success($result);
@@ -914,7 +941,9 @@ class CompetitorIntelligenceController extends Controller
         if (!$this->validate(['website_id' => 'required'])) {
             return $this->error($this->tr('ci.error.missing_fields'), 422);
         }
-        if (($limited = $this->assertRateLimit('ai_weekly_summary')) !== null) return $limited;
+        if (($limited = $this->assertRateLimit('ai_weekly_summary')) !== null) {
+            return $limited;
+        }
 
         $result = (new AICompetitiveAnalyst())->weeklySummary((int) $this->user['id'], (int) $this->get('website_id'));
         return $this->success($result);
@@ -954,7 +983,9 @@ class CompetitorIntelligenceController extends Controller
             return $this->error('Not found', 404);
         }
 
-        if (($limited = $this->assertRateLimit('report_generate')) !== null) return $limited;
+        if (($limited = $this->assertRateLimit('report_generate')) !== null) {
+            return $limited;
+        }
 
         try {
             $report = (new ReportService())->generate((int) $this->user['id'], (int) $this->get('website_id'), (string) $this->get('type'), [], $competitorId);
@@ -1246,7 +1277,8 @@ HTML;
      * مكان واحد عشان القيم الافتراضية متتكررش ولا تتحرف.
      * @return array{frequency:string, min_severity:string, channels:string}
      */
-    private function userDefaults(int $userId): array {
+    private function userDefaults(int $userId): array
+    {
         $prefRows = (new CiUserPreference())->where(['user_id' => $userId], [], 1);
         $prefs = $prefRows[0] ?? null;
         return [
@@ -1261,7 +1293,8 @@ HTML;
      * (429) لو العدد اتعدّى، أو null لو متاح. بتشتغل لكل مستخدم لوحده
      * (key معزول بالـ user_id) - مفيش أي مستخدم بيأثر على حدود غيره.
      */
-    private function assertRateLimit(string $scope): ?array {
+    private function assertRateLimit(string $scope): ?array
+    {
         $result = CiRateLimiter::hit($scope, 'user:' . (int) $this->user['id']);
         if (!$result['allowed']) {
             return $this->error($this->tr('ci.error.rate_limited'), 429);

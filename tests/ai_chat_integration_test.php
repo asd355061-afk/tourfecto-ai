@@ -1,4 +1,5 @@
 <?php
+
 /**
  * AI Chat Platform - Real Integration Test Harness
  * يشتغل ضد قاعدة بيانات MariaDB حقيقية محلية (مش mock)، بيستخدم كود
@@ -32,8 +33,11 @@ define('TOURFECTO_ROOT', $root);
 define('TOURFECTO_STORAGE', $root . '/storage');
 putenv('APP_URL=http://localhost');
 
-function env(string $key, $default = null) {
-    if (array_key_exists($key, $_ENV)) return $_ENV[$key];
+function env(string $key, $default = null)
+{
+    if (array_key_exists($key, $_ENV)) {
+        return $_ENV[$key];
+    }
     $v = getenv($key);
     return $v !== false ? $v : $default;
 }
@@ -93,7 +97,8 @@ $passed = 0;
 $failed = 0;
 $failures = [];
 
-function check(string $label, bool $condition, string $detail = ''): void {
+function check(string $label, bool $condition, string $detail = ''): void
+{
     global $passed, $failed, $failures;
     if ($condition) {
         $passed++;
@@ -105,7 +110,8 @@ function check(string $label, bool $condition, string $detail = ''): void {
     }
 }
 
-function section(string $title): void {
+function section(string $title): void
+{
     echo "\n=== {$title} ===\n";
 }
 
@@ -248,7 +254,9 @@ $results = $inbox->search($websiteIdA, []);
 check('البحث بيرجّع محادثات موقع A بس', count($results) >= 1 && $results[0]->getAttribute('website_id') == $websiteIdA);
 
 $resultsB = $inbox->search($websiteIdB, []);
-$leakedIds = array_filter($resultsB, function ($c) use ($convId) { return (int) $c->getAttribute('id') === $convId; });
+$leakedIds = array_filter($resultsB, function ($c) use ($convId) {
+    return (int) $c->getAttribute('id') === $convId;
+});
 check('عزل البيانات: نتائج بحث موقع B ما فيهاش محادثة موقع A', empty($leakedIds));
 
 // ============================================

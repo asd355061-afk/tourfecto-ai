@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - تطبيق قواعد الرد التلقائي على المراجعات اللي لسه اتردتش
  * @version 1.0.0
@@ -44,7 +45,10 @@ try {
 
     foreach ($candidates as $row) {
         $reviewId = (int) ($row['id'] ?? 0);
-        if (!$reviewId) { $skipped++; continue; }
+        if (!$reviewId) {
+            $skipped++;
+            continue;
+        }
 
         try {
             $result = $service->applyRulesToReview($reviewId);

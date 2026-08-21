@@ -1,4 +1,5 @@
 <?php
+
 /**
  * View: Settings - permissions section (extracted Phase 16F).
  */

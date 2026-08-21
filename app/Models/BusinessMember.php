@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Member Model
  * Team Management + RBAC (Business Control Center Phase 10-11)
@@ -12,7 +13,8 @@
  * (BusinessTargetMarket مثلًا)، أي قراءة لحقل مفتاحه موجود هتتم عبر getters
  * والتحقق من الشكل - مش json_decode مبعثر في المتحكمات.
  */
-class BusinessMember extends Model {
+class BusinessMember extends Model
+{
     protected $table = 'business_members';
 
     protected $fillable = [
@@ -35,14 +37,16 @@ class BusinessMember extends Model {
     /**
      * هل العضو ده نشط فعليًا (مش دعوة معلقة)؟
      */
-    public function isActive(): bool {
+    public function isActive(): bool
+    {
         return $this->getAttribute('status') === 'active';
     }
 
     /**
      * هل العضو ده دعوة معلقة لسه؟
      */
-    public function isPending(): bool {
+    public function isPending(): bool
+    {
         return $this->getAttribute('status') === 'invited';
     }
 }

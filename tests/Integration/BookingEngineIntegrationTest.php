@@ -61,15 +61,18 @@ final class BookingEngineIntegrationTest extends TestCase
             $ref->setAccessible(true);
             $conn = $ref->getValue($db);
             if (!$conn instanceof PDO) {
+                self::$pdo = null;
                 return null;
             }
-            self::$pdo = $conn;
 
             // تأكد إن جداول الحجز موجودة فعلاً (الميجريشن اتشغّلت)
             $tables = $conn->query("SHOW TABLES LIKE 'bookings'")->fetchAll();
             if (empty($tables)) {
+                self::$pdo = null;
                 return null;
             }
+
+            self::$pdo = $conn;
 
             return self::$pdo;
         } catch (\Throwable $e) {
@@ -85,7 +88,7 @@ final class BookingEngineIntegrationTest extends TestCase
         }
 
         // مستخدم ومنتج تجريبيين - بيتنضّفوا في tearDown
-        $pdo->exec("INSERT INTO users (id, email, password, name, created_at) VALUES (999001, 'phase2-test@tourfecto.test', 'x', 'Test', NOW())
+        $pdo->exec("INSERT INTO users (id, email, password, company_name, created_at) VALUES (999001, 'phase2-test@tourfecto.test', 'x', 'Test', NOW())
                      ON DUPLICATE KEY UPDATE email = email");
         self::$testUserId = 999001;
 

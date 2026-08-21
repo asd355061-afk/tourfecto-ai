@@ -1,6 +1,8 @@
 <?php
+
 /** Tourfecto - CRM Lead Routing Rule Model (المرحلة 13 - G5) @version 1.0.0 */
-class CrmLeadRoutingRule extends Model {
+class CrmLeadRoutingRule extends Model
+{
     protected $table = 'crm_lead_routing_rules';
     protected $fillable = [
         'user_id', 'name', 'is_active', 'match_source', 'match_country',
@@ -9,7 +11,8 @@ class CrmLeadRoutingRule extends Model {
     ];
 
     /** قواعد الحساب النشطة مرتبة حسب الترتيب */
-    public function activeForUser(int $userId): array {
+    public function activeForUser(int $userId): array
+    {
         return $this->db->query(
             "SELECT * FROM crm_lead_routing_rules WHERE user_id = ? AND is_active = 1 ORDER BY sort_order ASC, id ASC",
             [$userId]
@@ -17,7 +20,8 @@ class CrmLeadRoutingRule extends Model {
     }
 
     /** كل قواعد الحساب */
-    public function allForUser(int $userId): array {
+    public function allForUser(int $userId): array
+    {
         return $this->db->query(
             "SELECT * FROM crm_lead_routing_rules WHERE user_id = ? ORDER BY sort_order ASC, id ASC",
             [$userId]
@@ -25,7 +29,8 @@ class CrmLeadRoutingRule extends Model {
     }
 
     /** قاعدة مملوكة للحساب */
-    public function findOwned(int $userId, int $ruleId): ?CrmLeadRoutingRule {
+    public function findOwned(int $userId, int $ruleId): ?CrmLeadRoutingRule
+    {
         $rows = $this->db->query(
             "SELECT * FROM crm_lead_routing_rules WHERE id = ? AND user_id = ? LIMIT 1",
             [$ruleId, $userId]

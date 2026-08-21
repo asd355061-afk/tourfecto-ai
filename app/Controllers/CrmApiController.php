@@ -1490,26 +1490,37 @@ class CrmApiController extends Controller
     // ============================================================
 
     /** GET /api/crm/templates?channel=whatsapp (اختياري) */
-    public function listTemplates(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listTemplates(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $templates = $this->templateService->listForUser($this->tenantId(), (string) $this->get('channel', ''));
-            return $this->success(['templates' => array_map(fn($t) => $t->toArray(), $templates)]);
+            return $this->success(['templates' => array_map(fn ($t) => $t->toArray(), $templates)]);
         } catch (Exception $e) {
             return $this->handleException($e, 'listTemplates');
         }
     }
 
     /** GET /api/crm/templates/variables - المتغيرات المسموحة في القوالب */
-    public function templateVariables(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function templateVariables(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         return $this->success(['variables' => $this->templateService->variables()]);
     }
 
     /** POST /api/crm/templates {channel, name, subject?, body, variables?} */
-    public function createTemplate(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('create')) return $denied;
+    public function createTemplate(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('create')) {
+            return $denied;
+        }
         try {
             $template = $this->templateService->create($this->tenantId(), $this->uid(), $this->data);
             return $this->success(['template' => $template->toArray()], 'تم إنشاء القالب', 201);
@@ -1519,9 +1530,14 @@ class CrmApiController extends Controller
     }
 
     /** PUT /api/crm/templates/{id} */
-    public function updateTemplate(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('edit')) return $denied;
+    public function updateTemplate(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('edit')) {
+            return $denied;
+        }
         try {
             $template = $this->templateService->update($this->tenantId(), (int) ($params['id'] ?? 0), $this->data);
             return $this->success(['template' => $template->toArray()], 'تم تحديث القالب');
@@ -1531,9 +1547,14 @@ class CrmApiController extends Controller
     }
 
     /** DELETE /api/crm/templates/{id} */
-    public function deleteTemplate(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('delete')) return $denied;
+    public function deleteTemplate(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('delete')) {
+            return $denied;
+        }
         try {
             $this->templateService->delete($this->tenantId(), (int) ($params['id'] ?? 0));
             return $this->success([], 'تم حذف القالب');
@@ -1543,8 +1564,11 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/templates/{id}/render {context} - تجربة القالب قبل الإرسال */
-    public function renderTemplate(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function renderTemplate(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $context = is_array($this->get('context')) ? $this->get('context') : [];
             $rendered = $this->templateService->render($this->tenantId(), (int) ($params['id'] ?? 0), $context);
@@ -1559,12 +1583,16 @@ class CrmApiController extends Controller
     // ============================================================
 
     /** GET /api/crm/reports/win-loss?from=YYYY-MM-DD&to=YYYY-MM-DD */
-    public function winLossReport(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function winLossReport(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $report = $this->reportService->winLoss(
                 $this->tenantId(),
-                (string) $this->get('from', ''), (string) $this->get('to', '')
+                (string) $this->get('from', ''),
+                (string) $this->get('to', '')
             );
             return $this->success($report);
         } catch (Exception $e) {
@@ -1573,8 +1601,11 @@ class CrmApiController extends Controller
     }
 
     /** GET /api/crm/reports/sales-goals - الأهداف مع الإنجاز */
-    public function salesGoalsReport(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function salesGoalsReport(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success(['goals' => $this->reportService->salesGoals($this->tenantId())]);
         } catch (Exception $e) {
@@ -1583,10 +1614,17 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/reports/sales-goals {period, target_value} - إنشاء/تحديث هدف شهر */
-    public function setSalesGoal(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('manage_settings')) return $denied;
-        if (!$this->validate(['period' => 'required'])) return $this->error('الشهر مطلوب بصيغة YYYY-MM', 422);
+    public function setSalesGoal(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('manage_settings')) {
+            return $denied;
+        }
+        if (!$this->validate(['period' => 'required'])) {
+            return $this->error('الشهر مطلوب بصيغة YYYY-MM', 422);
+        }
         try {
             $goal = $this->reportService->setGoal(
                 $this->tenantId(),
@@ -1600,9 +1638,14 @@ class CrmApiController extends Controller
     }
 
     /** DELETE /api/crm/reports/sales-goals/{id} */
-    public function deleteSalesGoal(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+    public function deleteSalesGoal(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('manage_settings')) {
+            return $denied;
+        }
         try {
             $this->reportService->deleteGoal($this->tenantId(), (int) ($params['id'] ?? 0));
             return $this->success([], 'تم حذف الهدف');
@@ -1616,8 +1659,11 @@ class CrmApiController extends Controller
     // ============================================================
 
     /** GET /api/crm/custom-fields?entity_type=contact (اختياري) */
-    public function listCustomFields(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listCustomFields(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $fields = $this->customFieldService->definitions($this->tenantId(), (string) $this->get('entity_type', ''));
             return $this->success(['fields' => $fields]);
@@ -1627,9 +1673,14 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/custom-fields {entity_type, field_key, label, field_type?, options?} */
-    public function createCustomField(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+    public function createCustomField(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('manage_settings')) {
+            return $denied;
+        }
         try {
             $field = $this->customFieldService->createDefinition($this->tenantId(), $this->data);
             return $this->success(['field' => $field->toArray()], 'تم إنشاء الحقل', 201);
@@ -1639,9 +1690,14 @@ class CrmApiController extends Controller
     }
 
     /** PUT /api/crm/custom-fields/{id} {label?, options?} */
-    public function updateCustomField(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+    public function updateCustomField(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('manage_settings')) {
+            return $denied;
+        }
         try {
             $field = $this->customFieldService->updateDefinition($this->tenantId(), (int) ($params['id'] ?? 0), $this->data);
             return $this->success(['field' => $field->toArray()], 'تم تحديث الحقل');
@@ -1651,9 +1707,14 @@ class CrmApiController extends Controller
     }
 
     /** DELETE /api/crm/custom-fields/{id} */
-    public function deleteCustomField(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+    public function deleteCustomField(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('manage_settings')) {
+            return $denied;
+        }
         try {
             $this->customFieldService->deleteDefinition($this->tenantId(), (int) ($params['id'] ?? 0));
             return $this->success([], 'تم حذف الحقل');
@@ -1663,8 +1724,11 @@ class CrmApiController extends Controller
     }
 
     /** GET /api/crm/entities/{entityType}/{id}/custom-fields - قراءة قيم كيان */
-    public function getEntityCustomFields(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getEntityCustomFields(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $values = $this->customFieldService->getValues(
                 $this->tenantId(),
@@ -1678,9 +1742,14 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/entities/{entityType}/{id}/custom-fields {values: {key: value}} - كتابة قيم كيان */
-    public function setEntityCustomFields(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('edit')) return $denied;
+    public function setEntityCustomFields(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('edit')) {
+            return $denied;
+        }
         try {
             $values = is_array($this->get('values')) ? $this->get('values') : [];
             $saved = $this->customFieldService->setValues(
@@ -1698,8 +1767,11 @@ class CrmApiController extends Controller
     // ============================================================
 
     /** GET /api/crm/products?only_active=1 */
-    public function listProducts(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listProducts(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $products = $this->productService->listProducts($this->tenantId(), (int) $this->get('only_active', 0) === 1);
             return $this->success(['products' => $products]);
@@ -1709,9 +1781,14 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/products {name, price, currency?, description?, sku?} */
-    public function createProduct(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('create')) return $denied;
+    public function createProduct(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('create')) {
+            return $denied;
+        }
         try {
             $product = $this->productService->createProduct($this->tenantId(), $this->data);
             return $this->success(['product' => $product->toArray()], 'تم إنشاء المنتج', 201);
@@ -1721,9 +1798,14 @@ class CrmApiController extends Controller
     }
 
     /** PUT /api/crm/products/{id} */
-    public function updateProduct(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('edit')) return $denied;
+    public function updateProduct(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('edit')) {
+            return $denied;
+        }
         try {
             $product = $this->productService->updateProduct($this->tenantId(), (int) ($params['id'] ?? 0), $this->data);
             return $this->success(['product' => $product->toArray()], 'تم تحديث المنتج');
@@ -1733,9 +1815,14 @@ class CrmApiController extends Controller
     }
 
     /** DELETE /api/crm/products/{id} */
-    public function deleteProduct(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('delete')) return $denied;
+    public function deleteProduct(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('delete')) {
+            return $denied;
+        }
         try {
             $this->productService->deleteProduct($this->tenantId(), (int) ($params['id'] ?? 0));
             return $this->success([], 'تم حذف المنتج');
@@ -1745,8 +1832,11 @@ class CrmApiController extends Controller
     }
 
     /** GET /api/crm/deals/{id}/items - بنود صفقة */
-    public function listDealItems(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listDealItems(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $items = $this->productService->listDealItems($this->tenantId(), (int) ($params['id'] ?? 0));
             return $this->success(['items' => $items]);
@@ -1756,9 +1846,14 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/deals/{id}/items {product_id?, product_name?, unit_price, quantity?, discount?} */
-    public function addDealItem(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('create')) return $denied;
+    public function addDealItem(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('create')) {
+            return $denied;
+        }
         try {
             $item = $this->productService->addDealItem($this->tenantId(), (int) ($params['id'] ?? 0), $this->data);
             return $this->success(['item' => $item->toArray()], 'تمت إضافة البند', 201);
@@ -1768,12 +1863,20 @@ class CrmApiController extends Controller
     }
 
     /** PUT /api/crm/deals/{id}/items/{itemId} */
-    public function updateDealItem(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('edit')) return $denied;
+    public function updateDealItem(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('edit')) {
+            return $denied;
+        }
         try {
             $item = $this->productService->updateDealItem(
-                $this->tenantId(), (int) ($params['id'] ?? 0), (int) ($params['itemId'] ?? 0), $this->data
+                $this->tenantId(),
+                (int) ($params['id'] ?? 0),
+                (int) ($params['itemId'] ?? 0),
+                $this->data
             );
             return $this->success(['item' => $item->toArray()], 'تم تحديث البند');
         } catch (Exception $e) {
@@ -1782,9 +1885,14 @@ class CrmApiController extends Controller
     }
 
     /** DELETE /api/crm/deals/{id}/items/{itemId} */
-    public function removeDealItem(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('delete')) return $denied;
+    public function removeDealItem(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('delete')) {
+            return $denied;
+        }
         try {
             $this->productService->removeDealItem($this->tenantId(), (int) ($params['id'] ?? 0), (int) ($params['itemId'] ?? 0));
             return $this->success([], 'تم حذف البند');
@@ -1798,8 +1906,11 @@ class CrmApiController extends Controller
     // ============================================================
 
     /** GET /api/crm/routing-rules */
-    public function listRoutingRules(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listRoutingRules(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success(['rules' => $this->leadRoutingService->listRules($this->tenantId())]);
         } catch (Exception $e) {
@@ -1808,9 +1919,14 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/routing-rules */
-    public function createRoutingRule(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+    public function createRoutingRule(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('manage_settings')) {
+            return $denied;
+        }
         try {
             $rule = $this->leadRoutingService->createRule($this->tenantId(), $this->data);
             return $this->success(['rule' => $rule->toArray()], 'تم إنشاء القاعدة', 201);
@@ -1820,9 +1936,14 @@ class CrmApiController extends Controller
     }
 
     /** PUT /api/crm/routing-rules/{id} */
-    public function updateRoutingRule(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+    public function updateRoutingRule(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('manage_settings')) {
+            return $denied;
+        }
         try {
             $rule = $this->leadRoutingService->updateRule($this->tenantId(), (int) ($params['id'] ?? 0), $this->data);
             return $this->success(['rule' => $rule->toArray()], 'تم تحديث القاعدة');
@@ -1832,9 +1953,14 @@ class CrmApiController extends Controller
     }
 
     /** DELETE /api/crm/routing-rules/{id} */
-    public function deleteRoutingRule(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+    public function deleteRoutingRule(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('manage_settings')) {
+            return $denied;
+        }
         try {
             $this->leadRoutingService->deleteRule($this->tenantId(), (int) ($params['id'] ?? 0));
             return $this->success([], 'تم حذف القاعدة');
@@ -1844,12 +1970,19 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/leads/{id}/route - تطبيق قواعد التوجيه على Lead */
-    public function routeLead(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('edit')) return $denied;
+    public function routeLead(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('edit')) {
+            return $denied;
+        }
         try {
             $result = $this->leadRoutingService->routeLead(
-                $this->tenantId(), (int) ($params['id'] ?? 0), is_array($this->data) ? $this->data : []
+                $this->tenantId(),
+                (int) ($params['id'] ?? 0),
+                is_array($this->data) ? $this->data : []
             );
             return $this->success($result, $result['assigned'] ? 'تم توجيه الـLead' : 'لا توجد قاعدة مطابقة');
         } catch (Exception $e) {
@@ -1862,8 +1995,11 @@ class CrmApiController extends Controller
     // ============================================================
 
     /** GET /api/crm/lifecycle/stages */
-    public function listLifecycleStages(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listLifecycleStages(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $stages = $this->lifecycleService->listStages($this->tenantId());
             $distribution = $this->lifecycleService->distribution($this->tenantId());
@@ -1874,9 +2010,14 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/lifecycle/stages {stage_key, name, color?, sort_order?} - مرحلة مخصصة */
-    public function createLifecycleStage(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+    public function createLifecycleStage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('manage_settings')) {
+            return $denied;
+        }
         try {
             $stage = $this->lifecycleService->createStage($this->tenantId(), $this->data);
             return $this->success(['stage' => $stage->toArray()], 'تم إنشاء المرحلة', 201);
@@ -1886,9 +2027,14 @@ class CrmApiController extends Controller
     }
 
     /** PUT /api/crm/lifecycle/stages/{id} */
-    public function updateLifecycleStage(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+    public function updateLifecycleStage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('manage_settings')) {
+            return $denied;
+        }
         try {
             $stage = $this->lifecycleService->updateStage($this->tenantId(), (int) ($params['id'] ?? 0), $this->data);
             return $this->success(['stage' => $stage->toArray()], 'تم تحديث المرحلة');
@@ -1898,9 +2044,14 @@ class CrmApiController extends Controller
     }
 
     /** DELETE /api/crm/lifecycle/stages/{id} */
-    public function deleteLifecycleStage(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+    public function deleteLifecycleStage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('manage_settings')) {
+            return $denied;
+        }
         try {
             $this->lifecycleService->deleteStage($this->tenantId(), (int) ($params['id'] ?? 0));
             return $this->success([], 'تم حذف المرحلة');
@@ -1910,12 +2061,19 @@ class CrmApiController extends Controller
     }
 
     /** PUT /api/crm/contacts/{id}/lifecycle {stage_key} - تعيين مرحلة دورة حياة */
-    public function setContactLifecycle(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('edit')) return $denied;
+    public function setContactLifecycle(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('edit')) {
+            return $denied;
+        }
         try {
             $contact = $this->lifecycleService->setStage(
-                $this->tenantId(), (int) ($params['id'] ?? 0), (string) $this->get('stage_key')
+                $this->tenantId(),
+                (int) ($params['id'] ?? 0),
+                (string) $this->get('stage_key')
             );
             return $this->success(['contact' => $contact->toArray()], 'تم تحديث مرحلة دورة الحياة');
         } catch (Exception $e) {
@@ -1924,8 +2082,11 @@ class CrmApiController extends Controller
     }
 
     /** GET /api/crm/lifecycle/contacts?stage_key=qualified - فلترة جهات الاتصال بالمرحلة */
-    public function contactsByLifecycle(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function contactsByLifecycle(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $contacts = $this->lifecycleService->contactsByStage($this->tenantId(), (string) $this->get('stage_key', ''));
             return $this->success(['contacts' => $contacts]);
@@ -1939,12 +2100,20 @@ class CrmApiController extends Controller
     // ============================================================
 
     /** POST /api/crm/team/invite {email, role} - دعوة عضو (بريد مسجّل → إضافة مباشرة) */
-    public function inviteTeamMember(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+    public function inviteTeamMember(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('manage_settings')) {
+            return $denied;
+        }
         try {
             $result = $this->teamInviteService->invite(
-                $this->tenantId(), $this->uid(), (string) $this->get('email'), (string) $this->get('role')
+                $this->tenantId(),
+                $this->uid(),
+                (string) $this->get('email'),
+                (string) $this->get('role')
             );
             $message = $result['mode'] === 'direct_added'
                 ? 'أُضيف العضو مباشرة (البريد مسجّل مسبقًا)'
@@ -1956,8 +2125,11 @@ class CrmApiController extends Controller
     }
 
     /** GET /api/crm/team/invites */
-    public function listTeamInvites(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listTeamInvites(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success(['invites' => $this->teamInviteService->listInvites($this->tenantId())]);
         } catch (Exception $e) {
@@ -1966,9 +2138,14 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/team/invites/{id}/revoke */
-    public function revokeTeamInvite(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('manage_settings')) return $denied;
+    public function revokeTeamInvite(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('manage_settings')) {
+            return $denied;
+        }
         try {
             $this->teamInviteService->revokeInvite($this->tenantId(), (int) ($params['id'] ?? 0));
             return $this->success([], 'تم إلغاء الدعوة');
@@ -1978,7 +2155,8 @@ class CrmApiController extends Controller
     }
 
     /** GET /api/crm/team/invite/{token} - عام (بلا Auth): بيانات دعوة لصفحة القبول */
-    public function showTeamInvite(array $params = []): array {
+    public function showTeamInvite(array $params = []): array
+    {
         try {
             return $this->success($this->teamInviteService->showInvite((string) ($params['token'] ?? '')));
         } catch (Exception $e) {
@@ -1987,7 +2165,8 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/team/invite/{token}/accept - عام (بلا Auth): قبول دعوة وإنشاء حساب */
-    public function acceptTeamInvite(array $params = []): array {
+    public function acceptTeamInvite(array $params = []): array
+    {
         try {
             if (!$this->validate(['first_name' => 'required', 'last_name' => 'required', 'password' => 'required|min:8'])) {
                 return $this->error('بيانات غير صحيحة', 422, $this->getErrors());
@@ -2008,8 +2187,11 @@ class CrmApiController extends Controller
     // ============================================================
 
     /** GET /api/crm/charts/pipeline - توزيع الصفقات المفتوحة على المراحل */
-    public function chartPipeline(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function chartPipeline(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success(['chart' => $this->chartService->pipelineChart($this->tenantId())]);
         } catch (Exception $e) {
@@ -2018,8 +2200,11 @@ class CrmApiController extends Controller
     }
 
     /** GET /api/crm/charts/revenue-trend?months=12 */
-    public function chartRevenueTrend(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function chartRevenueTrend(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $months = (int) $this->get('months', 12);
             return $this->success(['chart' => $this->chartService->revenueTrend($this->tenantId(), $months)]);
@@ -2029,8 +2214,11 @@ class CrmApiController extends Controller
     }
 
     /** GET /api/crm/charts/win-loss?from=YYYY-MM-DD&to=YYYY-MM-DD */
-    public function chartWinLoss(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function chartWinLoss(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $chart = $this->chartService->winLossTrend(
                 $this->tenantId(),
@@ -2044,8 +2232,11 @@ class CrmApiController extends Controller
     }
 
     /** GET /api/crm/charts/lead-sources */
-    public function chartLeadSources(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function chartLeadSources(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success(['chart' => $this->chartService->leadSourceDistribution($this->tenantId())]);
         } catch (Exception $e) {
@@ -2054,8 +2245,11 @@ class CrmApiController extends Controller
     }
 
     /** GET /api/crm/charts/deal-status */
-    public function chartDealStatus(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function chartDealStatus(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success(['chart' => $this->chartService->dealStatusDistribution($this->tenantId())]);
         } catch (Exception $e) {
@@ -2064,8 +2258,11 @@ class CrmApiController extends Controller
     }
 
     /** GET /api/crm/charts/lifecycle */
-    public function chartLifecycle(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function chartLifecycle(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success(['chart' => $this->chartService->lifecycleDistribution($this->tenantId())]);
         } catch (Exception $e) {
@@ -2082,7 +2279,8 @@ class CrmApiController extends Controller
      * AuthMiddleware عمدًا: عميل البريد لا يحمل جلسة المستخدم). يرجع
      * صورة GIF 1x1 شفافة بعد تسجيل الفتح.
      */
-    public function emailTrackingPixel(array $params = []): array {
+    public function emailTrackingPixel(array $params = []): array
+    {
         $raw = (string) ($params['token'] ?? '');
         $token = preg_replace('/\.gif$/', '', $raw);
 
@@ -2103,14 +2301,21 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/email-track {contact_id, subject, html_body, message_id?} - يرسل إيميل ببكسل تتبع */
-    public function sendTrackedEmail(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function sendTrackedEmail(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $contactId = (int) $this->get('contact_id', 0);
             $subject = (string) $this->get('subject');
             $htmlBody = (string) $this->get('html_body');
-            if ($contactId <= 0) return $this->error('معرّف جهة الاتصال مطلوب', 422);
-            if ($subject === '' || $htmlBody === '') return $this->error('العنوان والجسم مطلوبان', 422);
+            if ($contactId <= 0) {
+                return $this->error('معرّف جهة الاتصال مطلوب', 422);
+            }
+            if ($subject === '' || $htmlBody === '') {
+                return $this->error('العنوان والجسم مطلوبان', 422);
+            }
 
             $track = $this->emailTrackingService->appendPixel($htmlBody, $this->tenantId(), $contactId, $subject);
             $sent = (new CrmEmailService())->sendToContact($this->tenantId(), $contactId, $subject, $track['html_body']);
@@ -2125,8 +2330,11 @@ class CrmApiController extends Controller
     }
 
     /** GET /api/crm/email-track/stats?contact_id= - إحصاءات الفتح */
-    public function emailTrackingStats(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function emailTrackingStats(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $contactId = $this->get('contact_id') !== null ? (int) $this->get('contact_id') : null;
             $stats = $this->emailTrackingService->stats($this->tenantId(), $contactId);
@@ -2142,8 +2350,11 @@ class CrmApiController extends Controller
     // ============================================================
 
     /** GET /api/crm/activity-types */
-    public function listActivityTypes(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listActivityTypes(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success(['activity_types' => $this->activityService->listTypes($this->tenantId())]);
         } catch (Exception $e) {
@@ -2152,9 +2363,14 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/activity-types {name, type_key?, icon?, color?} */
-    public function createActivityType(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('create')) return $denied;
+    public function createActivityType(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('create')) {
+            return $denied;
+        }
         try {
             $type = $this->activityService->createType($this->tenantId(), $this->data);
             return $this->success(['activity_type' => $type->toArray()], 'تم إنشاء النوع', 201);
@@ -2164,9 +2380,14 @@ class CrmApiController extends Controller
     }
 
     /** PUT /api/crm/activity-types/{id} */
-    public function updateActivityType(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('edit')) return $denied;
+    public function updateActivityType(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('edit')) {
+            return $denied;
+        }
         try {
             $type = $this->activityService->updateType($this->tenantId(), (int) ($params['id'] ?? 0), $this->data);
             return $this->success(['activity_type' => $type->toArray()], 'تم تحديث النوع');
@@ -2176,9 +2397,14 @@ class CrmApiController extends Controller
     }
 
     /** DELETE /api/crm/activity-types/{id} */
-    public function deleteActivityType(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('delete')) return $denied;
+    public function deleteActivityType(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('delete')) {
+            return $denied;
+        }
         try {
             $this->activityService->deleteType($this->tenantId(), (int) ($params['id'] ?? 0));
             return $this->success([], 'تم حذف النوع');
@@ -2188,8 +2414,11 @@ class CrmApiController extends Controller
     }
 
     /** GET /api/crm/activities?related_type=contact&related_id=5&activity_type_id=2 */
-    public function listActivities(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listActivities(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $relatedType = $this->get('related_type') !== null ? (string) $this->get('related_type') : null;
             $relatedId = $this->get('related_id') !== null ? (int) $this->get('related_id') : null;
@@ -2203,9 +2432,14 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/activities {activity_type_id, subject, related_type?, related_id?, notes?, performed_at?} */
-    public function createActivity(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('create')) return $denied;
+    public function createActivity(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('create')) {
+            return $denied;
+        }
         try {
             $activity = $this->activityService->recordActivity($this->tenantId(), $this->data);
             return $this->success(['activity' => $activity->toArray()], 'تم تسجيل النشاط', 201);
@@ -2215,9 +2449,14 @@ class CrmApiController extends Controller
     }
 
     /** DELETE /api/crm/activities/{id} */
-    public function deleteActivity(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('delete')) return $denied;
+    public function deleteActivity(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('delete')) {
+            return $denied;
+        }
         try {
             $this->activityService->deleteActivity($this->tenantId(), (int) ($params['id'] ?? 0));
             return $this->success([], 'تم حذف النشاط');
@@ -2231,8 +2470,11 @@ class CrmApiController extends Controller
     // ============================================================
 
     /** GET /api/crm/web-forms - قائمة نماذج الحساب */
-    public function listWebForms(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listWebForms(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success(['web_forms' => $this->webFormService->listForms($this->tenantId())]);
         } catch (Exception $e) {
@@ -2241,8 +2483,11 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/web-forms {name, slug?, fields?, success_message?, redirect_url?, owner_user_id?, source?} */
-    public function createWebForm(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function createWebForm(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $form = $this->webFormService->saveForm($this->tenantId(), $this->data);
             return $this->success(['web_form' => $form->toArray()], 'تم إنشاء النموذج', 201);
@@ -2252,8 +2497,11 @@ class CrmApiController extends Controller
     }
 
     /** PUT /api/crm/web-forms/{id} */
-    public function updateWebForm(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function updateWebForm(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $form = $this->webFormService->saveForm($this->tenantId(), $this->data, (int) ($params['id'] ?? 0));
             return $this->success(['web_form' => $form->toArray()], 'تم تحديث النموذج');
@@ -2263,9 +2511,14 @@ class CrmApiController extends Controller
     }
 
     /** DELETE /api/crm/web-forms/{id} */
-    public function deleteWebForm(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('delete')) return $denied;
+    public function deleteWebForm(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('delete')) {
+            return $denied;
+        }
         try {
             $this->webFormService->deleteForm($this->tenantId(), (int) ($params['id'] ?? 0));
             return $this->success([], 'تم حذف النموذج');
@@ -2275,8 +2528,11 @@ class CrmApiController extends Controller
     }
 
     /** GET /api/crm/web-forms/submissions - إرسالات النماذج (اختياري ?form_id) */
-    public function webFormSubmissions(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function webFormSubmissions(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $formId = $this->get('form_id') !== null ? (int) $this->get('form_id') : null;
             return $this->success([
@@ -2288,7 +2544,8 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/public/web-forms/{slug}/submit - إرسال عام (بلا جلسة) */
-    public function submitWebForm(array $params = []): array {
+    public function submitWebForm(array $params = []): array
+    {
         try {
             $result = $this->webFormService->handleSubmission((string) ($params['slug'] ?? ''), $this->data);
             if (!empty($result['ignored'])) {
@@ -2309,8 +2566,11 @@ class CrmApiController extends Controller
     // ============================================================
 
     /** GET /api/crm/sequences/schema - أنواع الخطوات المدعومة */
-    public function sequenceSchema(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function sequenceSchema(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success(['schema' => $this->sequenceService->schema()]);
         } catch (Exception $e) {
@@ -2319,8 +2579,11 @@ class CrmApiController extends Controller
     }
 
     /** GET /api/crm/sequences - قائمة التسلسلات */
-    public function listSequences(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listSequences(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success(['sequences' => $this->sequenceService->listForUser($this->tenantId())]);
         } catch (Exception $e) {
@@ -2329,8 +2592,11 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/sequences {name, description?, steps: [...]} */
-    public function createSequence(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function createSequence(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $seq = $this->sequenceService->save($this->tenantId(), $this->data);
             return $this->success(['sequence' => $seq->toArray()], 'تم إنشاء التسلسل', 201);
@@ -2340,8 +2606,11 @@ class CrmApiController extends Controller
     }
 
     /** PUT /api/crm/sequences/{id} */
-    public function updateSequence(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function updateSequence(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $seq = $this->sequenceService->save($this->tenantId(), $this->data, (int) ($params['id'] ?? 0));
             return $this->success(['sequence' => $seq->toArray()], 'تم تحديث التسلسل');
@@ -2351,9 +2620,14 @@ class CrmApiController extends Controller
     }
 
     /** DELETE /api/crm/sequences/{id} */
-    public function deleteSequence(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('delete')) return $denied;
+    public function deleteSequence(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('delete')) {
+            return $denied;
+        }
         try {
             $this->sequenceService->delete($this->tenantId(), (int) ($params['id'] ?? 0));
             return $this->success([], 'تم حذف التسلسل');
@@ -2363,8 +2637,11 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/sequences/{id}/enroll {related_type, related_id} */
-    public function enrollInSequence(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function enrollInSequence(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $data = $this->data;
             $data['sequence_id'] = (int) ($params['id'] ?? 0);
@@ -2376,8 +2653,11 @@ class CrmApiController extends Controller
     }
 
     /** GET /api/crm/sequences/enrollments - قائمة التسجيلات (?status=active|completed) */
-    public function listSequenceEnrollments(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listSequenceEnrollments(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $status = (string) $this->get('status', 'active');
             return $this->success([
@@ -2389,8 +2669,11 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/sequences/enrollments/process-due - تنفيذ الخطوات المستحقة (Job دوري) */
-    public function processDueSequences(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function processDueSequences(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $results = $this->sequenceService->processDue($this->tenantId(), (int) $this->get('limit', 50));
             return $this->success(['processed' => $results]);
@@ -2400,8 +2683,11 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/sequences/enrollments/{id}/pause */
-    public function pauseSequenceEnrollment(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function pauseSequenceEnrollment(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $enrollment = $this->sequenceService->pause($this->tenantId(), (int) ($params['id'] ?? 0));
             return $this->success(['enrollment' => $enrollment->toArray()], 'تم إيقاف التسجيل مؤقتًا');
@@ -2411,8 +2697,11 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/sequences/enrollments/{id}/resume */
-    public function resumeSequenceEnrollment(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function resumeSequenceEnrollment(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $enrollment = $this->sequenceService->resume($this->tenantId(), (int) ($params['id'] ?? 0));
             return $this->success(['enrollment' => $enrollment->toArray()], 'تم استئناف التسجيل');
@@ -2422,8 +2711,11 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/sequences/enrollments/{id}/cancel */
-    public function cancelSequenceEnrollment(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function cancelSequenceEnrollment(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $enrollment = $this->sequenceService->cancel($this->tenantId(), (int) ($params['id'] ?? 0));
             return $this->success(['enrollment' => $enrollment->toArray()], 'تم إلغاء التسجيل');
@@ -2437,8 +2729,11 @@ class CrmApiController extends Controller
     // ============================================================
 
     /** GET /api/crm/reports/builder/schema - الكيانات والحقول المتاحة */
-    public function reportBuilderSchema(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function reportBuilderSchema(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success(['schema' => $this->reportBuilderService->schema()]);
         } catch (Exception $e) {
@@ -2447,8 +2742,11 @@ class CrmApiController extends Controller
     }
 
     /** GET /api/crm/reports/builder - قائمة التقارير المحفوظة */
-    public function listSavedReports(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listSavedReports(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success(['reports' => $this->reportBuilderService->listForUser($this->tenantId())]);
         } catch (Exception $e) {
@@ -2457,8 +2755,11 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/reports/builder {name, entity, config} */
-    public function saveReport(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function saveReport(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $report = $this->reportBuilderService->save($this->tenantId(), $this->data);
             return $this->success(['report' => $report->toArray()], 'تم حفظ التقرير', 201);
@@ -2468,8 +2769,11 @@ class CrmApiController extends Controller
     }
 
     /** PUT /api/crm/reports/builder/{id} */
-    public function updateSavedReport(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function updateSavedReport(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $report = $this->reportBuilderService->save($this->tenantId(), $this->data, (int) ($params['id'] ?? 0));
             return $this->success(['report' => $report->toArray()], 'تم تحديث التقرير');
@@ -2479,8 +2783,11 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/reports/builder/run - تنفيذ تقرير فوري {entity, config} */
-    public function runReport(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function runReport(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success($this->reportBuilderService->execute(
                 $this->tenantId(),
@@ -2493,8 +2800,11 @@ class CrmApiController extends Controller
     }
 
     /** GET /api/crm/reports/builder/{id}/run - تنفيذ تقرير محفوظ */
-    public function runSavedReport(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function runSavedReport(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success($this->reportBuilderService->run($this->tenantId(), (int) ($params['id'] ?? 0)));
         } catch (Exception $e) {
@@ -2503,9 +2813,14 @@ class CrmApiController extends Controller
     }
 
     /** DELETE /api/crm/reports/builder/{id} */
-    public function deleteSavedReport(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('delete')) return $denied;
+    public function deleteSavedReport(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('delete')) {
+            return $denied;
+        }
         try {
             $this->reportBuilderService->delete($this->tenantId(), (int) ($params['id'] ?? 0));
             return $this->success([], 'تم حذف التقرير');
@@ -2519,8 +2834,11 @@ class CrmApiController extends Controller
     // ============================================================
 
     /** GET /api/crm/import/presets - قوالب الاستيراد من CRMs خارجية */
-    public function importPresets(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function importPresets(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success(['presets' => $this->externalImportService->presets()]);
         } catch (Exception $e) {
@@ -2529,8 +2847,11 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/import/preview-external {preset, csv_content} */
-    public function previewExternalImport(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function previewExternalImport(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             return $this->success($this->externalImportService->preview(
                 $this->tenantId(),
@@ -2543,9 +2864,14 @@ class CrmApiController extends Controller
     }
 
     /** POST /api/crm/import/commit-external {preset?, rows, skip_duplicates?} */
-    public function commitExternalImport(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
-        if ($denied = $this->requirePermission('create')) return $denied;
+    public function commitExternalImport(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('create')) {
+            return $denied;
+        }
         try {
             $result = $this->externalImportService->commit(
                 $this->tenantId(),

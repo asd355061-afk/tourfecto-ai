@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business API Key Service
  * Business Control Center Phase 12: Business-scoped API Keys
@@ -9,8 +10,8 @@
  * الـController بيتكفل بفحص الصلاحية الخام (owner/admin فقط) وبعدين
  * بيستدعي الـService ده.
  */
-class BusinessApiKeyService {
-
+class BusinessApiKeyService
+{
     /** الحد الأقصى للمفاتيح الفعّالة لكل Business - يمنع إغراق عشوائي */
     public const MAX_ACTIVE_KEYS = 10;
 
@@ -19,12 +20,13 @@ class BusinessApiKeyService {
      *
      * @return array<int,array>
      */
-    public function list(int $businessId): array {
+    public function list(int $businessId): array
+    {
         // M2 (Phase 27 performance audit): الترتيب اتعمل في SQL (ORDER BY
         // created_at DESC) بدل جلب كل الصفوف وفرزها في PHP - نفس النتيجة،
         // استعلام واحد بدون usort.
         return array_map(
-            fn($key) => $key->toSafeArray(),
+            fn ($key) => $key->toSafeArray(),
             (new BusinessApiKey())->where(['business_id' => $businessId], ['created_at' => 'DESC'], 0)
         );
     }
@@ -34,7 +36,8 @@ class BusinessApiKeyService {
      *
      * @return array{ok:bool,error?:string,key?:array,raw_key?:string}
      */
-    public function create(int $businessId, int $actorUserId, string $name, string $scope): array {
+    public function create(int $businessId, int $actorUserId, string $name, string $scope): array
+    {
         $name = trim(strip_tags($name));
         if ($name === '' || mb_strlen($name) > 120) {
             return ['ok' => false, 'error' => 'اسم المفتاح مطلوب (بحد أقصى 120 حرف)'];
@@ -45,7 +48,7 @@ class BusinessApiKeyService {
 
         $activeCount = count(array_filter(
             (new BusinessApiKey())->where(['business_id' => $businessId], [], 0),
-            fn($k) => !$k->getAttribute('revoked_at')
+            fn ($k) => !$k->getAttribute('revoked_at')
         ));
         if ($activeCount >= self::MAX_ACTIVE_KEYS) {
             return ['ok' => false, 'error' => 'وصلت للحد الأقصى (' . self::MAX_ACTIVE_KEYS . ' مفاتيح فعّالة) - ألغِ مفتاح قديم أولًا'];
@@ -65,7 +68,8 @@ class BusinessApiKeyService {
      *
      * @return array{ok:bool,error?:string,already_revoked?:bool}
      */
-    public function revoke(int $businessId, int $actorUserId, int $keyId): array {
+    public function revoke(int $businessId, int $actorUserId, int $keyId): array
+    {
         $key = (new BusinessApiKey())->find($keyId);
         if (!$key || (int) $key->getAttribute('business_id') !== $businessId) {
             return ['ok' => false, 'error' => 'المفتاح غير موجود'];
@@ -83,7 +87,8 @@ class BusinessApiKeyService {
         return ['ok' => true];
     }
 
-    private function notifyOwner(int $businessId, string $keyName, string $event): void {
+    private function notifyOwner(int $businessId, string $keyName, string $event): void
+    {
         if (!class_exists('BusinessNotificationService')) {
             return;
         }

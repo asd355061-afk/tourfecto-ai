@@ -70,7 +70,8 @@ class UserApiKey extends Model
      * @param array|null $scopes قائمة الصلاحيات (null = وصول كامل)
      * @return array{model: UserApiKey, raw_key: string}
      */
-    public static function generateFor(int $userId, string $name, ?string $expiresAt = null, ?array $scopes = null): array {
+    public static function generateFor(int $userId, string $name, ?string $expiresAt = null, ?array $scopes = null): array
+    {
         $rawKey = self::KEY_PREFIX_TAG . bin2hex(random_bytes(self::RAW_RANDOM_BYTES));
 
         // نضيف expires_at للأعمدة بس لو فيه صلاحية فعليًا (مش null) -
@@ -107,7 +108,8 @@ class UserApiKey extends Model
     }
 
     /** هل المفتاح منتهي الصلاحية بناءً على expires_at؟ (null = لا ينتهي أبدًا) */
-    public static function isExpired(?string $expiresAt): bool {
+    public static function isExpired(?string $expiresAt): bool
+    {
         if ($expiresAt === null || $expiresAt === '') {
             return false;
         }

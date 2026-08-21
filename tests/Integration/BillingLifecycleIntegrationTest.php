@@ -89,7 +89,7 @@ final class BillingLifecycleIntegrationTest extends TestCase
     public function testBillingTablesExist(): void
     {
         $pdo = $this->requireDb();
-        $expected = ['plans', 'subscriptions', 'wallet_transactions', 'invoices', 'tax_rules', 'wallet_deposits', 'wallet_cards'];
+        $expected = ['plan_pricing_display', 'subscriptions', 'wallet_transactions', 'invoices', 'tax_rules', 'wallet_payment_settings', 'wallet_recharge_cards'];
         $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
         $tables = array_map('strtolower', $tables);
         foreach ($expected as $table) {
@@ -101,7 +101,7 @@ final class BillingLifecycleIntegrationTest extends TestCase
     {
         $pdo = $this->requireDb();
         $rows = $pdo->query(
-            'SELECT plan_key, price_monthly, price_yearly FROM plans WHERE is_active = 1'
+            'SELECT plan_key, price_monthly, price_yearly FROM plan_pricing_display WHERE is_active = 1'
         )->fetchAll(PDO::FETCH_ASSOC);
         $this->assertNotEmpty($rows, 'لا توجد باقات مفعّلة في جدول plans');
         foreach ($rows as $row) {

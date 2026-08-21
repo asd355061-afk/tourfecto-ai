@@ -1,4 +1,5 @@
 <?php
+
 /**
  * View: Settings - connected section (extracted Phase 16F).
  */

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Team Service
  * Team Management + RBAC - Business Control Center Phase 10
@@ -17,8 +18,8 @@
  *     أصلاً في business_members - مستحيل فنيًا، والفحص هنا طبقة دفاع تانية).
  *   - owner_admin_ops: إضافة/إزالة دور admin بتتطلب الـowner.
  */
-class BusinessTeamService {
-
+class BusinessTeamService
+{
     public const INVITE_TTL_DAYS = 7;
     /** F5 (Phase 26): الحد الأقصى للدعوات المعلقة لكل Business */
     public const MAX_PENDING_INVITES = 25;
@@ -31,7 +32,8 @@ class BusinessTeamService {
      *
      * @return array{ok:bool,error?:string,type?:string,member?:array,invite_link?:string}
      */
-    public function invite(int $businessId, int $actorUserId, string $email, string $role, ?string $actorRole = null): array {
+    public function invite(int $businessId, int $actorUserId, string $email, string $role, ?string $actorRole = null): array
+    {
         $email = strtolower(trim($email));
         if (!in_array($role, BusinessAccessService::allowedMemberRoles(), true)) {
             return ['ok' => false, 'error' => 'دور غير صالح'];
@@ -146,7 +148,8 @@ class BusinessTeamService {
      * بريده مطابقًا لبريد الدعوة (بعد تطبيع lowercase)، والـtoken صحيح
      * وغير منتهي الصلاحية.
      */
-    public function acceptInvite(int $businessId, string $token, int $userId, string $userEmail): array {
+    public function acceptInvite(int $businessId, string $token, int $userId, string $userEmail): array
+    {
         $business = (new Business())->find($businessId);
         if (!$business) {
             return ['ok' => false, 'error' => 'Business غير موجود'];
@@ -198,7 +201,8 @@ class BusinessTeamService {
      * القاعدة الدقيقة: الـactor بدوره بيوصل في actorRole، والـadmin
      * ميقدرش يحذف admin تاني (owner بس). Owner أصلاً مش مخزّن هنا.
      */
-    public function remove(int $businessId, string $actorRole, int $memberId): array {
+    public function remove(int $businessId, string $actorRole, int $memberId): array
+    {
         $member = (new BusinessMember())->find($memberId);
         if (!$member || (int) $member->getAttribute('business_id') !== $businessId) {
             return ['ok' => false, 'error' => 'العضو غير موجود'];
@@ -230,7 +234,8 @@ class BusinessTeamService {
      * - الـadmin ميقدرش يغيّر دور admin/owner تاني.
      * - تولية/إزالة دور admin (التعامل مع أدوار admin) بتتطلب الـowner.
      */
-    public function changeRole(int $businessId, string $actorRole, int $memberId, string $newRole): array {
+    public function changeRole(int $businessId, string $actorRole, int $memberId, string $newRole): array
+    {
         if (!in_array($newRole, BusinessAccessService::allowedMemberRoles(), true)) {
             return ['ok' => false, 'error' => 'دور غير صالح'];
         }
@@ -273,7 +278,8 @@ class BusinessTeamService {
      * قائمة الفريق الكاملة: المالك (من businesses.owner_user_id + users)
      * + كل صفوف business_members (النشطة والمعلقة) مع بيانات المستخدم.
      */
-    public function list(int $businessId): array {
+    public function list(int $businessId): array
+    {
         $business = (new Business())->find($businessId);
         if (!$business) {
             return [];
@@ -292,8 +298,8 @@ class BusinessTeamService {
         // (N+1 - فريق بـ25 عضو كان بيكلف 25 استعلام)، بنجيب كل المستخدمين
         // المطلوبين باستعلام واحد IN (...) ونربطهم بالـID.
         $memberUserIds = array_values(array_unique(array_filter(
-            array_map(fn($m) => $m->getAttribute('user_id'), $members),
-            fn($id) => $id !== null
+            array_map(fn ($m) => $m->getAttribute('user_id'), $members),
+            fn ($id) => $id !== null
         )));
         $usersById = $this->usersById($memberUserIds);
 
@@ -311,7 +317,8 @@ class BusinessTeamService {
      * @param int[] $ids
      * @return array<int, User>
      */
-    private function usersById(array $ids): array {
+    private function usersById(array $ids): array
+    {
         if (empty($ids)) {
             return [];
         }
@@ -331,11 +338,13 @@ class BusinessTeamService {
     // Helpers
     // ============================================
 
-    private function generateInviteToken(): string {
+    private function generateInviteToken(): string
+    {
         return bin2hex(random_bytes(32));
     }
 
-    private function memberToArray(BusinessMember $member, array $usersById = []): array {
+    private function memberToArray(BusinessMember $member, array $usersById = []): array
+    {
         $userId = $member->getAttribute('user_id');
         if ($userId !== null) {
             $user = $usersById[(int) $userId] ?? null;
@@ -359,7 +368,8 @@ class BusinessTeamService {
         ];
     }
 
-    private function userEntry(User $user, int $businessId, string $role, string $status): array {
+    private function userEntry(User $user, int $businessId, string $role, string $status): array
+    {
         $id = (int) $user->getAttribute('id');
         $email = (string) $user->getAttribute('email');
         return [
@@ -373,7 +383,8 @@ class BusinessTeamService {
         ];
     }
 
-    private function userDisplayName(User $user): string {
+    private function userDisplayName(User $user): string
+    {
         $display = (string) $user->getAttribute('display_name');
         if ($display !== '') {
             return $display;
@@ -384,13 +395,15 @@ class BusinessTeamService {
         return $full !== '' ? $full : (string) $user->getAttribute('email');
     }
 
-    private function notify(array $payload): void {
+    private function notify(array $payload): void
+    {
         if (class_exists('BusinessNotificationService')) {
             BusinessNotificationService::push($payload);
         }
     }
 
-    private function businessName(?Business $business): string {
+    private function businessName(?Business $business): string
+    {
         if (!$business) {
             return 'النشاط التجاري';
         }
@@ -399,7 +412,8 @@ class BusinessTeamService {
         return $trade !== '' ? $trade : ($legal !== '' ? $legal : 'النشاط التجاري');
     }
 
-    private function userName(int $userId): string {
+    private function userName(int $userId): string
+    {
         $user = (new User())->find($userId);
         if (!$user) {
             return 'مستخدم';

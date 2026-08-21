@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Email Open Tracking Service (المرحلة 14 - G8)
  * @version 1.0.0
@@ -15,15 +16,18 @@
  *     وتُعيد وسم البكسل ليُلحق بالـHTML قبل الإرسال، ثم `recordOpen()`
  *     تستقبل الطلب من عميل البريد.
  */
-class CrmEmailTrackingService {
+class CrmEmailTrackingService
+{
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
     /** ينشئ سجل تتبع ويعيد وسم الصورة (يُلحق بالـHTML قبل الإرسال). */
-    public function create(int $userId, int $contactId, string $subject, ?int $messageId = null): array {
+    public function create(int $userId, int $contactId, string $subject, ?int $messageId = null): array
+    {
         $token = bin2hex(random_bytes(16));
 
         $tracking = new CrmEmailTracking([
@@ -43,13 +47,15 @@ class CrmEmailTrackingService {
     }
 
     /** وسم HTML للبكسل (1x1 شفاف) - يُلحق بنهاية جسم الإيميل. */
-    public function pixelHtml(string $token): string {
+    public function pixelHtml(string $token): string
+    {
         return '<img src="/api/crm/email-track/' . rawurlencode($token) . '.gif" '
             . 'width="1" height="1" alt="" style="display:none;" />';
     }
 
     /** يُدمج البكسل في نهاية HTML إذا لم يكن موجودًا من قبل. */
-    public function appendPixel(string $htmlBody, int $userId, int $contactId, string $subject, ?int $messageId = null): array {
+    public function appendPixel(string $htmlBody, int $userId, int $contactId, string $subject, ?int $messageId = null): array
+    {
         $track = $this->create($userId, $contactId, $subject, $messageId);
         $hasPixel = strpos($htmlBody, 'crm-email-track') !== false;
         $body = $hasPixel ? $htmlBody : $htmlBody . "\n" . $track['pixel_html'];
@@ -64,7 +70,8 @@ class CrmEmailTrackingService {
      * يسجّل فتح البريد (يستدعيه عميل البريد عبر GET البكسل).
      * يرجع bool دائمًا - لا يرمي استثناءات حتى لا يفسد استجابة الصورة.
      */
-    public function recordOpen(string $token): bool {
+    public function recordOpen(string $token): bool
+    {
         $tracking = (new CrmEmailTracking())->findByToken($token);
         if (!$tracking) {
             return false;
@@ -93,7 +100,8 @@ class CrmEmailTrackingService {
     }
 
     /** إحصاءات الفتح لحساب (اختياريًا لجهة اتصال واحدة). */
-    public function stats(int $userId, ?int $contactId = null): array {
+    public function stats(int $userId, ?int $contactId = null): array
+    {
         $sql = "SELECT
                     COUNT(*) AS total,
                     SUM(CASE WHEN first_opened_at IS NOT NULL THEN 1 ELSE 0 END) AS opened,
@@ -120,7 +128,8 @@ class CrmEmailTrackingService {
     }
 
     /** أحدث الإيميلات المُتبَّعة (مع اسم جهة الاتصال). */
-    public function recent(int $userId, int $limit = 50): array {
+    public function recent(int $userId, int $limit = 50): array
+    {
         $limit = max(1, min(200, $limit));
         return $this->db->query(
             "SELECT t.*, c.name AS contact_name, c.email AS contact_email

@@ -877,7 +877,8 @@ class WalletService
      *
      * @return array{success: bool, reason?: string, subscription_id?: int, charged?: float, new_period_end?: string, balance?: float, required?: float}
      */
-    public function renewSubscriptionFromBalance(int $subscriptionId): array {
+    public function renewSubscriptionFromBalance(int $subscriptionId): array
+    {
         try {
             return $this->db->transaction(function () use ($subscriptionId) {
                 // قفل صف الاشتراك نفسه - مفتاح الـ idempotency الأساسي ضد
@@ -998,8 +999,13 @@ class WalletService
 
                 if (class_exists('Notification')) {
                     $cycleLabel = $planType === 'yearly' ? 'عام إضافي' : 'شهر إضافي';
-                    Notification::notify($userId, 'subscription_renewed', 'تم تجديد اشتراكك تلقائيًا',
-                        'تم خصم ' . $price . '$ من محفظتك لتجديد باقة "' . ($sub['plan_display_name'] ?: $planKey) . '" لمدة ' . $cycleLabel . '.', '/subscription');
+                    Notification::notify(
+                        $userId,
+                        'subscription_renewed',
+                        'تم تجديد اشتراكك تلقائيًا',
+                        'تم خصم ' . $price . '$ من محفظتك لتجديد باقة "' . ($sub['plan_display_name'] ?: $planKey) . '" لمدة ' . $cycleLabel . '.',
+                        '/subscription'
+                    );
                 }
 
                 return [

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM External Import Service (المرحلة 15 - G14)
  * @version 1.0.0
@@ -11,8 +12,8 @@
  * وتجري معاينة/استيراد عبر نفس دوال CrmImportExportService القائمة
  * (preview/commit) دون أي تعديل فيها.
  */
-class CrmExternalImportService {
-
+class CrmExternalImportService
+{
     /** قوالب جاهزة: رؤوس أعمدة CSV الفعلية في كل نظام -> حقول CRM الداخلية */
     public const PRESETS = [
         'hubspot' => [
@@ -67,7 +68,8 @@ class CrmExternalImportService {
     ];
 
     /** قائمة القوالب المتاحة (للـUI) */
-    public function presets(): array {
+    public function presets(): array
+    {
         $list = [];
         foreach (self::PRESETS as $key => $preset) {
             $list[] = [
@@ -81,7 +83,8 @@ class CrmExternalImportService {
     }
 
     /** تحويل صفوف من صيغة نظام خارجي إلى الصيغة الداخلية (name/email/phone/...) */
-    public function normalizeRows(string $presetKey, array $rows): array {
+    public function normalizeRows(string $presetKey, array $rows): array
+    {
         $preset = self::PRESETS[$presetKey] ?? null;
         if (!$preset) {
             throw new Exception('قالب استيراد غير معروف', 422);
@@ -114,7 +117,8 @@ class CrmExternalImportService {
      * مع القالب) - بدون أي كتابة في القاعدة (نفس مبدأ preview في
      * CrmImportExportService).
      */
-    public function preview(int $userId, string $presetKey, string $csvContent): array {
+    public function preview(int $userId, string $presetKey, string $csvContent): array
+    {
         $preset = self::PRESETS[$presetKey] ?? null;
         if (!$preset) {
             throw new Exception('قالب استيراد غير معروف', 422);
@@ -158,25 +162,27 @@ class CrmExternalImportService {
                 'data' => $mapped,
                 'valid' => empty($errors),
                 'errors' => $errors,
-                'duplicate_candidates' => array_map(fn($d) => ['id' => $d['id'], 'name' => $d['name']], $duplicates),
+                'duplicate_candidates' => array_map(fn ($d) => ['id' => $d['id'], 'name' => $d['name']], $duplicates),
             ];
         }
 
         return [
             'preset' => $presetKey,
             'total_rows' => count($results),
-            'valid_rows' => count(array_filter($results, fn($r) => $r['valid'])),
-            'invalid_rows' => count(array_filter($results, fn($r) => !$r['valid'])),
+            'valid_rows' => count(array_filter($results, fn ($r) => $r['valid'])),
+            'invalid_rows' => count(array_filter($results, fn ($r) => !$r['valid'])),
             'rows' => $results,
         ];
     }
 
     /** استيراد فعلي للصفوف المؤكَّدة (يُمرَّر إلى commit القائم) */
-    public function commit(int $userId, array $rowsToImport, bool $skipDuplicates = true): array {
+    public function commit(int $userId, array $rowsToImport, bool $skipDuplicates = true): array
+    {
         return (new CrmImportExportService())->commit($userId, $rowsToImport, $skipDuplicates);
     }
 
-    private function parseCsv(string $content): array {
+    private function parseCsv(string $content): array
+    {
         $lines = preg_split("/\r\n|\n|\r/", trim($content));
         return array_map('str_getcsv', $lines);
     }

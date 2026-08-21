@@ -8,11 +8,13 @@
  * يعتمد على pure functions في RevenueBenchmarkService::classifyChurnReason
  * + حارس عدم تخمين الأسباب.
  */
-class RevenueChurnService {
+class RevenueChurnService
+{
     /** @var RevenueDataGateway */
     private $gateway;
 
-    public function __construct(?RevenueDataGateway $gateway = null) {
+    public function __construct(?RevenueDataGateway $gateway = null)
+    {
         $this->gateway = $gateway ?? new RevenueDataGateway();
     }
 
@@ -20,7 +22,8 @@ class RevenueChurnService {
      * تحليل التوقف الكامل لمستخدم: أسباب + عدد خاسر/ملغي + مدة العضوية
      * عند توفر بيانات كافية فقط.
      */
-    public function getChurnAnalytics(int $userId): array {
+    public function getChurnAnalytics(int $userId): array
+    {
         $deals = $this->gateway->getDealsWithRep($userId);
         $events = $this->gateway->hasBizSubscriptionTables()
             ? $this->gateway->getBizSubscriptionEvents($userId)

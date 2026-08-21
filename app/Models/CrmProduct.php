@@ -1,11 +1,14 @@
 <?php
+
 /** Tourfecto - CRM Product Model (المرحلة 13 - G3) @version 1.0.0 */
-class CrmProduct extends Model {
+class CrmProduct extends Model
+{
     protected $table = 'crm_products';
     protected $fillable = ['user_id', 'name', 'description', 'sku', 'price', 'currency', 'is_active'];
 
     /** منتجات الحساب (اختيار بالحالة) */
-    public function forUser(int $userId, bool $onlyActive = false): array {
+    public function forUser(int $userId, bool $onlyActive = false): array
+    {
         $sql = "SELECT * FROM crm_products WHERE user_id = ?";
         $params = [$userId];
         if ($onlyActive) {
@@ -16,7 +19,8 @@ class CrmProduct extends Model {
     }
 
     /** منتج مملوك للحساب */
-    public function findOwned(int $userId, int $productId): ?CrmProduct {
+    public function findOwned(int $userId, int $productId): ?CrmProduct
+    {
         $rows = $this->db->query(
             "SELECT * FROM crm_products WHERE id = ? AND user_id = ? LIMIT 1",
             [$productId, $userId]

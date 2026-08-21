@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Report & Goals Service (المرحلة 12 - G4)
  * @version 1.0.0
@@ -13,10 +14,12 @@
  * كل رقم محسوب من القاعدة الفعلية - لا قيم افتراضية/وهمية (بند 39).
  * لو مفيش بيانات كافية، يُرجع null صراحة.
  */
-class CrmReportService {
+class CrmReportService
+{
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
@@ -25,7 +28,8 @@ class CrmReportService {
      * @param string|null $from تاريخ YYYY-MM-DD أو null (بداية الشهر الحالي افتراضيًا)
      * @param string|null $to   تاريخ YYYY-MM-DD أو null (نهاية الشهر الحالي افتراضيًا)
      */
-    public function winLoss(int $userId, ?string $from = null, ?string $to = null): array {
+    public function winLoss(int $userId, ?string $from = null, ?string $to = null): array
+    {
         [$from, $to] = $this->normalizePeriod($from, $to);
 
         $deals = $this->db->query(
@@ -39,7 +43,11 @@ class CrmReportService {
             [$userId, $from . ' 00:00:00', $to . ' 23:59:59']
         );
 
-        $won = 0; $lost = 0; $wonValue = 0; $lostValue = 0; $lossReasons = [];
+        $won = 0;
+        $lost = 0;
+        $wonValue = 0;
+        $lostValue = 0;
+        $lossReasons = [];
 
         foreach ($deals as $deal) {
             $value = (float) $deal['value'];
@@ -77,7 +85,8 @@ class CrmReportService {
      * أهداف الحساب مع الإنجاز الفعلي لكل شهر.
      * الإنجاز = مجموع قيمة الصفقات المكسبة (status=won) المغلقة في نفس الشهر.
      */
-    public function salesGoals(int $userId): array {
+    public function salesGoals(int $userId): array
+    {
         $goals = (new CrmSalesGoal())->allForUser($userId);
         $results = [];
         foreach ($goals as $goal) {
@@ -106,7 +115,8 @@ class CrmReportService {
     }
 
     /** تعيين/تحديث هدف شهر محدد (upsert على UNIQUE user+period) */
-    public function setGoal(int $userId, string $period, float $targetValue): array {
+    public function setGoal(int $userId, string $period, float $targetValue): array
+    {
         if (!preg_match('/^\d{4}-\d{2}$/', $period)) {
             throw new Exception('صيغة الشهر غير صالحة (YYYY-MM)', 422);
         }
@@ -126,7 +136,8 @@ class CrmReportService {
     }
 
     /** حذف هدف شهر محدد */
-    public function deleteGoal(int $userId, int $goalId): bool {
+    public function deleteGoal(int $userId, int $goalId): bool
+    {
         $goal = (new CrmSalesGoal())->find($goalId);
         if (!$goal || (int) $goal->getAttribute('user_id') !== $userId) {
             throw new Exception('الهدف غير موجود', 404);
@@ -135,7 +146,8 @@ class CrmReportService {
     }
 
     /** توحيد الفترة: لو غير محددة → الشهر الحالي */
-    private function normalizePeriod(?string $from, ?string $to): array {
+    private function normalizePeriod(?string $from, ?string $to): array
+    {
         if ($from === null || $from === '') {
             $from = date('Y-m-01');
         }
@@ -145,7 +157,8 @@ class CrmReportService {
         return [$from, $to];
     }
 
-    private function scalar(string $sql, array $params) {
+    private function scalar(string $sql, array $params)
+    {
         $rows = $this->db->query($sql, $params);
         if (empty($rows)) {
             return null;

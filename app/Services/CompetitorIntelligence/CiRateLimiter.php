@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Rate Limiter
  * @version 1.0.0
@@ -15,8 +16,8 @@
  * مبدئ الـ fail-open هنا أأمن لسهولة الاستخدام من إننا نطلع للمستخدم 500
  * على كل طلب، والجدول معمول بـ migration إضافية، مش هدّامة.
  */
-class CiRateLimiter {
-
+class CiRateLimiter
+{
     /** نافذة/حدود كل scope - [limit, windowSeconds] */
     private const LIMITS = [
         'ai_ask' => [10, 60],          // 10 سؤال AI في الدقيقة
@@ -33,7 +34,8 @@ class CiRateLimiter {
      * @param string $actorKey تمييز الـ actor (مثال: user:{id})
      * @return array{allowed:bool, remaining:int, retry_after:int}
      */
-    public static function hit(string $scope, string $actorKey): array {
+    public static function hit(string $scope, string $actorKey): array
+    {
         $limit = self::LIMITS[$scope] ?? null;
         if ($limit === null) {
             return ['allowed' => true, 'remaining' => PHP_INT_MAX, 'retry_after' => 0];
@@ -79,7 +81,8 @@ class CiRateLimiter {
      * بداية نافذة الـ fixed-window لثانية معينة - منفصلة ومنطقها صافٍ
      * عشان يتبقى unit-testable بدون أي DB.
      */
-    public static function windowStart(int $now, int $windowSeconds): int {
+    public static function windowStart(int $now, int $windowSeconds): int
+    {
         if ($windowSeconds <= 0) {
             return $now;
         }

@@ -1,19 +1,23 @@
 <?php
+
 /**
  * Tourfecto - Ads Controller (إدارة الإعلانات)
  * @version 1.0.0
  */
-class AdsController extends Controller {
+class AdsController extends Controller
+{
     /** @var AdCampaignService */
     private $service;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->service = new AdCampaignService();
     }
 
     /** GET /ads */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $objectiveOptionsHtml = '';
         foreach (AdCopyGenerationService::OBJECTIVES as $key => $label) {
             $keyEsc = htmlspecialchars($key, ENT_QUOTES, 'UTF-8');
@@ -23,7 +27,8 @@ class AdsController extends Controller {
 
         $ctasJson = htmlspecialchars(
             json_encode(AdCopyGenerationService::allowedCtas(), JSON_UNESCAPED_UNICODE),
-            ENT_QUOTES, 'UTF-8'
+            ENT_QUOTES,
+            'UTF-8'
         );
 
         $tabsHtml = $this->adsTabsHtml('dashboard');
@@ -820,13 +825,18 @@ JS;
     }
 
     /** GET /api/ads/campaigns (?owner_id= لعرض حساب فريق تانٍ إنت عضو فيه) */
-    public function list(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function list(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('viewer');
-        if (!$access) return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        }
 
         $campaigns = $this->service->listForUser($access['owner_id']);
-        return $this->success(['campaigns' => array_map(fn($c) => $c->toArray(), $campaigns), 'your_role' => $access['role']]);
+        return $this->success(['campaigns' => array_map(fn ($c) => $c->toArray(), $campaigns), 'your_role' => $access['role']]);
     }
 
     /**
@@ -835,10 +845,15 @@ JS;
      * منفصل عن list() القديمة عشان أي استدعاء موجود ليها يفضل شغال بالظبط
      * زي ما هو، مفيش أي Breaking change.
      */
-    public function searchCampaigns(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function searchCampaigns(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('viewer');
-        if (!$access) return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        }
 
         $result = $this->service->listForUserPaginated($access['owner_id'], [
             'search' => $this->get('q', ''),
@@ -854,14 +869,21 @@ JS;
     }
 
     /** GET /api/ads/campaigns/{id} - تفاصيل حملة واحدة + الجمهور المرتبط بيها */
-    public function getCampaign(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getCampaign(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $campaign = (new AdCampaign())->find((int) ($params['id'] ?? 0));
-        if (!$campaign) return $this->error('الحملة غير موجودة', 404);
+        if (!$campaign) {
+            return $this->error('الحملة غير موجودة', 404);
+        }
 
         $access = $this->resolveCampaignAccess($campaign, 'viewer');
-        if (!$access) return $this->error('الحملة غير موجودة', 404);
+        if (!$access) {
+            return $this->error('الحملة غير موجودة', 404);
+        }
 
         $audiences = (new AdAudience())->where(['campaign_id' => (int) $campaign->getAttribute('id')], [], 1);
         $audience = !empty($audiences) ? $audiences[0]->toArray() : null;
@@ -883,11 +905,18 @@ JS;
      * target_audience_brief/audience/budget_recommendation/copies بعد
      * ما العميل يراجع معاينة /api/ads/campaigns/ai-generate ويأكّدها).
      */
-    public function create(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function create(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('manager');
-        if (!$access) return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
-        if (!$this->validate(['name' => 'required'])) return $this->error('اسم الحملة مطلوب', 422);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        }
+        if (!$this->validate(['name' => 'required'])) {
+            return $this->error('اسم الحملة مطلوب', 422);
+        }
 
         try {
             $campaign = $this->service->create($access['owner_id'], [
@@ -926,10 +955,15 @@ JS;
      * حاجة في قاعدة البيانات لحد ما العميل يراجعها ويأكّد الإنشاء عبر
      * POST /api/ads/campaigns العادي.
      */
-    public function aiGenerateCampaign(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function aiGenerateCampaign(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('manager');
-        if (!$access) return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        }
         if (!$this->validate(['goal_description' => 'required', 'objective' => 'required'])) {
             return $this->error('اكتب وصف مختصر لعرضك واختار هدف الحملة', 422);
         }
@@ -967,15 +1001,22 @@ JS;
     }
 
     /** GET /api/ads/campaigns/{id}/copies */
-    public function listCopies(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listCopies(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $campaign = (new AdCampaign())->find((int) ($params['id'] ?? 0));
-        if (!$campaign) return $this->error('الحملة غير موجودة', 404);
-        if (!$this->resolveCampaignAccess($campaign, 'viewer')) return $this->error('الحملة غير موجودة', 404);
+        if (!$campaign) {
+            return $this->error('الحملة غير موجودة', 404);
+        }
+        if (!$this->resolveCampaignAccess($campaign, 'viewer')) {
+            return $this->error('الحملة غير موجودة', 404);
+        }
 
         $items = (new AdCopy())->where(['campaign_id' => (int) $campaign->getAttribute('id')], ['created_at' => 'DESC']);
-        return $this->success(['copies' => array_map(fn($c) => $c->toArray(), $items)]);
+        return $this->success(['copies' => array_map(fn ($c) => $c->toArray(), $items)]);
     }
 
     /**
@@ -988,17 +1029,24 @@ JS;
      * كان مبني ومفعّل وحقيقي (Gemini فعلي) من زمان، بس مربوطش بأي controller
      * method أو route.
      */
-    public function generateCopies(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function generateCopies(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $campaign = (new AdCampaign())->find((int) ($params['id'] ?? 0));
-        if (!$campaign) return $this->error('الحملة غير موجودة', 404);
-        if (!$this->resolveCampaignAccess($campaign, 'manager')) return $this->error('الحملة غير موجودة', 404);
+        if (!$campaign) {
+            return $this->error('الحملة غير موجودة', 404);
+        }
+        if (!$this->resolveCampaignAccess($campaign, 'manager')) {
+            return $this->error('الحملة غير موجودة', 404);
+        }
 
         try {
             $service = new AdCopyGenerationService();
             $copies = $service->generateCopies($campaign, 3);
-            return $this->success(['copies' => array_map(fn($c) => $c->toArray(), $copies)], 'تم توليد النصوص الإعلانية', 201);
+            return $this->success(['copies' => array_map(fn ($c) => $c->toArray(), $copies)], 'تم توليد النصوص الإعلانية', 201);
         } catch (Exception $e) {
             Logger::error('generateCopies Error', ['campaign_id' => $params['id'] ?? null, 'message' => $e->getMessage()]);
             return $this->error($e->getMessage(), 502);
@@ -1006,20 +1054,27 @@ JS;
     }
 
     /** PATCH /api/ads/copies/{id}/approve - اعتماد نسخة إعلانية معيّنة كالنسخة المستخدمة فعليًا */
-    public function approveCopy(array $params = []): array {
+    public function approveCopy(array $params = []): array
+    {
         return $this->updateCopyStatus($params, 'approved');
     }
 
     /** PATCH /api/ads/copies/{id}/reject - استبعاد نسخة إعلانية */
-    public function rejectCopy(array $params = []): array {
+    public function rejectCopy(array $params = []): array
+    {
         return $this->updateCopyStatus($params, 'rejected');
     }
 
-    private function updateCopyStatus(array $params, string $status): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    private function updateCopyStatus(array $params, string $status): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $copy = (new AdCopy())->find((int) ($params['id'] ?? 0));
-        if (!$copy) return $this->error('النسخة الإعلانية غير موجودة', 404);
+        if (!$copy) {
+            return $this->error('النسخة الإعلانية غير موجودة', 404);
+        }
 
         $campaign = (new AdCampaign())->find((int) $copy->getAttribute('campaign_id'));
         if (!$campaign || !$this->resolveCampaignAccess($campaign, 'manager')) {
@@ -1041,7 +1096,8 @@ JS;
     // ============================================
 
     /** GET /ads/connect/meta */
-    public function connectMeta(array $params = []): array {
+    public function connectMeta(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             header('Location: /login?redirect=' . urlencode('/ads'));
             exit;
@@ -1062,7 +1118,8 @@ JS;
     }
 
     /** GET /ads/connect/meta/callback */
-    public function metaOAuthCallback(array $params = []): array {
+    public function metaOAuthCallback(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             header('Location: /login');
             exit;
@@ -1108,7 +1165,8 @@ JS;
     }
 
     /** GET /ads/connect/meta/choose - يختار العميل حساب الإعلانات بتاعه */
-    public function showMetaAdAccountPicker(array $params = []): array {
+    public function showMetaAdAccountPicker(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             header('Location: /login');
             exit;
@@ -1160,14 +1218,21 @@ JS;
     }
 
     /** POST /api/ads/meta/choose-account */
-    public function chooseMetaAdAccount(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function chooseMetaAdAccount(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $temp = $_SESSION['meta_oauth_temp'] ?? null;
-        if (!$temp) return $this->error('انتهت الجلسة، ابدأ الربط تاني', 400);
+        if (!$temp) {
+            return $this->error('انتهت الجلسة، ابدأ الربط تاني', 400);
+        }
 
         $accountId = $this->get('account_id');
-        if (!$accountId) return $this->error('account_id مطلوب', 422);
+        if (!$accountId) {
+            return $this->error('account_id مطلوب', 422);
+        }
 
         try {
             $website = $this->firstWebsiteForUser((int) $this->user['id']);
@@ -1220,8 +1285,11 @@ JS;
      * كحملة حقيقية هناك - دايمًا بحالة متوقفة (Paused) كإجراء أمان،
      * العميل لازم يراجعها ويفعّلها بنفسه من داخل حساب المنصة الرسمي.
      */
-    public function publishCampaign(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function publishCampaign(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $campaign = (new AdCampaign())->find((int) ($params['id'] ?? 0));
         if (!$campaign) {
@@ -1245,7 +1313,7 @@ JS;
         if (empty($approvedCopies)) {
             return $this->error('لازم تعتمد نسخة إعلانية واحدة على الأقل قبل النشر (زرار "اعتماد" تحت النصوص)', 422);
         }
-        $copiesData = array_map(fn($c) => $c->toArray(), $approvedCopies);
+        $copiesData = array_map(fn ($c) => $c->toArray(), $approvedCopies);
 
         $website = (new Website())->find((int) $campaign->getAttribute('website_id'));
         $destinationUrl = $website ? trim((string) $website->getAttribute('main_url')) : '';
@@ -1293,7 +1361,7 @@ JS;
                     } else {
                         // أكتر من صفحة - محتاجين العميل يختار، بنرجّع القائمة عشان الواجهة تعرضها
                         return $this->error('عندك أكتر من صفحة فيسبوك - اختار واحدة للنشر عليها', 409, [
-                            'pages' => array_map(fn($p) => ['id' => $p['external_location_id'], 'name' => $p['external_location_name']], $pages),
+                            'pages' => array_map(fn ($p) => ['id' => $p['external_location_id'], 'name' => $p['external_location_name']], $pages),
                         ]);
                     }
                 }
@@ -1312,7 +1380,7 @@ JS;
                 $result = $api->createCampaign($conn['external_account_id'], $pageId, $campaignPayload, $audience, $copiesData, $destinationUrl, $imageUrl);
             } else {
                 $keywordRows = (new AdKeyword())->where(['campaign_id' => (int) $campaign->getAttribute('id')]);
-                $keywords = array_map(fn($k) => ['keyword' => $k->getAttribute('keyword'), 'match_type' => $k->getAttribute('match_type')], $keywordRows);
+                $keywords = array_map(fn ($k) => ['keyword' => $k->getAttribute('keyword'), 'match_type' => $k->getAttribute('match_type')], $keywordRows);
 
                 $budgetRecRows = (new AdBudgetRecommendation())->where(['campaign_id' => (int) $campaign->getAttribute('id')]);
                 $bidStrategyHint = !empty($budgetRecRows) ? (string) $budgetRecRows[0]->getAttribute('bid_strategy') : '';
@@ -1364,11 +1432,16 @@ JS;
      * تشغيل/إيقاف حملة منشورة فعليًا على المنصة (Meta أو Google) - بيغيّر
      * الحالة هناك مباشرة، مش بس محليًا، عشان الإنفاق الفعلي يتأثر فورًا.
      */
-    public function toggleCampaignStatus(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function toggleCampaignStatus(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         [$campaign, $conn, $err] = $this->loadPublishedCampaignForManagement((int) ($params['id'] ?? 0));
-        if ($err) return $err;
+        if ($err) {
+            return $err;
+        }
 
         $newStatus = $campaign->getAttribute('status') === 'active' ? 'paused' : 'active';
 
@@ -1402,11 +1475,16 @@ JS;
      * POST /api/ads/campaigns/{id}/cancel
      * إلغاء حملة منشورة نهائيًا على المنصة (أرشفة على Meta، أو status=REMOVED على Google).
      */
-    public function cancelCampaign(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function cancelCampaign(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         [$campaign, $conn, $err] = $this->loadPublishedCampaignForManagement((int) ($params['id'] ?? 0));
-        if ($err) return $err;
+        if ($err) {
+            return $err;
+        }
 
         try {
             $encryption = new Encryption();
@@ -1439,14 +1517,21 @@ JS;
      * تعديل الميزانية اليومية لحملة منشورة بالفعل - محتاج البيانات المحفوظة
      * وقت النشر (external_adset_id لـ Meta، external_budget_resource لـ Google).
      */
-    public function updateCampaignBudget(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function updateCampaignBudget(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         [$campaign, $conn, $err] = $this->loadPublishedCampaignForManagement((int) ($params['id'] ?? 0));
-        if ($err) return $err;
+        if ($err) {
+            return $err;
+        }
 
         $newBudget = (float) $this->get('daily_budget');
-        if ($newBudget <= 0) return $this->error('الميزانية لازم تكون أكبر من صفر', 422);
+        if ($newBudget <= 0) {
+            return $this->error('الميزانية لازم تكون أكبر من صفر', 422);
+        }
 
         try {
             $encryption = new Encryption();
@@ -1484,7 +1569,8 @@ JS;
      * يحمّل حملة منشورة فعليًا مع بيانات ربطها للتعامل الإداري (إيقاف/تشغيل/إلغاء/تعديل ميزانية).
      * @return array{0: ?AdCampaign, 1: ?array, 2: ?array} [الحملة, صف الربط, رد خطأ لو فيه مشكلة]
      */
-    private function loadPublishedCampaignForManagement(int $campaignId): array {
+    private function loadPublishedCampaignForManagement(int $campaignId): array
+    {
         $campaign = (new AdCampaign())->find($campaignId);
         if (!$campaign) {
             return [null, null, $this->error('الحملة غير موجودة', 404)];
@@ -1514,7 +1600,8 @@ JS;
      * المستخدم، ويحفظهم كاتصالات منصة جاهزة للنشر (platform='facebook'
      * لكل صفحة، وplatform='instagram' لو فيها حساب بيزنس مرتبط).
      */
-    private function autoConnectMetaSocialPages(int $websiteId, int $userId, string $userAccessToken, Encryption $encryption): void {
+    private function autoConnectMetaSocialPages(int $websiteId, int $userId, string $userAccessToken, Encryption $encryption): void
+    {
         try {
             $api = new MetaSocialAPI($userAccessToken);
             $pagesResult = $api->listPages();
@@ -1536,8 +1623,12 @@ JS;
                 // حساب انستجرام بيزنس المرتبط بالصفحة (لو موجود)
                 if (!empty($page['instagram_id'])) {
                     $this->upsertSocialConnection(
-                        $websiteId, $userId, 'instagram', $page['instagram_id'],
-                        $page['instagram_username'] ?? $page['name'], $encryptedPageToken
+                        $websiteId,
+                        $userId,
+                        'instagram',
+                        $page['instagram_id'],
+                        $page['instagram_username'] ?? $page['name'],
+                        $encryptedPageToken
                     );
                 }
             }
@@ -1546,7 +1637,8 @@ JS;
         }
     }
 
-    private function upsertSocialConnection(int $websiteId, int $userId, string $platform, string $externalId, string $name, string $encryptedToken): void {
+    private function upsertSocialConnection(int $websiteId, int $userId, string $platform, string $externalId, string $name, string $encryptedToken): void
+    {
         $existing = $this->db->query(
             "SELECT id FROM platform_connections WHERE website_id = ? AND platform = ? AND external_location_id = ? LIMIT 1",
             [$websiteId, $platform, $externalId]
@@ -1567,10 +1659,15 @@ JS;
     }
 
     /** GET /api/ads/meta/status */
-    public function getMetaConnectionStatus(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getMetaConnectionStatus(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('viewer');
-        if (!$access) return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        }
 
         $oauth = new MetaOAuthClient();
         if (!$oauth->isConfigured()) {
@@ -1600,10 +1697,15 @@ JS;
     }
 
     /** POST /api/ads/meta/sync - سحب حملات حقيقية من Meta وتحديث ad_campaigns */
-    public function syncMetaCampaigns(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function syncMetaCampaigns(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('manager');
-        if (!$access) return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        }
 
         try {
             $connection = $this->db->query(
@@ -1662,10 +1764,15 @@ JS;
     }
 
     /** POST /api/ads/meta/disconnect */
-    public function disconnectMeta(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function disconnectMeta(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('admin');
-        if (!$access) return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        }
 
         try {
             $this->db->exec(
@@ -1680,7 +1787,8 @@ JS;
     }
 
     /** GET /ads/connect/google */
-    public function connectGoogleAds(array $params = []): array {
+    public function connectGoogleAds(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             header('Location: /login?redirect=' . urlencode('/ads'));
             exit;
@@ -1701,7 +1809,8 @@ JS;
     }
 
     /** GET /ads/connect/google/callback */
-    public function googleAdsOAuthCallback(array $params = []): array {
+    public function googleAdsOAuthCallback(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             header('Location: /login');
             exit;
@@ -1752,7 +1861,8 @@ JS;
     }
 
     /** GET /ads/connect/google/choose - يختار العميل حساب Google Ads بتاعه */
-    public function showGoogleAdsAccountPicker(array $params = []): array {
+    public function showGoogleAdsAccountPicker(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             header('Location: /login');
             exit;
@@ -1808,14 +1918,21 @@ JS;
     }
 
     /** POST /api/ads/google/choose-account */
-    public function chooseGoogleAdsAccount(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function chooseGoogleAdsAccount(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $temp = $_SESSION['google_ads_oauth_temp'] ?? null;
-        if (!$temp) return $this->error('انتهت الجلسة، ابدأ الربط تاني', 400);
+        if (!$temp) {
+            return $this->error('انتهت الجلسة، ابدأ الربط تاني', 400);
+        }
 
         $accountId = $this->get('account_id');
-        if (!$accountId) return $this->error('account_id مطلوب', 422);
+        if (!$accountId) {
+            return $this->error('account_id مطلوب', 422);
+        }
 
         try {
             $website = $this->firstWebsiteForUser((int) $this->user['id']);
@@ -1855,10 +1972,15 @@ JS;
     }
 
     /** GET /api/ads/google/status */
-    public function getGoogleAdsConnectionStatus(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getGoogleAdsConnectionStatus(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('viewer');
-        if (!$access) return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        }
 
         $configured = (new GoogleOAuthClient(GoogleOAuthClient::SCOPE_ADS, env('GOOGLE_ADS_OAUTH_REDIRECT_URI') ?: null))->isConfigured()
             && (env('GOOGLE_ADS_DEVELOPER_TOKEN') ?: '') !== '';
@@ -1895,7 +2017,8 @@ JS;
      * token عمره ساعة تقريبًا، على عكس Meta اللي بيدي توكن طويل العمر
      * (60 يوم) - عشان كده Meta مش محتاجة نفس منطق التجديد ده حاليًا.
      */
-    private function getValidGoogleAdsAccessToken(array $conn, Encryption $encryption): ?string {
+    private function getValidGoogleAdsAccessToken(array $conn, Encryption $encryption): ?string
+    {
         $expiresAt = $conn['token_expires_at'] ?? null;
         $stillValid = $expiresAt && strtotime($expiresAt) > (time() + 120);
 
@@ -1927,10 +2050,15 @@ JS;
     }
 
     /** POST /api/ads/google/sync - سحب حملات حقيقية من Google Ads وتحديث ad_campaigns */
-    public function syncGoogleAdsCampaigns(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function syncGoogleAdsCampaigns(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('manager');
-        if (!$access) return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        }
 
         try {
             $connection = $this->db->query(
@@ -1996,10 +2124,15 @@ JS;
     }
 
     /** POST /api/ads/google/disconnect */
-    public function disconnectGoogleAds(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function disconnectGoogleAds(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('admin');
-        if (!$access) return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        }
 
         try {
             $this->db->exec(
@@ -2018,10 +2151,15 @@ JS;
     // ================================================================
 
     /** GET /api/ads/autopilot/settings */
-    public function getAutopilotSettings(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getAutopilotSettings(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('viewer');
-        if (!$access) return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        }
 
         $engine = new AdAutopilotEngine();
         $settings = $engine->getSettings($access['owner_id']);
@@ -2038,11 +2176,16 @@ JS;
     }
 
     /** POST /api/ads/autopilot/settings */
-    public function saveAutopilotSettings(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function saveAutopilotSettings(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $access = $this->resolveAdsAccess('admin');
-        if (!$access) return $this->error('محتاج صلاحية Admin لتعديل إعدادات Autopilot (بيتحكم في إنفاق تلقائي حقيقي)', 403);
+        if (!$access) {
+            return $this->error('محتاج صلاحية Admin لتعديل إعدادات Autopilot (بيتحكم في إنفاق تلقائي حقيقي)', 403);
+        }
 
         try {
             $engine = new AdAutopilotEngine();
@@ -2055,20 +2198,30 @@ JS;
     }
 
     /** GET /api/ads/autopilot/pending */
-    public function listPendingActions(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listPendingActions(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('viewer');
-        if (!$access) return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        }
 
         $rows = AdPendingAction::pendingForUser($access['owner_id']);
-        return $this->success(array_map(fn($p) => $p->toArray(), $rows));
+        return $this->success(array_map(fn ($p) => $p->toArray(), $rows));
     }
 
     /** POST /api/ads/autopilot/pending/{id}/approve */
-    public function approvePendingAction(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function approvePendingAction(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('manager');
-        if (!$access) return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        }
 
         $engine = new AdAutopilotEngine();
         $result = $engine->approvePendingAction($access['owner_id'], (int) $params['id']);
@@ -2083,10 +2236,15 @@ JS;
     }
 
     /** POST /api/ads/autopilot/pending/{id}/reject */
-    public function rejectPendingAction(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function rejectPendingAction(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('manager');
-        if (!$access) return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        }
 
         $engine = new AdAutopilotEngine();
         $ok = $engine->rejectPendingAction($access['owner_id'], (int) $params['id']);
@@ -2095,10 +2253,15 @@ JS;
     }
 
     /** GET /api/ads/autopilot/logs */
-    public function listOptimizationLogs(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listOptimizationLogs(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('viewer');
-        if (!$access) return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        }
 
         $campaignId = $this->get('campaign_id');
         if ($campaignId) {
@@ -2106,30 +2269,46 @@ JS;
         } else {
             $rows = AdOptimizationLog::forUser($access['owner_id'], 50);
         }
-        return $this->success(array_map(fn($l) => $l->toArray(), $rows));
+        return $this->success(array_map(fn ($l) => $l->toArray(), $rows));
     }
 
     /** POST /api/ads/autopilot/logs/{id}/rollback */
-    public function rollbackOptimizationLog(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function rollbackOptimizationLog(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('manager');
-        if (!$access) return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        }
 
         $engine = new AdAutopilotEngine();
         $result = $engine->rollback($access['owner_id'], (int) $params['id']);
 
-        if (($result['status'] ?? '') === 'not_found') return $this->error('السجل غير موجود', 404);
-        if (($result['status'] ?? '') === 'not_rollbackable') return $this->error('التغيير ده مش قابل للتراجع (إما مش منفّذ فعليًا أو اتراجع عنه قبل كده)', 422);
-        if (($result['status'] ?? '') === 'executed') return $this->success($result, 'تم التراجع بنجاح');
+        if (($result['status'] ?? '') === 'not_found') {
+            return $this->error('السجل غير موجود', 404);
+        }
+        if (($result['status'] ?? '') === 'not_rollbackable') {
+            return $this->error('التغيير ده مش قابل للتراجع (إما مش منفّذ فعليًا أو اتراجع عنه قبل كده)', 422);
+        }
+        if (($result['status'] ?? '') === 'executed') {
+            return $this->success($result, 'تم التراجع بنجاح');
+        }
 
         return $this->error('تعذر التراجع: ' . ($result['error'] ?? 'خطأ غير معروف'), 502);
     }
 
     /** POST /api/ads/autopilot/run - تشغيل يدوي فوري (نفس اللي بيحصل من الـ cron الدوري) */
-    public function runAutopilotNow(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function runAutopilotNow(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('manager');
-        if (!$access) return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        }
 
         $engine = new AdAutopilotEngine();
         $campaigns = (new AdCampaign())->where(['user_id' => $access['owner_id'], 'status' => 'active', 'auto_optimize' => 1]);
@@ -2147,20 +2326,30 @@ JS;
     // ================================================================
 
     /** GET /api/ads/alerts/rules */
-    public function getAlertRules(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getAlertRules(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('viewer');
-        if (!$access) return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        }
 
         $service = new AdAlertService();
         return $this->success(['rules' => $service->getRules($access['owner_id'])]);
     }
 
     /** POST /api/ads/alerts/rules */
-    public function saveAlertRules(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function saveAlertRules(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('manager');
-        if (!$access) return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        }
 
         try {
             $service = new AdAlertService();
@@ -2173,10 +2362,15 @@ JS;
     }
 
     /** GET /api/ads/alerts */
-    public function listAlerts(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listAlerts(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('viewer');
-        if (!$access) return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        }
 
         $limit = max(1, min(200, (int) $this->get('limit', 50)));
         $unreadOnly = (bool) $this->get('unread_only', false);
@@ -2189,10 +2383,15 @@ JS;
     }
 
     /** POST /api/ads/alerts/run - تقييم فوري لكل الحملات النشطة */
-    public function runAlertsNow(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function runAlertsNow(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('manager');
-        if (!$access) return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        }
 
         try {
             $service = new AdAlertService();
@@ -2205,10 +2404,15 @@ JS;
     }
 
     /** POST /api/ads/alerts/read-all */
-    public function markAllAlertsRead(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function markAllAlertsRead(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('viewer');
-        if (!$access) return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        }
 
         $service = new AdAlertService();
         $service->markAllRead($access['owner_id']);
@@ -2216,10 +2420,15 @@ JS;
     }
 
     /** POST /api/ads/alerts/{id}/dismiss */
-    public function dismissAlert(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function dismissAlert(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('viewer');
-        if (!$access) return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        }
 
         $service = new AdAlertService();
         $ok = $service->dismiss($access['owner_id'], (int) ($params['id'] ?? 0));
@@ -2231,13 +2440,20 @@ JS;
     // ================================================================
 
     /** POST /api/ads/copilot/ask */
-    public function askCopilot(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function askCopilot(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('manager');
-        if (!$access) return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        }
 
         $message = trim((string) $this->get('message', ''));
-        if ($message === '') return $this->error('اكتب سؤال أو طلب الأول', 422);
+        if ($message === '') {
+            return $this->error('اكتب سؤال أو طلب الأول', 422);
+        }
 
         try {
             $copilot = new AdsCopilotService();
@@ -2254,15 +2470,24 @@ JS;
     // ================================================================
 
     /** POST /api/ads/campaigns/{id}/keywords/generate */
-    public function generateKeywords(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function generateKeywords(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $campaign = (new AdCampaign())->find((int) ($params['id'] ?? 0));
-        if (!$campaign) return $this->error('الحملة غير موجودة', 404);
-        if (!$this->resolveCampaignAccess($campaign, 'manager')) return $this->error('الحملة غير موجودة', 404);
+        if (!$campaign) {
+            return $this->error('الحملة غير موجودة', 404);
+        }
+        if (!$this->resolveCampaignAccess($campaign, 'manager')) {
+            return $this->error('الحملة غير موجودة', 404);
+        }
 
         $goalDescription = trim((string) $this->get('goal_description', (string) $campaign->getAttribute('product_or_service')));
-        if ($goalDescription === '') return $this->error('اكتب وصف مختصر للعرض الأول', 422);
+        if ($goalDescription === '') {
+            return $this->error('اكتب وصف مختصر للعرض الأول', 422);
+        }
 
         try {
             $service = new AdKeywordStrategistService();
@@ -2275,15 +2500,22 @@ JS;
     }
 
     /** GET /api/ads/campaigns/{id}/keywords */
-    public function listKeywords(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listKeywords(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $campaign = (new AdCampaign())->find((int) ($params['id'] ?? 0));
-        if (!$campaign) return $this->error('الحملة غير موجودة', 404);
-        if (!$this->resolveCampaignAccess($campaign, 'viewer')) return $this->error('الحملة غير موجودة', 404);
+        if (!$campaign) {
+            return $this->error('الحملة غير موجودة', 404);
+        }
+        if (!$this->resolveCampaignAccess($campaign, 'viewer')) {
+            return $this->error('الحملة غير موجودة', 404);
+        }
 
         $keywords = (new AdKeyword())->where(['campaign_id' => (int) $campaign->getAttribute('id')], ['created_at' => 'DESC']);
-        return $this->success(array_map(fn($k) => $k->toArray(), $keywords));
+        return $this->success(array_map(fn ($k) => $k->toArray(), $keywords));
     }
 
     // ================================================================
@@ -2293,15 +2525,24 @@ JS;
     // ================================================================
 
     /** POST /api/ads/campaigns/{id}/ad-groups */
-    public function createAdGroup(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function createAdGroup(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $campaign = (new AdCampaign())->find((int) ($params['id'] ?? 0));
-        if (!$campaign) return $this->error('الحملة غير موجودة', 404);
-        if (!$this->resolveCampaignAccess($campaign, 'manager')) return $this->error('الحملة غير موجودة', 404);
+        if (!$campaign) {
+            return $this->error('الحملة غير موجودة', 404);
+        }
+        if (!$this->resolveCampaignAccess($campaign, 'manager')) {
+            return $this->error('الحملة غير موجودة', 404);
+        }
 
         $name = trim((string) $this->get('name', ''));
-        if ($name === '') return $this->error('اسم المجموعة الإعلانية مطلوب', 422);
+        if ($name === '') {
+            return $this->error('اسم المجموعة الإعلانية مطلوب', 422);
+        }
 
         $budgetPct = $this->get('budget_allocation_pct');
 
@@ -2322,12 +2563,19 @@ JS;
     }
 
     /** GET /api/ads/campaigns/{id}/ad-groups - مع عدد الكلمات/الإعلانات المرتبطة بكل مجموعة */
-    public function listAdGroups(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listAdGroups(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $campaign = (new AdCampaign())->find((int) ($params['id'] ?? 0));
-        if (!$campaign) return $this->error('الحملة غير موجودة', 404);
-        if (!$this->resolveCampaignAccess($campaign, 'viewer')) return $this->error('الحملة غير موجودة', 404);
+        if (!$campaign) {
+            return $this->error('الحملة غير موجودة', 404);
+        }
+        if (!$this->resolveCampaignAccess($campaign, 'viewer')) {
+            return $this->error('الحملة غير موجودة', 404);
+        }
 
         $groups = (new AdAdGroup())->where(['campaign_id' => (int) $campaign->getAttribute('id')], ['created_at' => 'DESC']);
 
@@ -2347,11 +2595,16 @@ JS;
     }
 
     /** POST /api/ads/ad-groups/{id}/status */
-    public function updateAdGroupStatus(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function updateAdGroupStatus(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $group = (new AdAdGroup())->find((int) ($params['id'] ?? 0));
-        if (!$group) return $this->error('المجموعة الإعلانية غير موجودة', 404);
+        if (!$group) {
+            return $this->error('المجموعة الإعلانية غير موجودة', 404);
+        }
 
         $campaign = (new AdCampaign())->find((int) $group->getAttribute('campaign_id'));
         if (!$campaign || !$this->resolveCampaignAccess($campaign, 'manager')) {
@@ -2359,7 +2612,9 @@ JS;
         }
 
         $status = $this->get('status');
-        if (!in_array($status, ['active', 'paused'], true)) return $this->error('status لازم يكون active أو paused', 422);
+        if (!in_array($status, ['active', 'paused'], true)) {
+            return $this->error('status لازم يكون active أو paused', 422);
+        }
 
         $group->setAttribute('status', $status);
         $group->save();
@@ -2368,11 +2623,16 @@ JS;
     }
 
     /** DELETE /api/ads/ad-groups/{id} - الكلمات/الإعلانات المرتبطة بترجع ad_group_id=NULL (مش بتتحذف) */
-    public function deleteAdGroup(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function deleteAdGroup(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $group = (new AdAdGroup())->find((int) ($params['id'] ?? 0));
-        if (!$group) return $this->error('المجموعة الإعلانية غير موجودة', 404);
+        if (!$group) {
+            return $this->error('المجموعة الإعلانية غير موجودة', 404);
+        }
 
         $campaign = (new AdCampaign())->find((int) $group->getAttribute('campaign_id'));
         if (!$campaign || !$this->resolveCampaignAccess($campaign, 'manager')) {
@@ -2385,11 +2645,16 @@ JS;
     }
 
     /** POST /api/ads/keywords/{id}/assign-group - ربط/فك ربط كلمة مفتاحية بمجموعة إعلانية */
-    public function assignKeywordToGroup(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function assignKeywordToGroup(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $keyword = (new AdKeyword())->find((int) ($params['id'] ?? 0));
-        if (!$keyword) return $this->error('الكلمة المفتاحية غير موجودة', 404);
+        if (!$keyword) {
+            return $this->error('الكلمة المفتاحية غير موجودة', 404);
+        }
 
         $campaign = (new AdCampaign())->find((int) $keyword->getAttribute('campaign_id'));
         if (!$campaign || !$this->resolveCampaignAccess($campaign, 'manager')) {
@@ -2415,13 +2680,20 @@ JS;
     // ================================================================
 
     /** POST /api/ads/market-research */
-    public function marketResearch(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function marketResearch(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('manager');
-        if (!$access) return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        }
 
         $goalDescription = trim((string) $this->get('goal_description', ''));
-        if ($goalDescription === '') return $this->error('اكتب وصف مختصر لعرضك الأول', 422);
+        if ($goalDescription === '') {
+            return $this->error('اكتب وصف مختصر لعرضك الأول', 422);
+        }
 
         $campaignId = $this->get('campaign_id');
         if ($campaignId) {
@@ -2442,10 +2714,15 @@ JS;
     }
 
     /** GET /api/ads/market-research/history */
-    public function marketResearchHistory(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function marketResearchHistory(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('viewer');
-        if (!$access) return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        }
 
         $service = new AdMarketResearchService();
         $rows = $service->history($access['owner_id']);
@@ -2468,11 +2745,16 @@ JS;
      * المباشرة على حملته هو). بيسجّل نفس Audit Trail بالظبط عشان يظهر في
      * سجل النشاط وميزة الـRollback زي أي تغيير تاني.
      */
-    public function updateCampaignStatus(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function updateCampaignStatus(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $campaign = (new AdCampaign())->find((int) ($params['id'] ?? 0));
-        if (!$campaign) return $this->error('الحملة غير موجودة', 404);
+        if (!$campaign) {
+            return $this->error('الحملة غير موجودة', 404);
+        }
         if (!$this->resolveCampaignAccess($campaign, 'manager')) {
             return $this->error('محتاج صلاحية Manager أو أعلى لتغيير حالة الحملة', 403);
         }
@@ -2537,8 +2819,11 @@ JS;
      * الأداء/السجل التاريخية)، + إيقاف فعلي على المنصة الحقيقية أولًا لو
      * كانت الحملة شغّالة (أمان إضافي - نفس منطق updateCampaignStatus).
      */
-    public function deleteCampaign(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function deleteCampaign(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $campaign = (new AdCampaign())->find((int) ($params['id'] ?? 0));
         if (!$campaign || $campaign->getAttribute('deleted_at')) {
@@ -2580,13 +2865,20 @@ JS;
      * ملكيتها لوحدها وبتتنفذ عليها نفس منطق updateCampaignStatus بالظبط،
      * مفيش أي تجاوز أمان جماعي.
      */
-    public function bulkUpdateCampaignStatus(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function bulkUpdateCampaignStatus(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $ids = $this->get('campaign_ids');
         $newStatus = $this->get('status');
-        if (!is_array($ids) || empty($ids)) return $this->error('campaign_ids مطلوبة (مصفوفة)', 422);
-        if (!in_array($newStatus, ['active', 'paused'], true)) return $this->error('status لازم يكون active أو paused', 422);
+        if (!is_array($ids) || empty($ids)) {
+            return $this->error('campaign_ids مطلوبة (مصفوفة)', 422);
+        }
+        if (!in_array($newStatus, ['active', 'paused'], true)) {
+            return $this->error('status لازم يكون active أو paused', 422);
+        }
 
         $results = [];
         foreach (array_slice($ids, 0, 50) as $id) {
@@ -2630,15 +2922,18 @@ JS;
     }
 
     /** يستخدم نفس منطق التنفيذ في updateCampaignStatus - مستخرج كـhelper عشان يُستخدم من deleteCampaign() وbulkUpdateCampaignStatus() كمان */
-    private function pauseCampaignOnPlatform(AdCampaign $campaign): array {
+    private function pauseCampaignOnPlatform(AdCampaign $campaign): array
+    {
         return $this->executeCampaignStatusOnPlatform($campaign, 'paused');
     }
 
-    private function resumeCampaignOnPlatform(AdCampaign $campaign): array {
+    private function resumeCampaignOnPlatform(AdCampaign $campaign): array
+    {
         return $this->executeCampaignStatusOnPlatform($campaign, 'active');
     }
 
-    private function executeCampaignStatusOnPlatform(AdCampaign $campaign, string $newStatus): array {
+    private function executeCampaignStatusOnPlatform(AdCampaign $campaign, string $newStatus): array
+    {
         $connId = $campaign->getAttribute('platform_connection_id');
         $externalId = (string) $campaign->getAttribute('external_campaign_id');
         if (!$connId || $externalId === '') {
@@ -2668,15 +2963,24 @@ JS;
     }
 
     /** POST /api/ads/campaigns/{id}/landing-page/analyze */
-    public function analyzeLandingPage(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function analyzeLandingPage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $campaign = (new AdCampaign())->find((int) ($params['id'] ?? 0));
-        if (!$campaign) return $this->error('الحملة غير موجودة', 404);
-        if (!$this->resolveCampaignAccess($campaign, 'manager')) return $this->error('الحملة غير موجودة', 404);
+        if (!$campaign) {
+            return $this->error('الحملة غير موجودة', 404);
+        }
+        if (!$this->resolveCampaignAccess($campaign, 'manager')) {
+            return $this->error('الحملة غير موجودة', 404);
+        }
 
         $url = trim((string) $this->get('url', (string) $campaign->getAttribute('landing_page_url')));
-        if ($url === '') return $this->error('حدد رابط صفحة الهبوط الأول', 422);
+        if ($url === '') {
+            return $this->error('حدد رابط صفحة الهبوط الأول', 422);
+        }
 
         try {
             $service = new LandingPageAnalysisService();
@@ -2705,24 +3009,38 @@ JS;
     // ================================================================
 
     /** POST /api/ads/campaigns/{id}/utm-links */
-    public function createUtmLink(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function createUtmLink(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $campaign = (new AdCampaign())->find((int) ($params['id'] ?? 0));
-        if (!$campaign) return $this->error('الحملة غير موجودة', 404);
-        if (!$this->resolveCampaignAccess($campaign, 'manager')) return $this->error('الحملة غير موجودة', 404);
+        if (!$campaign) {
+            return $this->error('الحملة غير موجودة', 404);
+        }
+        if (!$this->resolveCampaignAccess($campaign, 'manager')) {
+            return $this->error('الحملة غير موجودة', 404);
+        }
 
         $destinationUrl = trim((string) $this->get('destination_url', ''));
         $utmSource = trim((string) $this->get('utm_source', 'google'));
         $utmMedium = trim((string) $this->get('utm_medium', 'cpc'));
 
-        if ($destinationUrl === '') return $this->error('رابط الوجهة مطلوب', 422);
+        if ($destinationUrl === '') {
+            return $this->error('رابط الوجهة مطلوب', 422);
+        }
 
         try {
             $service = new AdTrackingService();
             $result = $service->buildLink(
-                (int) $campaign->getAttribute('user_id'), $campaign, $destinationUrl, $utmSource, $utmMedium,
-                $this->get('utm_content'), $this->get('utm_term')
+                (int) $campaign->getAttribute('user_id'),
+                $campaign,
+                $destinationUrl,
+                $utmSource,
+                $utmMedium,
+                $this->get('utm_content'),
+                $this->get('utm_term')
             );
             return $this->success($result);
         } catch (InvalidArgumentException $e) {
@@ -2734,12 +3052,19 @@ JS;
     }
 
     /** GET /api/ads/campaigns/{id}/utm-links */
-    public function listUtmLinks(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listUtmLinks(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $campaign = (new AdCampaign())->find((int) ($params['id'] ?? 0));
-        if (!$campaign) return $this->error('الحملة غير موجودة', 404);
-        if (!$this->resolveCampaignAccess($campaign, 'viewer')) return $this->error('الحملة غير موجودة', 404);
+        if (!$campaign) {
+            return $this->error('الحملة غير موجودة', 404);
+        }
+        if (!$this->resolveCampaignAccess($campaign, 'viewer')) {
+            return $this->error('الحملة غير موجودة', 404);
+        }
 
         $service = new AdTrackingService();
         return $this->success($service->listForCampaign((int) $campaign->getAttribute('id')));
@@ -2751,7 +3076,8 @@ JS;
      * isAuthenticated() هنا لأن اللي بيضغط عليه زائر من إعلان، مش عميل
      * مسجّل دخول بالضرورة.
      */
-    public function redirectUtmClick(array $params = []): array {
+    public function redirectUtmClick(array $params = []): array
+    {
         $code = (string) ($params['code'] ?? '');
         $service = new AdTrackingService();
         $destination = $service->resolveAndTrackClick($code);
@@ -2771,10 +3097,15 @@ JS;
     // ================================================================
 
     /** GET /api/ads/dashboard/summary?period=&platform=&status= */
-    public function getDashboardSummary(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getDashboardSummary(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('viewer');
-        if (!$access) return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        }
 
         $period = in_array($this->get('period'), ['daily', 'weekly', 'monthly'], true) ? $this->get('period') : 'weekly';
         $platform = $this->get('platform') ?: null;
@@ -2785,10 +3116,15 @@ JS;
     }
 
     /** GET /api/ads/reports/trend?days=&campaign_id= */
-    public function getReportTrend(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getReportTrend(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('viewer');
-        if (!$access) return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        }
 
         $days = max(1, min(90, (int) ($this->get('days', 30))));
         $campaignId = $this->get('campaign_id') ? (int) $this->get('campaign_id') : null;
@@ -2803,10 +3139,15 @@ JS;
     }
 
     /** GET /api/ads/reports/comparison?period= */
-    public function getCampaignComparison(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getCampaignComparison(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('viewer');
-        if (!$access) return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        }
 
         $period = in_array($this->get('period'), ['daily', 'weekly', 'monthly'], true) ? $this->get('period') : 'weekly';
         $service = new AdReportService();
@@ -2814,10 +3155,15 @@ JS;
     }
 
     /** GET /api/ads/reports?period=daily|weekly|monthly */
-    public function getReport(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getReport(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('viewer');
-        if (!$access) return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        }
 
         $period = in_array($this->get('period'), ['daily', 'weekly', 'monthly'], true) ? $this->get('period') : 'weekly';
 
@@ -2830,17 +3176,26 @@ JS;
     // ================================================================
 
     /** POST /api/ads/competitors/{id}/analyze */
-    public function analyzeAdsCompetitor(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function analyzeAdsCompetitor(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $competitor = (new Competitor())->find((int) ($params['id'] ?? 0));
-        if (!$competitor) return $this->error('المنافس غير موجود', 404);
+        if (!$competitor) {
+            return $this->error('المنافس غير موجود', 404);
+        }
 
         $access = $this->resolveAdsAccessForOwner((int) $competitor->getAttribute('user_id'), 'manager');
-        if (!$access) return $this->error('المنافس غير موجود', 404);
+        if (!$access) {
+            return $this->error('المنافس غير موجود', 404);
+        }
 
         $offerDescription = trim((string) $this->get('offer_description', ''));
-        if ($offerDescription === '') return $this->error('اكتب وصف مختصر لعرضك الأول', 422);
+        if ($offerDescription === '') {
+            return $this->error('اكتب وصف مختصر لعرضك الأول', 422);
+        }
 
         try {
             $service = new AdsCompetitorInsightsService();
@@ -2852,11 +3207,16 @@ JS;
     }
 
     /** GET /api/ads/competitors/{id}/insights */
-    public function listAdsCompetitorInsights(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listAdsCompetitorInsights(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
 
         $competitor = (new Competitor())->find((int) ($params['id'] ?? 0));
-        if (!$competitor) return $this->error('المنافس غير موجود', 404);
+        if (!$competitor) {
+            return $this->error('المنافس غير موجود', 404);
+        }
 
         if (!$this->resolveAdsAccessForOwner((int) $competitor->getAttribute('user_id'), 'viewer')) {
             return $this->error('المنافس غير موجود', 404);
@@ -2867,13 +3227,18 @@ JS;
     }
 
     /** GET /api/ads/competitors - قائمة المنافسين المسجّلين لهذا العميل (لملء قائمة الاختيار في صفحة المنافسين) */
-    public function listMyCompetitors(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listMyCompetitors(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('viewer');
-        if (!$access) return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        }
 
         $rows = (new Competitor())->where(['user_id' => $access['owner_id'], 'is_active' => 1], ['created_at' => 'DESC']);
-        return $this->success(array_map(fn($c) => $c->toArray(), $rows));
+        return $this->success(array_map(fn ($c) => $c->toArray(), $rows));
     }
 
     // ================================================================
@@ -2883,10 +3248,15 @@ JS;
     // ================================================================
 
     /** GET /api/ads/team - قائمة أعضاء الفريق على حسابي (لو أنا Owner) */
-    public function listTeamMembers(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listTeamMembers(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('viewer');
-        if (!$access) return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        }
 
         $perm = new AdPermissionService();
         $members = $perm->listMembers($access['owner_id']);
@@ -2896,19 +3266,28 @@ JS;
     }
 
     /** POST /api/ads/team - إضافة عضو (بإيميله - لازم يكون له حساب Tourfecto بالفعل) */
-    public function addTeamMember(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function addTeamMember(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('admin');
-        if (!$access) return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        }
 
         $email = trim((string) $this->get('email', ''));
         $role = $this->get('role', 'viewer');
-        if ($email === '') return $this->error('اكتب إيميل العضو', 422);
+        if ($email === '') {
+            return $this->error('اكتب إيميل العضو', 422);
+        }
 
         $perm = new AdPermissionService();
         $result = $perm->addMemberByEmail($access['owner_id'], $email, $role, (int) $this->user['id']);
 
-        if (!$result['success']) return $this->error($result['error'], 422);
+        if (!$result['success']) {
+            return $this->error($result['error'], 422);
+        }
 
         ActivityLog::record('ads_autopilot', 'team.member_added', [
             'user_id' => (int) $this->user['id'], 'meta' => ['email' => $email, 'role' => $role],
@@ -2918,10 +3297,15 @@ JS;
     }
 
     /** POST /api/ads/team/{id}/role */
-    public function updateTeamMemberRole(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function updateTeamMemberRole(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('admin');
-        if (!$access) return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        }
 
         $newRole = $this->get('role');
         $perm = new AdPermissionService();
@@ -2931,10 +3315,15 @@ JS;
     }
 
     /** POST /api/ads/team/{id}/remove */
-    public function removeTeamMember(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function removeTeamMember(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('admin');
-        if (!$access) return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بتعديل هذا الحساب', 403);
+        }
 
         $perm = new AdPermissionService();
         $ok = $perm->removeMember($access['owner_id'], (int) ($params['id'] ?? 0));
@@ -2943,8 +3332,12 @@ JS;
     }
 
     /** GET /ads/team */
-    public function showTeamPage(array $params = []): array {
-        if (!$this->isAuthenticated()) { header('Location: /login?redirect=' . urlencode('/ads/team')); exit; }
+    public function showTeamPage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            header('Location: /login?redirect=' . urlencode('/ads/team'));
+            exit;
+        }
 
         $tabsHtml = $this->adsTabsHtml('team');
         $body = <<<HTML
@@ -3052,8 +3445,12 @@ JS;
      * صفحة واحدة لتقليل مخاطر فصلها) - باقي اللينكات صفحات مستقلة فعلية.
      */
     /** GET /ads/reports */
-    public function showReportsPage(array $params = []): array {
-        if (!$this->isAuthenticated()) { header('Location: /login?redirect=' . urlencode('/ads/reports')); exit; }
+    public function showReportsPage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            header('Location: /login?redirect=' . urlencode('/ads/reports'));
+            exit;
+        }
 
         $tabsHtml = $this->adsTabsHtml('reports');
         $body = <<<HTML
@@ -3173,8 +3570,12 @@ JS;
     }
 
     /** GET /ads/budget */
-    public function showBudgetPage(array $params = []): array {
-        if (!$this->isAuthenticated()) { header('Location: /login?redirect=' . urlencode('/ads/budget')); exit; }
+    public function showBudgetPage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            header('Location: /login?redirect=' . urlencode('/ads/budget'));
+            exit;
+        }
 
         $tabsHtml = $this->adsTabsHtml('budget');
         $body = <<<HTML
@@ -3279,8 +3680,12 @@ JS;
     }
 
     /** GET /ads/campaigns/{id} */
-    public function showCampaignDetailsPage(array $params = []): array {
-        if (!$this->isAuthenticated()) { header('Location: /login?redirect=' . urlencode('/ads')); exit; }
+    public function showCampaignDetailsPage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            header('Location: /login?redirect=' . urlencode('/ads'));
+            exit;
+        }
 
         $campaignId = (int) ($params['id'] ?? 0);
         $campaign = (new AdCampaign())->find($campaignId);
@@ -3628,8 +4033,12 @@ JS;
     }
 
     /** GET /ads/competitors */
-    public function showCompetitorsPage(array $params = []): array {
-        if (!$this->isAuthenticated()) { header('Location: /login?redirect=' . urlencode('/ads/competitors')); exit; }
+    public function showCompetitorsPage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            header('Location: /login?redirect=' . urlencode('/ads/competitors'));
+            exit;
+        }
 
         $tabsHtml = $this->adsTabsHtml('competitors');
         $body = <<<HTML
@@ -3712,10 +4121,15 @@ JS;
     }
 
     /** GET /api/ads/connections/status - تفاصيل كاملة لحالة ربط Google Ads وMeta Ads معًا (Connection Center) */
-    public function getConnectionsStatus(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function getConnectionsStatus(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $access = $this->resolveAdsAccess('viewer');
-        if (!$access) return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        if (!$access) {
+            return $this->error('غير مصرّح لك بعرض هذا الحساب', 403);
+        }
 
         $rows = $this->db->query(
             "SELECT platform, status, external_account_id, last_error, last_synced_at, token_expires_at
@@ -3742,8 +4156,12 @@ JS;
     }
 
     /** GET /ads/connections */
-    public function showConnectionsPage(array $params = []): array {
-        if (!$this->isAuthenticated()) { header('Location: /login?redirect=' . urlencode('/ads/connections')); exit; }
+    public function showConnectionsPage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            header('Location: /login?redirect=' . urlencode('/ads/connections'));
+            exit;
+        }
 
         $tabsHtml = $this->adsTabsHtml('connections');
         $body = <<<HTML
@@ -3838,8 +4256,12 @@ JS;
     }
 
     /** GET /ads/alerts */
-    public function showAlertsPage(array $params = []): array {
-        if (!$this->isAuthenticated()) { header('Location: /login?redirect=' . urlencode('/ads/alerts')); exit; }
+    public function showAlertsPage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            header('Location: /login?redirect=' . urlencode('/ads/alerts'));
+            exit;
+        }
 
         $tabsHtml = $this->adsTabsHtml('alerts');
         $body = <<<HTML
@@ -3970,8 +4392,12 @@ JS;
     }
 
     /** GET /ads/autopilot */
-    public function showAutopilotPage(array $params = []): array {
-        if (!$this->isAuthenticated()) { header('Location: /login?redirect=' . urlencode('/ads/autopilot')); exit; }
+    public function showAutopilotPage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            header('Location: /login?redirect=' . urlencode('/ads/autopilot'));
+            exit;
+        }
 
         $tabsHtml = $this->adsTabsHtml('autopilot');
         $body = <<<HTML
@@ -4098,8 +4524,12 @@ JS;
     }
 
     /** GET /ads/copilot */
-    public function showCopilotPage(array $params = []): array {
-        if (!$this->isAuthenticated()) { header('Location: /login?redirect=' . urlencode('/ads/copilot')); exit; }
+    public function showCopilotPage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            header('Location: /login?redirect=' . urlencode('/ads/copilot'));
+            exit;
+        }
 
         $tabsHtml = $this->adsTabsHtml('copilot');
         $body = <<<HTML
@@ -4152,8 +4582,12 @@ JS;
     }
 
     /** GET /ads/market-research */
-    public function showMarketResearchPage(array $params = []): array {
-        if (!$this->isAuthenticated()) { header('Location: /login?redirect=' . urlencode('/ads/market-research')); exit; }
+    public function showMarketResearchPage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            header('Location: /login?redirect=' . urlencode('/ads/market-research'));
+            exit;
+        }
 
         $tabsHtml = $this->adsTabsHtml('market_research');
         $body = <<<HTML
@@ -4248,7 +4682,8 @@ JS;
      * Competitor) - نفس منطق الفحص بالظبط، مجرّد من الحاجة لكائن AdCampaign.
      * @return array{owner_id:int, role:string}|null
      */
-    private function resolveAdsAccessForOwner(int $resourceOwnerUserId, string $minRole = 'viewer'): ?array {
+    private function resolveAdsAccessForOwner(int $resourceOwnerUserId, string $minRole = 'viewer'): ?array
+    {
         $currentUserId = (int) $this->user['id'];
         if ($resourceOwnerUserId === $currentUserId) {
             return ['owner_id' => $resourceOwnerUserId, 'role' => 'owner'];
@@ -4263,7 +4698,8 @@ JS;
         return ['owner_id' => $resourceOwnerUserId, 'role' => $access['role']];
     }
 
-    private function resolveCampaignAccess(AdCampaign $campaign, string $minRole = 'viewer'): ?array {
+    private function resolveCampaignAccess(AdCampaign $campaign, string $minRole = 'viewer'): ?array
+    {
         // Soft Delete: الحملة المحذوفة غير قابلة للوصول نهائيًا حتى بالرابط المباشر
         if ($campaign->getAttribute('deleted_at')) {
             return null;
@@ -4285,7 +4721,8 @@ JS;
         return ['owner_id' => $ownerId, 'role' => $access['role']];
     }
 
-    private function resolveAdsAccess(string $minRole = 'viewer'): ?array {
+    private function resolveAdsAccess(string $minRole = 'viewer'): ?array
+    {
         $currentUserId = (int) $this->user['id'];
         $requestedOwnerId = $this->get('owner_id') ? (int) $this->get('owner_id') : $currentUserId;
 
@@ -4302,7 +4739,8 @@ JS;
         return ['owner_id' => $requestedOwnerId, 'role' => $access['role']];
     }
 
-    private function adsTabsHtml(string $active): string {
+    private function adsTabsHtml(string $active): string
+    {
         $tabs = [
             'dashboard' => ['نظرة عامة', '/ads'],
             'campaigns' => ['الحملات', '/ads#campaignsTable'],
@@ -4324,12 +4762,14 @@ JS;
         return $html . '</div>';
     }
 
-    private function firstWebsiteForUser(int $userId): ?array {
+    private function firstWebsiteForUser(int $userId): ?array
+    {
         $rows = $this->db->query("SELECT id FROM websites WHERE user_id = ? ORDER BY created_at ASC LIMIT 1", [$userId]);
         return $rows[0] ?? null;
     }
 
-    private function renderAdsOAuthError(string $message): void {
+    private function renderAdsOAuthError(string $message): void
+    {
         $body = '<div class="p-card"><div class="p-empty"><div class="p-empty-icon">⚠️</div>' . $message . '<br><br><a href="/ads" class="p-btn primary">الرجوع لصفحة الإعلانات</a></div></div>';
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderPanelPage('ads', 'تعذر الربط', 'Meta Ads', $body, '');

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Revenue Copilot Service
  * @version 1.0.0
@@ -18,8 +19,8 @@
  * الناتج يضيف `copilot_narrative` بجانب `finding` الأصلي (الموثوق).
  * لو `copilot_used=false` فالمستخدم يرى الرد الصارم الأصلي فقط.
  */
-class RevenueCopilotService {
-
+class RevenueCopilotService
+{
     /**
      * يبني الـPrompt الصارم اللي هيتبعت للـLLM. Pure function قابلة
      * للاختبار مباشرة - تتأكد إن كل الأرقام المذكورة في المطلوب هي نفسها
@@ -30,7 +31,8 @@ class RevenueCopilotService {
      * @param string $question السؤال الأصلي
      * @param string $lang     'ar' | 'en'
      */
-    public static function buildPrompt(array $answer, string $intent, string $question, string $lang = 'ar'): string {
+    public static function buildPrompt(array $answer, string $intent, string $question, string $lang = 'ar'): string
+    {
         $finding = (string) ($answer['finding'] ?? 'Not enough data.');
         $evidence = $answer['evidence'] ?? [];
         $recommended = $answer['recommended_action'] ?? null;
@@ -85,7 +87,8 @@ PROMPT;
      *                             (عادة GeminiClient). لو null نجرّب class_exists.
      * @return array الرد الأصلي + (copilot_narrative, copilot_used)
      */
-    public static function enhance(array $answer, string $intent, string $question, string $lang = 'ar', $llm = null): array {
+    public static function enhance(array $answer, string $intent, string $question, string $lang = 'ar', $llm = null): array
+    {
         $prompt = self::buildPrompt($answer, $intent, $question, $lang);
 
         if ($llm === null) {

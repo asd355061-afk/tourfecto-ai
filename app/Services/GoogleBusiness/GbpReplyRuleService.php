@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - GBP Automated Reply Rules Service
  * قواعد الرد التلقائي على مراجعات Google Business (نفس فكرة BirdAI عند
@@ -18,11 +19,13 @@
  * @version 1.0.0
  * @since 2026-08-15 (Reputation Intelligence Tier 2)
  */
-class GbpReplyRuleService {
+class GbpReplyRuleService
+{
     /** @var Database */
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
@@ -31,7 +34,8 @@ class GbpReplyRuleService {
     // ============================================================
 
     /** القواعد المفعّلة لموقع (مرتبة بالأولوية) - للعرض والتقييم */
-    public function listRules(int $websiteId, int $userId): array {
+    public function listRules(int $websiteId, int $userId): array
+    {
         try {
             $rows = $this->db->query(
                 "SELECT * FROM gbp_reply_rules
@@ -45,7 +49,8 @@ class GbpReplyRuleService {
         }
     }
 
-    public function createRule(int $websiteId, int $userId, array $data): array {
+    public function createRule(int $websiteId, int $userId, array $data): array
+    {
         $name = trim((string) ($data['name'] ?? ''));
         if ($name === '') {
             return ['success' => false, 'error' => 'اسم القاعدة مطلوب'];
@@ -95,7 +100,8 @@ class GbpReplyRuleService {
         }
     }
 
-    public function updateRule(int $ruleId, int $userId, array $data): array {
+    public function updateRule(int $ruleId, int $userId, array $data): array
+    {
         $existing = $this->findRule($ruleId, $userId);
         if (!$existing) {
             return ['success' => false, 'error' => 'القاعدة غير موجودة'];
@@ -157,7 +163,8 @@ class GbpReplyRuleService {
         }
     }
 
-    public function deleteRule(int $ruleId, int $userId): array {
+    public function deleteRule(int $ruleId, int $userId): array
+    {
         try {
             $this->db->query("DELETE FROM gbp_reply_rules WHERE id = ? AND user_id = ?", [$ruleId, $userId]);
             return ['success' => true];
@@ -166,7 +173,8 @@ class GbpReplyRuleService {
         }
     }
 
-    private function findRule(int $ruleId, int $userId): ?array {
+    private function findRule(int $ruleId, int $userId): ?array
+    {
         try {
             $rows = $this->db->query(
                 "SELECT * FROM gbp_reply_rules WHERE id = ? AND user_id = ? LIMIT 1",
@@ -188,8 +196,11 @@ class GbpReplyRuleService {
      * @param float $rating التقييم الحقيقي (0 لو غير معروف)
      * @param string $sentiment قيمة sentiment المخزّنة (positive/neutral/negative/mixed)
      */
-    public static function ruleMatches(array $rule, float $rating, string $sentiment): bool {
-        if ((int) ($rule['enabled'] ?? 1) !== 1) return false;
+    public static function ruleMatches(array $rule, float $rating, string $sentiment): bool
+    {
+        if ((int) ($rule['enabled'] ?? 1) !== 1) {
+            return false;
+        }
 
         $trigger = $rule['trigger_type'] ?? 'rating_range';
         if ($trigger === 'sentiment') {
@@ -197,7 +208,9 @@ class GbpReplyRuleService {
             return $expected !== '' && $sentiment === $expected;
         }
 
-        if ($rating <= 0) return false; // تقييم غير معروف = مش مطابق (أرقام حقيقية بس)
+        if ($rating <= 0) {
+            return false;
+        } // تقييم غير معروف = مش مطابق (أرقام حقيقية بس)
         $min = $rule['rating_min'] !== null && $rule['rating_min'] !== '' ? (float) $rule['rating_min'] : 0.0;
         $max = $rule['rating_max'] !== null && $rule['rating_max'] !== '' ? (float) $rule['rating_max'] : 5.0;
         return $rating >= $min && $rating <= $max;
@@ -210,7 +223,8 @@ class GbpReplyRuleService {
      * @param string $sentiment
      * @return array|null
      */
-    public static function pickRule(array $rules, float $rating, string $sentiment): ?array {
+    public static function pickRule(array $rules, float $rating, string $sentiment): ?array
+    {
         // دفاعي: نرتّب بالأولوية (الأصغر أولًا) حتى لو الـ rules جوّت الترتيب،
         // عشان الاختيار يبقى مستقرًا على نفس المعيار مهما كان المصدر.
         usort($rules, function ($a, $b) {
@@ -241,7 +255,8 @@ class GbpReplyRuleService {
      *  - notify: إشعار للمستخدم.
      * المراجعة اللي اتوردت فعلاً لازم يكون ليها id صالح في جدول reviews.
      */
-    public function applyRulesToReview(int $reviewId): array {
+    public function applyRulesToReview(int $reviewId): array
+    {
         $review = $this->fetchReview($reviewId);
         if (!$review) {
             return ['success' => false, 'error' => 'review_not_found'];
@@ -304,7 +319,8 @@ class GbpReplyRuleService {
         return $result;
     }
 
-    private function executeAutoReply(array $review, array $rule, int $websiteId, int $userId): array {
+    private function executeAutoReply(array $review, array $rule, int $websiteId, int $userId): array
+    {
         // 1) توليد نص الرد (custom أو AI - ولو في رد AI متولّد بالفعل في
         //    عملية processWebhook ومحفوظ pending، نعيد استخدامه بدل ما
         //    ندفع تكلفة توليد تاني)
@@ -360,7 +376,8 @@ class GbpReplyRuleService {
         return ['sent' => true, 'reply' => $reply, 'ai_generated' => $aiGenerated];
     }
 
-    private function generateAiReply(array $review, int $userId): ?string {
+    private function generateAiReply(array $review, int $userId): ?string
+    {
         try {
             $generator = new ReplyGenerator();
             return $generator->generate(
@@ -374,7 +391,8 @@ class GbpReplyRuleService {
         }
     }
 
-    private function markReplied(int $reviewId, string $reply, bool $aiGenerated): void {
+    private function markReplied(int $reviewId, string $reply, bool $aiGenerated): void
+    {
         try {
             $this->db->query(
                 "UPDATE reviews SET
@@ -388,8 +406,11 @@ class GbpReplyRuleService {
         }
     }
 
-    private function sendNotification(int $userId, int $websiteId, array $review, array $rule): void {
-        if (!class_exists('Notification')) return;
+    private function sendNotification(int $userId, int $websiteId, array $review, array $rule): void
+    {
+        if (!class_exists('Notification')) {
+            return;
+        }
         $reviewer = $review['reviewer_name'] ?? 'عميل';
         $stars = (int) ($review['rating'] ?? 0);
         $ruleName = $rule['name'] ?? '';
@@ -398,7 +419,8 @@ class GbpReplyRuleService {
         Notification::notify($userId, 'gbp_auto_reply_rule', $title, $body, '/reputation/reviews');
     }
 
-    private function fetchReview(int $reviewId): ?array {
+    private function fetchReview(int $reviewId): ?array
+    {
         try {
             $rows = $this->db->query(
                 "SELECT * FROM reviews WHERE id = ? LIMIT 1",

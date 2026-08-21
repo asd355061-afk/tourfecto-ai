@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Settings Center Competitive Upgrade Test
  * اختبارات منطق الترقيات التنافسية (Phase 15): صلاحية مفاتيح API
@@ -12,19 +13,38 @@
 // بما يكفي لتحميل الكلاس واختبار الـ static methods الخالصة - مش أي
 // اتصال بقاعدة بيانات حقيقية).
 if (!class_exists('Model', false)) {
-    class Model {
+    class Model
+    {
         protected $attributes = [];
-        public function __construct(array $attributes = []) { $this->attributes = $attributes; }
-        public function getAttribute(string $key) { return $this->attributes[$key] ?? null; }
-        public function where(array $conditions, array $orderBy = [], int $limit = 0): array { return []; }
-        public function setAttribute(string $key, $value) { $this->attributes[$key] = $value; return $this; }
-        public function save() { return true; }
+        public function __construct(array $attributes = [])
+        {
+            $this->attributes = $attributes;
+        }
+        public function getAttribute(string $key)
+        {
+            return $this->attributes[$key] ?? null;
+        }
+        public function where(array $conditions, array $orderBy = [], int $limit = 0): array
+        {
+            return [];
+        }
+        public function setAttribute(string $key, $value)
+        {
+            $this->attributes[$key] = $value;
+            return $this;
+        }
+        public function save()
+        {
+            return true;
+        }
     }
 }
 
 // User stub (لاختبار تفضيلات الإشعارات - Notification::preferencesFor بتاخد User)
 if (!class_exists('User', false)) {
-    class User extends Model {}
+    class User extends Model
+    {
+    }
 }
 
 require_once __DIR__ . '/../../app/Models/UserApiKey.php';
@@ -32,12 +52,13 @@ require_once __DIR__ . '/../../app/Services/TotpService.php';
 require_once __DIR__ . '/../../app/Models/Notification.php';
 require_once __DIR__ . '/../../app/Models/RefreshToken.php';
 
-class SettingsCompetitiveTest {
-
+class SettingsCompetitiveTest
+{
     private int $passed = 0;
     private int $failed = 0;
 
-    public function runAll(): void {
+    public function runAll(): void
+    {
         echo "\n⚙️  Settings Center Competitive Tests\n";
         echo "=====================================\n";
 
@@ -58,7 +79,8 @@ class SettingsCompetitiveTest {
         echo "  📈 Success Rate: {$percentage}%\n\n";
     }
 
-    private function assertTrue(bool $cond, string $label): void {
+    private function assertTrue(bool $cond, string $label): void
+    {
         if ($cond) {
             $this->passed++;
             echo "  ✅ {$label}\n";
@@ -68,7 +90,8 @@ class SettingsCompetitiveTest {
         }
     }
 
-    private function testApiKeyExpiry(): void {
+    private function testApiKeyExpiry(): void
+    {
         echo "\n--- API Key Expiry ---\n";
 
         // null / '' = لا ينتهي أبدًا
@@ -126,7 +149,8 @@ class SettingsCompetitiveTest {
         $this->assertTrue(in_array('data:export', $known, true), 'SCOPES contains data:export');
     }
 
-    private function testRecoveryCodeRotation(): void {
+    private function testRecoveryCodeRotation(): void
+    {
         echo "\n--- Recovery Code Rotation ---\n";
 
         // توليد دفعتين من أكواد الطوارئ
@@ -159,7 +183,8 @@ class SettingsCompetitiveTest {
         $this->assertTrue($normalized === 1, 'Lowercase + whitespace input still verified (normalized)');
     }
 
-    private function testNotificationDigestPrefs(): void {
+    private function testNotificationDigestPrefs(): void
+    {
         echo "\n--- Notification Digest Preferences (Phase 16C) ---\n";
 
         $defaults = Notification::defaultPreferences();
@@ -179,7 +204,8 @@ class SettingsCompetitiveTest {
         $this->assertTrue(Notification::digestEnabledFor($u, 'digest_mystery') === true, 'Unknown digest type defaults to enabled');
     }
 
-    private function testSessionRenameValidation(): void {
+    private function testSessionRenameValidation(): void
+    {
         echo "\n--- Session Device Rename Validation (Phase 16B) ---\n";
 
         // فارغ => مرفوض

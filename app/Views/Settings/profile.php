@@ -1,4 +1,5 @@
 <?php
+
 /**
  * View: Settings - profile section (extracted Phase 16F).
  */

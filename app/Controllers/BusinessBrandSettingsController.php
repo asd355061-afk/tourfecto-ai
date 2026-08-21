@@ -1,30 +1,34 @@
 <?php
+
 /**
  * Tourfecto - Business Brand Settings Controller
  * Business Control Center - Phase 7
  * @version 1.0.0
  */
-class BusinessBrandSettingsController extends Controller {
-
+class BusinessBrandSettingsController extends Controller
+{
     /**
      * نفس نسخة BusinessAccessService جوه الطلب الواحد - عشان الـroleCache
      * الجوه الـService يشتغل (بدل استعلامات متكررة لكل فحص). Phase 27.
      */
     private ?BusinessAccessService $accessService = null;
 
-    private function access(): BusinessAccessService {
+    private function access(): BusinessAccessService
+    {
         if ($this->accessService === null) {
             $this->accessService = new BusinessAccessService();
         }
         return $this->accessService;
     }
 
-    private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
+    private function loadOwnedBusiness(int $businessId, int $userId): ?Business
+    {
         return $this->access()->getAccessibleBusiness($businessId, $userId);
     }
 
     /** GET /api/business/{businessId}/brand */
-    public function show(array $params = []): array {
+    public function show(array $params = []): array
+    {
         if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -43,7 +47,8 @@ class BusinessBrandSettingsController extends Controller {
     }
 
     /** PUT /api/business/{businessId}/brand */
-    public function upsert(array $params = []): array {
+    public function upsert(array $params = []): array
+    {
         if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }

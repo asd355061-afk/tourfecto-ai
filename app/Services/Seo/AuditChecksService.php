@@ -227,7 +227,12 @@ class AuditChecksService
         }
         if ($isChinaTarget) {
             $hasIcp = preg_match('/ICP|备案|京ICP/i', $html);
-            $this->add('seo', 'china_icp_note', 'ملاحظة ICP للسوق الصيني', 'info', 'info',
+            $this->add(
+                'seo',
+                'china_icp_note',
+                'ملاحظة ICP للسوق الصيني',
+                'info',
+                'info',
                 $hasIcp ? 'موجود إشارة ICP — تأكد من صحة التسجيل الرسمي' : 'مطلوب ICP filing للمواقع المستضافة في الصين — تأكد من الامتثال'
             );
         }

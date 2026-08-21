@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Lead Routing Service (المرحلة 13 - G5)
  * @version 1.0.0
@@ -12,9 +13,11 @@
  * الأصلية لم تُلمس - يمكن للعميل استدعاء `routeLead` بعد إنشاء الـLead
  * يدويًا (أو تفعيله لاحقًا عبر Hook اختياري في نهاية إضافية).
  */
-class CrmLeadRoutingService {
+class CrmLeadRoutingService
+{
     /** أول قاعدة نشطة مطابقة لبيانات الـLead - أو null لو لا توجد */
-    public function findMatchingRule(int $tenantUserId, array $leadContext): ?array {
+    public function findMatchingRule(int $tenantUserId, array $leadContext): ?array
+    {
         $rules = (new CrmLeadRoutingRule())->activeForUser($tenantUserId);
         if (empty($rules)) {
             return null;
@@ -43,7 +46,8 @@ class CrmLeadRoutingService {
     }
 
     /** المستخدمون المرشحون للتناوب: المالك + أعضاء الفريق */
-    private function candidateUsers(int $tenantUserId): array {
+    private function candidateUsers(int $tenantUserId): array
+    {
         $owner = (int) $tenantUserId;
         $members = (new CrmTeamMember())->forTenant($tenantUserId);
         $ids = [$owner];
@@ -54,7 +58,8 @@ class CrmLeadRoutingService {
     }
 
     /** اختيار المالك حسب القاعدة (fixed أو round_robin) */
-    private function resolveAssignee(int $tenantUserId, array $rule): int {
+    private function resolveAssignee(int $tenantUserId, array $rule): int
+    {
         if ($rule['assignment_mode'] === 'round_robin') {
             $candidates = $this->candidateUsers($tenantUserId);
             $count = count($candidates);
@@ -71,14 +76,16 @@ class CrmLeadRoutingService {
     }
 
     /** تقدم عداد التناوب على القاعدة */
-    private function advanceRotation(int $tenantUserId, int $ruleId, int $nextIndex): void {
+    private function advanceRotation(int $tenantUserId, int $ruleId, int $nextIndex): void
+    {
         $this->db()->query(
             "UPDATE crm_lead_routing_rules SET rotation_index = ? WHERE id = ? AND user_id = ?",
             [$nextIndex, $ruleId, $tenantUserId]
         );
     }
 
-    private function db() {
+    private function db()
+    {
         return Database::getInstance();
     }
 
@@ -86,7 +93,8 @@ class CrmLeadRoutingService {
      * تطبيق التوجيه على Lead (تحديث owner_user_id).
      * @return array ['assigned' => bool, 'assignee_user_id' => ?int, 'rule_id' => ?int]
      */
-    public function routeLead(int $tenantUserId, int $leadId, array $leadContext = []): array {
+    public function routeLead(int $tenantUserId, int $leadId, array $leadContext = []): array
+    {
         $lead = (new CrmLead())->find($leadId);
         $isOwner = $lead && (int) $lead->getAttribute('owner_user_id') === $tenantUserId;
         $isTenantLead = $lead && !$isOwner && $this->leadBelongsToTenant($tenantUserId, $lead);
@@ -128,7 +136,8 @@ class CrmLeadRoutingService {
     }
 
     /** الـLead يتبع الحساب عبر صاحب جهة الاتصال (نفس منطق CrmLead::allForUser) */
-    private function leadBelongsToTenant(int $tenantUserId, CrmLead $lead): bool {
+    private function leadBelongsToTenant(int $tenantUserId, CrmLead $lead): bool
+    {
         $contact = (new CrmContact())->find((int) $lead->getAttribute('contact_id'));
         return $contact && (int) $contact->getAttribute('user_id') === $tenantUserId;
     }
@@ -137,7 +146,8 @@ class CrmLeadRoutingService {
     // إدارة القواعد (CRUD)
     // ------------------------------------------------------------
 
-    public function createRule(int $userId, array $data): CrmLeadRoutingRule {
+    public function createRule(int $userId, array $data): CrmLeadRoutingRule
+    {
         $name = trim((string) ($data['name'] ?? ''));
         if ($name === '') {
             throw new Exception('اسم القاعدة مطلوب', 422);
@@ -168,22 +178,37 @@ class CrmLeadRoutingService {
         return $rule;
     }
 
-    public function updateRule(int $userId, int $ruleId, array $data): CrmLeadRoutingRule {
+    public function updateRule(int $userId, int $ruleId, array $data): CrmLeadRoutingRule
+    {
         $rule = (new CrmLeadRoutingRule())->findOwned($userId, $ruleId);
         if (!$rule) {
             throw new Exception('القاعدة غير موجودة', 404);
         }
         if (isset($data['name'])) {
             $name = trim((string) $data['name']);
-            if ($name === '') throw new Exception('اسم القاعدة مطلوب', 422);
+            if ($name === '') {
+                throw new Exception('اسم القاعدة مطلوب', 422);
+            }
             $rule->setAttribute('name', $name);
         }
-        if (isset($data['is_active'])) $rule->setAttribute('is_active', (int) $data['is_active']);
-        if (isset($data['match_source'])) $rule->setAttribute('match_source', ($data['match_source'] !== '' && $data['match_source'] !== null) ? (string) $data['match_source'] : null);
-        if (isset($data['match_country'])) $rule->setAttribute('match_country', ($data['match_country'] !== '' && $data['match_country'] !== null) ? (string) $data['match_country'] : null);
-        if (isset($data['match_min_value'])) $rule->setAttribute('match_min_value', ($data['match_min_value'] !== '' && $data['match_min_value'] !== null) ? (float) $data['match_min_value'] : null);
-        if (isset($data['match_max_value'])) $rule->setAttribute('match_max_value', ($data['match_max_value'] !== '' && $data['match_max_value'] !== null) ? (float) $data['match_max_value'] : null);
-        if (isset($data['sort_order'])) $rule->setAttribute('sort_order', (int) $data['sort_order']);
+        if (isset($data['is_active'])) {
+            $rule->setAttribute('is_active', (int) $data['is_active']);
+        }
+        if (isset($data['match_source'])) {
+            $rule->setAttribute('match_source', ($data['match_source'] !== '' && $data['match_source'] !== null) ? (string) $data['match_source'] : null);
+        }
+        if (isset($data['match_country'])) {
+            $rule->setAttribute('match_country', ($data['match_country'] !== '' && $data['match_country'] !== null) ? (string) $data['match_country'] : null);
+        }
+        if (isset($data['match_min_value'])) {
+            $rule->setAttribute('match_min_value', ($data['match_min_value'] !== '' && $data['match_min_value'] !== null) ? (float) $data['match_min_value'] : null);
+        }
+        if (isset($data['match_max_value'])) {
+            $rule->setAttribute('match_max_value', ($data['match_max_value'] !== '' && $data['match_max_value'] !== null) ? (float) $data['match_max_value'] : null);
+        }
+        if (isset($data['sort_order'])) {
+            $rule->setAttribute('sort_order', (int) $data['sort_order']);
+        }
 
         if (isset($data['assignment_mode'])) {
             $mode = (string) $data['assignment_mode'];
@@ -207,7 +232,8 @@ class CrmLeadRoutingService {
         return $rule;
     }
 
-    public function deleteRule(int $userId, int $ruleId): bool {
+    public function deleteRule(int $userId, int $ruleId): bool
+    {
         $rule = (new CrmLeadRoutingRule())->findOwned($userId, $ruleId);
         if (!$rule) {
             throw new Exception('القاعدة غير موجودة', 404);
@@ -215,7 +241,8 @@ class CrmLeadRoutingService {
         return $rule->delete();
     }
 
-    public function listRules(int $userId): array {
+    public function listRules(int $userId): array
+    {
         return (new CrmLeadRoutingRule())->allForUser($userId);
     }
 }

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Sales Sequence Service (المرحلة 15 - G12)
  * @version 1.0.0
@@ -15,10 +16,12 @@
  * مهمة متابعة تحتوي النص المعروض (rendered) من القالب للمندوب، ليتولى
  * الإرسال الفعلي بقراره - نفس مبدأ CrmAutomationService.
  */
-class CrmSequenceService {
+class CrmSequenceService
+{
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
@@ -31,16 +34,19 @@ class CrmSequenceService {
         ['type' => 'notify', 'label_ar' => 'إشعار داخلي', 'fields' => ['title', 'delay_days']],
     ];
 
-    public function schema(): array {
+    public function schema(): array
+    {
         return ['step_types' => self::STEP_TYPES];
     }
 
-    public function listForUser(int $userId): array {
+    public function listForUser(int $userId): array
+    {
         return (new CrmSequence())->forUser($userId);
     }
 
     /** إنشاء أو تحديث Sequence مع تحقق من شكل الخطوات (JSON) */
-    public function save(int $userId, array $data, ?int $seqId = null): CrmSequence {
+    public function save(int $userId, array $data, ?int $seqId = null): CrmSequence
+    {
         $name = trim((string) ($data['name'] ?? ''));
         if ($name === '') {
             throw new Exception('اسم التسلسل مطلوب', 422);
@@ -85,7 +91,8 @@ class CrmSequenceService {
         return $seq;
     }
 
-    public function delete(int $userId, int $seqId): bool {
+    public function delete(int $userId, int $seqId): bool
+    {
         $seq = (new CrmSequence())->findOwned($userId, $seqId);
         if (!$seq) {
             throw new Exception('التسلسل غير موجود', 404);
@@ -100,7 +107,8 @@ class CrmSequenceService {
      * تسجيل Contact/Lead/Deal في تسلسل.
      * related_type: contact/lead/deal (تُعامل نفس resolveRelated في Automation).
      */
-    public function enroll(int $userId, array $data): CrmSequenceEnrollment {
+    public function enroll(int $userId, array $data): CrmSequenceEnrollment
+    {
         $seq = (new CrmSequence())->findOwned($userId, (int) ($data['sequence_id'] ?? 0));
         if (!$seq) {
             throw new Exception('التسلسل غير موجود', 404);
@@ -142,7 +150,8 @@ class CrmSequenceService {
     }
 
     /** قائمة التسجيلات النشطة/المكتملة مع اسم التسلسل */
-    public function enrollments(int $userId, string $status = 'active', int $limit = 100): array {
+    public function enrollments(int $userId, string $status = 'active', int $limit = 100): array
+    {
         return (new CrmSequenceEnrollment())->forUser($userId, $status, $limit);
     }
 
@@ -150,7 +159,8 @@ class CrmSequenceService {
      * تنفيذ الخطوات المستحقة لتسجيل واحد. يُستدعى عند التسجيل وبشكل
      * دوري من Controller (نفس نمط معالجة التسلسلات في المنافسين).
      */
-    public function processEnrollment(int $userId, CrmSequenceEnrollment $enrollment): array {
+    public function processEnrollment(int $userId, CrmSequenceEnrollment $enrollment): array
+    {
         $seq = (new CrmSequence())->findOwned($userId, (int) $enrollment->getAttribute('sequence_id'));
         if (!$seq || !$seq->getAttribute('is_active')) {
             return [];
@@ -201,7 +211,8 @@ class CrmSequenceService {
     }
 
     /** تنفيذ الخطوات المستحقة لكل التسجيلات النشطة في الحساب (Job دوري) */
-    public function processDue(int $userId, int $limit = 50): array {
+    public function processDue(int $userId, int $limit = 50): array
+    {
         $enrollments = (new CrmSequenceEnrollment())->forUser($userId, 'active', $limit);
         $results = [];
         foreach ($enrollments as $row) {
@@ -213,14 +224,16 @@ class CrmSequenceService {
         return $results;
     }
 
-    public function pause(int $userId, int $enrollmentId): CrmSequenceEnrollment {
+    public function pause(int $userId, int $enrollmentId): CrmSequenceEnrollment
+    {
         $enrollment = $this->findEnrollment($userId, $enrollmentId);
         $enrollment->setAttribute('status', 'paused');
         $enrollment->save();
         return $enrollment;
     }
 
-    public function resume(int $userId, int $enrollmentId): CrmSequenceEnrollment {
+    public function resume(int $userId, int $enrollmentId): CrmSequenceEnrollment
+    {
         $enrollment = $this->findEnrollment($userId, $enrollmentId);
         if ($enrollment->getAttribute('status') !== 'paused') {
             throw new Exception('التسجيل ليس في حالة إيقاف مؤقت', 422);
@@ -231,7 +244,8 @@ class CrmSequenceService {
         return $enrollment;
     }
 
-    public function cancel(int $userId, int $enrollmentId): CrmSequenceEnrollment {
+    public function cancel(int $userId, int $enrollmentId): CrmSequenceEnrollment
+    {
         $enrollment = $this->findEnrollment($userId, $enrollmentId);
         $enrollment->setAttribute('status', 'cancelled');
         $enrollment->save();
@@ -242,7 +256,8 @@ class CrmSequenceService {
     // أدوات داخلية
     // ================================================================
 
-    private function findEnrollment(int $userId, int $enrollmentId): CrmSequenceEnrollment {
+    private function findEnrollment(int $userId, int $enrollmentId): CrmSequenceEnrollment
+    {
         $enrollment = (new CrmSequenceEnrollment())->findOwned($userId, $enrollmentId);
         if (!$enrollment) {
             throw new Exception('التسجيل غير موجود', 404);
@@ -251,7 +266,8 @@ class CrmSequenceService {
     }
 
     /** التأكد أن الكيان المستهدف ملك نفس الحساب */
-    private function assertRelatedExists(int $userId, string $relatedType, int $relatedId): void {
+    private function assertRelatedExists(int $userId, string $relatedType, int $relatedId): void
+    {
         $sql = match ($relatedType) {
             'contact' => "SELECT id FROM crm_contacts WHERE id = ? AND user_id = ?",
             'lead' => "SELECT l.id FROM crm_leads l JOIN crm_contacts c ON c.id = l.contact_id WHERE l.id = ? AND c.user_id = ?",
@@ -268,7 +284,8 @@ class CrmSequenceService {
     }
 
     /** سياق بسيط للمندوب (اسم/هاتف/بريد) للخطوات القائمة على قوالب الرسائل */
-    private function contextFor(int $userId, CrmSequenceEnrollment $enrollment): array {
+    private function contextFor(int $userId, CrmSequenceEnrollment $enrollment): array
+    {
         $relatedType = (string) $enrollment->getAttribute('related_type');
         $relatedId = (int) $enrollment->getAttribute('related_id');
 
@@ -312,7 +329,8 @@ class CrmSequenceService {
      * تنفيذ خطوة واحدة - لا إرسال خارجي فعلي (نفس قيد Automation).
      * email/whatsapp: تُنشأ مهمة متابعة بنص مُصيَّر من القالب.
      */
-    private function executeStep(int $userId, array $step, array $context): void {
+    private function executeStep(int $userId, array $step, array $context): void
+    {
         $type = $step['type'] ?? '';
 
         switch ($type) {
@@ -378,7 +396,8 @@ class CrmSequenceService {
     }
 
     /** تطابق أنواع الكيانات في جدول المهام (crm_contacts/crm_leads/crm_deals) */
-    private function relatedTypeForTask(array $context): ?string {
+    private function relatedTypeForTask(array $context): ?string
+    {
         return $context['contact_id'] ? 'crm_contacts' : null;
     }
 }

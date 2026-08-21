@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Team Invite Service (المرحلة 13 - G9)
  * @version 1.0.0
@@ -15,10 +16,12 @@
  * crm_team_members تلقائيًا. لو البريد مسجّل أصلًا، تُوجَّه إلى
  * CrmTeamService::addMember (السلوك الأصلي - بند 30).
  */
-class CrmTeamInviteService {
+class CrmTeamInviteService
+{
     private $teamService;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->teamService = new CrmTeamService();
     }
 
@@ -27,7 +30,8 @@ class CrmTeamInviteService {
      * - بريد مسجّل → addMember الأصلي (لا دعوة).
      * - بريد غير مسجّل → WorkspaceInvite + إرسال بريد برابط القبول.
      */
-    public function invite(int $tenantUserId, int $actorUserId, string $email, string $role): array {
+    public function invite(int $tenantUserId, int $actorUserId, string $email, string $role): array
+    {
         $email = strtolower(trim($email));
         if ($email === '') {
             throw new Exception('البريد الإلكتروني مطلوب', 422);
@@ -51,7 +55,8 @@ class CrmTeamInviteService {
         // منع تكرار دعوة معلّقة لنفس البريد
         $pending = (new WorkspaceInvite())->where(
             ['owner_user_id' => $tenantUserId, 'email' => $email, 'status' => 'pending'],
-            [], 1
+            [],
+            1
         );
         if (!empty($pending)) {
             $existingInvite = $pending[0];
@@ -99,15 +104,19 @@ class CrmTeamInviteService {
     }
 
     /** دعوات الحساب المعلّقة */
-    public function listInvites(int $tenantUserId): array {
+    public function listInvites(int $tenantUserId): array
+    {
         $rows = (new WorkspaceInvite())->where(
-            ['owner_user_id' => $tenantUserId, 'status' => 'pending'], [], 0
+            ['owner_user_id' => $tenantUserId, 'status' => 'pending'],
+            [],
+            0
         );
         return array_map(fn ($i) => $i->toSafeArray(), $rows);
     }
 
     /** إلغاء دعوة معلّقة */
-    public function revokeInvite(int $tenantUserId, int $inviteId): bool {
+    public function revokeInvite(int $tenantUserId, int $inviteId): bool
+    {
         $invite = (new WorkspaceInvite())->find($inviteId);
         if (!$invite || (int) $invite->getAttribute('owner_user_id') !== $tenantUserId) {
             throw new Exception('الدعوة غير موجودة', 404);
@@ -119,7 +128,8 @@ class CrmTeamInviteService {
     }
 
     /** عرض بيانات دعوة برمزها (لصفحة القبول العامة) */
-    public function showInvite(string $token): array {
+    public function showInvite(string $token): array
+    {
         $rows = (new WorkspaceInvite())->where(['token' => $token], [], 1);
         $invite = $rows[0] ?? null;
         if (!$invite || (string) $invite->getAttribute('status') !== 'pending' || $invite->isExpired()) {
@@ -141,7 +151,8 @@ class CrmTeamInviteService {
      * @param string $lastName
      * @param string $password
      */
-    public function acceptInvite(string $token, string $firstName, string $lastName, string $password): array {
+    public function acceptInvite(string $token, string $firstName, string $lastName, string $password): array
+    {
         $rows = (new WorkspaceInvite())->where(['token' => $token], [], 1);
         $invite = $rows[0] ?? null;
         if (!$invite || (string) $invite->getAttribute('status') !== 'pending' || $invite->isExpired()) {

@@ -24,8 +24,10 @@ class SeoStrategyKeywordGapTest extends TestCase
         $db = $this->createMock(Database::class);
         $db->method('query')->willReturnOnConsecutiveCalls(
             [['id' => 1, 'competitor_domain' => 'competitor.com']],
-            [['keyword' => 'travel egypt', 'competitor_id' => 1, 'search_volume' => 1000, 'difficulty' => 45]],
-            [['keyword' => 'cairo tours', 'competitor_id' => 1, 'search_volume' => 500, 'difficulty' => 30]],
+            [
+                ['keyword' => 'travel egypt', 'competitor_id' => 1, 'search_volume' => 1000, 'difficulty' => 45],
+                ['keyword' => 'cairo tours', 'competitor_id' => 1, 'search_volume' => 500, 'difficulty' => 30],
+            ],
             [['keyword' => 'travel egypt']]
         );
 

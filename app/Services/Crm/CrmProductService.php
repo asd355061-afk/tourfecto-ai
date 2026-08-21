@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Product Catalog & Deal Line Items Service (المرحلة 13 - G3)
  * @version 1.0.0
@@ -15,16 +16,19 @@
  * هذه الخدمة (أي أن التكامل تلقائي من ناحية البنود، لا يمس الإدخال
  * اليدوي الأصلي).
  */
-class CrmProductService {
+class CrmProductService
+{
     // ------------------------------------------------------------
     // المنتجات
     // ------------------------------------------------------------
 
-    public function listProducts(int $userId, bool $onlyActive = false): array {
+    public function listProducts(int $userId, bool $onlyActive = false): array
+    {
         return (new CrmProduct())->forUser($userId, $onlyActive);
     }
 
-    public function createProduct(int $userId, array $data): CrmProduct {
+    public function createProduct(int $userId, array $data): CrmProduct
+    {
         $name = trim((string) ($data['name'] ?? ''));
         if ($name === '') {
             throw new Exception('اسم المنتج مطلوب', 422);
@@ -47,14 +51,17 @@ class CrmProductService {
         return $product;
     }
 
-    public function updateProduct(int $userId, int $productId, array $data): CrmProduct {
+    public function updateProduct(int $userId, int $productId, array $data): CrmProduct
+    {
         $product = (new CrmProduct())->findOwned($userId, $productId);
         if (!$product) {
             throw new Exception('المنتج غير موجود', 404);
         }
         if (isset($data['name'])) {
             $name = trim((string) $data['name']);
-            if ($name === '') throw new Exception('اسم المنتج مطلوب', 422);
+            if ($name === '') {
+                throw new Exception('اسم المنتج مطلوب', 422);
+            }
             $product->setAttribute('name', $name);
         }
         foreach (['description', 'sku'] as $field) {
@@ -65,17 +72,24 @@ class CrmProductService {
         }
         if (isset($data['price'])) {
             $price = (float) $data['price'];
-            if ($price < 0) throw new Exception('السعر لا يمكن أن يكون سالبًا', 422);
+            if ($price < 0) {
+                throw new Exception('السعر لا يمكن أن يكون سالبًا', 422);
+            }
             $product->setAttribute('price', $price);
         }
-        if (isset($data['currency'])) $product->setAttribute('currency', (string) $data['currency']);
-        if (isset($data['is_active'])) $product->setAttribute('is_active', (int) $data['is_active']);
+        if (isset($data['currency'])) {
+            $product->setAttribute('currency', (string) $data['currency']);
+        }
+        if (isset($data['is_active'])) {
+            $product->setAttribute('is_active', (int) $data['is_active']);
+        }
 
         $product->save();
         return $product;
     }
 
-    public function deleteProduct(int $userId, int $productId): bool {
+    public function deleteProduct(int $userId, int $productId): bool
+    {
         $product = (new CrmProduct())->findOwned($userId, $productId);
         if (!$product) {
             throw new Exception('المنتج غير موجود', 404);
@@ -90,7 +104,8 @@ class CrmProductService {
     // ------------------------------------------------------------
 
     /** التأكد أن الصفقة مملوكة للحساب (Tenant) */
-    private function findOwnedDeal(int $userId, int $dealId): CrmDeal {
+    private function findOwnedDeal(int $userId, int $dealId): CrmDeal
+    {
         $deal = (new CrmDeal())->find($dealId);
         if (!$deal || (int) $deal->getAttribute('owner_user_id') !== $userId) {
             throw new Exception('الصفقة غير موجودة', 404);
@@ -99,7 +114,8 @@ class CrmProductService {
     }
 
     /** إعادة حساب قيمة الصفقة = Σ line_total (لا تلمس الإدخال اليدوي الأصلي) */
-    private function recomputeDealValue(int $userId, int $dealId): void {
+    private function recomputeDealValue(int $userId, int $dealId): void
+    {
         $total = (new CrmDealItem())->totalForDeal($userId, $dealId);
         $deal = (new CrmDeal())->find($dealId);
         if ($deal) {
@@ -108,12 +124,14 @@ class CrmProductService {
         }
     }
 
-    public function listDealItems(int $userId, int $dealId): array {
+    public function listDealItems(int $userId, int $dealId): array
+    {
         $this->findOwnedDeal($userId, $dealId);
         return (new CrmDealItem())->forDeal($userId, $dealId);
     }
 
-    public function addDealItem(int $userId, int $dealId, array $data): CrmDealItem {
+    public function addDealItem(int $userId, int $dealId, array $data): CrmDealItem
+    {
         $this->findOwnedDeal($userId, $dealId);
 
         $productId = (int) ($data['product_id'] ?? 0);
@@ -142,7 +160,9 @@ class CrmProductService {
         }
 
         $lineTotal = round(($unitPrice * $quantity) - $discount, 2);
-        if ($lineTotal < 0) $lineTotal = 0;
+        if ($lineTotal < 0) {
+            $lineTotal = 0;
+        }
 
         $item = new CrmDealItem([
             'user_id' => $userId,
@@ -160,7 +180,8 @@ class CrmProductService {
         return $item;
     }
 
-    public function updateDealItem(int $userId, int $dealId, int $itemId, array $data): CrmDealItem {
+    public function updateDealItem(int $userId, int $dealId, int $itemId, array $data): CrmDealItem
+    {
         $this->findOwnedDeal($userId, $dealId);
         $item = (new CrmDealItem())->findOwned($userId, $dealId, $itemId);
         if (!$item) {
@@ -169,13 +190,23 @@ class CrmProductService {
 
         if (isset($data['product_name'])) {
             $name = trim((string) $data['product_name']);
-            if ($name === '') throw new Exception('اسم البند مطلوب', 422);
+            if ($name === '') {
+                throw new Exception('اسم البند مطلوب', 422);
+            }
             $item->setAttribute('product_name', $name);
         }
-        if (isset($data['description'])) $item->setAttribute('description', trim((string) $data['description']));
-        if (isset($data['unit_price'])) $item->setAttribute('unit_price', (float) $data['unit_price']);
-        if (isset($data['quantity'])) $item->setAttribute('quantity', (float) $data['quantity']);
-        if (isset($data['discount'])) $item->setAttribute('discount', (float) $data['discount']);
+        if (isset($data['description'])) {
+            $item->setAttribute('description', trim((string) $data['description']));
+        }
+        if (isset($data['unit_price'])) {
+            $item->setAttribute('unit_price', (float) $data['unit_price']);
+        }
+        if (isset($data['quantity'])) {
+            $item->setAttribute('quantity', (float) $data['quantity']);
+        }
+        if (isset($data['discount'])) {
+            $item->setAttribute('discount', (float) $data['discount']);
+        }
 
         $unitPrice = (float) $item->getAttribute('unit_price');
         $quantity = (float) $item->getAttribute('quantity');
@@ -189,7 +220,8 @@ class CrmProductService {
         return $item;
     }
 
-    public function removeDealItem(int $userId, int $dealId, int $itemId): bool {
+    public function removeDealItem(int $userId, int $dealId, int $itemId): bool
+    {
         $this->findOwnedDeal($userId, $dealId);
         $item = (new CrmDealItem())->findOwned($userId, $dealId, $itemId);
         if (!$item) {

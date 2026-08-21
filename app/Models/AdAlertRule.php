@@ -1,11 +1,13 @@
 <?php
+
 /**
  * Tourfecto - Ad Alert Rule Model
  * قاعدة إنذار استباقية لمستخدم - التفعيل/الحد لكل قاعدة موجودة هنا،
  * والتقييم بيتم من AdAlertService (بيانات حقيقية بس - مفيش أرقام مختلقة).
  * @version 1.0.0
  */
-class AdAlertRule extends Model {
+class AdAlertRule extends Model
+{
     protected $table = 'ad_alert_rules';
     protected $fillable = [
         'user_id', 'rule_type', 'is_enabled', 'threshold_value',
@@ -16,7 +18,8 @@ class AdAlertRule extends Model {
      * غير محفوظة - مش بتحفظ تلقائيًا).
      * @return AdAlertRule[]
      */
-    public static function forUser(int $userId): array {
+    public static function forUser(int $userId): array
+    {
         $rows = (new self())->where(['user_id' => $userId]);
         if (empty($rows)) {
             return array_map(function (string $type) use ($userId): AdAlertRule {
@@ -47,7 +50,8 @@ class AdAlertRule extends Model {
         return array_values($byType);
     }
 
-    public static function defaultThreshold(string $ruleType): ?float {
+    public static function defaultThreshold(string $ruleType): ?float
+    {
         switch ($ruleType) {
             case 'budget_exhausted':
                 return 90.0;   // % من الميزانية اليومية المتصرفة

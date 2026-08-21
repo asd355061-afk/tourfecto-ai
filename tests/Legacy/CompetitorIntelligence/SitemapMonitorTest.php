@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: SitemapMonitor Careers Test
  * @version 1.5.1
@@ -14,9 +15,10 @@
 require_once __DIR__ . '/CiOfflineTestCase.php';
 require_once dirname(__DIR__, 3) . '/app/Services/CompetitorIntelligence/SitemapMonitor.php';
 
-class SitemapMonitorTest extends CiOfflineTestCase {
-
-    public function runAll(): void {
+class SitemapMonitorTest extends CiOfflineTestCase
+{
+    public function runAll(): void
+    {
         echo "\nSitemapMonitor Careers Tests\n============================\n";
 
         $this->testCareerUrls();
@@ -25,7 +27,8 @@ class SitemapMonitorTest extends CiOfflineTestCase {
         $this->printSummary();
     }
 
-    private function testCareerUrls(): void {
+    private function testCareerUrls(): void
+    {
         $this->startTest('careers/jobs/join/hiring/vacancies detected');
 
         $this->assertTrue(SitemapMonitor::isCareerUrl('https://example.com/careers'), '/careers');
@@ -38,7 +41,8 @@ class SitemapMonitorTest extends CiOfflineTestCase {
         $this->assertTrue(SitemapMonitor::isCareerUrl('https://careers.example.com/'), 'careers subdomain');
     }
 
-    private function testNonCareerUrls(): void {
+    private function testNonCareerUrls(): void
+    {
         $this->startTest('non-career URLs not flagged');
 
         $this->assertFalse(SitemapMonitor::isCareerUrl('https://example.com/'), 'homepage');

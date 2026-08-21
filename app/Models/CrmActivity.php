@@ -1,6 +1,8 @@
 <?php
+
 /** Tourfecto - CRM Activity Model (المرحلة 14 - G10) @version 1.0.0 */
-class CrmActivity extends Model {
+class CrmActivity extends Model
+{
     protected $table = 'crm_activities';
     protected $fillable = [
         'user_id', 'activity_type_id', 'related_type', 'related_id',
@@ -8,7 +10,8 @@ class CrmActivity extends Model {
     ];
 
     /** أنشطة الحساب مع اسم النوع (اختياريًا فلترة حسب الكيان/النوع) */
-    public function forUser(int $userId, ?string $relatedType = null, ?int $relatedId = null, ?int $activityTypeId = null, int $limit = 100): array {
+    public function forUser(int $userId, ?string $relatedType = null, ?int $relatedId = null, ?int $activityTypeId = null, int $limit = 100): array
+    {
         $sql = "SELECT a.*, t.name AS type_name, t.icon AS type_icon, t.color AS type_color
                 FROM crm_activities a
                 LEFT JOIN crm_activity_types t ON t.id = a.activity_type_id

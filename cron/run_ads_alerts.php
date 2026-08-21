@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Ad Alerts: Periodic Scheduler
  * @version 1.0.0

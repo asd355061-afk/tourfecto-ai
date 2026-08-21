@@ -107,7 +107,8 @@ class RefreshToken extends Model
      * الجهاز اللي نفّذ التغيير - نفس سلوك GitHub/Stripe عند تغيير
      * كلمة المرور (أي جهاز تاني كان مسجل دخول بيتخرج فورًا).
      */
-    public static function revokeAllForUserExcept(int $userId, ?int $exceptTokenId): void {
+    public static function revokeAllForUserExcept(int $userId, ?int $exceptTokenId): void
+    {
         $model = new self();
         $tokens = $model->where(['user_id' => $userId]);
         foreach ($tokens as $token) {

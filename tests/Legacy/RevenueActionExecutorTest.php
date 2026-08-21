@@ -201,8 +201,12 @@ class RevenueActionExecutorTest
         $notified = [];
         $executor = new RevenueActionExecutor(
             $db,
-            function ($userId, $payload) use (&$createdTasks) { $createdTasks[] = [$userId, $payload]; },
-            function ($userId, $intent) use (&$notified) { $notified[] = [$userId, $intent]; }
+            function ($userId, $payload) use (&$createdTasks) {
+                $createdTasks[] = [$userId, $payload];
+            },
+            function ($userId, $intent) use (&$notified) {
+                $notified[] = [$userId, $intent];
+            }
         );
 
         $summary = $executor->executeActions(1, [[
@@ -236,7 +240,9 @@ class RevenueActionExecutorTest
         $createdTasks = [];
         $executor = new RevenueActionExecutor(
             $db,
-            function ($userId, $payload) use (&$createdTasks) { $createdTasks[] = $payload; }
+            function ($userId, $payload) use (&$createdTasks) {
+                $createdTasks[] = $payload;
+            }
         );
 
         $summary = $executor->executeActions(1, [[
@@ -261,7 +267,9 @@ class RevenueActionExecutorTest
         $createdTasks = [];
         $executor = new RevenueActionExecutor(
             $db,
-            function ($userId, $payload) use (&$createdTasks) { $createdTasks[] = $payload; }
+            function ($userId, $payload) use (&$createdTasks) {
+                $createdTasks[] = $payload;
+            }
         );
 
         $summary = $executor->executeActions(1, [[

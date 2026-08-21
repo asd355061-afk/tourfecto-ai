@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - AI Chat Platform
  * Tags مخصصة لكل شركة (بند 11: "ويستطيع صاحب الشركة إنشاء Tags إضافية").
@@ -11,12 +12,13 @@
  * @copyright 2026 Tourfecto
  */
 
-class AiCustomTagController extends Controller {
-
+class AiCustomTagController extends Controller
+{
     /** @var AiCustomTag */
     private $model;
 
-    public function __construct() {
+    public function __construct()
+    {
         parent::__construct();
         $this->model = new AiCustomTag();
     }
@@ -25,7 +27,8 @@ class AiCustomTagController extends Controller {
      * كل الوسوم المخصصة لموقع معيّن.
      * GET /api/ai-chat/websites/{id}/custom-tags
      */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -53,7 +56,8 @@ class AiCustomTagController extends Controller {
      * POST /api/ai-chat/websites/{id}/custom-tags
      * Body: name, color (اختياري)
      */
-    public function store(array $params = []): array {
+    public function store(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -97,7 +101,8 @@ class AiCustomTagController extends Controller {
      * حذف وسم مخصص.
      * DELETE /api/ai-chat/websites/{id}/custom-tags/{tagId}
      */
-    public function destroy(array $params = []): array {
+    public function destroy(array $params = []): array
+    {
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
@@ -122,7 +127,8 @@ class AiCustomTagController extends Controller {
      * @param int $websiteId
      * @return Website|null
      */
-    private function authorizedWebsite(int $websiteId): ?Website {
+    private function authorizedWebsite(int $websiteId): ?Website
+    {
         if ($websiteId <= 0) {
             return null;
         }

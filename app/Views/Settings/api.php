@@ -1,4 +1,5 @@
 <?php
+
 /**
  * View: Settings - api section (extracted Phase 16F).
  */

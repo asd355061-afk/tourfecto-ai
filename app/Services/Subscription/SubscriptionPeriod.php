@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Subscription Period Helper
  * @version 1.0.0
@@ -13,7 +14,8 @@
  * كل الدوال static و pure - نفس المدخلات بتدي نفس المخرجات دايمًا،
  * فمفيش حالة غامضة ولا أخطاء توقيت.
  */
-class SubscriptionPeriod {
+class SubscriptionPeriod
+{
     /**
      * حساب نهاية الفترة الجديدة بتمديد شهر/سنة من تاريخ معيّن.
      *
@@ -22,7 +24,8 @@ class SubscriptionPeriod {
      *                         كـ monthly - سلوك محافظ)
      * @return string 'Y-m-d H:i:s'
      */
-    public static function nextPeriodEnd(string $fromDateTime, string $planType): string {
+    public static function nextPeriodEnd(string $fromDateTime, string $planType): string
+    {
         $base = strtotime($fromDateTime);
         if ($base === false) {
             // تاريخ غير صالح - نرجع من الآن بدل ما نرمي Exception في سلسلة
@@ -46,7 +49,8 @@ class SubscriptionPeriod {
      *                                  بيعرّف الفترة اللي بنجددها)
      * @return string
      */
-    public static function renewalIdempotencyKey(int $subscriptionId, string $currentPeriodEnd): string {
+    public static function renewalIdempotencyKey(int $subscriptionId, string $currentPeriodEnd): string
+    {
         $stamp = strtotime($currentPeriodEnd);
         if ($stamp === false) {
             $stamp = time();

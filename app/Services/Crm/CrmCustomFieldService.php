@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Custom Field Service (المرحلة 12 - G2)
  * @version 1.0.0
@@ -13,9 +14,11 @@
  * القيم (setValues/getValues). الدمج مع بيانات الكيان الأصلية يتم
  * في الـController أو الـFrontend عبر `attachToEntity()`.
  */
-class CrmCustomFieldService {
+class CrmCustomFieldService
+{
     /** إنشاء تعريف حقل مخصص */
-    public function createDefinition(int $userId, array $data): CrmCustomField {
+    public function createDefinition(int $userId, array $data): CrmCustomField
+    {
         $entityType = (string) ($data['entity_type'] ?? '');
         $fieldKey = $this->normalizeKey((string) ($data['field_key'] ?? ''));
         $label = trim((string) ($data['label'] ?? ''));
@@ -44,7 +47,7 @@ class CrmCustomFieldService {
             if (is_string($optionsRaw)) {
                 $optionsRaw = preg_split('/\r\n|\r|\n/', $optionsRaw, -1, PREG_SPLIT_NO_EMPTY) ?: [];
             }
-            $options = json_encode(array_values(array_filter(array_map('trim', (array) $optionsRaw), fn($v) => $v !== '')), JSON_UNESCAPED_UNICODE);
+            $options = json_encode(array_values(array_filter(array_map('trim', (array) $optionsRaw), fn ($v) => $v !== '')), JSON_UNESCAPED_UNICODE);
         }
 
         $field = new CrmCustomField([
@@ -60,26 +63,30 @@ class CrmCustomFieldService {
     }
 
     /** تعديل تعريف حقل (label/options فقط - المفتاح والنوع ثابتان بعد الإنشاء) */
-    public function updateDefinition(int $userId, int $fieldId, array $data): CrmCustomField {
+    public function updateDefinition(int $userId, int $fieldId, array $data): CrmCustomField
+    {
         $field = (new CrmCustomField())->findOwned($userId, $fieldId);
         if (!$field) {
             throw new Exception('الحقل غير موجود', 404);
         }
         if (isset($data['label'])) {
             $label = trim((string) $data['label']);
-            if ($label === '') throw new Exception('تسمية الحقل مطلوبة', 422);
+            if ($label === '') {
+                throw new Exception('تسمية الحقل مطلوبة', 422);
+            }
             $field->setAttribute('label', $label);
         }
         if (isset($data['options']) && $field->getAttribute('field_type') === 'select') {
             $optionsRaw = is_string($data['options']) ? preg_split('/\r\n|\r|\n/', $data['options'], -1, PREG_SPLIT_NO_EMPTY) : (array) $data['options'];
-            $field->setAttribute('options', json_encode(array_values(array_filter(array_map('trim', $optionsRaw), fn($v) => $v !== '')), JSON_UNESCAPED_UNICODE));
+            $field->setAttribute('options', json_encode(array_values(array_filter(array_map('trim', $optionsRaw), fn ($v) => $v !== '')), JSON_UNESCAPED_UNICODE));
         }
         $field->save();
         return $field;
     }
 
     /** حذف تعريف (يحذف قيمه تلقائيًا عبر FK ON DELETE CASCADE) */
-    public function deleteDefinition(int $userId, int $fieldId): bool {
+    public function deleteDefinition(int $userId, int $fieldId): bool
+    {
         $field = (new CrmCustomField())->findOwned($userId, $fieldId);
         if (!$field) {
             throw new Exception('الحقل غير موجود', 404);
@@ -88,7 +95,8 @@ class CrmCustomFieldService {
     }
 
     /** كتابة مجموعة قيم لكيان (upsert لكل حقل موجود) */
-    public function setValues(int $userId, string $entityType, int $entityId, array $values): array {
+    public function setValues(int $userId, string $entityType, int $entityId, array $values): array
+    {
         if (!in_array($entityType, CrmCustomField::ENTITY_TYPES, true)) {
             throw new Exception('نوع الكيان غير صالح', 422);
         }
@@ -127,7 +135,8 @@ class CrmCustomFieldService {
     }
 
     /** قراءة كل قيم كيان (بالتسمية الظاهرة) */
-    public function getValues(int $userId, string $entityType, int $entityId): array {
+    public function getValues(int $userId, string $entityType, int $entityId): array
+    {
         $fields = (new CrmCustomField())->forUser($userId, $entityType);
         $values = (new CrmCustomFieldValue())->allForEntity($userId, $entityType, $entityId);
         $out = [];
@@ -144,12 +153,14 @@ class CrmCustomFieldService {
     }
 
     /** تعريفات الحساب (مع كل حقولها) حسب الكيان */
-    public function definitions(int $userId, string $entityType = ''): array {
+    public function definitions(int $userId, string $entityType = ''): array
+    {
         return (new CrmCustomField())->forUser($userId, $entityType);
     }
 
     /** تعقيد قيمة حسب نوع الحقل (إرجاع '' للقيم الفارغة لتمكين الحذف) */
-    private function sanitizeValue(CrmCustomField $field, $rawValue): string {
+    private function sanitizeValue(CrmCustomField $field, $rawValue): string
+    {
         $value = trim((string) $rawValue);
         if ($value === '') {
             return '';
@@ -172,7 +183,8 @@ class CrmCustomFieldService {
     }
 
     /** توحيد مفتاح الحقل: أحرف صغيرة + شرطات فقط */
-    private function normalizeKey(string $key): string {
+    private function normalizeKey(string $key): string
+    {
         $key = strtolower(trim($key));
         $key = preg_replace('/[^a-z0-9]+/', '-', $key);
         return trim($key, '-');

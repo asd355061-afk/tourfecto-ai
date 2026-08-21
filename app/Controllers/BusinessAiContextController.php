@@ -1,30 +1,34 @@
 <?php
+
 /**
  * Tourfecto - Business AI Context Controller
  * Business Control Center - Phase 6
  * @version 1.0.0
  */
-class BusinessAiContextController extends Controller {
-
+class BusinessAiContextController extends Controller
+{
     /**
      * نفس نسخة BusinessAccessService جوه الطلب الواحد - عشان الـroleCache
      * الجوه الـService يشتغل (بدل استعلامات متكررة لكل فحص). Phase 27.
      */
     private ?BusinessAccessService $accessService = null;
 
-    private function access(): BusinessAccessService {
+    private function access(): BusinessAccessService
+    {
         if ($this->accessService === null) {
             $this->accessService = new BusinessAccessService();
         }
         return $this->accessService;
     }
 
-    private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
+    private function loadOwnedBusiness(int $businessId, int $userId): ?Business
+    {
         return $this->access()->getAccessibleBusiness($businessId, $userId);
     }
 
     /** GET /api/business/{businessId}/ai-context */
-    public function show(array $params = []): array {
+    public function show(array $params = []): array
+    {
         if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -48,7 +52,8 @@ class BusinessAiContextController extends Controller {
      * + AI Context) عبر BusinessContextService - نفس البيانات اللي أي
      * AI Module في المنصة هيستخدمها فعليًا، مش نسخة تانية.
      */
-    public function full(array $params = []): array {
+    public function full(array $params = []): array
+    {
         if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -65,7 +70,8 @@ class BusinessAiContextController extends Controller {
     }
 
     /** PUT /api/business/{businessId}/ai-context */
-    public function upsert(array $params = []): array {
+    public function upsert(array $params = []): array
+    {
         if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }

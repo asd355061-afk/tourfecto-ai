@@ -416,8 +416,11 @@ HTML;
      * NRR/GRR-style retention analytics مبنية على بيانات حقيقية
      * (cohort retention من crm_deals + repeat purchase + recurring stability).
      */
-    public function apiRetention(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiRetention(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $retention = (new RevenueRetentionService())->getRetentionAnalytics((int) $this->user['id']);
             return $this->success($retention);
@@ -430,8 +433,11 @@ HTML;
      * GET /api/revenue-intelligence/subscriptions
      * v1.5.0: MRR/ARR/NRR/GRR حرفية من جدول biz_subscriptions + events.
      */
-    public function apiSubscriptionMetrics(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiSubscriptionMetrics(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $metrics = (new BizSubscriptionService())->getSubscriptionMetrics((int) $this->user['id']);
             ActivityLog::record('revenue_intelligence', 'subscriptions.metrics_viewed', ['user_id' => (int) $this->user['id']]);
@@ -445,8 +451,11 @@ HTML;
      * GET /api/revenue-intelligence/forecast/deals
      * v1.5.0: Deal-level forecast (this month/quarter/later/undated).
      */
-    public function apiDealForecast(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiDealForecast(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $deals = (new RevenueDataGateway())->getDealsWithRep((int) $this->user['id']);
             $forecast = DealLevelForecastService::groupOpenDealsByCloseWindow($deals);
@@ -460,8 +469,11 @@ HTML;
      * GET /api/revenue-intelligence/attribution
      * v1.5.0: Sales attribution بالمناديب والفرق.
      */
-    public function apiSalesAttribution(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiSalesAttribution(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $deals = (new RevenueDataGateway())->getDealsWithRep((int) $this->user['id']);
             $attribution = [
@@ -478,8 +490,11 @@ HTML;
      * GET /api/revenue-intelligence/benchmarks
      * v1.5.0: Benchmarks منصية حقيقية (أو يدوية مسجلة). لا أرقام مخترعة.
      */
-    public function apiBenchmarks(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiBenchmarks(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $benchmarks = (new RevenueBenchmarkService())->getBenchmarks((int) $this->user['id']);
             return $this->success($benchmarks);
@@ -492,8 +507,11 @@ HTML;
      * GET /api/revenue-intelligence/churn
      * v1.5.0: Churn analytics + أسباب التوقف من بيانات حقيقية فقط.
      */
-    public function apiChurnAnalytics(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiChurnAnalytics(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $churn = (new RevenueChurnService())->getChurnAnalytics((int) $this->user['id']);
             return $this->success($churn);
@@ -506,8 +524,11 @@ HTML;
      * GET /api/revenue-intelligence/dashboard-prefs
      * v1.6.0: قراءة تخصيص الداشبورد الحالي (أو الافتراضي).
      */
-    public function apiDashboardPrefsGet(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiDashboardPrefsGet(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $prefs = (new RevenueDashboardService())->getLayout((int) $this->user['id']);
             return $this->success($prefs);
@@ -520,8 +541,11 @@ HTML;
      * POST /api/revenue-intelligence/dashboard-prefs { widgets: [...] }
      * v1.6.0: حفظ تخصيص الداشبورد (يُطبَّع ضد القائمة المعروفة فقط).
      */
-    public function apiDashboardPrefsSave(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiDashboardPrefsSave(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $layout = (array) $this->get('layout', $this->get('widgets', []));
             $saved = (new RevenueDashboardService())->saveLayout((int) $this->user['id'], $layout);
@@ -535,8 +559,11 @@ HTML;
      * POST /api/revenue-intelligence/dashboard-prefs/reset
      * v1.6.0: إعادة التخصيص للوضع الافتراضي.
      */
-    public function apiDashboardPrefsReset(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiDashboardPrefsReset(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $default = (new RevenueDashboardService())->resetLayout((int) $this->user['id']);
             return $this->success($default);
@@ -549,8 +576,11 @@ HTML;
      * GET /api/revenue-intelligence/stripe/settings
      * v1.6.0: قراءة حالة اتصال Stripe (السر لا يُعاد أبدًا - فقط مؤشر مفعّل/لا).
      */
-    public function apiStripeSettingsGet(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiStripeSettingsGet(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $settings = (new RevenueDataGateway())->getStripeSettings((int) $this->user['id']);
             return $this->success([
@@ -574,8 +604,11 @@ HTML;
      *   connected_account_id?, mode? }
      * v1.6.0: حفظ إعدادات Stripe. السر يُشفَّر عبر Encryption قبل التخزين.
      */
-    public function apiStripeSettingsSave(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function apiStripeSettingsSave(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         try {
             $secret = trim((string) $this->get('webhook_secret', ''));
             $account = trim((string) $this->get('connected_account_id', ''));
@@ -601,7 +634,8 @@ HTML;
      * التحقق: توقيع Stripe-Signature ضد السر المشفر للمستخدم المحدد.
      * الفشل = 401؛ التكرار = duplicate (idempotent)؛ النجاح = processed.
      */
-    public function apiStripeWebhook(array $params = []): array {
+    public function apiStripeWebhook(array $params = []): array
+    {
         try {
             $targetUserId = (int) ($params['user_id'] ?? 0);
             if ($targetUserId <= 0) {
@@ -637,7 +671,8 @@ HTML;
     }
 
     /** بناء رابط الـ webhook الكامل (يُعرض للمستخدم ليلصقه في لوحة Stripe). */
-    private function buildStripeWebhookUrl(int $userId): string {
+    private function buildStripeWebhookUrl(int $userId): string
+    {
         $base = env('APP_URL', '');
         if ($base === '') {
             $base = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');

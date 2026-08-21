@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Control Center Phases 8-9/12/13-14/15-16/17 Tests
  * @version 1.0.0
@@ -18,16 +19,37 @@
 // offline، بنعرّف نسخة stub فارغة من Model (كل الاختبارات هنا بتستخدم
 // المنطق الخالص static بس - scopeAllows - اللي مبيستدعيش أي DB).
 if (!class_exists('Model')) {
-    class Model {
+    class Model
+    {
         protected $table = '';
         protected $fillable = [];
-        public function getAttribute(string $key) { return null; }
-        public function setAttribute(string $key, $value) {}
-        public function save() { return true; }
-        public function toArray(): array { return []; }
-        public function where(array $conditions = [], array $order = [], int $limit = 0) { return []; }
-        public function find(int $id) { return null; }
-        public function delete() { return true; }
+        public function getAttribute(string $key)
+        {
+            return null;
+        }
+        public function setAttribute(string $key, $value)
+        {
+        }
+        public function save()
+        {
+            return true;
+        }
+        public function toArray(): array
+        {
+            return [];
+        }
+        public function where(array $conditions = [], array $order = [], int $limit = 0)
+        {
+            return [];
+        }
+        public function find(int $id)
+        {
+            return null;
+        }
+        public function delete()
+        {
+            return true;
+        }
     }
 }
 
@@ -38,11 +60,13 @@ require_once dirname(__DIR__, 3) . '/app/Services/BusinessOnboardingService.php'
 require_once dirname(__DIR__, 3) . '/app/Services/BusinessAccountClosureService.php';
 require_once dirname(__DIR__, 3) . '/app/Services/BusinessIntegrationsService.php';
 
-class BusinessCenterPhase8912Test {
+class BusinessCenterPhase8912Test
+{
     private $passed = 0;
     private $failed = 0;
 
-    public function runAll(): void {
+    public function runAll(): void
+    {
         echo "\nBusiness Control Center (Phases 8-9/12/13-14/15-16/17) Tests\n";
         echo "=================================\n\n";
 
@@ -60,7 +84,8 @@ class BusinessCenterPhase8912Test {
     }
 
     // ============ Phase 12: BusinessApiKey::scopeAllows ============
-    private function testApiKeyScopes(): void {
+    private function testApiKeyScopes(): void
+    {
         $this->startTest('BusinessApiKey::scopeAllows maps read/write correctly (pure)');
         $ok = true;
         $ok = $ok && BusinessApiKey::scopeAllows('read', 'read');
@@ -76,7 +101,8 @@ class BusinessCenterPhase8912Test {
     }
 
     // ============ Phase 13-14: BusinessAuditService labels ============
-    private function testAuditLabels(): void {
+    private function testAuditLabels(): void
+    {
         $this->startTest('BusinessAuditService action labels (pure)');
         $labels = BusinessAuditService::actionLabels();
         $ok = isset($labels[BusinessAuditService::ACTION_BUSINESS_UPDATED])
@@ -88,7 +114,8 @@ class BusinessCenterPhase8912Test {
     }
 
     // ============ Phase 17: BusinessOnboardingService ============
-    private function testOnboardingNonexistent(): void {
+    private function testOnboardingNonexistent(): void
+    {
         $this->startTest('Onboarding: nonexistent business -> exists=false');
         $svc = new BusinessOnboardingService();
         $r = $svc->progressFromContext(['exists' => false]);
@@ -98,7 +125,8 @@ class BusinessCenterPhase8912Test {
             : $this->fail('Unexpected: ' . json_encode($r));
     }
 
-    private function testOnboardingEmpty(): void {
+    private function testOnboardingEmpty(): void
+    {
         $this->startTest('Onboarding: empty business -> 0/8 steps, next=business_identity');
         $svc = new BusinessOnboardingService();
         $r = $svc->progressFromContext($this->buildContext([]));
@@ -111,7 +139,8 @@ class BusinessCenterPhase8912Test {
             : $this->fail('Unexpected: ' . json_encode($r));
     }
 
-    private function testOnboardingComplete(): void {
+    private function testOnboardingComplete(): void
+    {
         $this->startTest('Onboarding: fully complete business -> 8/8, all_completed');
         $svc = new BusinessOnboardingService();
         $r = $svc->progressFromContext($this->buildContext([
@@ -131,7 +160,8 @@ class BusinessCenterPhase8912Test {
             : $this->fail('Unexpected: ' . json_encode($r));
     }
 
-    private function testOnboardingStepChecks(): void {
+    private function testOnboardingStepChecks(): void
+    {
         $this->startTest('Onboarding: individual step checks (pure methods)');
         $svc = new BusinessOnboardingService();
         $ctx = $this->buildContext(['business' => $this->fullBusiness()]);
@@ -145,7 +175,8 @@ class BusinessCenterPhase8912Test {
             : $this->fail('step check mismatch');
     }
 
-    private function testOnboardingNextStep(): void {
+    private function testOnboardingNextStep(): void
+    {
         $this->startTest('Onboarding: next_step is first incomplete step in order');
         $svc = new BusinessOnboardingService();
         $r = $svc->progressFromContext($this->buildContext([
@@ -162,7 +193,8 @@ class BusinessCenterPhase8912Test {
     }
 
     // ============ Phase 15-16: BusinessAccountClosureService successor ============
-    private function testSuccessorSelection(): void {
+    private function testSuccessorSelection(): void
+    {
         $this->startTest('Account closure: successor is highest-ranked active member (pure)');
         $svc = new BusinessAccountClosureService();
         $none = $svc->pickSuccessorFromMembers([]);
@@ -185,7 +217,8 @@ class BusinessCenterPhase8912Test {
     }
 
     // ============ Phase 8-9: BusinessIntegrationsService::mergeStatuses ============
-    private function testMergeStatuses(): void {
+    private function testMergeStatuses(): void
+    {
         $this->startTest('Integrations: mergeStatuses ORs across websites (pure)');
         $svc = new BusinessIntegrationsService();
         $merged = $svc->mergeStatuses([
@@ -210,7 +243,8 @@ class BusinessCenterPhase8912Test {
 
     // ============ Helpers ============
 
-    private function buildContext(array $overrides): array {
+    private function buildContext(array $overrides): array
+    {
         $base = [
             'exists' => true,
             'business' => [],
@@ -224,7 +258,8 @@ class BusinessCenterPhase8912Test {
         return array_merge($base, $overrides);
     }
 
-    private function fullBusiness(): array {
+    private function fullBusiness(): array
+    {
         return [
             'legal_name' => 'Nile Wonders Travel',
             'description' => 'Premium travel company in Egypt',
@@ -237,19 +272,33 @@ class BusinessCenterPhase8912Test {
         ];
     }
 
-    private function fullLocation(): array {
+    private function fullLocation(): array
+    {
         return ['name' => 'Head Office', 'city' => 'Cairo', 'is_primary' => 1];
     }
 
-    private function fullService(): array {
+    private function fullService(): array
+    {
         return ['name' => 'Egypt Classic Tours', 'active' => 1];
     }
 
-    private function startTest(string $name): void { echo "\n  > {$name}\n"; }
-    private function pass(string $message): void { echo "    [PASS] {$message}\n"; $this->passed++; }
-    private function fail(string $message): void { echo "    [FAIL] {$message}\n"; $this->failed++; }
+    private function startTest(string $name): void
+    {
+        echo "\n  > {$name}\n";
+    }
+    private function pass(string $message): void
+    {
+        echo "    [PASS] {$message}\n";
+        $this->passed++;
+    }
+    private function fail(string $message): void
+    {
+        echo "    [FAIL] {$message}\n";
+        $this->failed++;
+    }
 
-    private function printSummary(): void {
+    private function printSummary(): void
+    {
         $total = $this->passed + $this->failed;
         $percentage = $total > 0 ? round(($this->passed / $total) * 100, 2) : 0;
         echo "\n" . str_repeat('=', 50) . "\n";

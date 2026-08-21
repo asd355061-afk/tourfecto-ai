@@ -162,8 +162,12 @@ class ActionCenterExecutorTest
         $notified = [];
         $executor = new ActionCenterExecutor(
             $db,
-            function ($userId, $payload) use (&$createdTasks) { $createdTasks[] = [$userId, $payload]; },
-            function ($userId, $intent) use (&$notified) { $notified[] = [$userId, $intent]; }
+            function ($userId, $payload) use (&$createdTasks) {
+                $createdTasks[] = [$userId, $payload];
+            },
+            function ($userId, $intent) use (&$notified) {
+                $notified[] = [$userId, $intent];
+            }
         );
 
         $summary = $executor->executeActions(1, [[
@@ -200,7 +204,9 @@ class ActionCenterExecutorTest
         $createdTasks = [];
         $executor = new ActionCenterExecutor(
             $db,
-            function ($userId, $payload) use (&$createdTasks) { $createdTasks[] = $payload; }
+            function ($userId, $payload) use (&$createdTasks) {
+                $createdTasks[] = $payload;
+            }
         );
 
         $summary = $executor->executeActions(1, [[
@@ -221,7 +227,9 @@ class ActionCenterExecutorTest
         $createdTasks = [];
         $executor = new ActionCenterExecutor(
             $db,
-            function ($userId, $payload) use (&$createdTasks) { $createdTasks[] = $payload; }
+            function ($userId, $payload) use (&$createdTasks) {
+                $createdTasks[] = $payload;
+            }
         );
 
         $summary = $executor->executeActions(1, [[

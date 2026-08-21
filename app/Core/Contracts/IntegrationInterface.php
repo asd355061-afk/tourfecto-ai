@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Integration Contract
  * @version 1.0.0
@@ -7,8 +8,8 @@
  * للـ interface ده. الهدف: IntegrationManager يقدر يتعامل مع أي API بنفس
  * الطريقة، من غير ما يعرف تفاصيله الداخلية.
  */
-interface IntegrationInterface {
-
+interface IntegrationInterface
+{
     /**
      * اسم الـ platform الفريد زي ما هيتخزن في عمود platform_connections.platform
      * مثال: 'openai', 'slack', 'hubspot'

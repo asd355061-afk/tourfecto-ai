@@ -121,19 +121,20 @@ class ExportUserDataJob implements QueueJobInterface
      *
      * @return array<int,array>
      */
-    private function collectBusinessData(int $userId): array {
+    private function collectBusinessData(int $userId): array
+    {
         $db = Database::getInstance();
         $businesses = [];
 
         $ownedRows = $db->query('SELECT id FROM businesses WHERE owner_user_id = ?', [$userId]);
-        $ownedIds = array_map(fn($r) => (int) $r['id'], $ownedRows ?: []);
+        $ownedIds = array_map(fn ($r) => (int) $r['id'], $ownedRows ?: []);
 
         // الشركات اللي هو عضو نشط فيها (مالكها حد تاني)
         $memberRows = $db->query(
             "SELECT DISTINCT business_id FROM business_members WHERE user_id = ? AND status = 'active'",
             [$userId]
         );
-        $memberIds = array_map(fn($r) => (int) $r['business_id'], $memberRows ?: []);
+        $memberIds = array_map(fn ($r) => (int) $r['business_id'], $memberRows ?: []);
 
         $businessIds = array_values(array_unique(array_merge($ownedIds, $memberIds)));
         foreach ($businessIds as $businessId) {
@@ -144,8 +145,8 @@ class ExportUserDataJob implements QueueJobInterface
 
             $entry = [
                 'business' => $business->toArray(),
-                'locations' => array_map(fn($m) => $m->toArray(), (new BusinessLocation())->where(['business_id' => $businessId])),
-                'services' => array_map(fn($m) => $m->toArray(), (new BusinessService())->where(['business_id' => $businessId])),
+                'locations' => array_map(fn ($m) => $m->toArray(), (new BusinessLocation())->where(['business_id' => $businessId])),
+                'services' => array_map(fn ($m) => $m->toArray(), (new BusinessService())->where(['business_id' => $businessId])),
                 'target_markets' => null,
                 'ai_context' => null,
                 'brand_settings' => null,

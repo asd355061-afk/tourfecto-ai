@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Business Integrations Controller
  * Business Control Center Phase 8-9: Integrations Center (business-scoped)
@@ -12,10 +13,11 @@
  * (404 للـbusinesses مش مملوكة/مش مصرّح بيها - منع تسريب وجود موارد
  * لمستخدمين تانيين)، وبعدين يلفّ BusinessIntegrationsService.
  */
-class BusinessIntegrationsController extends Controller {
-
+class BusinessIntegrationsController extends Controller
+{
     /** GET /api/business/{businessId}/integrations */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         if (!$this->isAuthenticated()) {
             return $this->error('غير مسجل دخول', 401);
         }

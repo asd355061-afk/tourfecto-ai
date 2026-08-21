@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - Competitor Intelligence: Competitor Domain Utility
  * @version 1.0.0
@@ -15,12 +16,14 @@
  *
  * أي استهلاك جديد للدومين المفروض يعدّي هنا بدل إعادة كتابة المنطق.
  */
-class CompetitorDomain {
+class CompetitorDomain
+{
     /**
      * تطبيع دومين/URL مدخل: trim + إضافة `https://` لو مفيش scheme.
      * بترجّع string دايماً (فاضية لو المدخل فاضي/null).
      */
-    public static function normalize(mixed $domain): string {
+    public static function normalize(mixed $domain): string
+    {
         $domain = trim((string) $domain);
         if ($domain === '') {
             return '';
@@ -32,7 +35,8 @@ class CompetitorDomain {
      * استخراج الـ host من URL أو دومين خام (lowercase). بترجّع null لو
      * مفيش host قابل للاستخراج.
      */
-    public static function host(mixed $urlOrDomain): ?string {
+    public static function host(mixed $urlOrDomain): ?string
+    {
         $normalized = self::normalize($urlOrDomain);
         if ($normalized === '') {
             return null;
@@ -48,7 +52,8 @@ class CompetitorDomain {
     /**
      * هل الـ URL آمن أن السيرفر يطلبه؟ (نفس فحص SsrfGuard بعد التطبيع).
      */
-    public static function isSafe(mixed $domain): bool {
+    public static function isSafe(mixed $domain): bool
+    {
         $normalized = self::normalize($domain);
         return $normalized !== '' && SsrfGuard::isSafe($normalized);
     }
@@ -57,7 +62,8 @@ class CompetitorDomain {
      * تطبيع + فحص أمان دفعة واحدة. بترجّع الـ URL المُطبَّع (جاهز للتخزين)
      * أو null لو الدومين مش آمن/فاضي - الـ caller يقرر إزاي يتعامل مع null.
      */
-    public static function normalizeSafe(mixed $domain): ?string {
+    public static function normalizeSafe(mixed $domain): ?string
+    {
         $normalized = self::normalize($domain);
         if ($normalized === '') {
             return null;

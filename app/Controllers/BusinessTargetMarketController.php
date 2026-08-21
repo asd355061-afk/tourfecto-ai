@@ -1,30 +1,34 @@
 <?php
+
 /**
  * Tourfecto - Business Target Market Controller
  * Business Control Center - Phase 5
  * @version 1.0.0
  */
-class BusinessTargetMarketController extends Controller {
-
+class BusinessTargetMarketController extends Controller
+{
     /**
      * نفس نسخة BusinessAccessService جوه الطلب الواحد - عشان الـroleCache
      * الجوه الـService يشتغل (بدل استعلامات متكررة لكل فحص). Phase 27.
      */
     private ?BusinessAccessService $accessService = null;
 
-    private function access(): BusinessAccessService {
+    private function access(): BusinessAccessService
+    {
         if ($this->accessService === null) {
             $this->accessService = new BusinessAccessService();
         }
         return $this->accessService;
     }
 
-    private function loadOwnedBusiness(int $businessId, int $userId): ?Business {
+    private function loadOwnedBusiness(int $businessId, int $userId): ?Business
+    {
         return $this->access()->getAccessibleBusiness($businessId, $userId);
     }
 
     /** GET /api/business/{businessId}/markets */
-    public function show(array $params = []): array {
+    public function show(array $params = []): array
+    {
         if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }
@@ -49,7 +53,8 @@ class BusinessTargetMarketController extends Controller {
      * مفيش داعي لـstore/update منفصلين زي Locations/Services لأن مفيش
      * أكتر من نسخة ممكنة أصلًا.
      */
-    public function upsert(array $params = []): array {
+    public function upsert(array $params = []): array
+    {
         if (empty($this->user['id'])) {
             return $this->error('غير مسجل دخول', 401);
         }

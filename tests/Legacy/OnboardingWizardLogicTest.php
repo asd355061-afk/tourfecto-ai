@@ -175,7 +175,7 @@ class OnboardingWizardLogicTest
         // نفس النمط الموجود في activeOnboardingJobId (Phase 20)
         // نفس طريقة بناء النمط في activeOnboardingJobId (Phase 20):
         // '"website_id":' . (int)$websiteId . '([^0-9]|$)'
-        $build = fn(int $id): string => '#' . '"website_id":' . $id . '([^0-9]|$)' . '#';
+        $build = fn (int $id): string => '#' . '"website_id":' . $id . '([^0-9]|$)' . '#';
         $tests = [
             [$build(5), '"website_id":5, "job_class":"x"', true, 'يجب أن يطابق id=5'],
             [$build(5), '"website_id":50', false, 'يجب ألا يطابق id=50 بدل 5'],

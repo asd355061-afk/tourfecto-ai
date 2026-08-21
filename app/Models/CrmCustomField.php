@@ -1,6 +1,8 @@
 <?php
+
 /** Tourfecto - CRM Custom Field Definition Model (المرحلة 12 - G2) @version 1.0.0 */
-class CrmCustomField extends Model {
+class CrmCustomField extends Model
+{
     protected $table = 'crm_custom_fields';
     protected $fillable = ['user_id', 'entity_type', 'field_key', 'label', 'field_type', 'options'];
 
@@ -8,7 +10,8 @@ class CrmCustomField extends Model {
     public const ENTITY_TYPES = ['contact', 'lead', 'deal', 'company'];
 
     /** تعريفات الحساب حسب الكيان (اختياري) */
-    public function forUser(int $userId, string $entityType = ''): array {
+    public function forUser(int $userId, string $entityType = ''): array
+    {
         $sql = "SELECT * FROM crm_custom_fields WHERE user_id = ?";
         $params = [$userId];
         if ($entityType !== '') {
@@ -20,7 +23,8 @@ class CrmCustomField extends Model {
     }
 
     /** تعريف مملوك للحساب */
-    public function findOwned(int $userId, int $fieldId): ?CrmCustomField {
+    public function findOwned(int $userId, int $fieldId): ?CrmCustomField
+    {
         $rows = $this->db->query(
             "SELECT * FROM crm_custom_fields WHERE id = ? AND user_id = ? LIMIT 1",
             [$fieldId, $userId]
@@ -34,7 +38,8 @@ class CrmCustomField extends Model {
     }
 
     /** تعريف بواسطة (user + entity + key) - للتحقق من التكرار */
-    public function findByKey(int $userId, string $entityType, string $fieldKey): ?CrmCustomField {
+    public function findByKey(int $userId, string $entityType, string $fieldKey): ?CrmCustomField
+    {
         $rows = $this->db->query(
             "SELECT * FROM crm_custom_fields WHERE user_id = ? AND entity_type = ? AND field_key = ? LIMIT 1",
             [$userId, $entityType, $fieldKey]
@@ -48,7 +53,8 @@ class CrmCustomField extends Model {
     }
 
     /** خيارات حقل select كـ array */
-    public function optionsList(): array {
+    public function optionsList(): array
+    {
         $json = (string) $this->getAttribute('options');
         return $json !== '' ? (json_decode($json, true) ?: []) : [];
     }

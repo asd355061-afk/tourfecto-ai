@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tourfecto - CRM Chart & Visualization Service (المرحلة 14 - G7)
  * @version 1.0.0
@@ -16,10 +17,12 @@
  *   - dealStatusDistribution: فطيرة Open/Won/Lost
  *   - lifecycleDistribution: توزيع جهات الاتصال على مراحل دورة الحياة
  */
-class CrmChartService {
+class CrmChartService
+{
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::getInstance();
     }
 
@@ -27,7 +30,8 @@ class CrmChartService {
      * توزيع الصفقات المفتوحة على مراحل الـPipeline (عدد + قيمة).
      * @return array{labels:string[], datasets:array}
      */
-    public function pipelineChart(int $userId): array {
+    public function pipelineChart(int $userId): array
+    {
         $rows = $this->db->query(
             "SELECT s.name AS stage, s.color AS color,
                     COUNT(d.id) AS deal_count,
@@ -64,7 +68,8 @@ class CrmChartService {
      * صافي الإيراد (Won) شهريًا خلال آخر $months شهر.
      * @return array{labels:string[], datasets:array}
      */
-    public function revenueTrend(int $userId, int $months = 12): array {
+    public function revenueTrend(int $userId, int $months = 12): array
+    {
         $months = max(1, min(24, $months));
         $labels = [];
         $series = [];
@@ -95,7 +100,8 @@ class CrmChartService {
     /**
      * أعمدة Won/Lost خلال فترة (متوافقة مع CrmReportService::winLoss).
      */
-    public function winLossTrend(int $userId, ?string $from = null, ?string $to = null): array {
+    public function winLossTrend(int $userId, ?string $from = null, ?string $to = null): array
+    {
         if ($from === null || $from === '') {
             $from = date('Y-m-01');
         }
@@ -134,7 +140,8 @@ class CrmChartService {
     }
 
     /** توزيع الـLeads على المصادر (قيم المصادر الفعلية المسجّلة) */
-    public function leadSourceDistribution(int $userId): array {
+    public function leadSourceDistribution(int $userId): array
+    {
         $rows = $this->db->query(
             "SELECT COALESCE(NULLIF(source, ''), 'غير محدد') AS source, COUNT(*) AS cnt
              FROM crm_leads
@@ -153,7 +160,8 @@ class CrmChartService {
     }
 
     /** فطيرة حالات الصفقات (Open/Won/Lost) عددًا وقيمة */
-    public function dealStatusDistribution(int $userId): array {
+    public function dealStatusDistribution(int $userId): array
+    {
         $rows = $this->db->query(
             "SELECT status, COUNT(*) AS cnt, COALESCE(SUM(value), 0) AS total
              FROM crm_deals WHERE owner_user_id = ? GROUP BY status",
@@ -175,7 +183,8 @@ class CrmChartService {
     }
 
     /** توزيع جهات الاتصال على مراحل دورة الحياة (G6) */
-    public function lifecycleDistribution(int $userId): array {
+    public function lifecycleDistribution(int $userId): array
+    {
         $rows = $this->db->query(
             "SELECT COALESCE(NULLIF(lifecycle_stage, ''), 'غير محددة') AS stage, COUNT(*) AS cnt
              FROM crm_contacts WHERE user_id = ? GROUP BY stage ORDER BY cnt DESC",

@@ -115,15 +115,16 @@ class GbpLocalSeoAuditService
     // 1) Profile (وزن 40) - نعيد استخدام GbpProfileScoreService الحتمي
     // ============================================================
     private function scoreProfile(array $profile): array
-    {        return [
-            'weight' => 40,
-            'score' => (int) round(($profile['score'] / max(1, $profile['max_score'])) * 100),
-            'label' => 'اكتمال الملف التجاري',
-            'checks' => [
-                'missing' => $profile['missing'],
-                'complete' => $profile['complete'],
-            ],
-        ];
+    {
+        return [
+                'weight' => 40,
+                'score' => (int) round(($profile['score'] / max(1, $profile['max_score'])) * 100),
+                'label' => 'اكتمال الملف التجاري',
+                'checks' => [
+                    'missing' => $profile['missing'],
+                    'complete' => $profile['complete'],
+                ],
+            ];
     }
 
     // ============================================================

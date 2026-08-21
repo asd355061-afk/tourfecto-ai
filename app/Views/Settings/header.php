@@ -1,4 +1,5 @@
 <?php
+
 /**
  * View: Settings - header section (extracted Phase 16F).
  */

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * View: Settings - billing section (extracted Phase 16F).
  */

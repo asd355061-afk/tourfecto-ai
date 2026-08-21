@@ -214,42 +214,70 @@ class GbpProfileController extends Controller
      * GET /api/gbp/reply-rules - قواعد الرد التلقائي (BirdAI/Podium-style)
      * @since 2026-08-15
      */
-    public function listReplyRules(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function listReplyRules(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $websiteId = (int) $this->get('website_id');
-        if (!$websiteId) return $this->error('website_id مطلوب', 422);
+        if (!$websiteId) {
+            return $this->error('website_id مطلوب', 422);
+        }
         $result = $this->replyRuleService->listRules($websiteId, (int) $this->user['id']);
-        if (!$result['success']) return $this->error($result['error'], 500);
+        if (!$result['success']) {
+            return $this->error($result['error'], 500);
+        }
         return $this->success($result);
     }
 
     /** POST /api/gbp/reply-rules - إنشاء قاعدة */
-    public function createReplyRule(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function createReplyRule(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $websiteId = (int) $this->get('website_id');
-        if (!$websiteId) return $this->error('website_id مطلوب', 422);
+        if (!$websiteId) {
+            return $this->error('website_id مطلوب', 422);
+        }
         $result = $this->replyRuleService->createRule($websiteId, (int) $this->user['id'], $this->data);
-        if (!$result['success']) return $this->error($result['error'], 422);
+        if (!$result['success']) {
+            return $this->error($result['error'], 422);
+        }
         return $this->success($result, 'تم إنشاء القاعدة', 201);
     }
 
     /** PUT /api/gbp/reply-rules/{id} - تحديث قاعدة */
-    public function updateReplyRule(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function updateReplyRule(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $ruleId = (int) ($params['id'] ?? 0);
-        if (!$ruleId) return $this->error('rule id مطلوب', 422);
+        if (!$ruleId) {
+            return $this->error('rule id مطلوب', 422);
+        }
         $result = $this->replyRuleService->updateRule($ruleId, (int) $this->user['id'], $this->data);
-        if (!$result['success']) return $this->error($result['error'], 422);
+        if (!$result['success']) {
+            return $this->error($result['error'], 422);
+        }
         return $this->success($result);
     }
 
     /** DELETE /api/gbp/reply-rules/{id} - حذف قاعدة */
-    public function deleteReplyRule(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function deleteReplyRule(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $ruleId = (int) ($params['id'] ?? 0);
-        if (!$ruleId) return $this->error('rule id مطلوب', 422);
+        if (!$ruleId) {
+            return $this->error('rule id مطلوب', 422);
+        }
         $result = $this->replyRuleService->deleteRule($ruleId, (int) $this->user['id']);
-        if (!$result['success']) return $this->error($result['error'], 500);
+        if (!$result['success']) {
+            return $this->error($result['error'], 500);
+        }
         return $this->success($result);
     }
 
@@ -258,12 +286,19 @@ class GbpProfileController extends Controller
      * محددة (تشغيل يدوي، أو تلقائيًا من الكرون بعد المزامنة).
      * @since 2026-08-15
      */
-    public function applyReplyRules(array $params = []): array {
-        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+    public function applyReplyRules(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
         $reviewId = (int) ($params['review_id'] ?? 0);
-        if (!$reviewId) return $this->error('review_id مطلوب', 422);
+        if (!$reviewId) {
+            return $this->error('review_id مطلوب', 422);
+        }
         $result = $this->replyRuleService->applyRulesToReview($reviewId);
-        if (!$result['success']) return $this->error($result['error'] ?? 'تعذر تنفيذ القواعد', 422);
+        if (!$result['success']) {
+            return $this->error($result['error'] ?? 'تعذر تنفيذ القواعد', 422);
+        }
         return $this->success($result);
     }
 

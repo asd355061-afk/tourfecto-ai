@@ -20,12 +20,14 @@
  *   - mapInvoicePaymentSucceeded(array $payload): array                  - سجل event expansion/new
  *   - mapSubscriptionDeleted(array $payload): array                      - سجل event churn
  */
-class StripeRevenueMapper {
+class StripeRevenueMapper
+{
     /**
      * تحويل مبلغ Stripe (سنتات) إلى العملة، للأرقام القياسية بـ 6 خانات عشرية
      * (USD/EUR تبقى دولارَين كما هي مع تقسيم على 100).
      */
-    public static function normalizeAmountForCurrency(int $amount, string $currency): float {
+    public static function normalizeAmountForCurrency(int $amount, string $currency): float
+    {
         $currency = strtolower($currency);
         // عملات بلا كسور عشرية (JPY, KRW, VND ...)
         $noDecimal = ['jpy', 'krw', 'vnd', 'clp', 'pyg', 'xof', 'kwd', 'bhd', 'omr', 'jod', 'tnd', 'lyd'];
@@ -36,7 +38,8 @@ class StripeRevenueMapper {
     }
 
     /** تعيين interval خطط Stripe إلى دورة فوترة الموديول. */
-    public static function mapIntervalToCycle(string $interval): string {
+    public static function mapIntervalToCycle(string $interval): string
+    {
         $map = [
             'day' => 'monthly',
             'week' => 'monthly',
@@ -49,7 +52,8 @@ class StripeRevenueMapper {
     }
 
     /** تحويل مبلغ أي دورة إلى MRR شهري حقيقي (لا تقدير). */
-    public static function convertSubscriptionToMrr(float $amount, string $cycle): float {
+    public static function convertSubscriptionToMrr(float $amount, string $cycle): float
+    {
         switch ($cycle) {
             case 'yearly':
                 return round($amount / 12, 2);
@@ -61,7 +65,8 @@ class StripeRevenueMapper {
     }
 
     /** سجلات الاشتراك لحدث customer.subscription.created. */
-    public static function mapSubscriptionCreated(array $payload): array {
+    public static function mapSubscriptionCreated(array $payload): array
+    {
         $subscription = $payload['data']['object'] ?? $payload;
         $customer = (string) ($subscription['customer'] ?? '');
         $currency = (string) ($subscription['currency'] ?? 'usd');
@@ -104,7 +109,8 @@ class StripeRevenueMapper {
      * سجل event لفواتير Stripe الناجحة (مصدر موثوق للـ MRR الفعلي الشهري).
      * يشمل التوسعات عند تغيّر المبلغ.
      */
-    public static function mapInvoicePaymentSucceeded(array $payload): array {
+    public static function mapInvoicePaymentSucceeded(array $payload): array
+    {
         $invoice = $payload['data']['object'] ?? $payload;
         $lines = $invoice['lines']['data'] ?? [];
         $customer = (string) ($invoice['customer'] ?? '');
@@ -137,7 +143,8 @@ class StripeRevenueMapper {
     }
 
     /** سجل event عند إلغاء الاشتراك (churn). */
-    public static function mapSubscriptionDeleted(array $payload): array {
+    public static function mapSubscriptionDeleted(array $payload): array
+    {
         $subscription = $payload['data']['object'] ?? $payload;
         $customer = (string) ($subscription['customer'] ?? '');
         $currency = (string) ($subscription['currency'] ?? 'usd');

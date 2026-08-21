@@ -584,7 +584,8 @@ class ChatController extends Controller
      * التصميم والـCSS classes وطريقة الصفحة (Panel/panel.js) اتحافظ
      * عليها 100% زي ما هي - نفس نظام `.p-toolbar`/`.p-card`/`.p-table`.
      */
-    public function index(array $params = []): array {
+    public function index(array $params = []): array
+    {
         $currentUserId = (int) ($this->user['id'] ?? 0);
         $body = <<<'HTML'
         {ICON_SPRITE}
@@ -2662,7 +2663,8 @@ JS;
      * كل فجوة (تمت الملاحظة / أُضيفت لقاعدة المعرفة / تجاهل).
      * تستخدم Endpoints موجودة (AiLearningController) - صفر Endpoint جديد.
      */
-    public function showLearning(array $params = []): array {
+    public function showLearning(array $params = []): array
+    {
         $body = <<<'HTML'
         {ICON_SPRITE}
         {CHAT_UI_CSS}

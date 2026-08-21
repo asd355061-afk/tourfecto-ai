@@ -1,4 +1,5 @@
 <?php
+
 /**
  * View: Settings - audit section (extracted Phase 16F).
  */
