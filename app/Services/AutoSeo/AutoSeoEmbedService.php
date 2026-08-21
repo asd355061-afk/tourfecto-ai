@@ -27,10 +27,11 @@ class AutoSeoEmbedService
     private const INJECTABLE_FIELDS = [
         'seo_title', 'seo_description', 'canonical_url', 'viewport',
         'og_tags', 'json_ld', 'faq_schema', 'speakable', 'image_alt',
+        'image_lazy_load',
     ];
 
     /** حقول لازم تتخدم Server-Side (مش من المتصفح) */
-    private const SERVER_SIDE_FIELDS = ['robots_txt', 'llms_txt', 'sitemap'];
+    private const SERVER_SIDE_FIELDS = ['robots_txt', 'llms_txt', 'sitemap', 'image_webp_convert', 'hreflang_tags'];
 
     /** @var Database */
     private $db;
@@ -325,9 +326,15 @@ JS;
                 return "    document.querySelectorAll('img:not([alt])').forEach(function(i){"
                      . "i.alt=(document.title||'').slice(0,80);});";
 
+            case 'image_lazy_load':
+                return "    document.querySelectorAll('img:not([loading])').forEach(function(i){"
+                     . "if(i!==document.querySelector('img')){i.loading='lazy';}});";
+
             case 'robots_txt':
             case 'llms_txt':
             case 'sitemap':
+            case 'image_webp_convert':
+            case 'hreflang_tags':
                 return "    // {$field}: served server-side via Tourfecto proxy";
 
             default:

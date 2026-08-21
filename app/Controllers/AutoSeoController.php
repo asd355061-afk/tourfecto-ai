@@ -874,6 +874,51 @@ JS;
         exit;
     }
 
+    /** POST /api/auto-seo/hreflang { website_id, languages[] } */
+    public function updateHreflang(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        $websiteId = (int) $this->get('website_id');
+        $languages = (array) $this->get('languages', []);
+
+        if (!$websiteId || !$this->ownsWebsite($websiteId)) {
+            return $this->error('الموقع غير موجود', 404);
+        }
+
+        $clean = [];
+        foreach ($languages as $lang) {
+            $code = is_array($lang) ? ($lang['code'] ?? '') : $lang;
+            $code = strtolower(trim((string) $code));
+            if (preg_match('/^[a-z]{2}(-[a-z]{2})?$/', $code)) {
+                $clean[] = ['code' => $code];
+            }
+        }
+
+        $this->db->exec(
+            "UPDATE websites SET target_languages = ? WHERE id = ?",
+            [json_encode($clean, JSON_UNESCAPED_UNICODE), $websiteId]
+        );
+
+        $this->db->exec(
+            "INSERT INTO auto_seo_applied_fixes
+             (website_id, user_id, category, field_name, injected_code, is_active)
+             VALUES (?, ?, ?, ?, ?, 1)
+             ON DUPLICATE KEY UPDATE injected_code = VALUES(injected_code), is_active = 1",
+            [
+                $websiteId,
+                (int) $this->user['id'],
+                'seo',
+                'hreflang_tags',
+                json_encode($clean, JSON_UNESCAPED_UNICODE),
+            ]
+        );
+
+        return $this->success(['languages' => $clean], 'تم تحديث لغات الاستهداف');
+    }
+
     private function ownsWebsite(int $websiteId): bool
     {
         $rows = $this->db->query(
