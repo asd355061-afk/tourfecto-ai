@@ -253,6 +253,8 @@ function applyTestMigrations(): void
     $migrations = [
         '2026_08_08_000009_create_crm_products_and_deal_items_tables.sql',
         '2026_08_21_000001_create_booking_engine_tables.sql',
+        '2026_08_12_000047_create_payment_transactions_table.sql',
+        '2026_08_21_000002_add_booking_payment_link.sql',
         '2026_07_22_000023_create_wallet_system.sql',
         '2026_07_27_000035_create_wallet_recharge_cards.sql',
         '2026_08_12_000049_create_tax_rules_table.sql',
