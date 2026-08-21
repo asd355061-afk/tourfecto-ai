@@ -134,7 +134,7 @@ JS;
         exit;
     }
 
-    /** GET /api/social/connections - صفحات فيسبوك/انستجرام المتاحة للنشر عليها */
+    /** GET /api/social/connections - الحسابات المتصلة للنشر عليها */
     public function listConnections(array $params = []): array
     {
         if (!$this->isAuthenticated()) {
@@ -145,7 +145,7 @@ JS;
             $rows = $this->db->query(
                 "SELECT id, platform, external_location_name AS name
                  FROM platform_connections
-                 WHERE user_id = ? AND platform IN ('facebook', 'instagram') AND status = 'connected'
+                 WHERE user_id = ? AND platform IN ('facebook', 'instagram', 'tiktok', 'youtube') AND status = 'connected'
                  ORDER BY platform, external_location_name",
                 [$this->user['id']]
             );
@@ -241,5 +241,263 @@ JS;
         }
 
         return $this->success($result);
+    }
+
+    /** GET /social/connect/tiktok */
+    public function connectTikTok(array $params = []): void
+    {
+        if (!$this->isAuthenticated()) {
+            header('Location: /login?redirect=' . urlencode('/social'));
+            exit;
+        }
+
+        $clientKey = env('TIKTOK_CLIENT_KEY');
+        $clientSecret = env('TIKTOK_CLIENT_SECRET');
+        if (!$clientKey || !$clientSecret) {
+            $this->renderOAuthError('ربط TikTok لسه مش مفعّل (بيانات TIKTOK_CLIENT_KEY/SECRET ناقصة).');
+            exit;
+        }
+
+        $nonce = bin2hex(random_bytes(16));
+        $_SESSION['tiktok_oauth_nonce'] = $nonce;
+
+        $redirectUri = env('TIKTOK_OAUTH_REDIRECT_URI') ?: (rtrim(defined('APP_URL') ? APP_URL : '', '/') . '/social/connect/tiktok/callback');
+        $state = base64_encode(json_encode(['nonce' => $nonce], JSON_UNESCAPED_UNICODE));
+
+        $url = 'https://www.tiktok.com/v2/auth/authorize/?'
+            . http_build_query([
+                'client_key'    => $clientKey,
+                'response_type' => 'code',
+                'scope'         => 'video.upload',
+                'redirect_uri'  => $redirectUri,
+                'state'         => $state,
+            ]);
+
+        header('Location: ' . $url);
+        exit;
+    }
+
+    /** GET /social/connect/tiktok/callback */
+    public function tikTokOAuthCallback(array $params = []): void
+    {
+        if (!$this->isAuthenticated()) {
+            header('Location: /login');
+            exit;
+        }
+
+        $error = $this->get('error');
+        if ($error) {
+            $this->renderOAuthError('العميل رفض الموافقة أو حصل خطأ من TikTok: ' . htmlspecialchars((string) $error, ENT_QUOTES, 'UTF-8'));
+            exit;
+        }
+
+        $code = $this->get('code');
+        $state = $this->get('state');
+        if (!$code || !$state) {
+            $this->renderOAuthError('رد غير مكتمل من TikTok');
+            exit;
+        }
+
+        $decodedState = json_decode(base64_decode((string) $state), true);
+        $expectedNonce = $_SESSION['tiktok_oauth_nonce'] ?? null;
+        if (!$decodedState || !$expectedNonce || !hash_equals($expectedNonce, $decodedState['nonce'] ?? '')) {
+            $this->renderOAuthError('انتهت صلاحية الجلسة أو محاولة غير موثوقة');
+            exit;
+        }
+
+        $clientKey    = env('TIKTOK_CLIENT_KEY');
+        $clientSecret = env('TIKTOK_CLIENT_SECRET');
+        $redirectUri  = env('TIKTOK_OAUTH_REDIRECT_URI') ?: (rtrim(defined('APP_URL') ? APP_URL : '', '/') . '/social/connect/tiktok/callback');
+
+        $ch = curl_init('https://open-api.tiktok.com/oauth/access_token/');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => http_build_query([
+                'client_key'    => $clientKey,
+                'client_secret' => $clientSecret,
+                'code'          => $code,
+                'grant_type'    => 'authorization_code',
+                'redirect_uri'  => $redirectUri,
+            ]),
+            CURLOPT_SSL_VERIFYPEER => true,
+        ]);
+        $resp = curl_exec($ch);
+        curl_close($ch);
+
+        $decoded = json_decode((string) $resp, true);
+        if (($decoded['error_code'] ?? 0) !== 0 || empty($decoded['data']['access_token'])) {
+            $this->renderOAuthError('فشل تبادل التوكن مع TikTok: ' . htmlspecialchars($decoded['description'] ?? 'unknown error', ENT_QUOTES, 'UTF-8'));
+            exit;
+        }
+
+        $data = $decoded['data'];
+        $accessToken  = $data['access_token'];
+        $refreshToken = $data['refresh_token'] ?? '';
+        $openId       = $data['open_id'];
+        $expiresIn    = $data['expires_in'] ?? 86400;
+
+        $encryption = new Encryption();
+
+        $existing = (new PlatformConnection())->where([
+            'user_id'  => (int) $this->user['id'],
+            'platform' => 'tiktok',
+        ], [], 1);
+
+        $connData = [
+            'user_id'               => (int) $this->user['id'],
+            'platform'              => 'tiktok',
+            'status'                => 'connected',
+            'access_token'          => $encryption->encrypt($accessToken),
+            'refresh_token'         => $refreshToken ? $encryption->encrypt($refreshToken) : null,
+            'external_location_id'  => $openId,
+            'external_location_name' => 'TikTok Account',
+            'token_expires_at'      => date('Y-m-d H:i:s', time() + (int) $expiresIn),
+            'last_error'            => null,
+        ];
+
+        if (!empty($existing)) {
+            foreach ($connData as $key => $value) {
+                $existing[0]->setAttribute($key, $value);
+            }
+            $existing[0]->save();
+        } else {
+            (new PlatformConnection($connData))->save();
+        }
+
+        unset($_SESSION['tiktok_oauth_nonce']);
+        header('Location: /social?connected=tiktok');
+        exit;
+    }
+
+    /** GET /social/connect/youtube */
+    public function connectYouTube(array $params = []): void
+    {
+        if (!$this->isAuthenticated()) {
+            header('Location: /login?redirect=' . urlencode('/social'));
+            exit;
+        }
+
+        $oauth = new GoogleOAuthClient(
+            'https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube',
+            env('YOUTUBE_OAUTH_REDIRECT_URI') ?: null
+        );
+        if (!$oauth->isConfigured()) {
+            $this->renderOAuthError('ربط YouTube لسه مش مفعّل (GOOGLE_CLIENT_ID/SECRET أو YOUTUBE_OAUTH_REDIRECT_URI ناقصة).');
+            exit;
+        }
+
+        $nonce = bin2hex(random_bytes(16));
+        $_SESSION['youtube_oauth_nonce'] = $nonce;
+
+        $state = base64_encode(json_encode(['nonce' => $nonce], JSON_UNESCAPED_UNICODE));
+        header('Location: ' . $oauth->buildAuthUrl($state));
+        exit;
+    }
+
+    /** GET /social/connect/youtube/callback */
+    public function youTubeOAuthCallback(array $params = []): void
+    {
+        if (!$this->isAuthenticated()) {
+            header('Location: /login');
+            exit;
+        }
+
+        $error = $this->get('error');
+        if ($error) {
+            $this->renderOAuthError('العميل رفض الموافقة أو حصل خطأ من Google: ' . htmlspecialchars((string) $error, ENT_QUOTES, 'UTF-8'));
+            exit;
+        }
+
+        $code = $this->get('code');
+        $state = $this->get('state');
+        if (!$code || !$state) {
+            $this->renderOAuthError('رد غير مكتمل من Google');
+            exit;
+        }
+
+        $decodedState = json_decode(base64_decode((string) $state), true);
+        $expectedNonce = $_SESSION['youtube_oauth_nonce'] ?? null;
+        if (!$decodedState || !$expectedNonce || !hash_equals($expectedNonce, $decodedState['nonce'] ?? '')) {
+            $this->renderOAuthError('انتهت صلاحية الجلسة أو محاولة غير موثوقة');
+            exit;
+        }
+
+        $oauth = new GoogleOAuthClient(
+            'https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube',
+            env('YOUTUBE_OAUTH_REDIRECT_URI') ?: null
+        );
+        $tokenResult = $oauth->exchangeCodeForTokens((string) $code);
+
+        if (!$tokenResult['success']) {
+            $this->renderOAuthError('فشل تبادل التوكن مع Google: ' . htmlspecialchars($tokenResult['error'] ?? '', ENT_QUOTES, 'UTF-8'));
+            exit;
+        }
+        if (empty($tokenResult['refresh_token'])) {
+            $this->renderOAuthError('Google ما رجعش refresh_token. افصل أي ربط سابق من إعدادات Google وحاول تاني.');
+            exit;
+        }
+
+        $accessToken  = $tokenResult['access_token'];
+        $refreshToken = $tokenResult['refresh_token'];
+
+        $ch = curl_init('https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER     => ['Authorization: Bearer ' . $accessToken],
+            CURLOPT_SSL_VERIFYPEER => true,
+        ]);
+        $channelResp = curl_exec($ch);
+        curl_close($ch);
+        $channelData = json_decode((string) $channelResp, true);
+        $channelId   = $channelData['items'][0]['id'] ?? null;
+        $channelTitle = $channelData['items'][0]['snippet']['title'] ?? 'YouTube Channel';
+
+        if (!$channelId) {
+            $this->renderOAuthError('ما قدرناش نجيب معرف قناة YouTube.');
+            exit;
+        }
+
+        $encryption = new Encryption();
+
+        $existing = (new PlatformConnection())->where([
+            'user_id'  => (int) $this->user['id'],
+            'platform' => 'youtube',
+        ], [], 1);
+
+        $connData = [
+            'user_id'                => (int) $this->user['id'],
+            'platform'               => 'youtube',
+            'status'                 => 'connected',
+            'access_token'           => $encryption->encrypt($accessToken),
+            'refresh_token'          => $encryption->encrypt($refreshToken),
+            'external_location_id'   => $channelId,
+            'external_location_name' => $channelTitle,
+            'token_expires_at'       => date('Y-m-d H:i:s', time() + (int) ($tokenResult['expires_in'] ?? 3600)),
+            'last_error'             => null,
+        ];
+
+        if (!empty($existing)) {
+            foreach ($connData as $key => $value) {
+                $existing[0]->setAttribute($key, $value);
+            }
+            $existing[0]->save();
+        } else {
+            (new PlatformConnection($connData))->save();
+        }
+
+        unset($_SESSION['youtube_oauth_nonce']);
+        header('Location: /social?connected=youtube');
+        exit;
+    }
+
+    private function renderOAuthError(string $message): void
+    {
+        echo '<div class="p-card" style="max-width:600px;margin:40px auto;text-align:center;">'
+            . '<h2>⚠️ خطأ في ربط الحساب</h2>'
+            . '<p>' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . '</p>'
+            . '<a href="/social" class="p-btn primary">العودة لإدارة السوشيال ميديا</a>'
+            . '</div>';
+        exit;
     }
 }

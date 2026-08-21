@@ -89,6 +89,10 @@ $router->group('/ai', function ($router) {
 // مساعد التسويق الذكي، White-Label، الإعلانات، CRM
 // ============================================
 $router->get('/social', 'SocialMediaController', 'index', ['AuthMiddleware']);
+$router->get('/social/connect/tiktok', 'SocialMediaController', 'connectTikTok', ['AuthMiddleware']);
+$router->get('/social/connect/tiktok/callback', 'SocialMediaController', 'tikTokOAuthCallback', ['AuthMiddleware']);
+$router->get('/social/connect/youtube', 'SocialMediaController', 'connectYouTube', ['AuthMiddleware']);
+$router->get('/social/connect/youtube/callback', 'SocialMediaController', 'youTubeOAuthCallback', ['AuthMiddleware']);
 $router->get('/creative-studio', 'CreativeStudioController', 'index', ['AuthMiddleware']);
 $router->get('/marketing-assistant', 'MarketingAssistantController', 'index', ['AuthMiddleware']);
 $router->get('/agency', 'AgencyController', 'index', ['AuthMiddleware']);
