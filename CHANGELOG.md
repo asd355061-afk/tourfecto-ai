@@ -1,4 +1,12 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## إصلاح زرار Google Analytics المعطّل في الداشبورد التنفيذي — 2026-08-21
+
+استبدال زرار "قريبًا" المعطّل (`DashboardController::case 'executive'`) بربط
+حقيقي لصفحة اختيار الموقع `/websites`، بنفس نمط زرار Google Search
+Console المجاور له، بما إن ربط GA4 شغال فعليًا عبر `GoogleAnalyticsController`
+و`/google-analytics/connect/{website_id}` ولا يوجد `website_id` واحد ثابت
+في context الداشبورد التنفيذي.
+
 ## المرحلة 16: إغلاق كل فجوات Settings Center التنافسية المتبقية — 2026-08-17
 
 بعد جولة الفحص التنافسية الكاملة (GitHub/Stripe/Vercel/Notion/Slack)، تم

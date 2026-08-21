@@ -1399,7 +1399,7 @@ HTML;
                         <div style="display:flex;flex-direction:column;gap:10px;">
                             <div style="display:flex;justify-content:space-between;align-items:center;">
                                 <span>{$this->tr('executive.ga.label')}</span>
-                                <button class="p-btn outline xs" disabled title="لسه مش متاح - قريبًا" style="opacity:.5;cursor:not-allowed;">قريبًا</button>
+                                <a href="/websites" class="p-btn outline xs">{$this->tr('executive.connect')}</a>
                             </div>
                             <div style="display:flex;justify-content:space-between;align-items:center;">
                                 <span>{$this->tr('executive.gsc.label')}</span>
