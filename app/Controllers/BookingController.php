@@ -119,6 +119,44 @@ class BookingController extends Controller
         }
     }
 
+    /** POST /api/bookings/{id}/checkout */
+    public function checkout(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('غير مسجل دخول', 401);
+        }
+
+        $userId = (int) ($this->getUser()['id'] ?? 0);
+        $bookingId = (int) ($params['id'] ?? 0);
+        $successUrl = (string) $this->get('success_url', '');
+        $cancelUrl = (string) $this->get('cancel_url', '');
+
+        try {
+            $result = (new StripeCheckoutService())->createCheckoutSession($userId, $bookingId, $successUrl, $cancelUrl);
+
+            return $this->success($result, 'تم إنشاء رابط الدفع');
+        } catch (Exception $e) {
+            return $this->error($e->getMessage(), 422);
+        }
+    }
+
+    /** POST /api/webhook/booking/stripe - بدون Auth (التوثيق بالتوقيع) */
+    public function stripeWebhook(array $params = []): array
+    {
+        $payload = file_get_contents('php://input') ?: '';
+        $signature = $_SERVER['HTTP_STRIPE_SIGNATURE'] ?? '';
+
+        try {
+            $result = (new StripeCheckoutService())->handleWebhook($payload, $signature);
+
+            return $this->success(['handled' => $result['handled'], 'event' => $result['event']]);
+        } catch (Exception $e) {
+            $code = $e->getCode() === 401 ? 401 : 500;
+            http_response_code($code);
+            return $this->error($e->getMessage(), $code);
+        }
+    }
+
     /** GET /api/bookings/dashboard */
     public function dashboard(array $params = []): array
     {

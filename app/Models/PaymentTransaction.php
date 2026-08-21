@@ -12,6 +12,6 @@ class PaymentTransaction extends Model
     protected $fillable = [
         'internal_transaction_id', 'user_id', 'amount', 'currency', 'payment_method',
         'gateway', 'gateway_transaction_id', 'status', 'reference',
-        'related_wallet_transaction_id', 'metadata', 'idempotency_key',
+        'booking_id', 'related_wallet_transaction_id', 'metadata', 'idempotency_key',
     ];
 }

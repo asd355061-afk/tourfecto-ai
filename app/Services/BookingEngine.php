@@ -116,6 +116,41 @@ class BookingEngine
         return $this->changeStatus($userId, $bookingId, 'confirmed', 'تأكيد الحجز');
     }
 
+    /**
+     * تأكيد الحجز بعد اكتمال الدفع - بيتنادى من Webhook الدفع (مفيش
+     * جلسة مستخدم/صلاحيات مالك، فبنستخدمها داخليًا بس بعد التحقق من
+     * توقيع البوابة في StripeCheckoutService). Idempotent: لو الحجز
+     * confirmed فعلًا بيرجع true من غير ما يضيف تاريخ مكرر.
+     */
+    public function confirmBookingFromPayment(int $bookingId): bool
+    {
+        return $this->db->transaction(function (Database $db) use ($bookingId) {
+            $rows = $db->query(
+                'SELECT id, status FROM bookings WHERE id = ? LIMIT 1 FOR UPDATE',
+                [$bookingId]
+            );
+            if (empty($rows)) {
+                throw new Exception('الحجز غير موجود');
+            }
+            $fromStatus = $rows[0]['status'];
+            if ($fromStatus === 'confirmed' || $fromStatus === 'completed') {
+                return true;
+            }
+            if ($fromStatus === 'cancelled') {
+                throw new Exception('لا يمكن تأكيد حجز ملغي بعد الدفع');
+            }
+
+            $db->query('UPDATE bookings SET status = ? WHERE id = ?', ['confirmed', $bookingId]);
+            $db->query(
+                'INSERT INTO booking_status_history (booking_id, from_status, to_status, changed_by_user_id, reason)
+                 VALUES (?, ?, ?, ?, ?)',
+                [$bookingId, $fromStatus, 'confirmed', null, 'تأكيد تلقائي بعد نجاح الدفع']
+            );
+
+            return true;
+        });
+    }
+
     /** إلغاء حجز - بيفك حجز مكان التوفر تلقائيًا لو الحجز كان pending/confirmed */
     public function cancelBooking(int $userId, int $bookingId, string $reason = ''): bool
     {

@@ -57,6 +57,7 @@
         <env name="SESSION_DRIVER" value="file"/>
         <env name="GEMINI_API_KEY" value="test_key"/>
         <env name="GEMINI_MODEL" value="gemini-1.5-flash"/>
+        <env name="STRIPE_WEBHOOK_SECRET" value="test_webhook_secret"/>
         <env name="ENCRYPTION_KEY" value="base64:qReEaY2ccT0ThiHgShKfM6gZd6JzZJH3upaZshbtGv4="/>
     </php>
 

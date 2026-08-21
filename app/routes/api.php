@@ -1220,5 +1220,8 @@ $router->get('/api/bookings/{id}', 'BookingController', 'show', ['AuthMiddleware
 $router->post('/api/bookings', 'BookingController', 'store', ['AuthMiddleware']);
 $router->post('/api/bookings/{id}/confirm', 'BookingController', 'confirm', ['AuthMiddleware']);
 $router->post('/api/bookings/{id}/cancel', 'BookingController', 'cancel', ['AuthMiddleware']);
+$router->post('/api/bookings/{id}/checkout', 'BookingController', 'checkout', ['AuthMiddleware']);
+// Webhook دفع Stripe للحجوزات - بدون Auth (التحقق بالتوقيع داخل الـ service)
+$router->post('/api/webhook/booking/stripe', 'BookingController', 'stripeWebhook');
 $router->get('/api/inventory/{productId}/calendar', 'BookingController', 'calendar', ['AuthMiddleware']);
 $router->post('/api/inventory/{productId}', 'BookingController', 'setInventory', ['AuthMiddleware']);
