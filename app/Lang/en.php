@@ -321,6 +321,7 @@ return [
     'sidebar.ai_keywords' => 'Keywords',
     'sidebar.social' => 'Social Media',
     'sidebar.ads' => 'Ad Management',
+    'sidebar.email_marketing' => 'Email Marketing',
     'sidebar.marketing_assistant' => 'AI Marketing Assistant',
     'sidebar.creative_studio' => 'Creative Studio',
     'sidebar.crm' => 'CRM',

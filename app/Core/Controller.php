@@ -360,6 +360,7 @@ abstract class Controller
             t('sidebar.group.distribution') => [
                 'social' => [t('sidebar.social'), '📱', '/social'],
                 'ads' => [t('sidebar.ads'), '📣', '/ads'],
+                'email_marketing' => [t('sidebar.email_marketing'), '📬', '/email-marketing'],
                 'marketing_assistant' => [t('sidebar.marketing_assistant'), '💡', '/marketing-assistant'],
                 'creative_studio' => [t('sidebar.creative_studio'), '🎨', '/creative-studio'],
             ],

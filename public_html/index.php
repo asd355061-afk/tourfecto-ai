@@ -485,6 +485,19 @@ $optionalNewClassFiles = [
     // هتقع بـ "Class not found" (السيرفر مفيهوش composer dump-autoload).
     APP_PATH . '/Services/SocialMedia/TikTokAPI.php',
     APP_PATH . '/Services/SocialMedia/YouTubeAPI.php',
+    // Email Marketing (مكافئ Brevo) - موديول تسويق البريد (2026-08-21)
+    APP_PATH . '/Models/EmailList.php',
+    APP_PATH . '/Models/EmailSubscriber.php',
+    APP_PATH . '/Models/EmailTemplate.php',
+    APP_PATH . '/Models/EmailCampaign.php',
+    APP_PATH . '/Models/EmailCampaignRecipient.php',
+    APP_PATH . '/Services/EmailMarketing/EmailRenderer.php',
+    APP_PATH . '/Services/EmailMarketing/EmailListService.php',
+    APP_PATH . '/Services/EmailMarketing/EmailCampaignService.php',
+    APP_PATH . '/Services/EmailMarketing/EmailTrackingService.php',
+    APP_PATH . '/Integrations/ApiKey/BrevoIntegration.php',
+    APP_PATH . '/Jobs/SendEmailCampaignBatchJob.php',
+    APP_PATH . '/Controllers/EmailMarketingController.php',
 ];
 foreach ($optionalNewClassFiles as $classFile) {
     if (file_exists($classFile)) {

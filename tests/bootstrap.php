@@ -255,10 +255,12 @@ function applyTestMigrations(): void
         '2026_08_21_000001_create_booking_engine_tables.sql',
         '2026_08_12_000047_create_payment_transactions_table.sql',
         '2026_08_21_000002_add_booking_payment_link.sql',
+        '2026_08_21_000010_create_email_marketing_tables.sql',
         '2026_07_22_000023_create_wallet_system.sql',
         '2026_07_27_000035_create_wallet_recharge_cards.sql',
         '2026_08_12_000049_create_tax_rules_table.sql',
         '2026_07_22_000022_create_plan_pricing_display_table.sql',
+        '2026_07_13_000001_create_jobs_table.sql',
     ];
 
     $migrationsDir = TOURFECTO_ROOT . '/database/migrations';
