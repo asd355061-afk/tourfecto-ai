@@ -189,8 +189,26 @@ class SeoContentService
         }
 
         try {
+            $targetLanguage = 'ar';
+            $campaignLang = $campaign['target_language'] ?? null;
+            if ($campaignLang && is_string($campaignLang)) {
+                $targetLanguage = $campaignLang;
+            } else {
+                $siteLangs = $this->db->query(
+                    "SELECT target_languages FROM websites WHERE id = ? LIMIT 1",
+                    [$websiteId]
+                );
+                if (!empty($siteLangs[0]['target_languages'])) {
+                    $decoded = json_decode((string) $siteLangs[0]['target_languages'], true);
+                    if (is_array($decoded) && !empty($decoded)) {
+                        $first = is_array($decoded[0]) ? ($decoded[0]['code'] ?? 'ar') : $decoded[0];
+                        $targetLanguage = strtolower((string) $first);
+                    }
+                }
+            }
+
             $generator = new ArticleGenerator();
-            $result = $generator->generate((string) $item['topic'], 'ar', 'professional', $companyName, $websiteUrl, $existingPages);
+            $result = $generator->generate((string) $item['topic'], $targetLanguage, 'professional', $companyName, $websiteUrl, $existingPages);
 
             if (!$result['success']) {
                 $this->markItemFailed($itemId, $result['error'] ?? 'فشل التوليد');
@@ -203,7 +221,7 @@ class SeoContentService
                 'user_id' => (int) $campaign['user_id'],
                 'website_id' => $websiteId,
                 'topic' => (string) $item['topic'],
-                'target_language' => 'ar',
+                'target_language' => $targetLanguage,
                 'tone' => 'professional',
                 'title' => $data['title'],
                 'meta_description' => $data['meta_description'],

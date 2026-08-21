@@ -247,7 +247,21 @@ class ArticleGenerator
 
     private function buildPrompt(string $topic, string $language, string $tone, ?string $companyName, ?string $websiteUrl, array $existingPages = []): string
     {
-        $languageName = $language === 'ar' ? 'العربية الفصحى السهلة' : 'English';
+        $languageMap = [
+            'ar' => 'العربية الفصحى السهلة',
+            'en' => 'English',
+            'fr' => 'Français',
+            'de' => 'Deutsch',
+            'es' => 'Español',
+            'it' => 'Italiano',
+            'tr' => 'Türkçe',
+            'ru' => 'Русский',
+            'zh' => '中文',
+            'ja' => '日本語',
+            'pt' => 'Português',
+            'nl' => 'Nederlands',
+        ];
+        $languageName = $languageMap[$language] ?? $languageMap['ar'];
         $toneMap = [
             'professional' => $language === 'ar' ? 'احترافي وموثوق' : 'professional and trustworthy',
             'friendly' => $language === 'ar' ? 'ودود وقريب من القارئ' : 'friendly and approachable',
