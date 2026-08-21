@@ -1100,6 +1100,11 @@ $router->get('/api/auto-seo/logs', 'AutoSeoController', 'logs', ['AuthMiddleware
 $router->post('/api/auto-seo/rollback/{id}', 'AutoSeoController', 'rollback', ['AuthMiddleware']);
 $router->post('/api/auto-seo/preview', 'AutoSeoController', 'preview', ['AuthMiddleware']);
 $router->get('/api/auto-seo/report', 'AutoSeoController', 'report', ['AuthMiddleware']);
+// Phase 25 (hreflang تلقائي لمواقع متعددة اللغات)
+$router->post('/api/auto-seo/hreflang', 'AutoSeoController', 'updateHreflang', ['AuthMiddleware']);
+// Phase 25 (Baidu Active Push - فهرسة فورية للمواقع المستهدفة للسوق الصيني)
+$router->post('/api/baidu/submit', 'BaiduIndexingController', 'submit', ['AuthMiddleware']);
+$router->post('/api/baidu/token', 'BaiduIndexingController', 'setToken', ['AuthMiddleware']);
 // Phase 22 (IndexNow - فهرسة فورية لمحركات البحث بعد التطبيق)
 $router->post('/api/indexnow/generate-key', 'SeoIndexingController', 'generateKey', ['AuthMiddleware']);
 $router->post('/api/indexnow/toggle', 'SeoIndexingController', 'toggle', ['AuthMiddleware']);
