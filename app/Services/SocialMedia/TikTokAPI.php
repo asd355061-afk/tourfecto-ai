@@ -8,8 +8,8 @@
  */
 class TikTokAPI
 {
-    private string $accessToken;
-    private string $openId;
+    private string $accessToken = '';
+    private string $openId = '';
 
     public function __construct(string $accessToken, string $openId)
     {
@@ -42,7 +42,18 @@ class TikTokAPI
             'disable_stitch'  => false,
         ];
 
-        return $this->post($endpoint, $payload);
+        $result = $this->post($endpoint, $payload);
+
+        // رفع publish_id للمستوى الأعلى - المستهلكين (Job/تحكم) بيعتمدوا
+        // على result['publish_id'] مباشرة مش متداخل جوه data.
+        if ($result['success']) {
+            $data = $result['data'] ?? [];
+            if (is_array($data) && array_key_exists('publish_id', $data)) {
+                $result['publish_id'] = $data['publish_id'];
+            }
+        }
+
+        return $result;
     }
 
     /**

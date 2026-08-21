@@ -2,6 +2,8 @@
 
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/../../../app/Services/SocialMedia/TikTokAPI.php';
+
 class TikTokAPITest extends TestCase
 {
     public function testPublishVideoSuccess(): void
