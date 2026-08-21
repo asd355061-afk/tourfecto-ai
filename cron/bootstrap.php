@@ -41,6 +41,10 @@ foreach (glob(APP_PATH . '/Jobs/*.php') as $jobFile) {
 }
 $optionalJobDependencyFiles = [
     APP_PATH . '/Services/SocialMedia/MetaSocialAPI.php',
+    // Social Media Expansion (TikTok + YouTube Shorts) - PublishSocialPostJob
+    // بينادي new TikTokAPI()/new YouTubeAPI() مباشرة في سياق الـ Queue Worker.
+    APP_PATH . '/Services/SocialMedia/TikTokAPI.php',
+    APP_PATH . '/Services/SocialMedia/YouTubeAPI.php',
     APP_PATH . '/Services/AI/VeoClient.php',
     // GBP Module Upgrade (2026-08-10) - GbpBackgroundSyncJob محتاج
     // الكلاسات دي في سياق الـ Cron/Queue Worker (مختلف عن

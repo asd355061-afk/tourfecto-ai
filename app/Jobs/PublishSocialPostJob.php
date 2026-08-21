@@ -3,15 +3,8 @@
 /**
  * Tourfecto - Publish Social Post Job
  * تنفيذ فعلي لنشر هدف واحد (social_post_targets) على منصته عبر
- * platform_connections. يُنفَّذ بواسطة cron/process_queue.php الموجود
- * فعلاً في المشروع - لا حاجة لأي worker جديد.
- * @version 3.0.0
- *
- * دعم الفيديو (Creative Studio -> Veo): فيسبوك بينشر الفيديو مباشرة
- * برابط عام (/videos + file_url). انستجرام بيحتاج مرحلة معالجة غير
- * متزامنة (container REELS) قبل النشر الفعلي - فبنستخدم نفس فكرة
- * "ابدأ + أعد الجدولة للفحص" المستخدمة في GenerateVideoJob، عن طريق
- * provider_ref/poll_attempts على social_post_targets.
+ * platform_connections. يُنفَّذ بواسطة cron/process_queue.php.
+ * @version 4.0.0
  */
 class PublishSocialPostJob implements QueueJobInterface
 {
@@ -49,19 +42,15 @@ class PublishSocialPostJob implements QueueJobInterface
 
         $platform = (string) $connection->getAttribute('platform');
 
-        if (!in_array($platform, ['facebook', 'instagram'], true)) {
+        if (!in_array($platform, ['facebook', 'instagram', 'tiktok', 'youtube'], true)) {
             $target->setAttribute('status', 'failed');
-            $target->setAttribute('last_error', "النشر الفعلي على منصة {$platform} لسه مش متاح (بس فيسبوك وانستجرام حاليًا).");
+            $target->setAttribute('last_error', "النشر الفعلي على منصة {$platform} لسه مش متاح (المنصات المدعومة: فيسبوك، انستجرام، تيك توك، يوتيوب).");
             $target->save();
             return;
         }
 
         try {
             $encryption = new Encryption();
-            $pageAccessToken = $encryption->decrypt((string) $connection->getAttribute('access_token'));
-            $api = new MetaSocialAPI($pageAccessToken);
-            $pageId = (string) $connection->getAttribute('external_location_id');
-
             $message = (string) $post->getAttribute('content');
             $hashtags = (string) $post->getAttribute('hashtags');
             if ($hashtags) {
@@ -72,12 +61,16 @@ class PublishSocialPostJob implements QueueJobInterface
             $mediaUrl = $media ? $this->toPublicUrl((string) $media->getAttribute('file_path')) : null;
             $isVideo = $media && $media->getAttribute('type') === 'short_video';
 
-            if ($platform === 'instagram' && !$mediaUrl) {
-                $this->fail($target, 'انستجرام محتاج صورة أو فيديو إجباريًا - المنشور ده مفيهوش وسائط. ولّد صورة/فيديو من Creative Studio الأول.');
+            if (in_array($platform, ['instagram', 'tiktok', 'youtube'], true) && !$mediaUrl) {
+                $this->fail($target, "{$platform} محتاج صورة أو فيديو إجباريًا - المنشور ده مفيهوش وسائط. ولّد صورة/فيديو من Creative Studio الأول.");
                 return;
             }
 
             if ($platform === 'facebook') {
+                $pageAccessToken = $encryption->decrypt((string) $connection->getAttribute('access_token'));
+                $api = new MetaSocialAPI($pageAccessToken);
+                $pageId = (string) $connection->getAttribute('external_location_id');
+
                 $result = $isVideo
                     ? $api->publishVideoToFacebookPage($pageId, $pageAccessToken, $message, $mediaUrl)
                     : $api->publishToFacebookPage($pageId, $pageAccessToken, $message, $mediaUrl);
@@ -86,12 +79,43 @@ class PublishSocialPostJob implements QueueJobInterface
                 return;
             }
 
-            // انستجرام
-            if ($isVideo) {
-                $this->handleInstagramVideo($target, $post, $api, $pageId, $pageAccessToken, $mediaUrl, $message);
-            } else {
-                $result = $api->publishToInstagram($pageId, $pageAccessToken, $mediaUrl, $message);
-                $this->finishOrFail($target, $post, $platform, $result);
+            if ($platform === 'instagram') {
+                $pageAccessToken = $encryption->decrypt((string) $connection->getAttribute('access_token'));
+                $api = new MetaSocialAPI($pageAccessToken);
+                $igUserId = (string) $connection->getAttribute('external_location_id');
+
+                if ($isVideo) {
+                    $this->handleInstagramVideo($target, $post, $api, $igUserId, $pageAccessToken, $mediaUrl, $message);
+                } else {
+                    $result = $api->publishToInstagram($igUserId, $pageAccessToken, $mediaUrl, $message);
+                    $this->finishOrFail($target, $post, $platform, $result);
+                }
+                return;
+            }
+
+            if ($platform === 'tiktok') {
+                $accessToken = $encryption->decrypt((string) $connection->getAttribute('access_token'));
+                $openId = (string) $connection->getAttribute('external_location_id');
+                $api = new TikTokAPI($accessToken, $openId);
+
+                if ($isVideo) {
+                    $this->handleTikTokVideo($target, $post, $api, $mediaUrl, $message);
+                } else {
+                    $this->fail($target, 'TikTok يدعم نشر الفيديوهات فقط حاليًا.');
+                }
+                return;
+            }
+
+            if ($platform === 'youtube') {
+                $accessToken = $encryption->decrypt((string) $connection->getAttribute('access_token'));
+                $api = new YouTubeAPI($accessToken);
+
+                if ($isVideo) {
+                    $this->handleYouTubeVideo($target, $post, $api, $media, $message);
+                } else {
+                    $this->fail($target, 'YouTube Shorts يدعم نشر الفيديوهات فقط.');
+                }
+                return;
             }
 
         } catch (Throwable $e) {
@@ -101,16 +125,12 @@ class PublishSocialPostJob implements QueueJobInterface
 
             Logger::error('Social Post Publish Exception', [
                 'target_id' => $targetId,
-                'message' => $e->getMessage(),
+                'message'   => $e->getMessage(),
             ]);
         }
     }
 
-    /**
-     * تدفق نشر فيديو انستجرام (Reels) غير المتزامن: إنشاء container أول
-     * مرة، وبعدين فحص حالته كل ~15 ثانية لحد ما يخلص معالجة، وبعدين
-     * النشر الفعلي - بإعادة جدولة نفس المهمة زي GenerateVideoJob.
-     */
+    // --- Instagram ---
     private function handleInstagramVideo(SocialPostTarget $target, SocialPost $post, MetaSocialAPI $api, string $igUserId, string $pageAccessToken, string $videoUrl, string $caption): void
     {
         $containerId = (string) ($target->getAttribute('provider_ref') ?: '');
@@ -158,34 +178,144 @@ class PublishSocialPostJob implements QueueJobInterface
         $this->finishOrFail($target, $post, 'instagram', ['success' => $publishResult['success'], 'post_id' => $publishResult['post_id'] ?? null, 'error' => $publishResult['error'] ?? null]);
     }
 
+    // --- TikTok ---
+    private function handleTikTokVideo(SocialPostTarget $target, SocialPost $post, TikTokAPI $api, string $videoUrl, string $title): void
+    {
+        $publishId = (string) ($target->getAttribute('provider_ref') ?: '');
+
+        if ($publishId === '') {
+            $result = $api->publishVideo($videoUrl, $title);
+            if (!$result['success']) {
+                $this->fail($target, $result['error'] ?? 'تعذر بدء نشر الفيديو على TikTok');
+                return;
+            }
+
+            $target->setAttribute('provider_ref', $result['publish_id'] ?? 'unknown');
+            $target->setAttribute('status', 'publishing');
+            $target->save();
+
+            $this->requeue((int) $target->getAttribute('id'));
+            return;
+        }
+
+        $attempts = (int) $target->getAttribute('poll_attempts');
+        if ($attempts >= self::MAX_POLL_ATTEMPTS) {
+            $this->fail($target, 'انتهت مهلة نشر الفيديو على TikTok - حاول مرة أخرى');
+            return;
+        }
+
+        $status = $api->checkPublishStatus($publishId);
+        if (!$status['success']) {
+            $this->fail($target, $status['error'] ?? 'تعذر فحص حالة النشر على TikTok');
+            return;
+        }
+
+        if ($status['status'] === 'FAILED') {
+            $this->fail($target, 'فشل نشر الفيديو على TikTok: ' . ($status['error'] ?? 'سبب غير معروف'));
+            return;
+        }
+
+        if ($status['status'] !== 'PUBLISHED') {
+            $target->setAttribute('poll_attempts', $attempts + 1);
+            $target->save();
+            $this->requeue((int) $target->getAttribute('id'));
+            return;
+        }
+
+        $this->finishOrFail($target, $post, 'tiktok', ['success' => true, 'post_id' => $publishId]);
+    }
+
+    // --- YouTube ---
+    private function handleYouTubeVideo(SocialPostTarget $target, SocialPost $post, YouTubeAPI $api, MediaItem $media, string $title): void
+    {
+        $videoId = (string) ($target->getAttribute('provider_ref') ?: '');
+
+        if ($videoId === '') {
+            $localPath = (string) $media->getAttribute('file_path');
+            $fullPath = ROOT_PATH . '/public_html/' . ltrim($localPath, '/');
+
+            if (!file_exists($fullPath)) {
+                $this->fail($target, 'ملف الفيديو غير موجود على السيرفر: ' . $localPath);
+                return;
+            }
+
+            $result = $api->uploadShort($fullPath, $title, $title, [], 'public');
+            if (!$result['success']) {
+                $this->fail($target, $result['error'] ?? 'تعذر رفع الفيديو على YouTube');
+                return;
+            }
+
+            $target->setAttribute('provider_ref', $result['video_id']);
+            $target->setAttribute('status', 'publishing');
+            $target->save();
+
+            $this->requeue((int) $target->getAttribute('id'));
+            return;
+        }
+
+        $attempts = (int) $target->getAttribute('poll_attempts');
+        if ($attempts >= self::MAX_POLL_ATTEMPTS) {
+            $this->fail($target, 'انتهت مهلة معالجة الفيديو على YouTube - حاول مرة أخرى');
+            return;
+        }
+
+        $status = $api->checkVideoStatus($videoId);
+        if (!$status['success']) {
+            $this->fail($target, $status['error'] ?? 'تعذر فحص حالة الفيديو على YouTube');
+            return;
+        }
+
+        if ($status['status'] === 'ERROR') {
+            $this->fail($target, 'فشلت معالجة الفيديو على YouTube: ' . ($status['error'] ?? ''));
+            return;
+        }
+
+        if ($status['status'] !== 'FINISHED') {
+            $target->setAttribute('poll_attempts', $attempts + 1);
+            $target->save();
+            $this->requeue((int) $target->getAttribute('id'));
+            return;
+        }
+
+        $this->finishOrFail($target, $post, 'youtube', ['success' => true, 'post_id' => $videoId]);
+    }
+
     private function finishOrFail(SocialPostTarget $target, SocialPost $post, string $platform, array $result): void
     {
         $targetId = (int) $target->getAttribute('id');
 
         if (!$result['success']) {
-            $this->fail($target, $result['error'] ?? 'خطأ غير معروف من Meta');
+            $this->fail($target, $result['error'] ?? 'خطأ غير معروف من المنصة');
             Logger::error('Social Post Publish Failed', ['target_id' => $targetId, 'platform' => $platform, 'error' => $result['error'] ?? null]);
             return;
         }
 
         $target->setAttribute('status', 'published');
-        $target->setAttribute('external_post_id', $result['post_id'] ?? null);
+        $target->setAttribute('external_post_id', $result['post_id'] ?? ($result['video_id'] ?? null));
         $target->setAttribute('published_at', date('Y-m-d H:i:s'));
         $target->setAttribute('last_error', null);
         $target->setAttribute('provider_ref', null);
         $target->save();
+
+        $platformName = match ($platform) {
+            'facebook'  => 'فيسبوك',
+            'instagram' => 'انستجرام',
+            'tiktok'    => 'تيك توك',
+            'youtube'   => 'يوتيوب',
+            default     => $platform,
+        };
 
         if (class_exists('Notification')) {
             Notification::notify(
                 (int) $post->getAttribute('user_id'),
                 'social_post_published',
                 'تم نشر منشورك',
-                "اتنشر منشورك على " . ($platform === 'facebook' ? 'فيسبوك' : 'انستجرام') . " بنجاح.",
+                "اتنشر منشورك على {$platformName} بنجاح.",
                 '/social'
             );
         }
 
-        Logger::info('Social Post Published', ['target_id' => $targetId, 'platform' => $platform, 'post_id' => $result['post_id'] ?? null]);
+        Logger::info('Social Post Published', ['target_id' => $targetId, 'platform' => $platform, 'post_id' => $result['post_id'] ?? ($result['video_id'] ?? null)]);
     }
 
     private function fail(SocialPostTarget $target, string $message): void
@@ -213,10 +343,6 @@ class PublishSocialPostJob implements QueueJobInterface
         return $media;
     }
 
-    /**
-     * فيسبوك وانستجرام بيطلبوا رابط عام (يقدروا يجيبوه هم بنفسهم من
-     * الإنترنت)، مش مسار ملف محلي على السيرفر.
-     */
     private function toPublicUrl(string $filePath): ?string
     {
         if (!$filePath) {
