@@ -59,6 +59,40 @@ class AutoSeoController extends Controller
         .aseo-variant { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px dashed var(--panel-border); font-size: 12px; }
         .aseo-variant:last-child { border-bottom: none; }
         @media (max-width: 720px) { .aseo-grid { grid-template-columns: 1fr; } }
+
+        /* -- لوحة النتائج المبسّطة -- */
+        .aseo-summary { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; padding: 18px 20px; }
+        .aseo-score-ring { width: 84px; height: 84px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-direction: column; border: 6px solid var(--panel-border); flex-shrink: 0; }
+        .aseo-score-ring .n { font-size: 22px; font-weight: 900; line-height: 1; }
+        .aseo-score-ring .l { font-size: 9px; color: var(--panel-text-muted); font-weight: 700; }
+        .aseo-score-ring.good { border-color: #4CAF7D; }
+        .aseo-score-ring.mid { border-color: var(--panel-warning); }
+        .aseo-score-ring.bad { border-color: #E05B5B; }
+        .aseo-status-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px; }
+        .aseo-status-pill.on { background: var(--panel-accent-light); color: var(--panel-accent); }
+        .aseo-status-pill.off { background: rgba(255,255,255,.08); color: var(--panel-text-muted); }
+        .aseo-issues { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+        .aseo-issues li { font-size: 12.5px; display: flex; gap: 8px; align-items: flex-start; }
+        .aseo-issues .dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+        .aseo-issues .dot.critical, .aseo-issues .dot.high { background: #E05B5B; }
+        .aseo-issues .dot.medium { background: var(--panel-warning); }
+        .aseo-issues .dot.low { background: var(--panel-text-muted); }
+        .aseo-steps { display: flex; flex-direction: column; gap: 14px; }
+        .aseo-step { display: flex; gap: 12px; }
+        .aseo-step-num { width: 26px; height: 26px; border-radius: 50%; background: var(--panel-accent-light); color: var(--panel-accent); font-weight: 800; font-size: 12.5px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .aseo-mode-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+        .aseo-mode-card { border: 2px solid var(--panel-border); border-radius: var(--panel-radius-sm); padding: 10px; cursor: pointer; text-align: center; transition: .12s; }
+        .aseo-mode-card:hover { border-color: var(--panel-accent); }
+        .aseo-mode-card.selected { border-color: var(--panel-accent); background: var(--panel-accent-light); }
+        .aseo-mode-card .emoji { font-size: 18px; }
+        .aseo-mode-card .name { font-size: 12px; font-weight: 800; margin-top: 2px; }
+        .aseo-mode-card .badge { font-size: 9.5px; color: var(--panel-accent); font-weight: 700; }
+        @media (max-width: 560px) { .aseo-mode-cards { grid-template-columns: 1fr; } }
+        details.aseo-advanced { margin-top: 14px; }
+        details.aseo-advanced > summary { cursor: pointer; font-size: 12.5px; font-weight: 700; color: var(--panel-text-muted); padding: 10px 0; list-style: none; }
+        details.aseo-advanced > summary::-webkit-details-marker { display: none; }
+        details.aseo-advanced > summary::before { content: '⚙️ '; }
+        details.aseo-advanced[open] > summary { color: var(--panel-text); }
         </style>
 
         <div class="p-toolbar">
@@ -66,81 +100,112 @@ class AutoSeoController extends Controller
             <span class="p-cell-muted" id="aseoConnStatus" style="font-size:12px;"></span>
         </div>
 
+        <!-- ملخص الأداء المبسّط -->
+        <div class="p-card no-pad" style="margin-top:14px;" id="aseoSummaryCard">
+            <div class="aseo-summary" id="aseoSummaryBody">
+                <span class="p-cell-muted" style="font-size:12.5px;">اختر موقعًا لعرض ملخص الأداء.</span>
+            </div>
+        </div>
+
         <div class="p-card no-pad" style="margin-top:14px;">
             <div class="aseo-tabs" id="aseoTabs">
                 <button class="aseo-tab active" data-tab="connect">الربط والتنفيذ</button>
                 <button class="aseo-tab" data-tab="indexnow">الفهرسة الفورية</button>
-                <button class="aseo-tab" data-tab="ab">تجارب SEO A/B</button>
+                <button class="aseo-tab" data-tab="ab">اختبار الأفكار (A/B)</button>
             </div>
 
             <!-- تبويب الربط والتنفيذ -->
             <div class="aseo-panel active" data-panel="connect" style="padding:16px 20px 20px;">
                 <div class="p-card" style="margin:0;">
-                    <h3 style="margin-top:0;">ربط الموقع بالمنصة</h3>
-                    <p class="p-cell-muted" style="font-size:12.5px;">اربط موقعك الخارجي (WordPress/Shopify/HTML) عشان التنفيذ التلقائي يشتغل عليه - مش بس تحليل ونسخ كود يدوي.</p>
-                    <div class="p-toolbar" style="padding:0;border:none;">
-                        <select id="aseoMethod" class="p-select" style="width:auto;">
-                            <option value="script">سكربت (embed.js)</option>
-                            <option value="api">API</option>
-                            <option value="wordpress">WordPress</option>
-                            <option value="shopify">Shopify</option>
-                        </select>
-                        <button class="p-btn primary" id="aseoConnectBtn" onclick="aseoConnect()">ربط الموقع</button>
+                    <div class="aseo-steps">
+                        <div class="aseo-step">
+                            <div class="aseo-step-num">1</div>
+                            <div style="flex:1;">
+                                <h3 style="margin:0 0 4px;">اربط موقعك</h3>
+                                <p class="p-cell-muted" style="font-size:12.5px;margin:0 0 8px;">اختار نوع موقعك، وهنجهّزلك كود جاهز تنسخه وتلصقه - مفيش تعديل يدوي في موقعك مطلوب.</p>
+                                <div class="p-toolbar" style="padding:0;border:none;">
+                                    <select id="aseoMethod" class="p-select" style="width:auto;">
+                                        <option value="wordpress">WordPress</option>
+                                        <option value="shopify">Shopify</option>
+                                        <option value="script">موقع HTML عادي</option>
+                                        <option value="api">API (للمطورين)</option>
+                                    </select>
+                                    <button class="p-btn primary" id="aseoConnectBtn" onclick="aseoConnect()">ربط الموقع</button>
+                                </div>
+                                <div id="aseoConnectResult" style="margin-top:12px;"></div>
+                            </div>
+                        </div>
+
+                        <div class="aseo-step">
+                            <div class="aseo-step-num">2</div>
+                            <div style="flex:1;">
+                                <h3 style="margin:0 0 4px;">اختار سرعة التحسين</h3>
+                                <p class="p-cell-muted" style="font-size:12.5px;margin:0 0 8px;">إمتى ننفّذ التحسينات المكتشفة تلقائيًا على موقعك؟ تقدر تغيّرها في أي وقت.</p>
+                                <input type="hidden" id="aseoMode" value="balanced">
+                                <div class="aseo-mode-cards" id="aseoModeCards">
+                                    <div class="aseo-mode-card" data-mode="conservative">
+                                        <div class="emoji">🐢</div>
+                                        <div class="name">آمن وبطيء</div>
+                                    </div>
+                                    <div class="aseo-mode-card selected" data-mode="balanced">
+                                        <div class="emoji">⚖️</div>
+                                        <div class="name">متوازن</div>
+                                        <div class="badge">موصى به</div>
+                                    </div>
+                                    <div class="aseo-mode-card" data-mode="aggressive">
+                                        <div class="emoji">🚀</div>
+                                        <div class="name">سريع وجريء</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="aseo-step">
+                            <div class="aseo-step-num">3</div>
+                            <div style="flex:1;">
+                                <h3 style="margin:0 0 4px;">ابدأ التحسين التلقائي</h3>
+                                <p class="p-cell-muted" style="font-size:12.5px;margin:0 0 8px;">هيطبّق التحسينات المكتشفة فورًا على موقعك، وهيبلّغ محركات البحث في نفس اللحظة.</p>
+                                <button class="p-btn success" id="aseoApplyBtn" onclick="aseoApply()">ابدأ التحسين التلقائي الآن</button>
+                                <span id="aseoApplyResult" style="font-size:12px;margin-inline-start:10px;"></span>
+                            </div>
+                        </div>
                     </div>
-                    <div id="aseoConnectResult" style="margin-top:12px;"></div>
-                </div>
 
-                <div class="p-card" style="margin-top:14px;">
-                    <h3 style="margin-top:0;">ربط CNAME (دومينك الخاص)</h3>
-                    <p class="p-cell-muted" style="font-size:12.5px;">عشان التنفيذ يشتغل server-side على دومينك الحقيقي (مش مجرد embed.js)، أشّر DNS بتاعك ناحية سيرفرنا:</p>
-                    <div class="aseo-kv"><span class="k">نوع السجل</span><span class="v">CNAME</span></div>
-                    <div class="aseo-kv"><span class="k">الاسم (Host)</span><span class="v">www</span></div>
-                    <div class="aseo-kv"><span class="k">القيمة (Points to)</span><span class="v" id="aseoCnameTarget">{$proxyHost}</span></div>
-                    <p class="p-cell-muted" style="font-size:12px;">بعد ما الـ CNAME يتفعّل، محركات البحث هتشوف النسخة المحسّنة من موقعك مباشرة على دومينك. للاختبار من غير تغيير DNS استخدم رابط المعاينة <span dir="ltr">/s/{embed_token}</span>.</p>
-                </div>
+                    <details class="aseo-advanced">
+                        <summary>إعدادات متقدمة (للمطورين)</summary>
 
-                <div class="p-card" style="margin-top:14px;">
-                    <h3 style="margin-top:0;">وضع Auto-Pilot</h3>
-                    <div class="p-toolbar" style="padding:0;border:none;">
-                        <select id="aseoMode" class="p-select" style="width:auto;">
-                            <option value="off">إيقاف</option>
-                            <option value="conservative">متحفّظ (critical/high فقط)</option>
-                            <option value="balanced">متوازن</option>
-                            <option value="aggressive">شرس (كل الإصلاحات)</option>
-                        </select>
-                        <button class="p-btn outline" onclick="aseoSetMode()">حفظ الوضع</button>
-                    </div>
-                </div>
+                        <div class="p-card" style="margin-top:10px;">
+                            <h3 style="margin-top:0;font-size:13px;">ربط CNAME (دومينك الخاص)</h3>
+                            <p class="p-cell-muted" style="font-size:12px;">عشان التنفيذ يشتغل server-side على دومينك الحقيقي (مش مجرد embed.js)، أشّر DNS بتاعك ناحية سيرفرنا:</p>
+                            <div class="aseo-kv"><span class="k">نوع السجل</span><span class="v">CNAME</span></div>
+                            <div class="aseo-kv"><span class="k">الاسم (Host)</span><span class="v">www</span></div>
+                            <div class="aseo-kv"><span class="k">القيمة (Points to)</span><span class="v" id="aseoCnameTarget">{$proxyHost}</span></div>
+                            <p class="p-cell-muted" style="font-size:11.5px;">للاختبار من غير تغيير DNS استخدم رابط المعاينة <span dir="ltr">/s/{embed_token}</span>.</p>
+                        </div>
 
-                <div class="p-card" style="margin-top:14px;">
-                    <h3 style="margin-top:0;">تنفيذ الإصلاحات</h3>
-                    <p class="p-cell-muted" style="font-size:12.5px;">يطبّق كل الإصلاحات المؤهلة من آخر تدقيق فعليًا، وبعدها بيبلّغ محركات البحث فورًا عبر IndexNow (لو مفعّل).</p>
-                    <button class="p-btn success" id="aseoApplyBtn" onclick="aseoApply()">تطبيق الإصلاحات الآن</button>
-                    <span id="aseoApplyResult" style="font-size:12px;margin-inline-start:10px;"></span>
-                </div>
+                        <div class="p-card" style="margin-top:10px;">
+                            <h3 style="margin-top:0;font-size:13px;">معاينة قبل التطبيق</h3>
+                            <p class="p-cell-muted" style="font-size:12px;">شوف الفرق في العنوان والوصف قبل ما يتطبّق فعليًا (من غير أي كتابة على الموقع).</p>
+                            <div class="p-toolbar" style="padding:0;border:none;flex-wrap:wrap;">
+                                <input type="text" id="aseoPreviewTitle" class="p-select" style="flex:1;min-width:160px;" placeholder="عنوان مقترح">
+                                <input type="text" id="aseoPreviewDesc" class="p-select" style="flex:1;min-width:160px;" placeholder="وصف مقترح">
+                                <button class="p-btn primary" onclick="aseoPreview()">معاينة</button>
+                            </div>
+                            <div id="aseoPreviewResult" style="margin-top:12px;"></div>
+                        </div>
 
-                <div class="p-card" style="margin-top:14px;">
-                    <h3 style="margin-top:0;">معاينة قبل التطبيق</h3>
-                    <p class="p-cell-muted" style="font-size:12.5px;">شوف الفرق في العنوان والوصف قبل ما تطبّق فعليًا (من غير أي كتابة على الموقع).</p>
-                    <div class="p-toolbar" style="padding:0;border:none;flex-wrap:wrap;">
-                        <input type="text" id="aseoPreviewTitle" class="p-select" style="flex:1;min-width:160px;" placeholder="عنوان مقترح">
-                        <input type="text" id="aseoPreviewDesc" class="p-select" style="flex:1;min-width:160px;" placeholder="وصف مقترح">
-                        <button class="p-btn primary" onclick="aseoPreview()">معاينة</button>
-                    </div>
-                    <div id="aseoPreviewResult" style="margin-top:12px;"></div>
-                </div>
+                        <div class="p-card" style="margin-top:10px;">
+                            <h3 style="margin-top:0;font-size:13px;">تقرير قبل/بعد التفصيلي</h3>
+                            <button class="p-btn outline" onclick="aseoReport()">توليد التقرير</button>
+                            <button class="p-btn outline" onclick="window.location.href='/google-analytics/connect/' + currentWebsiteId">ربط Google Analytics</button>
+                            <div id="aseoReportResult" style="margin-top:12px;"></div>
+                        </div>
 
-                <div class="p-card" style="margin-top:14px;">
-                    <h3 style="margin-top:0;">تقرير قبل/بعد</h3>
-                    <p class="p-cell-muted" style="font-size:12.5px;">لقطات سابقة + سجل درجات التدقيق + مقاييس Search Console وGoogle Analytics.</p>
-                    <button class="p-btn outline" onclick="aseoReport()">توليد التقرير</button>
-                    <button class="p-btn outline" onclick="window.location.href='/google-analytics/connect/' + currentWebsiteId">ربط Google Analytics</button>
-                    <div id="aseoReportResult" style="margin-top:12px;"></div>
-                </div>
-
-                <div class="p-card" style="margin-top:14px;">
-                    <h3 style="margin-top:0;">سجل التغييرات</h3>
-                    <div id="aseoLogs" class="p-cell-muted" style="font-size:12px;">لم يُسجّل أي تغيير بعد.</div>
+                        <div class="p-card" style="margin-top:10px;">
+                            <h3 style="margin-top:0;font-size:13px;">سجل التغييرات</h3>
+                            <div id="aseoLogs" class="p-cell-muted" style="font-size:12px;">لم يُسجّل أي تغيير بعد.</div>
+                        </div>
+                    </details>
                 </div>
             </div>
 
@@ -221,8 +286,48 @@ class AutoSeoController extends Controller
 
     function refreshAll() {
         if (!currentWebsiteId) return;
-        loadIndexNow(); loadTests(); loadLogs();
+        loadIndexNow(); loadTests(); loadLogs(); loadSummary();
         document.getElementById('aseoConnStatus').textContent = 'موقع محدد: #' + currentWebsiteId;
+    }
+
+    // ---------- ملخص الأداء المبسّط ----------
+    function scoreClass(score) {
+        if (score === null || score === undefined) return 'mid';
+        return score >= 80 ? 'good' : (score >= 50 ? 'mid' : 'bad');
+    }
+
+    const MODE_LABELS = { off: 'متوقف', conservative: 'آمن وبطيء', balanced: 'متوازن', aggressive: 'سريع وجريء' };
+
+    async function loadSummary() {
+        if (!currentWebsiteId) return;
+        const box = document.getElementById('aseoSummaryBody');
+        const res = await fetchJSON('/api/auto-seo/report?website_id=' + currentWebsiteId);
+        if (!res.success) { box.innerHTML = '<span class="p-cell-muted" style="font-size:12.5px;">تعذّر تحميل الملخص.</span>'; return; }
+        const d = res.data;
+        const score = (d.audits && d.audits.length) ? d.audits[0].overall_score : null;
+        const site = d.website || {};
+        const connected = !!(site && site.is_connected == 1);
+        const mode = site.auto_pilot_mode || 'off';
+
+        const issuesHtml = (d.top_issues && d.top_issues.length)
+            ? d.top_issues.map(i => `<li><span class="dot ${esc(i.severity)}"></span><span>${esc(i.title)}</span></li>`).join('')
+            : `<li><span class="dot low"></span><span>${connected ? 'مفيش مشاكل مفتوحة حاليًا - تمام 👍' : 'اربط موقعك وشغّل تدقيق عشان نعرضلك أهم الحاجات اللي محتاجة تتصلح.'}</span></li>`;
+
+        box.innerHTML = `
+            <div class="aseo-score-ring ${scoreClass(score)}">
+                <span class="n">${score !== null ? score : '-'}</span>
+                <span class="l">من 100</span>
+            </div>
+            <div style="flex:1;min-width:200px;">
+                <span class="aseo-status-pill ${connected ? 'on' : 'off'}">${connected ? '● التحسين شغال (' + esc(MODE_LABELS[mode] || mode) + ')' : '○ الموقع مش مربوط لسه'}</span>
+                <ul class="aseo-issues">${issuesHtml}</ul>
+            </div>`;
+
+        // مزامنة كروت السرعة مع الوضع المحفوظ فعليًا للموقع
+        if (mode && mode !== 'off') {
+            document.getElementById('aseoMode').value = mode;
+            document.querySelectorAll('.aseo-mode-card').forEach(c => c.classList.toggle('selected', c.dataset.mode === mode));
+        }
     }
 
     window.aseoConnect = async function () {
@@ -234,26 +339,44 @@ class AutoSeoController extends Controller
         });
         if (!res.success) { toast(res.error || 'فشل الربط', 'error'); return; }
         document.getElementById('aseoConnectResult').innerHTML = `
-            <div class="aseo-kv"><span class="k">توكن الـ Embed</span><span class="v">${esc(res.data.embed_token)}</span></div>
-            <div class="aseo-kv"><span class="k">مفتاح API</span><span class="v">${esc(res.data.api_key)}</span></div>
+            <p class="p-cell-muted" style="font-size:12px;">انسخ الكود ده والصقه قبل <code dir="ltr">&lt;/head&gt;</code> في موقعك (أو استخدم إضافة "Insert Headers" لو WordPress):</p>
             <div class="aseo-code">
                 <button class="p-btn xs outline aseo-copy" onclick="navigator.clipboard.writeText(document.getElementById('aseoEmbedCode').textContent).then(()=>toast('تم النسخ','success'))">نسخ</button>
                 <pre><code id="aseoEmbedCode">${esc(res.data.embed_code)}</code></pre>
-            </div>`;
+            </div>
+            <details class="aseo-advanced" style="margin-top:8px;">
+                <summary>بيانات الربط التقنية</summary>
+                <div class="aseo-kv"><span class="k">توكن الـ Embed</span><span class="v">${esc(res.data.embed_token)}</span></div>
+                <div class="aseo-kv"><span class="k">مفتاح API</span><span class="v">${esc(res.data.api_key)}</span></div>
+            </details>`;
         toast('تم ربط الموقع بنجاح', 'success');
+        // نفعّل الوضع الموصى به (متوازن) تلقائيًا عشان العميل ميحتاجش خطوة إضافية
+        await aseoSetMode(true);
         loadLogs();
+        loadSummary();
     };
 
-    window.aseoSetMode = async function () {
-        if (!currentWebsiteId) { toast('اختر موقعًا أولاً', 'error'); return; }
+    window.aseoSetMode = async function (silent) {
+        if (!currentWebsiteId) { if (!silent) toast('اختر موقعًا أولاً', 'error'); return; }
         const mode = document.getElementById('aseoMode').value;
         const res = await fetchJSON('/api/auto-seo/mode', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ website_id: currentWebsiteId, mode })
         });
-        if (!res.success) { toast(res.error || 'فشل حفظ الوضع', 'error'); return; }
-        toast('تم تحديث الوضع', 'success');
+        if (!res.success) { if (!silent) toast(res.error || 'فشل حفظ الوضع', 'error'); return; }
+        if (!silent) toast('تم تحديث سرعة التحسين', 'success');
+        loadSummary();
     };
+
+    // اختيار سرعة التحسين بالكروت بدل select تقني - يحفظ فورًا
+    document.querySelectorAll('.aseo-mode-card').forEach(card => {
+        card.onclick = () => {
+            document.querySelectorAll('.aseo-mode-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            document.getElementById('aseoMode').value = card.dataset.mode;
+            aseoSetMode();
+        };
+    });
 
     window.aseoApply = async function () {
         if (!currentWebsiteId) { toast('اختر موقعًا أولاً', 'error'); return; }
@@ -813,13 +936,49 @@ JS;
             [$websiteId]
         );
 
+        $siteRow = $this->db->query(
+            "SELECT main_url, is_connected, auto_pilot_mode FROM websites WHERE id = ? LIMIT 1",
+            [$websiteId]
+        );
+
         return $this->success([
+            'website'      => $siteRow[0] ?? null,
             'history'      => $perf->history($websiteId, 30),
             'audits'       => $audits,
+            'top_issues'   => $this->topIssues($websiteId),
             'gsc'          => $perf->cachedSummary($websiteId),
             'active_fixes' => (int) ($fixRow[0]['c'] ?? 0),
             'ga4'          => $this->ga4Summary($websiteId),
         ]);
+    }
+
+    /**
+     * أهم 3 مشاكل مفتوحة من آخر تدقيق مكتمل، بلغة بسيطة (بدون أي مصطلحات
+     * تقنية) عشان تتعرض في "ملخص الأداء" للعميل غير التقني. بنرتب حسب
+     * الخطورة (critical -> high -> medium) وناخد أول 3 بس.
+     */
+    private function topIssues(int $websiteId): array
+    {
+        $lastAudit = $this->db->query(
+            "SELECT id FROM wo_audits WHERE website_id = ? AND status = 'completed' ORDER BY id DESC LIMIT 1",
+            [$websiteId]
+        );
+        if (empty($lastAudit)) {
+            return [];
+        }
+
+        $rows = $this->db->query(
+            "SELECT title, message, severity FROM wo_audit_findings
+              WHERE audit_id = ? AND status != 'pass'
+              ORDER BY FIELD(severity, 'critical', 'high', 'medium', 'low') LIMIT 3",
+            [$lastAudit[0]['id']]
+        );
+
+        return array_map(fn ($r) => [
+            'title'    => $r['title'],
+            'message'  => $r['message'],
+            'severity' => $r['severity'],
+        ], $rows);
     }
 
     /** ملخص GA4 (best-effort) لو في حساب Google Analytics مربوط بالموقع */
