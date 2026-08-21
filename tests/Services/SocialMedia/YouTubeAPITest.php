@@ -2,6 +2,8 @@
 
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/../../../app/Services/SocialMedia/YouTubeAPI.php';
+
 class YouTubeAPITest extends TestCase
 {
     public function testCheckVideoStatusFinished(): void
