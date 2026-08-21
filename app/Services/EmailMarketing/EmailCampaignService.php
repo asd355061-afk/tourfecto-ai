@@ -8,7 +8,7 @@
  *   - إنشاء/تحديث/حذف + استرجاع الحملات (عزل تام لكل مستخدم)
  *   - حساب الجمهور (قائمة مفردة أو مجموعة قوائم audience_ids)
  *   - تجهيز سجلات المستلمين (مع توكنات فتح/كليك فريدة)
- *   - الإرسال الفعلي عبر Mailer (SMTP) - أو BrevoIntegration لو مُفعّل
+ *   - الإرسال الفعلي عبر Mailer (SMTP) - بنية إرسال خاصة بـ Tourfecto
  *   - معالجة دفعات في الخلفية عبر SendEmailCampaignBatchJob (cron)
  *   - جدولة/إلغاء/تقرير
  *
@@ -232,8 +232,7 @@ class EmailCampaignService
 
     /**
      * إرسال دفعة من المستلمين (يستدعيه SendEmailCampaignBatchJob من cron).
-     * يرسل حتى BATCH_SIZE ثم يعيد whether تبقى مهام. يختار مزوّد الإرسال
-     * (Mailer SMTP افتراضيًا، أو Brevo API لو مفعّل).
+     * يرسل حتى BATCH_SIZE ثم يعيد whether تبقى مهام. الإرسال عبر Mailer (SMTP).
      *
      * @return array ['processed'=>int, 'failed'=>int, 'remaining'=>bool, 'error'=>?string]
      */
@@ -330,7 +329,7 @@ class EmailCampaignService
                 // لم يُرسل أي بريد بنجاح في أي دفعة - الحملة فشلت بالكامل
                 $this->db->query(
                     "UPDATE email_campaigns
-                     SET status = 'failed', error_message = 'فشل إرسال كل الرسائل — تحقق من إعدادات SMTP/Brevo في .env'
+                     SET status = 'failed', error_message = 'فشل إرسال كل الرسائل — تحقق من إعدادات SMTP في .env'
                      WHERE id = ? AND status = 'sending'",
                     [$campaignId]
                 );
@@ -474,20 +473,12 @@ class EmailCampaignService
     // ============================ Provider & Helpers ============================
 
     /**
-     * يختار مزوّد الإرسال: Brevo API لو مكوّن، وإلا Mailer (SMTP).
+     * يختار مزوّد الإرسال. الموديول منافس كامل لـ Brevo/Mailchimp - الإرسال
+     * بيتم حصريًا عبر البنية التحتية الخاصة بـ Tourfecto (SMTP عبر Mailer).
      * @return array ['name'=>string, 'send'=>callable]
      */
     private function resolveProvider(int $userId, EmailCampaign $campaign): array
     {
-        if (class_exists('BrevoIntegration') && (new BrevoIntegration())->isConfigured()) {
-            $brevo = new BrevoIntegration();
-            return [
-                'name' => 'brevo',
-                'send' => function (string $toEmail, string $toName, string $subject, string $htmlBody, string $fromEmail, string $fromName) use ($brevo) {
-                    return $brevo->sendTransactionalEmail($toEmail, $toName, $subject, $htmlBody, $fromEmail, $fromName);
-                },
-            ];
-        }
         return [
             'name' => 'mailer',
             'send' => function (string $toEmail, string $toName, string $subject, string $htmlBody, string $fromEmail, string $fromName) {

@@ -1,7 +1,7 @@
 -- ============================================================
 -- Tourfecto - Migration: Email Marketing Module
 --
--- موديول تسويق بالبريد احترافي (مكافئ لـ Brevo/Mailchimp):
+-- موديول تسويق بالبريد احترافي (منافس لـ Brevo/Mailchimp):
 --   - email_lists            قوائم جمهور
 --   - email_subscribers      مشتركون (مع حالة اشتراك + سجل إلغاء)
 --   - email_list_subscriber  ربط مشترك بقائمة (Many-to-Many)

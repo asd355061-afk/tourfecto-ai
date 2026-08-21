@@ -107,7 +107,7 @@ $router->get('/ads/alerts', 'AdsController', 'showAlertsPage', ['AuthMiddleware'
 $router->get('/ads/market-research', 'AdsController', 'showMarketResearchPage', ['AuthMiddleware']);
 $router->get('/ads/team', 'AdsController', 'showTeamPage', ['AuthMiddleware']);
 $router->get('/ads/campaigns/{id}', 'AdsController', 'showCampaignDetailsPage', ['AuthMiddleware']);
-// Email Marketing (مكافئ Brevo) - موديول تسويق البريد
+// Email Marketing (منافس Brevo) - موديول تسويق البريد
 $router->get('/email-marketing', 'EmailMarketingController', 'index', ['AuthMiddleware']);
 $router->get('/email-marketing/lists', 'EmailMarketingController', 'showListsPage', ['AuthMiddleware']);
 $router->get('/email-marketing/templates', 'EmailMarketingController', 'showTemplatesPage', ['AuthMiddleware']);

@@ -122,19 +122,6 @@ return [
         'enabled_env' => 'PAYPAL_ENABLED',
     ],
 
-    // ===================== Email Marketing =====================
-    // بوابة إرسال احترافية اختيارية لموديول تسويق البريد (بديل SMTP).
-    // من غيرها النظام بيشتغل كامل عبر SMTP (Mailer) - بيها بنرفع معدلات
-    // التسليم. التتبع (فتح/كليك/إلغاء) بيبقى على بنية Tourfecto دائمًا.
-    'brevo' => [
-        'label'      => 'Brevo (Sendinblue) API',
-        'category'   => 'email_marketing',
-        'class'      => 'BrevoIntegration',
-        'auth_type'  => 'api_key',
-        'env_keys'   => ['BREVO_API_KEY'],
-        'enabled_env' => 'BREVO_ENABLED',
-    ],
-
     // ===================== Tourism =====================
     'tripadvisor' => [
         'label'      => 'Tripadvisor API',

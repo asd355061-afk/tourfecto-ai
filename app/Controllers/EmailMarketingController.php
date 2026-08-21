@@ -4,8 +4,9 @@
  * Tourfecto - Email Marketing Controller
  * @version 1.0.0
  *
- * موديول تسويق البريد الاحترافي (مكافئ Brevo/Mailchimp) جوه لوحة
- * Tourfecto. يضم:
+ * موديول تسويق البريد الاحترافي — منافس لـ Brevo/Mailchimp مبني بالكامل على
+ * بنية Tourfecto (إرسال SMTP + تتبع فتح/كليك/إلغاء على جداول خاصة) من غير
+ * أي اعتماد على خدمة خارجية. يضم:
  *   - لوحة تحكم (KPIs + أحدث الحملات + حالة بوابة الإرسال)
  *   - إدارة الجمهور (قوائم + مشتركين + استيراد + إلغاء اشتراك)
  *   - القوالب (متغيرات تخصيص + معاينة)
@@ -57,7 +58,7 @@ class EmailMarketingController extends Controller
         <div class="p-card" style="margin-bottom:16px;">
             <div class="p-card-head">
                 <h3>📬 تسويق البريد الاحترافي</h3>
-                <span class="p-card-sub">مكافئ Brevo — أرسل حملات بتتبع فتح/كليك وإلغاء اشتراك، من منصتك ومن بياناتك</span>
+                <span class="p-card-sub">منصة تسويق بريد مدمجة في Tourfecto — حملات بتتبع فتح/كليك وإلغاء اشتراك، من بياناتك وعلى بنيتك</span>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;" id="emKpis">
                 <div class="p-loading-row">جارِ التحميل...</div>
@@ -74,7 +75,7 @@ class EmailMarketingController extends Controller
                 </div>
             </div>
             <div class="p-card">
-                <div class="p-card-head"><h3>📡 بوابة الإرسال</h3><span class="p-card-sub">Brevo API أو SMTP العادي</span></div>
+                <div class="p-card-head"><h3>📡 بوابة الإرسال</h3><span class="p-card-sub">عبر سيرفر البريد (SMTP)</span></div>
                 <div id="emDeliveryStatus"><div class="p-loading-row">جارِ الفحص...</div></div>
             </div>
         </div>
@@ -955,22 +956,13 @@ class EmailMarketingController extends Controller
 
     private function deliveryStatus(): array
     {
-        $brevo = false;
-        if (class_exists('BrevoIntegration')) {
-            try {
-                $brevo = (new BrevoIntegration())->isConfigured();
-            } catch (Exception $e) {
-                $brevo = false;
-            }
-        }
         $smtp = (new Mailer())->isConfigured();
         return [
-            'provider' => $brevo ? 'brevo' : 'smtp',
-            'brevo' => $brevo,
+            'provider' => 'smtp',
             'smtp' => $smtp,
-            'label' => $brevo
-                ? 'إرسال عبر Brevo API'
-                : ($smtp ? 'إرسال عبر SMTP' : 'غير مكوّن — أضف MAIL_USERNAME/MAIL_PASSWORD أو BREVO_API_KEY في .env'),
+            'label' => $smtp
+                ? 'إرسال عبر SMTP (سيرفر البريد الخاص بك)'
+                : 'غير مكوّن — أضف MAIL_USERNAME/MAIL_PASSWORD في .env',
         ];
     }
 
@@ -1052,7 +1044,7 @@ class EmailMarketingController extends Controller
             const d = r.data.delivery;
             document.getElementById('emDeliveryStatus').innerHTML = `
                 <div style="display:flex;align-items:center;gap:10px;">
-                    <span style="font-size:22px;">${d.provider === 'brevo' ? '🚀' : (d.smtp ? '📧' : '⚠️')}</span>
+                    <span style="font-size:22px;">${d.smtp ? '📧' : '⚠️'}</span>
                     <span style="font-size:14px;">${d.label}</span>
                 </div>`;
 

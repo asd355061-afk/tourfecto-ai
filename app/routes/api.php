@@ -615,7 +615,7 @@ $router->post('/api/ads/autopilot/logs/{id}/rollback', 'AdsController', 'rollbac
 $router->post('/api/ads/autopilot/run', 'AdsController', 'runAutopilotNow', ['AuthMiddleware']);
 
 // ============================================
-// موديول تسويق البريد (Email Marketing - مكافئ Brevo)
+// موديول تسويق البريد (Email Marketing) - منافس Brevo، مبني بالكامل على بنية Tourfecto
 // ============================================
 // Dashboard & Stats
 $router->get('/api/email-marketing/dashboard', 'EmailMarketingController', 'dashboard', ['AuthMiddleware']);
