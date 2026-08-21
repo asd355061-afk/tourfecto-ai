@@ -137,18 +137,36 @@ class RateLimitMiddleware
 
     /**
      * الحصول على API Key من الطلب
+     *
+     * تصحيح أمني (2026-08-20): كان أي قيمة X-API-Key اتبعت على طول
+     * كمعرّف لحظر المعدل (api_{key})، فكان أي حد يقدر يتجاوز الـ Rate
+     * Limiter بالكامل بمجرد ما يبعت مفتاح جديد (زي "audit-12345") في
+     * كل طلب - عشان مفيش تحقق من إن المفتاح ده حقيقي. الحل: بنقبل
+     * المفتاح كمعرّف بس لو شكله مفتاح حقيقي معرّف في المنصة (المفاتيح
+     * الشخصية بتبدأ بـ tf_pk_ والمفاتيح الشريكة بـ tf_live_). أي
+     * قيمة عشوائية بتسقط لمعرّف الـ IP العادي فيبقى الحظر شغال.
+     *
      * @return string|null
      */
     private function getApiKey(): ?string
     {
         $headers = getallheaders();
 
+        $candidate = null;
         if (isset($headers['X-API-Key'])) {
-            return $headers['X-API-Key'];
+            $candidate = $headers['X-API-Key'];
+        } elseif (isset($_GET['api_key'])) {
+            $candidate = $_GET['api_key'];
         }
 
-        if (isset($_GET['api_key'])) {
-            return $_GET['api_key'];
+        if ($candidate === null || $candidate === '') {
+            return null;
+        }
+
+        // قيم مسرّبة من تطبيقات خارجية (زي "audit-…" أو "Bearer …") مش
+        // مفاتيح حقيقية - متستخدمهاش كمعرّف أبدًا.
+        if (strpos($candidate, 'tf_pk_') === 0 || strpos($candidate, 'tf_live_') === 0) {
+            return $candidate;
         }
 
         return null;

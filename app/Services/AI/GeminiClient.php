@@ -223,6 +223,14 @@ class GeminiClient
         $attempt = 0;
         $lastError = null;
 
+        // تصحيح (2026-08-20): لو مفتاح Gemini مش مُهيأ، كان الطلب بيروح
+        // بـ "?key=" فاضي وGoogle بترجّع HTTP 403 "API key not valid" —
+        // رسالة مربكة للعميل. بنوقف بكرامة برسالة واضحة توجّهه لمكان
+        // إضافة المفتاح (لوحة الأدمن > الإعدادات أو .env).
+        if (empty($this->apiKey)) {
+            throw new Exception('مفتاح Gemini API غير مُهيأ — أضفه من الإعدادات (System Settings) أو متغير GEMINI_API_KEY في .env');
+        }
+
         while ($attempt < $this->maxRetries) {
             try {
                 $url = $this->apiUrl . '?key=' . $this->apiKey;

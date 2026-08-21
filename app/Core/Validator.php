@@ -178,16 +178,23 @@ class Validator
 
         $message = $messages[$rule] ?? 'حقل :field غير صحيح.';
 
+        // بعض القواعد (مثل required) بتتبعت من غير بارامتر، وكان تمرير
+        // null لـ explode() بيطلع تحذير Deprecated في PHP 8.1+ بيتطبع
+        // جوه الـ JSON نفسه (JSON خربان → الفرونت إند بيقول "استجابة
+        // غير صالحة"). بنحوّل null لسلسلة فاضية قبل أي استخدام.
+        $parameter = $parameter ?? '';
+        $paramParts = $parameter !== '' ? explode(',', $parameter) : [];
+
         // استبدال المتغيرات
         $replacements = [
             ':field' => $field,
             ':param' => $parameter,
-            ':param1' => explode(',', $parameter)[0] ?? '',
-            ':param2' => explode(',', $parameter)[1] ?? ''
+            ':param1' => $paramParts[0] ?? '',
+            ':param2' => $paramParts[1] ?? ''
         ];
 
         foreach ($replacements as $key => $value) {
-            $message = str_replace($key, $value, $message);
+            $message = str_replace($key, (string) $value, $message);
         }
 
         return $message;

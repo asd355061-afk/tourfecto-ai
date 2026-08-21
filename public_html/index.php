@@ -131,6 +131,7 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/AI/Providers/OpenAIProvider.php',
     APP_PATH . '/Services/AI/Providers/DeepSeekProvider.php',
     APP_PATH . '/Services/AI/Providers/KimiProvider.php',
+    APP_PATH . '/Services/AI/Providers/AnthropicProvider.php',
     APP_PATH . '/Services/AI/Providers/AIProviderManager.php',
     APP_PATH . '/Services/AI/KnowledgeBaseService.php',
     APP_PATH . '/Services/AI/AIConversationEngine.php',
@@ -507,6 +508,9 @@ require_once APP_PATH . '/Config/encryption.php';
 if (file_exists(APP_PATH . '/Config/gemini.php')) {
     require_once APP_PATH . '/Config/gemini.php';
 }
+if (file_exists(APP_PATH . '/Config/anthropic.php')) {
+    require_once APP_PATH . '/Config/anthropic.php';
+}
 if (file_exists(APP_PATH . '/Config/whatsapp.php')) {
     require_once APP_PATH . '/Config/whatsapp.php';
 }
@@ -515,7 +519,7 @@ if (file_exists(APP_PATH . '/Config/revenue_intelligence_events.php')) {
 }
 // AI Chat Platform - AI Provider Abstraction (بند 20): كل ملف اختياري،
 // المزود يُعتبر غير مهيّأ تلقائيًا لو مفتاحه فاضي في .env.
-foreach (['/Config/openai.php', '/Config/deepseek.php', '/Config/kimi.php'] as $aiProviderConfig) {
+foreach (['/Config/openai.php', '/Config/deepseek.php', '/Config/kimi.php', '/Config/anthropic.php'] as $aiProviderConfig) {
     if (file_exists(APP_PATH . $aiProviderConfig)) {
         require_once APP_PATH . $aiProviderConfig;
     }

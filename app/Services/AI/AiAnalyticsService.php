@@ -109,10 +109,10 @@ class AiAnalyticsService
     private function averageResponseTime(int $websiteId, string $sinceDate): ?int
     {
         $rows = $this->db->query(
-            "SELECT conversation_id, message_direction, created_at
+            "SELECT session_id, message_direction, created_at
              FROM chat_messages
-             WHERE website_id = ? AND created_at >= ? AND conversation_id IS NOT NULL
-             ORDER BY conversation_id ASC, created_at ASC
+             WHERE website_id = ? AND created_at >= ? AND session_id IS NOT NULL
+             ORDER BY session_id ASC, created_at ASC
              LIMIT 5000",
             [$websiteId, $sinceDate]
         );
@@ -121,7 +121,7 @@ class AiAnalyticsService
         $pendingIncomingAt = [];
 
         foreach ($rows as $row) {
-            $cid = $row['conversation_id'];
+            $cid = $row['session_id'];
             if ($row['message_direction'] === 'incoming') {
                 $pendingIncomingAt[$cid] = strtotime($row['created_at']);
             } elseif ($row['message_direction'] === 'outgoing' && isset($pendingIncomingAt[$cid])) {

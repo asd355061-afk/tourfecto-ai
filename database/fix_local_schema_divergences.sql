@@ -86,3 +86,28 @@ ALTER TABLE `websites`
 -- 8) ceo_risk_alerts: عمود source_module (كانت الجدول موجودًا بنسخة أقدم ناقصة)
 ALTER TABLE `ceo_risk_alerts`
     ADD COLUMN IF NOT EXISTS `source_module` VARCHAR(50) DEFAULT NULL COMMENT 'reputation/crm/ads/competitor' AFTER `severity`;
+
+-- 9) websites: أعمدة Onboarding Wizard (Migration 2026_08_08_000051 لم يُطبَّق محليًا)
+ALTER TABLE `websites`
+    ADD COLUMN IF NOT EXISTS `target_customers` TEXT NULL DEFAULT NULL COMMENT 'وصف العملاء المستهدفين' AFTER `target_country`,
+    ADD COLUMN IF NOT EXISTS `main_services` TEXT NULL DEFAULT NULL COMMENT 'الخدمات الأساسية' AFTER `target_customers`,
+    ADD COLUMN IF NOT EXISTS `onboarding_completed_at` TIMESTAMP NULL DEFAULT NULL COMMENT 'وقت اكتمال Onboarding Wizard' AFTER `main_services`;
+
+-- 10) activity_logs: المحلي كان بسكيما قديمة (event_type/event_data) بينما كود
+--     ActivityLog::record يكتب سكيما white-label الموحّدة (module/action/subject_*/meta/agency_id)
+ALTER TABLE `activity_logs`
+    ADD COLUMN IF NOT EXISTS `agency_id` INT(11) DEFAULT NULL COMMENT 'NULL = حدث بدون وكالة' AFTER `user_id`,
+    ADD COLUMN IF NOT EXISTS `module` VARCHAR(50) DEFAULT NULL COMMENT 'seo/social/creative_studio/white_label/billing/system' AFTER `agency_id`,
+    ADD COLUMN IF NOT EXISTS `action` VARCHAR(100) DEFAULT NULL COMMENT 'article.published / post.scheduled...' AFTER `module`,
+    ADD COLUMN IF NOT EXISTS `subject_type` VARCHAR(100) DEFAULT NULL AFTER `action`,
+    ADD COLUMN IF NOT EXISTS `subject_id` INT(11) DEFAULT NULL AFTER `subject_type`,
+    ADD COLUMN IF NOT EXISTS `meta` JSON DEFAULT NULL AFTER `subject_id`;
+
+-- الأعمدة القديمة (event_type/event_data/session_id/user_agent) كانت NOT NULL
+-- بلا default في السكيما المحلية القديمة؛ الكود الجديد لا يكتبها فيفشل
+-- INSERT في ActivityLog::record. جعلها اختيارية يُنهي فشل التسجيل بصمت.
+ALTER TABLE `activity_logs`
+    MODIFY COLUMN `event_type` VARCHAR(100) DEFAULT NULL,
+    MODIFY COLUMN `event_data` LONGTEXT DEFAULT NULL,
+    MODIFY COLUMN `session_id` VARCHAR(255) DEFAULT NULL,
+    MODIFY COLUMN `user_agent` VARCHAR(500) DEFAULT NULL;

@@ -308,7 +308,12 @@ class AuthController extends Controller
         $_SESSION['user'] = $userData;
 
         // كوكي التوكن (يُستخدم لاحقًا مع AuthMiddleware في طلبات API)
-        $token = $userData['api_token'] ?? null;
+        // تصحيح (2026-08-20): كان الكود بيقرا التوكن من $userData =
+        // $user->toArray()، لكن api_token مدرج في $hidden بتاع موديل User،
+        // فكان بيرجع null دايمًا → بيتولّد توكن جديد في كل تسجيل دخول →
+        // أي جهاز جديد بيلغي توكن كل الأجهزة التانية (فريق الشركة
+        // بيتطردوا من الجلسات). بنقرأه من الـ attribute الفعلي مباشرة.
+        $token = $user->getAttribute('api_token');
         if (!$token) {
             $token = User::generateApiToken();
             $user->setAttribute('api_token', $token);

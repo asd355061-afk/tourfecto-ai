@@ -679,6 +679,33 @@ class DashboardController extends Controller
      */
     private function renderDashboardPage(string $tab): string
     {
+        // ============================================
+        // فرض معالج الإعداد السريع (2026-08-20): حساب جديد معملش أي
+        // مواقع لسه (صفر مواقع = مش ممكن يشتغل على أي موديول في المنصة)
+        // بيتحوّل مباشرة لـ /onboarding بدل ما يشوف لوحة فاضية مربكة.
+        // بعد ما يضيف أول موقع، الـ checklist التوجيهي (buildOnboardingScript)
+        // بياخد مكانه تلقائيًا. مش بنفرض على أي حد عنده مواقع فعلًا.
+        // ============================================
+        try {
+            if (!empty($this->user['id'])) {
+                $websiteCount = (int) ($this->db->query(
+                    "SELECT COUNT(*) AS c FROM websites WHERE user_id = ?",
+                    [(int) $this->user['id']]
+                )[0]['c'] ?? 0);
+                $onboarded = (int) ($this->db->query(
+                    "SELECT COUNT(*) AS c FROM websites WHERE user_id = ? AND onboarding_completed_at IS NOT NULL",
+                    [(int) $this->user['id']]
+                )[0]['c'] ?? 0);
+
+                if ($websiteCount === 0 && $onboarded === 0) {
+                    header('Location: /onboarding');
+                    exit;
+                }
+            }
+        } catch (Throwable $e) {
+            Logger::error('Dashboard onboarding redirect check failed', ['message' => $e->getMessage()]);
+        }
+
         $isImpersonating = !empty($_SESSION['impersonator_admin_id']);
 
         $titles = [

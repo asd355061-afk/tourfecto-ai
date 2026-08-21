@@ -123,25 +123,52 @@ class SubscriptionController extends Controller
                 return $this->error('You already have an active subscription', 400);
             }
 
-            // إنشاء الاشتراك
-            $subscription = Subscription::createSubscription(
+            // ============================================
+            // تصحيح (2026-08-20): منع الاشتراك المجاني.
+            // كان create() بيعمل Subscription::createSubscription مباشرة
+            // = اشتراك active من غير أي دفع - أي عميل يقدر يفعل باقة
+            // enterprise بـ 0$ وبلا أي محاسبة. الاشتراك دلوقتي لازم يمر
+            // عبر WalletService::subscribeWithBalance اللي بيخصم السعر
+            // الفعلي للباقة من رصيد المحفظة (ويرفض لو الرصيد ناقص،
+            // ويرجّع المبلغ المطلوب + العجز للفرونت إند يوجّه العميل
+            // للإيداع). مسار تفعيل الأدمن اليدوي (AdminController) لسه
+            // شغال زي ما هو - ده ميزة للأدمن مش للعميل.
+            // ============================================
+            if (!class_exists('WalletService')) {
+                return $this->error('نظام الدفع غير متاح', 500);
+            }
+            $walletService = new WalletService();
+            $paymentResult = $walletService->subscribeWithBalance(
                 $this->user['id'],
                 $planName,
                 $planType
             );
 
-            if (!$subscription) {
-                return $this->error('Failed to create subscription', 500);
+            if (empty($paymentResult['success'])) {
+                return $this->error(
+                    (string) ($paymentResult['error'] ?? 'تعذر إتمام الدفع'),
+                    402,
+                    [
+                        'balance' => (float) ($paymentResult['balance'] ?? 0),
+                        'required' => (float) ($paymentResult['required'] ?? 0),
+                        'shortfall' => (float) ($paymentResult['shortfall'] ?? 0),
+                        'is_plan_change' => (bool) ($paymentResult['is_plan_change'] ?? false),
+                        'action' => '/wallet',
+                    ]
+                );
             }
 
             $this->log('Subscription Created', [
                 'plan' => $planName,
-                'type' => $planType
+                'type' => $planType,
+                'charged' => (float) ($paymentResult['charged'] ?? 0),
             ]);
 
             return $this->success([
-                'subscription' => $subscription->toArray()
-            ], 'Subscription created successfully');
+                'subscription' => $paymentResult['subscription']->toArray(),
+                'charged' => (float) ($paymentResult['charged'] ?? 0),
+                'new_balance' => (float) ($paymentResult['new_balance'] ?? 0),
+            ], 'تم تفعيل اشتراكك والخصم من محفظتك');
 
         } catch (Exception $e) {
             Logger::error('Create Subscription Error', [

@@ -75,6 +75,7 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Services/AI/Providers/OpenAIProvider.php',
     APP_PATH . '/Services/AI/Providers/DeepSeekProvider.php',
     APP_PATH . '/Services/AI/Providers/KimiProvider.php',
+    APP_PATH . '/Services/AI/Providers/AnthropicProvider.php',
     APP_PATH . '/Services/AI/Providers/GeminiProvider.php',
     APP_PATH . '/Services/AI/Providers/AIProviderManager.php',
     APP_PATH . '/Services/AI/KnowledgeBaseService.php',
@@ -215,6 +216,7 @@ foreach ([
     APP_PATH . '/Services/AI/Providers/OpenAIProvider.php',
     APP_PATH . '/Services/AI/Providers/DeepSeekProvider.php',
     APP_PATH . '/Services/AI/Providers/KimiProvider.php',
+    APP_PATH . '/Services/AI/Providers/AnthropicProvider.php',
     APP_PATH . '/Services/AI/Providers/AIProviderManager.php',
     // Services (بترتيب الاعتماد)
     APP_PATH . '/Services/AI/KnowledgeBaseService.php',

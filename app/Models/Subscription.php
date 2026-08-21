@@ -219,18 +219,31 @@ class Subscription extends Model
                 ? date('Y-m-d H:i:s', strtotime('+1 year'))
                 : date('Y-m-d H:i:s', strtotime('+1 month'));
 
+            // تصحيح حيوي: plan_name/plan_type في جدول subscriptions بيخزّنوا
+            // الباقة الفعلية اللي اشتريها العميل (enum default بيبقى
+            // 'starter' لو اتسابوا فاضيين) - لو اتسابوا كده، أي منطق بيقرأ
+            // plan_name عشان يحدد صلاحيات/حدود الاستخدام (Subscription
+            // Validator, WalletService, AdminController) هيحسب العميل على
+            // باقة starter وهو مدفوع في باقة أعلى. بنكتبهم صراحة من الخطة
+            // الفعلية اللي اتختارت.
             $insertSql = "INSERT INTO subscriptions
-                        (user_id, plan_id, status, trial_ends_at, current_period_start, current_period_end,
+                        (user_id, plan_id, plan_name, plan_type, status, price, currency, trial_ends_at,
+                         current_period_start, current_period_end,
                          cancel_at_period_end, payment_gateway, gateway_subscription_id, gateway_customer_id,
                          usage_ai_analysis_count, usage_ai_message_count, usage_review_reply_count,
                          last_usage_reset_at, created_at, updated_at)
                     VALUES
-                        (?, ?, 'active', NULL, ?, ?,
-                         0, NULL, NULL, NULL,
-                         0, 0, 0,
+                        (?, ?, ?, ?, 'active', ?, ?, NULL,
+                         ?, ?,
+                          0, NULL, NULL, NULL,
+                          0, 0, 0,
                          NOW(), NOW(), NOW())";
 
-            $id = $db->query($insertSql, [$userId, $plan['id'], $startDate, $periodEnd]);
+            $id = $db->query($insertSql, [
+                $userId, $plan['id'], $planName, $planType,
+                (float) $plan['price'], $plan['currency'] ?? 'USD',
+                $startDate, $periodEnd,
+            ]);
 
             if (!$id) {
                 return false;

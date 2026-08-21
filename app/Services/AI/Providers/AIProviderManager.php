@@ -52,6 +52,9 @@ class AIProviderManager
             'kimi' => function () {
                 return new KimiProvider();
             },
+            'anthropic' => function () {
+                return new AnthropicProvider();
+            },
         ];
 
         $order = !empty($preferredOrder) ? $preferredOrder : $this->getDefaultOrder();
@@ -75,7 +78,7 @@ class AIProviderManager
         if (!empty($configured)) {
             return array_map('trim', explode(',', $configured));
         }
-        return ['gemini', 'openai', 'deepseek', 'kimi'];
+        return ['gemini', 'anthropic', 'openai', 'deepseek', 'kimi'];
     }
 
     /**
@@ -109,6 +112,7 @@ class AIProviderManager
             'openai' => defined('OPENAI_MODEL') ? OPENAI_MODEL : 'gpt-4o-mini',
             'deepseek' => defined('DEEPSEEK_MODEL') ? DEEPSEEK_MODEL : 'deepseek-chat',
             'kimi' => defined('KIMI_MODEL') ? KIMI_MODEL : 'moonshot-v1-8k',
+            'anthropic' => defined('ANTHROPIC_MODEL') ? ANTHROPIC_MODEL : 'claude-sonnet-4-5',
         ];
 
         $providers = [];
@@ -212,7 +216,7 @@ class AIProviderManager
         });
 
         if (empty($available)) {
-            $error = 'No AI provider is configured. Add at least one API key (GEMINI_API_KEY, OPENAI_API_KEY, DEEPSEEK_API_KEY, or KIMI_API_KEY) in .env.';
+            $error = 'No AI provider is configured. Add at least one API key (GEMINI_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, DEEPSEEK_API_KEY, or KIMI_API_KEY) in .env.';
             Logger::error('AIProviderManager: no configured provider', ['feature' => $feature]);
             return [
                 'success' => false, 'content' => null, 'provider' => null, 'model' => null,
