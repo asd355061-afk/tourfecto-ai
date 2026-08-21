@@ -210,6 +210,28 @@ class AuditChecksService
             $this->add('seo', 'h1_length', 'طول عنوان H1', $st, $st === 'warn' ? 'low' : 'info', "الطول: {$h1Len} حرف (المثالي تحت 70)");
         }
 
+        // Optional: China market elements (ICP filing note)
+        $isChinaTarget = false;
+        $targetLangs = $this->ctx['target_languages'] ?? null;
+        if (!empty($targetLangs)) {
+            $decoded = json_decode((string) $targetLangs, true);
+            if (is_array($decoded)) {
+                foreach ($decoded as $lang) {
+                    $code = is_array($lang) ? ($lang['code'] ?? '') : $lang;
+                    if (strtolower((string) $code) === 'zh' || strtolower((string) $code) === 'zh-cn') {
+                        $isChinaTarget = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if ($isChinaTarget) {
+            $hasIcp = preg_match('/ICP|备案|京ICP/i', $html);
+            $this->add('seo', 'china_icp_note', 'ملاحظة ICP للسوق الصيني', 'info', 'info',
+                $hasIcp ? 'موجود إشارة ICP — تأكد من صحة التسجيل الرسمي' : 'مطلوب ICP filing للمواقع المستضافة في الصين — تأكد من الامتثال'
+            );
+        }
+
         // --- heading order (skipped levels) ---
         preg_match_all('/<h([1-6])\b/i', $html, $hm);
         $levels = array_map('intval', $hm[1]);

@@ -100,7 +100,7 @@ class SeoProxyService
                 $code = $variant['value'];
             }
 
-            $html = $this->applyRewrite($html, $field, $code, $pageUrl);
+            $html = $this->applyRewrite($html, $field, $code, $pageUrl, $websiteId);
         }
 
         // علامة صغيرة بتوضح إن الصفحة معدّلة Server-Side (للتصحيح مش أكتر)
@@ -149,7 +149,7 @@ class SeoProxyService
     }
 
     /** تطبيق إعادة كتابة واحدة على الـ HTML */
-    private function applyRewrite(string $html, string $field, string $code, string $pageUrl): string
+    private function applyRewrite(string $html, string $field, string $code, string $pageUrl, ?int $websiteId = null): string
     {
         switch ($field) {
             case 'seo_title':
@@ -231,11 +231,86 @@ class SeoProxyService
                 }, $html);
                 break;
 
+            case 'image_lazy_load':
+                $html = $this->applyLazyLoadingToHtml($html);
+                break;
+
+            case 'image_webp_convert':
+                $html = $this->applyWebpConversion($html, $pageUrl);
+                break;
+
+            case 'hreflang_tags':
+                $html = $this->applyHreflang($html, $pageUrl, $websiteId);
+                break;
+
             default:
                 break;
         }
 
         return $html;
+    }
+
+    private function applyLazyLoadingToHtml(string $html): string
+    {
+        $service = new ImageOptimizationService();
+        return $service->applyLazyLoading($html);
+    }
+
+    private function applyWebpConversion(string $html, string $pageUrl): string
+    {
+        $service = new ImageOptimizationService();
+        return $service->rewriteImageSrc($html, $pageUrl);
+    }
+
+    private function applyHreflang(string $html, string $pageUrl, ?int $websiteId): string
+    {
+        if (!$websiteId) {
+            return $html;
+        }
+
+        $rows = $this->db->query(
+            "SELECT target_languages FROM websites WHERE id = ? LIMIT 1",
+            [$websiteId]
+        );
+        if (empty($rows) || empty($rows[0]['target_languages'])) {
+            return $html;
+        }
+
+        $langs = json_decode((string) $rows[0]['target_languages'], true);
+        if (!is_array($langs) || empty($langs)) {
+            return $html;
+        }
+
+        $tags = [];
+        foreach ($langs as $lang) {
+            $langCode = is_array($lang) ? ($lang['code'] ?? '') : $lang;
+            if ($langCode === '') {
+                continue;
+            }
+            $href = $this->buildHreflangUrl($pageUrl, $langCode);
+            $tags[] = '<link rel="alternate" hreflang="' . htmlspecialchars($langCode, ENT_QUOTES, 'UTF-8') . '" href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '">';
+        }
+
+        $tags[] = '<link rel="alternate" hreflang="x-default" href="' . htmlspecialchars($pageUrl, ENT_QUOTES, 'UTF-8') . '">';
+        $block = "\n" . implode("\n", $tags) . "\n";
+
+        if (stripos($html, '</head>') !== false) {
+            $html = str_ireplace('</head>', $block . '</head>', $html);
+        } else {
+            $html = $block . $html;
+        }
+
+        return $html;
+    }
+
+    private function buildHreflangUrl(string $pageUrl, string $langCode): string
+    {
+        $parsed = parse_url($pageUrl);
+        $scheme = $parsed['scheme'] ?? 'https';
+        $host = $parsed['host'] ?? '';
+        $port = !empty($parsed['port']) ? ':' . $parsed['port'] : '';
+        $path = $parsed['path'] ?? '/';
+        return "{$scheme}://{$host}{$port}/" . strtolower($langCode) . $path;
     }
 
     /** تحويل الكود المحفوظ لـ JSON-LD نظيف */
@@ -367,10 +442,10 @@ class SeoProxyService
             [$websiteId]
         );
         foreach ($active as $fix) {
-            $html = $this->applyRewrite($html, (string) $fix['field_name'], (string) $fix['injected_code'], $origin . '/');
+            $html = $this->applyRewrite($html, (string) $fix['field_name'], (string) $fix['injected_code'], $origin . '/', $websiteId);
         }
         foreach ($changes as $field => $value) {
-            $html = $this->applyRewrite($html, (string) $field, (string) $value, $origin . '/');
+            $html = $this->applyRewrite($html, (string) $field, (string) $value, $origin . '/', $websiteId);
         }
 
         return ['success' => true, 'before' => $before, 'after' => $this->extractSeoMeta($html)];

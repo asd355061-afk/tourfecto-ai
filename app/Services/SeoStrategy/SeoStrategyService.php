@@ -29,6 +29,7 @@ class SeoStrategyService
             'top_findings' => [],
             'competitor_comparisons' => [],
             'keyword_opportunities' => [],
+            'keyword_gaps' => [],
             'outreach_summary' => ['prospect' => 0, 'contacted' => 0, 'link_acquired' => 0],
         ];
 
@@ -62,6 +63,13 @@ class SeoStrategyService
                 [$websiteId, $userId]
             );
         } catch (Exception $e) {
+        }
+
+        // Keyword Gap: competitor keywords client is not ranking for
+        try {
+            $context['keyword_gaps'] = $this->fetchKeywordGaps($db, $userId, $websiteId);
+        } catch (Exception $e) {
+            $context['keyword_gaps'] = [];
         }
 
         try {
@@ -111,6 +119,19 @@ class SeoStrategyService
             if (empty($t['title']) || empty($t['phase']) || !in_array($t['phase'], ['30_days', '60_days', '90_days'], true)) {
                 continue;
             }
+
+            $reason = (string) ($t['reason'] ?? '');
+            if (empty($reason) && !empty($context['keyword_gaps'])) {
+                $title = (string) $t['title'];
+                $description = (string) ($t['description'] ?? '');
+                $matchedGap = array_values(array_filter($context['keyword_gaps'], fn ($g) => stripos($title, $g['keyword']) !== false || stripos($description, $g['keyword']) !== false));
+                if (!empty($matchedGap)) {
+                    $competitorCount = count(array_unique(array_column($matchedGap, 'competitor_domain')));
+                    $totalCompetitors = count($context['competitor_comparisons'] ?? []);
+                    $reason = "مقترح لأن {$competitorCount} من {$totalCompetitors} منافسين مترتبين على الكلمة \"{$matchedGap[0]['keyword']}\" وإنت لأ";
+                }
+            }
+
             $tasks[] = [
                 'phase' => $t['phase'],
                 'week_label' => isset($t['week_label']) ? (string) $t['week_label'] : null,
@@ -120,6 +141,7 @@ class SeoStrategyService
                 'estimated_impact' => in_array($t['estimated_impact'] ?? '', ['high', 'medium', 'low'], true) ? $t['estimated_impact'] : 'medium',
                 'difficulty' => in_array($t['difficulty'] ?? '', ['easy', 'medium', 'hard'], true) ? $t['difficulty'] : 'medium',
                 'owner' => (string) ($t['owner'] ?? 'العميل'),
+                'reason' => $reason,
             ];
         }
 
@@ -135,6 +157,54 @@ class SeoStrategyService
         ];
     }
 
+    private function fetchKeywordGaps(Database $db, int $userId, int $websiteId): array
+    {
+        $competitors = $db->query(
+            "SELECT id, competitor_domain FROM competitors WHERE user_id = ? AND website_id = ? AND last_analyzed_at IS NOT NULL ORDER BY last_analyzed_at DESC LIMIT 5",
+            [$userId, $websiteId]
+        );
+        if (empty($competitors)) {
+            return [];
+        }
+
+        $competitorIds = array_column($competitors, 'id');
+        $placeholders = implode(',', array_fill(0, count($competitorIds), '?'));
+
+        $competitorKeywords = $db->query(
+            "SELECT keyword, competitor_id, search_volume, difficulty FROM competitor_keywords WHERE competitor_id IN ({$placeholders}) AND keyword IS NOT NULL AND keyword <> '' ORDER BY search_volume DESC",
+            $competitorIds
+        );
+
+        if (empty($competitorKeywords)) {
+            return [];
+        }
+
+        $clientKeywords = $db->query(
+            "SELECT keyword FROM tracked_keywords WHERE website_id = ? AND user_id = ?",
+            [$websiteId, $userId]
+        );
+        $clientKeywordSet = array_flip(array_map('strtolower', array_column($clientKeywords, 'keyword')));
+
+        $gaps = [];
+        $seen = [];
+        foreach ($competitorKeywords as $ck) {
+            $kw = strtolower(trim((string) $ck['keyword']));
+            if (isset($seen[$kw]) || isset($clientKeywordSet[$kw])) {
+                continue;
+            }
+            $seen[$kw] = true;
+            $competitor = array_values(array_filter($competitors, fn ($c) => $c['id'] == $ck['competitor_id']))[0] ?? null;
+            $gaps[] = [
+                'keyword' => $ck['keyword'],
+                'competitor_domain' => $competitor['competitor_domain'] ?? 'unknown',
+                'search_volume' => $ck['search_volume'] ?? null,
+                'difficulty' => $ck['difficulty'] ?? null,
+            ];
+        }
+
+        return array_slice($gaps, 0, 20);
+    }
+
     private function buildPrompt(array $context): string
     {
         $findingsLines = empty($context['top_findings'])
@@ -148,6 +218,10 @@ class SeoStrategyService
         $kwLines = empty($context['keyword_opportunities'])
             ? '- لا توجد كلمات مفتاحية عالية الأولوية مسجّلة.'
             : implode("\n", array_map(fn ($k) => "- \"{$k['keyword']}\" (فرصة: {$k['opportunity_score']}/100, الصفحة المستهدفة: " . ($k['target_page'] ?: 'غير محددة') . ")", $context['keyword_opportunities']));
+
+        $gapLines = empty($context['keyword_gaps'])
+            ? '- لا توجد بيانات كلمات مفتاحية للمنافسين.'
+            : implode("\n", array_map(fn ($g) => "- \"{$g['keyword']}\" (منافس: {$g['competitor_domain']}" . ($g['search_volume'] ? ", حجم بحث: {$g['search_volume']}" : "") . ")", $context['keyword_gaps']));
 
         $outreach = $context['outreach_summary'];
 
@@ -166,6 +240,9 @@ class SeoStrategyService
 
 === فرص الكلمات المفتاحية عالية الأولوية ===
 {$kwLines}
+
+=== الفجوات في الكلمات المفتاحية (كلمات المنافسين اللي إنت لسه مترتبش عليها) ===
+{$gapLines}
 
 === حالة بناء الباك لينكس (Outreach) ===
 مرشّحين: {$outreach['prospect']} | تم التواصل: {$outreach['contacted']} | تم الحصول على رابط: {$outreach['link_acquired']}
