@@ -1205,3 +1205,15 @@ $router->get('/api/chat/webhook/instagram/{website_id}', 'ChatController', 'veri
 $router->post('/api/chat/webhook/messenger/{website_id}', 'ChatController', 'messengerWebhook');
 $router->post('/api/chat/webhook/instagram/{website_id}', 'ChatController', 'instagramWebhook');
 $router->post('/api/chat/webhook/email/{website_id}', 'ChatController', 'emailWebhook');
+
+// ============================================
+// محرك الحجز والتوفر (Booking Engine - Phase 2)
+// ============================================
+$router->get('/api/bookings', 'BookingController', 'index', ['AuthMiddleware']);
+$router->get('/api/bookings/dashboard', 'BookingController', 'dashboard', ['AuthMiddleware']);
+$router->get('/api/bookings/{id}', 'BookingController', 'show', ['AuthMiddleware']);
+$router->post('/api/bookings', 'BookingController', 'store', ['AuthMiddleware']);
+$router->post('/api/bookings/{id}/confirm', 'BookingController', 'confirm', ['AuthMiddleware']);
+$router->post('/api/bookings/{id}/cancel', 'BookingController', 'cancel', ['AuthMiddleware']);
+$router->get('/api/inventory/{productId}/calendar', 'BookingController', 'calendar', ['AuthMiddleware']);
+$router->post('/api/inventory/{productId}', 'BookingController', 'setInventory', ['AuthMiddleware']);
