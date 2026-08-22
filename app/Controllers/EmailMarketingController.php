@@ -776,6 +776,7 @@ class EmailMarketingController extends Controller
                 <div style="display:flex;gap:8px;">
                     <button class="p-btn xs" onclick="refreshCampaignReport()">↻ تحديث</button>
                     <button class="p-btn xs danger" id="crCancelBtn" onclick="cancelCampaign()" style="display:none;">إلغاء الجدولة</button>
+                    <button class="p-btn xs primary" id="crRetryBtn" onclick="retryFailedCampaign()" style="display:none;">↻ إعادة المحاولة</button>
                 </div>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;" id="crKpis">
@@ -2024,8 +2025,16 @@ class EmailMarketingController extends Controller
         if (!$campaign) {
             return $this->error('الحملة غير موجودة', 404);
         }
-        if (!in_array($campaign['status'], ['draft', 'scheduled', 'sending'], true)) {
+        if (!in_array($campaign['status'], ['draft', 'scheduled', 'sending', 'failed'], true)) {
             return $this->error('لا يمكن إرسال حملة بهذه الحالة', 422);
+        }
+
+        // حملة فشلت بالكامل: إعادة تعيين المستلمين الفاشلين إلى pending
+        if ($campaign['status'] === 'failed') {
+            $retried = $this->campaignService->retryFailed($this->uid(), $campaignId);
+            if (!$retried['success']) {
+                return $this->error($retried['error'], 422);
+            }
         }
 
         $prepared = $this->campaignService->prepareRecipients($this->uid(), $campaignId);
@@ -3264,7 +3273,7 @@ class EmailMarketingController extends Controller
                             <td>${c.clicked_count}</td>
                             <td style="font-size:12px;color:#6b7280;">${c.scheduled_at || '—'}</td>
                             <td style="text-align:left;white-space:nowrap;">
-                                ${canAct(c.status) ? `<button class="p-btn xs primary" onclick="sendNow(${c.id})">إرسال</button>` : ''}
+                                ${canAct(c.status) ? `<button class="p-btn xs primary" onclick="sendNow(${c.id})">${c.status === 'failed' ? '↻ إعادة المحاولة' : 'إرسال'}</button>` : ''}
                                 ${c.status === 'scheduled' ? `<button class="p-btn xs danger" onclick="cancelC(${c.id})">إلغاء</button>` : ''}
                                 ${['draft','scheduled','cancelled'].includes(c.status) ? `<button class="p-btn xs" onclick="editCampaign(${c.id})">تعديل</button>` : ''}
                                 ${['draft','scheduled','cancelled'].includes(c.status) ? `<button class="p-btn xs" onclick="duplicateC(${c.id})">⧉ نسخ</button>` : ''}
@@ -3279,7 +3288,7 @@ class EmailMarketingController extends Controller
             const colors = {draft:'#f3f4f6', scheduled:'#fef3c7', sending:'#dbeafe', sent:'#dcfce7', cancelled:'#fee2e2', failed:'#fee2e2'};
             return `<span style="background:${colors[s]||'#f3f4f6'};padding:2px 10px;border-radius:20px;font-size:12px;">${map[s]||s}</span>`;
         }
-        function canAct(s) { return ['draft','scheduled'].includes(s); }
+        function canAct(s) { return ['draft','scheduled','failed'].includes(s); }
         function openCampaignModal() {
             document.getElementById('campaignModalTitle').textContent = 'حملة جديدة';
             ['campaignId','campaignName','campaignSubject','campaignFromName','campaignFromEmail','campaignHtml','campaignScheduledAt'].forEach(id => document.getElementById(id).value='');
@@ -3372,6 +3381,7 @@ class EmailMarketingController extends Controller
             const c = r.data;
             document.getElementById('crName').textContent = c.name + ' — ' + c.subject;
             document.getElementById('crCancelBtn').style.display = c.status === 'scheduled' ? 'inline-block' : 'none';
+            document.getElementById('crRetryBtn').style.display = c.status === 'failed' ? 'inline-block' : 'none';
             const kpis = [
                 ['📨', c.sent_count, 'أُرسل'],
                 ['👁', c.opened_count, 'فُتح'],
@@ -3421,6 +3431,11 @@ class EmailMarketingController extends Controller
             if (!confirm('إلغاء جدولة الحملة؟')) return;
             const r = await emApi('/campaigns/__CID__/cancel', {method:'POST'});
             if (r.success) loadReport(); else alert(r.error);
+        }
+        async function retryFailedCampaign() {
+            const r = await emApi('/campaigns/__CID__/send', {method:'POST'});
+            if (r.success) alert('أُعيد تعيين ' + r.data.total + ' مستلم — بدأ الإرسال عبر cron.'); else alert(r.error);
+            if (r.success) loadReport();
         }
         loadReport();
         JS;

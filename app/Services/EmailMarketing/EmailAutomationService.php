@@ -464,7 +464,7 @@ class EmailAutomationService
             $baseUrl,
             $baseUrl . '/api/email-marketing/unsubscribe/' . rawurlencode($unsubToken)
         );
-        $result = (new Mailer())->send((string) $sub['email'], (string) ($sub['name'] ?? ''), $subject, $html);
+        $result = (new SmtpSettingsService())->mailerForUser($userId)->send((string) $sub['email'], (string) ($sub['name'] ?? ''), $subject, $html);
         return !empty($result['success']);
     }
 

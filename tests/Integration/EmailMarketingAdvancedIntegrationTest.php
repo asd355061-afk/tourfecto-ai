@@ -721,4 +721,56 @@ final class EmailMarketingAdvancedIntegrationTest extends TestCase
         $this->assertTrue($svc->delete(self::$userId, $abId)['success']);
         $this->assertNull($svc->get(self::$userId, $abId));
     }
+
+    public function testRetryFailedCampaignResetsRecipients(): void
+    {
+        $campaignId = $this->makeCampaign();
+        $svc = new EmailCampaignService();
+
+        $prepared = $svc->prepareRecipients(self::$userId, $campaignId);
+        $this->assertTrue($prepared['success'], $prepared['error'] ?? '');
+        $this->assertSame(8, $prepared['total']);
+
+        // محاكاة فشل كامل: كل المستلمين failed + الحملة failed
+        $this->dbe(
+            "UPDATE email_campaign_recipients SET status = 'failed', error_message = 'SMTP timeout' WHERE campaign_id = ?",
+            [$campaignId]
+        );
+        $this->dbe("UPDATE email_campaigns SET status = 'failed' WHERE id = ?", [$campaignId]);
+
+        // الرفض لحملة غير فاشلة
+        $this->dbe("UPDATE email_campaigns SET status = 'draft' WHERE id = ?", [$campaignId]);
+        $this->assertFalse($svc->retryFailed(self::$userId, $campaignId)['success']);
+        $this->dbe("UPDATE email_campaigns SET status = 'failed' WHERE id = ?", [$campaignId]);
+
+        $result = $svc->retryFailed(self::$userId, $campaignId);
+        $this->assertTrue($result['success'], $result['error'] ?? '');
+        $this->assertSame(8, $result['reset']);
+
+        $pending = (int) $this->dbq(
+            "SELECT COUNT(*) AS total FROM email_campaign_recipients WHERE campaign_id = ? AND status = 'pending'",
+            [$campaignId]
+        )[0]['total'];
+        $this->assertSame(8, $pending);
+
+        $campaign = $svc->get(self::$userId, $campaignId);
+        $this->assertSame('sending', $campaign['status']);
+
+        // حملة غير موجودة
+        $this->assertFalse($svc->retryFailed(self::$userId, 99999999)['success']);
+    }
+
+    public function testRetryFailedRejectsWhenNoFailedRecipients(): void
+    {
+        $campaignId = $this->makeCampaign();
+        $svc = new EmailCampaignService();
+
+        $prepared = $svc->prepareRecipients(self::$userId, $campaignId);
+        $this->assertTrue($prepared['success']);
+        $this->dbe("UPDATE email_campaigns SET status = 'failed' WHERE id = ?", [$campaignId]);
+
+        $result = $svc->retryFailed(self::$userId, $campaignId);
+        $this->assertFalse($result['success']);
+        $this->assertStringContainsString('لا يوجد', $result['error']);
+    }
 }

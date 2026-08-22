@@ -444,6 +444,45 @@ class EmailCampaignService
     }
 
     /**
+     * إعادة محاولة الإرسال لحملة فشلت بالكامل: يعيد المستلمين الفاشلين
+     * إلى حالة pending (مع مسح خطأ كل مستلم) كي يعيد طابور الإرسال محاولته.
+     *
+     * @return array ['success'=>bool, 'reset'=>int, 'error'=>?string]
+     */
+    public function retryFailed(int $userId, int $campaignId): array
+    {
+        $campaign = $this->findOwned($userId, $campaignId);
+        if (!$campaign) {
+            return ['success' => false, 'reset' => 0, 'error' => 'الحملة غير موجودة'];
+        }
+        if ($campaign->getAttribute('status') !== EmailCampaign::STATUS_FAILED) {
+            return ['success' => false, 'reset' => 0, 'error' => 'لا يمكن إعادة محاولة حملة لم تفشل'];
+        }
+
+        $failedCount = (int) $this->db->query(
+            "SELECT COUNT(*) AS total FROM email_campaign_recipients WHERE campaign_id = ? AND status = ?",
+            [$campaignId, EmailCampaignRecipient::STATUS_FAILED]
+        )[0]['total'];
+
+        if ($failedCount === 0) {
+            return ['success' => false, 'reset' => 0, 'error' => 'لا يوجد مستلمون فاشلون لإعادة المحاولة'];
+        }
+
+        $this->db->query(
+            "UPDATE email_campaign_recipients
+             SET status = ?, error_message = NULL
+             WHERE campaign_id = ? AND status = ?",
+            [EmailCampaignRecipient::STATUS_PENDING, $campaignId, EmailCampaignRecipient::STATUS_FAILED]
+        );
+
+        $campaign->setAttribute('status', EmailCampaign::STATUS_SENDING);
+        $campaign->setAttribute('error_message', null);
+        $campaign->save();
+
+        return ['success' => true, 'reset' => $failedCount];
+    }
+
+    /**
      * إرسال فوري متزامن (يستخدمه اختبار "إرسال اختبار" والقوائم الصغيرة).
      * @return array ['success'=>bool, 'sent'=>int, 'error'=>?string]
      */
