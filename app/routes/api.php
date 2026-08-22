@@ -696,6 +696,30 @@ $router->post('/api/email-marketing/automations/{id}/steps', 'EmailMarketingCont
 $router->post('/api/email-marketing/automations/{id}/status', 'EmailMarketingController', 'setAutomationStatus', ['AuthMiddleware']);
 $router->post('/api/email-marketing/automations/run-due', 'EmailMarketingController', 'runAutomationsDue', ['AuthMiddleware']);
 
+$router->get('/api/email-marketing/smtp-settings', 'EmailMarketingController', 'smtpSettings', ['AuthMiddleware']);
+$router->post('/api/email-marketing/smtp-settings', 'EmailMarketingController', 'saveSmtpSettings', ['AuthMiddleware']);
+$router->post('/api/email-marketing/smtp-settings/test', 'EmailMarketingController', 'testSmtpSettings', ['AuthMiddleware']);
+
+$router->get('/api/email-marketing/transactional/templates', 'EmailMarketingController', 'transactionalTemplates', ['AuthMiddleware']);
+$router->post('/api/email-marketing/transactional/templates', 'EmailMarketingController', 'createTransactionalTemplate', ['AuthMiddleware']);
+$router->get('/api/email-marketing/transactional/templates/{id}', 'EmailMarketingController', 'getTransactionalTemplate', ['AuthMiddleware']);
+$router->patch('/api/email-marketing/transactional/templates/{id}', 'EmailMarketingController', 'updateTransactionalTemplate', ['AuthMiddleware']);
+$router->delete('/api/email-marketing/transactional/templates/{id}', 'EmailMarketingController', 'deleteTransactionalTemplate', ['AuthMiddleware']);
+$router->post('/api/email-marketing/transactional/send', 'EmailMarketingController', 'sendTransactionalEmail', ['AuthMiddleware']);
+$router->get('/api/email-marketing/transactional/logs', 'EmailMarketingController', 'transactionalLogs', ['AuthMiddleware']);
+$router->get('/api/email-marketing/transactional/stats', 'EmailMarketingController', 'transactionalStats', ['AuthMiddleware']);
+
+$router->get('/api/email-marketing/ab-tests', 'EmailMarketingController', 'abTests', ['AuthMiddleware']);
+$router->post('/api/email-marketing/ab-tests', 'EmailMarketingController', 'createAbTest', ['AuthMiddleware']);
+$router->get('/api/email-marketing/ab-tests/{id}', 'EmailMarketingController', 'getAbTest', ['AuthMiddleware']);
+$router->delete('/api/email-marketing/ab-tests/{id}', 'EmailMarketingController', 'deleteAbTest', ['AuthMiddleware']);
+$router->post('/api/email-marketing/ab-tests/{id}/variant', 'EmailMarketingController', 'setAbTestVariant', ['AuthMiddleware']);
+$router->post('/api/email-marketing/ab-tests/{id}/start', 'EmailMarketingController', 'startAbTest', ['AuthMiddleware']);
+$router->post('/api/email-marketing/ab-tests/{id}/send-batch', 'EmailMarketingController', 'sendAbTestBatch', ['AuthMiddleware']);
+$router->get('/api/email-marketing/ab-tests/{id}/report', 'EmailMarketingController', 'abTestReport', ['AuthMiddleware']);
+$router->post('/api/email-marketing/ab-tests/{id}/winner', 'EmailMarketingController', 'declareAbTestWinner', ['AuthMiddleware']);
+$router->post('/api/email-marketing/ab-tests/{id}/apply-winner', 'EmailMarketingController', 'applyAbTestWinner', ['AuthMiddleware']);
+
 $router->get('/api/ads/alerts/rules', 'AdsController', 'getAlertRules', ['AuthMiddleware']);
 $router->post('/api/ads/alerts/rules', 'AdsController', 'saveAlertRules', ['AuthMiddleware']);
 $router->get('/api/ads/alerts', 'AdsController', 'listAlerts', ['AuthMiddleware']);

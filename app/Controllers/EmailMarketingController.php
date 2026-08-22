@@ -909,6 +909,309 @@ class EmailMarketingController extends Controller
         return [];
     }
 
+    public function showEmailSettingsPage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $tabs = $this->emailTabsHtml('settings');
+
+        $body = <<<HTML
+        {$tabs}
+
+        <div class="p-card" style="margin-bottom:16px;">
+            <div class="p-card-head">
+                <h3>🔌 إعدادات الإرسال (SMTP)</h3>
+                <span class="p-card-sub">ربط سيرفر البريد الخاص بك — مثل Brevo، الإرسال يتم عبر بنيتك الخاصة لا عبر طرف ثالث</span>
+            </div>
+            <div id="emSmtpStatus" style="margin-top:8px;"></div>
+        </div>
+
+        <div class="p-card">
+            <div class="p-card-head"><h3>⚙️ بيانات الخادم</h3></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:10px;">
+                <div>
+                    <label class="p-label">المضيف (host)</label>
+                    <input class="p-input" id="emSmtpHost" placeholder="smtp.example.com" style="width:100%;"/>
+                </div>
+                <div>
+                    <label class="p-label">المنفذ (port)</label>
+                    <input class="p-input" id="emSmtpPort" type="number" value="587" style="width:100%;"/>
+                </div>
+                <div>
+                    <label class="p-label">التشفير</label>
+                    <select class="p-input" id="emSmtpEncryption" style="width:100%;">
+                        <option value="tls">STARTTLS</option>
+                        <option value="ssl">SSL/TLS</option>
+                        <option value="">بدون تشفير</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="p-label">اسم المستخدم</label>
+                    <input class="p-input" id="emSmtpUsername" placeholder="you@example.com" style="width:100%;"/>
+                </div>
+                <div>
+                    <label class="p-label">كلمة المرور / App Password</label>
+                    <input class="p-input" id="emSmtpPassword" type="password" placeholder="••••••••" style="width:100%;"/>
+                </div>
+                <div>
+                    <label class="p-label">المرسل (from email)</label>
+                    <input class="p-input" id="emSmtpFromEmail" placeholder="noreply@example.com" style="width:100%;"/>
+                </div>
+                <div>
+                    <label class="p-label">اسم المرسل</label>
+                    <input class="p-input" id="emSmtpFromName" placeholder="شركتي" style="width:100%;"/>
+                </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button class="p-btn primary" onclick="saveSmtpSettings()">💾 حفظ الإعدادات</button>
+                <button class="p-btn" onclick="testSmtpSettings()">🧪 اختبار الاتصال</button>
+            </div>
+            <p class="p-cell-muted" style="margin-top:12px;">الإعدادات الخاصة بك تتجاوز إعدادات .env العامة. كلمة المرور لا تُظهر مرة أخرى بعد الحفظ.</p>
+        </div>
+        HTML;
+
+        $script = $this->smtpSettingsJs();
+        echo $this->renderPanelPage('email_marketing', 'إعدادات الإرسال', 'SMTP / Deliverability', $body, $script);
+        return [];
+    }
+
+    public function showTransactionalPage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $tabs = $this->emailTabsHtml('transactional');
+
+        $body = <<<HTML
+        {$tabs}
+
+        <div class="p-card" style="margin-bottom:16px;">
+            <div class="p-card-head">
+                <h3>📨 رسائل المعاملات</h3>
+                <span class="p-card-sub">رسائل تأكيد التسجيل، استعادة كلمة المرور، الفواتير — بتتبع فتح/كليك من غير إلغاء اشتراك</span>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="p-btn primary" onclick="openTransactionalTemplateModal()">+ قالب معاملات جديد</button>
+                <button class="p-btn" onclick="loadTransactionalLogs()">سجل الإرسال</button>
+            </div>
+            <div id="emTxStats" style="display:flex;gap:12px;margin-top:14px;"></div>
+        </div>
+
+        <div class="p-card">
+            <div class="p-card-head"><h3>🗂️ قوالب المعاملات</h3></div>
+            <div id="emTxTemplates"><div class="p-loading-row">جارِ التحميل...</div></div>
+        </div>
+
+        <div class="p-card" style="margin-top:16px;">
+            <div class="p-card-head"><h3>📋 سجل الإرسال</h3></div>
+            <div id="emTxLogs"><div class="p-loading-row">جارِ التحميل...</div></div>
+        </div>
+
+        <div id="emTxTemplateModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:999;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;">
+            <div style="background:#fff;border-radius:14px;max-width:760px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.25);">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                    <h3 id="emTxModalTitle" style="margin:0;">قالب معاملات جديد</h3>
+                    <button class="p-btn xs" onclick="closeTransactionalTemplateModal()">✕ إغلاق</button>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
+                    <div>
+                        <label class="p-label">الاسم</label>
+                        <input class="p-input" id="emTxName" style="width:100%;"/>
+                    </div>
+                    <div>
+                        <label class="p-label">القيمة المختصرة (slug)</label>
+                        <input class="p-input" id="emTxSlug" placeholder="welcome (اختياري)" style="width:100%;"/>
+                    </div>
+                    <div>
+                        <label class="p-label">الموضوع (subject)</label>
+                        <input class="p-input" id="emTxSubject" style="width:100%;"/>
+                    </div>
+                </div>
+                <div style="margin-top:12px;">
+                    <label class="p-label">المحتوى (HTML — يدعم {{variables}})</label>
+                    <textarea class="p-input" id="emTxHtml" rows="10" style="width:100%;font-family:monospace;font-size:13px;"></textarea>
+                </div>
+                <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+                    <button class="p-btn" onclick="closeTransactionalTemplateModal()">إلغاء</button>
+                    <button class="p-btn primary" onclick="saveTransactionalTemplate()">💾 حفظ القالب</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="emTxSendModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:999;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;">
+            <div style="background:#fff;border-radius:14px;max-width:520px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.25);">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                    <h3 style="margin:0;">إرسال رسالة معاملات</h3>
+                    <button class="p-btn xs" onclick="closeTransactionalSendModal()">✕ إغلاق</button>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr;gap:12px;">
+                    <div>
+                        <label class="p-label">البريد المستلم</label>
+                        <input class="p-input" id="emTxSendEmail" style="width:100%;"/>
+                    </div>
+                    <div>
+                        <label class="p-label">اسم المستلم (اختياري)</label>
+                        <input class="p-input" id="emTxSendName" style="width:100%;"/>
+                    </div>
+                    <div>
+                        <label class="p-label">البيانات (JSON للـ variables)</label>
+                        <textarea class="p-input" id="emTxSendData" rows="3" placeholder='{"first_name":"أحمد","company_name":"شركتي"}' style="width:100%;font-family:monospace;font-size:13px;"></textarea>
+                    </div>
+                </div>
+                <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+                    <button class="p-btn" onclick="closeTransactionalSendModal()">إلغاء</button>
+                    <button class="p-btn primary" onclick="sendTransactionalNow()">📤 إرسال الآن</button>
+                </div>
+            </div>
+        </div>
+        HTML;
+
+        $script = $this->transactionalJs();
+        echo $this->renderPanelPage('email_marketing', 'رسائل المعاملات', 'Transactional Email', $body, $script);
+        return [];
+    }
+
+    public function showAbTestsPage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $tabs = $this->emailTabsHtml('ab_tests');
+
+        $body = <<<HTML
+        {$tabs}
+
+        <div class="p-card" style="margin-bottom:16px;">
+            <div class="p-card-head">
+                <h3>🧪 اختبار أ/ب</h3>
+                <span class="p-card-sub">قسّم جمهورك بين نسختين (عنوان أو محتوى) وحدد المتغير الفائز — مثل Brevo/Mailchimp</span>
+            </div>
+            <button class="p-btn primary" onclick="openAbTestModal()">+ اختبار أ/ب جديد</button>
+        </div>
+
+        <div class="p-card">
+            <div class="p-card-head"><h3>📋 الاختبارات</h3></div>
+            <div id="emAbTestsList"><div class="p-loading-row">جارِ التحميل...</div></div>
+        </div>
+
+        <div id="emAbTestModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:999;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;">
+            <div style="background:#fff;border-radius:14px;max-width:640px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.25);">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                    <h3 style="margin:0;">اختبار أ/ب جديد</h3>
+                    <button class="p-btn xs" onclick="closeAbTestModal()">✕ إغلاق</button>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr;gap:12px;">
+                    <div>
+                        <label class="p-label">الاسم</label>
+                        <input class="p-input" id="emAbName" style="width:100%;"/>
+                    </div>
+                    <div>
+                        <label class="p-label">الحملة الأساسية (الجمهور)</label>
+                        <select class="p-input" id="emAbCampaign" style="width:100%;"></select>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div>
+                            <label class="p-label">نسبة المتغير ب %</label>
+                            <input class="p-input" id="emAbSplit" type="number" value="50" min="5" max="95" style="width:100%;"/>
+                        </div>
+                        <div>
+                            <label class="p-label">مقياس الفوز</label>
+                            <select class="p-input" id="emAbMetric" style="width:100%;">
+                                <option value="open">معدل الفتح</option>
+                                <option value="click">معدل الكليك</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+                    <button class="p-btn" onclick="closeAbTestModal()">إلغاء</button>
+                    <button class="p-btn primary" onclick="createAbTest()">إنشاء الاختبار</button>
+                </div>
+            </div>
+        </div>
+        HTML;
+
+        $script = $this->abTestsJs();
+        echo $this->renderPanelPage('email_marketing', 'اختبار أ/ب', 'A/B Testing', $body, $script);
+        return [];
+    }
+
+    public function showAbTestDetailsPage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $id = (int) ($params['id'] ?? 0);
+        $ab = $this->abTestService()->get($this->uid(), $id);
+        if (!$ab) {
+            echo $this->renderPanelPage(
+                'email_marketing',
+                'اختبار أ/ب',
+                'A/B Testing',
+                '<p class="p-cell-muted" style="padding:20px;">الاختبار غير موجود.</p>'
+            );
+            return [];
+        }
+        $tabs = $this->emailTabsHtml('ab_tests');
+        $va = $ab['variant_a'] ?? [];
+        $vb = $ab['variant_b'] ?? [];
+        $vaTotal = (int) ($va['total_recipients'] ?? 0);
+        $vbTotal = (int) ($vb['total_recipients'] ?? 0);
+        $vaSubject = htmlspecialchars((string) ($va['subject'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $vaHtml = htmlspecialchars((string) ($va['html_body'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $vbSubject = htmlspecialchars((string) ($vb['subject'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $vbHtml = htmlspecialchars((string) ($vb['html_body'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $abStatus = htmlspecialchars((string) $ab['status'], ENT_QUOTES, 'UTF-8');
+        $abMetric = htmlspecialchars((string) $ab['metric'], ENT_QUOTES, 'UTF-8');
+        $abName = htmlspecialchars((string) $ab['name'], ENT_QUOTES, 'UTF-8');
+        $abSplit = (int) $ab['split_percent'];
+
+        $body = <<<HTML
+        {$tabs}
+
+        <div class="p-card" style="margin-bottom:16px;">
+            <div class="p-card-head">
+                <h3>🧪 {$abName}</h3>
+                <span class="p-card-sub">الحالة: {$abStatus} — المقياس: {$abMetric} — نسبة ب: {$abSplit}%</span>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="p-btn primary" onclick="runAbTest()">🚀 تشغيل وتقسيم الجمهور</button>
+                <button class="p-btn" onclick="sendAbBatch()">📤 إرسال دفعة</button>
+                <button class="p-btn" onclick="loadAbReport()">📈 التقرير</button>
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div class="p-card">
+                <div class="p-card-head"><h3>🅰️ المتغير أ — {$vaTotal} مستلم</h3></div>
+                <label class="p-label">الموضوع</label>
+                <input class="p-input" id="emAbASubject" value="{$vaSubject}" style="width:100%;"/>
+                <label class="p-label" style="margin-top:10px;">المحتوى</label>
+                <textarea class="p-input" id="emAbAHtml" rows="10" style="width:100%;font-family:monospace;font-size:13px;">{$vaHtml}</textarea>
+                <button class="p-btn xs" style="margin-top:10px;" onclick="saveAbVariant('a')">💾 حفظ المتغير أ</button>
+            </div>
+            <div class="p-card">
+                <div class="p-card-head"><h3>🅱️ المتغير ب — {$vbTotal} مستلم</h3></div>
+                <label class="p-label">الموضوع</label>
+                <input class="p-input" id="emAbBSubject" value="{$vbSubject}" style="width:100%;"/>
+                <label class="p-label" style="margin-top:10px;">المحتوى</label>
+                <textarea class="p-input" id="emAbBHtml" rows="10" style="width:100%;font-family:monospace;font-size:13px;">{$vbHtml}</textarea>
+                <button class="p-btn xs" style="margin-top:10px;" onclick="saveAbVariant('b')">💾 حفظ المتغير ب</button>
+            </div>
+        </div>
+
+        <div class="p-card" style="margin-top:16px;">
+            <div class="p-card-head"><h3>📊 التقرير</h3></div>
+            <div id="emAbReport"><div class="p-loading-row">اطلب التقرير لعرض النتائج</div></div>
+        </div>
+        HTML;
+
+        $script = $this->abTestDetailsJs($id);
+        echo $this->renderPanelPage('email_marketing', 'اختبار أ/ب', 'A/B Testing', $body, $script);
+        return [];
+    }
+
     // ============================================================
     //  API: Dashboard
     // ============================================================
@@ -1791,6 +2094,21 @@ class EmailMarketingController extends Controller
         return new EmailAutomationService();
     }
 
+    private function smtpSettingsService(): SmtpSettingsService
+    {
+        return new SmtpSettingsService();
+    }
+
+    private function transactionalService(): TransactionalEmailService
+    {
+        return new TransactionalEmailService();
+    }
+
+    private function abTestService(): AbTestService
+    {
+        return new AbTestService();
+    }
+
     public function automations(array $params = []): array
     {
         if (!$this->isAuthenticated()) {
@@ -1879,6 +2197,274 @@ class EmailMarketingController extends Controller
         return $this->success($result, 'تمت معالجة السير القادمة');
     }
 
+    // ============================================================
+    //  API: SMTP Settings
+    // ============================================================
+
+    public function smtpSettings(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $svc = $this->smtpSettingsService();
+        $settings = $svc->get($this->uid());
+        if ($settings) {
+            unset($settings['password']);
+        }
+        return $this->success([
+            'settings' => $settings,
+            'effective' => $this->safeEffectiveSettings($svc),
+        ]);
+    }
+
+    public function saveSmtpSettings(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->smtpSettingsService()->save($this->uid(), $this->all());
+        return $result['success']
+            ? $this->success([], 'تم حفظ إعدادات SMTP')
+            : $this->error($result['error'], 422);
+    }
+
+    public function testSmtpSettings(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $data = $this->all();
+        $result = $this->smtpSettingsService()->test($this->uid(), $data ?: null);
+        return $result['success']
+            ? $this->success([], 'تم الاتصال والمصادقة بنجاح')
+            : $this->error('فشل الاختبار: ' . ($result['error'] ?? 'خطأ غير معروف'), 422);
+    }
+
+    // ============================================================
+    //  API: Transactional Emails
+    // ============================================================
+
+    public function transactionalTemplates(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        return $this->success([
+            'templates' => $this->transactionalService()->listTemplates($this->uid()),
+            'variables' => EmailRenderer::variables(),
+        ]);
+    }
+
+    public function createTransactionalTemplate(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->transactionalService()->createTemplate($this->uid(), $this->all());
+        return $result['success']
+            ? $this->success(['id' => $result['id']], 'تم إنشاء قالب المعاملات')
+            : $this->error($result['error'], 422);
+    }
+
+    public function getTransactionalTemplate(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $template = $this->transactionalService()->getTemplate($this->uid(), (int) ($params['id'] ?? 0));
+        return $template
+            ? $this->success(['template' => $template])
+            : $this->error('القالب غير موجود', 404);
+    }
+
+    public function updateTransactionalTemplate(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->transactionalService()->updateTemplate($this->uid(), (int) ($params['id'] ?? 0), $this->all());
+        return $result['success']
+            ? $this->success([], 'تم تحديث القالب')
+            : $this->error($result['error'], 422);
+    }
+
+    public function deleteTransactionalTemplate(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->transactionalService()->deleteTemplate($this->uid(), (int) ($params['id'] ?? 0));
+        return $result['success']
+            ? $this->success([], 'تم حذف القالب')
+            : $this->error($result['error'], 422);
+    }
+
+    public function sendTransactionalEmail(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $body = $this->all();
+        $result = $this->transactionalService()->send(
+            $this->uid(),
+            (int) ($body['template_id'] ?? 0),
+            (string) ($body['to_email'] ?? ''),
+            (array) ($body['data'] ?? []),
+            (array) ($body['options'] ?? [])
+        );
+        return $result['success']
+            ? $this->success(['id' => $result['id']], 'تم إرسال رسالة المعاملات')
+            : $this->error('فشل الإرسال: ' . ($result['error'] ?? 'خطأ غير معروف'), 422);
+    }
+
+    public function transactionalLogs(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $filters = array_filter([
+            'status' => $this->get('status'),
+            'template_id' => $this->get('template_id'),
+            'email' => $this->get('email'),
+            'limit' => $this->get('limit'),
+        ], fn ($v) => $v !== null && $v !== '');
+        return $this->success(['logs' => $this->transactionalService()->logs($this->uid(), $filters)]);
+    }
+
+    public function transactionalStats(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        return $this->success(['stats' => $this->transactionalService()->stats($this->uid())]);
+    }
+
+    // ============================================================
+    //  API: A/B Tests
+    // ============================================================
+
+    public function abTests(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        return $this->success([
+            'ab_tests' => $this->abTestService()->list($this->uid()),
+            'campaigns' => $this->campaignService->list($this->uid()),
+        ]);
+    }
+
+    public function createAbTest(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->abTestService()->create($this->uid(), $this->all());
+        return $result['success']
+            ? $this->success(['id' => $result['id']], 'تم إنشاء اختبار أ/ب')
+            : $this->error($result['error'], 422);
+    }
+
+    public function getAbTest(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $ab = $this->abTestService()->get($this->uid(), (int) ($params['id'] ?? 0));
+        return $ab
+            ? $this->success(['ab_test' => $ab])
+            : $this->error('الاختبار غير موجود', 404);
+    }
+
+    public function deleteAbTest(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->abTestService()->delete($this->uid(), (int) ($params['id'] ?? 0));
+        return $result['success']
+            ? $this->success([], 'تم حذف الاختبار')
+            : $this->error($result['error'], 422);
+    }
+
+    public function setAbTestVariant(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $body = $this->all();
+        $result = $this->abTestService()->setVariantContent(
+            $this->uid(),
+            (int) ($params['id'] ?? 0),
+            (string) ($body['variant'] ?? ''),
+            (array) $body
+        );
+        return $result['success']
+            ? $this->success([], 'تم تحديث المتغير')
+            : $this->error($result['error'], 422);
+    }
+
+    public function startAbTest(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->abTestService()->start($this->uid(), (int) ($params['id'] ?? 0));
+        return $result['success']
+            ? $this->success([
+                'a' => $result['a'],
+                'b' => $result['b'],
+                'total' => $result['total'],
+            ], 'تم تشغيل الاختبار وتقسيم الجمهور')
+            : $this->error($result['error'], 422);
+    }
+
+    public function sendAbTestBatch(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->abTestService()->sendBatch($this->uid(), (int) ($params['id'] ?? 0));
+        return $this->success($result, $result['error'] ?? 'تمت معالجة الدفعة');
+    }
+
+    public function abTestReport(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $report = $this->abTestService()->report($this->uid(), (int) ($params['id'] ?? 0));
+        return $report
+            ? $this->success(['report' => $report])
+            : $this->error('الاختبار غير موجود', 404);
+    }
+
+    public function declareAbTestWinner(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->abTestService()->declareWinner(
+            $this->uid(),
+            (int) ($params['id'] ?? 0),
+            (string) $this->get('winner', '')
+        );
+        return $result['success']
+            ? $this->success([], 'تم إعلان الفائز')
+            : $this->error($result['error'], 422);
+    }
+
+    public function applyAbTestWinner(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->abTestService()->applyWinnerToBase($this->uid(), (int) ($params['id'] ?? 0));
+        return $result['success']
+            ? $this->success([], 'تم نسخ الفائز إلى الحملة الأساسية')
+            : $this->error($result['error'], 422);
+    }
+
     public function stats(array $params = []): array
     {
         if (!$this->isAuthenticated()) {
@@ -1938,6 +2524,7 @@ class EmailMarketingController extends Controller
             exit;
         }
         $this->trackingService->recordOpen($token);
+        $this->trackingService->recordTransactionalOpen($token);
         $this->gif();
         exit;
     }
@@ -1947,6 +2534,9 @@ class EmailMarketingController extends Controller
         $clickToken = (string) ($params['click_token'] ?? '');
         $encoded = (string) $this->get('u', '');
         $url = $this->trackingService->recordClick($clickToken, $encoded);
+        if ($url === null) {
+            $url = $this->trackingService->recordTransactionalClick($clickToken, $encoded);
+        }
 
         if ($url === null) {
             http_response_code(404);
@@ -1981,14 +2571,28 @@ class EmailMarketingController extends Controller
 
     private function deliveryStatus(): array
     {
-        $smtp = (new Mailer())->isConfigured();
+        $svc = new SmtpSettingsService();
+        $ready = $svc->isReady($this->uid());
+        $effective = $svc->settingsForUser($this->uid());
+        $from = $effective['from_email'] ?: '—';
         return [
             'provider' => 'smtp',
-            'smtp' => $smtp,
-            'label' => $smtp
-                ? 'إرسال عبر SMTP (سيرفر البريد الخاص بك)'
-                : 'غير مكوّن — أضف MAIL_USERNAME/MAIL_PASSWORD في .env',
+            'smtp' => $ready,
+            'from_email' => $from,
+            'label' => $ready
+                ? "إرسال عبر SMTP ({$effective['host']} — من {$from})"
+                : 'غير مكوّن — اضبط إعدادات SMTP من تبويب الإعدادات',
         ];
+    }
+
+    private function safeEffectiveSettings(SmtpSettingsService $svc): array
+    {
+        $settings = $svc->settingsForUser($this->uid());
+        $settings['password'] = $settings['password'] !== ''
+            ? str_repeat('•', min(10, strlen($settings['password'])))
+            : '';
+        $settings['ready'] = $svc->isReady($this->uid());
+        return $settings;
     }
 
     private function parseImportData(string $raw): array
@@ -2035,6 +2639,9 @@ class EmailMarketingController extends Controller
             'templates' => ['/email-marketing/templates', '🎨 القوالب'],
             'campaigns' => ['/email-marketing/campaigns', '🚀 الحملات'],
             'automations' => ['/email-marketing/automations', '⚙️ الأتمتة'],
+            'ab_tests' => ['/email-marketing/ab-tests', '🧪 اختبار أ/ب'],
+            'transactional' => ['/email-marketing/transactional', '📨 المعاملات'],
+            'settings' => ['/email-marketing/settings', '🔌 الإعدادات'],
             'reports' => ['/email-marketing/reports', '📈 التقارير'],
         ];
         $html = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">';
@@ -3520,6 +4127,319 @@ class EmailMarketingController extends Controller
         }
 
         loadAutomations();
+        JS;
+    }
+
+    private function smtpSettingsJs(): string
+    {
+        return <<<'JS'
+        async function emApi(path, opts) {
+            const res = await fetch('/api/email-marketing' + path, opts || {});
+            return res.json();
+        }
+        async function emPost(path, body) {
+            return emApi(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+        }
+        async function loadSmtpSettings() {
+            const r = await emApi('/smtp-settings');
+            if (!r.success) return;
+            const s = r.data.settings || {};
+            if (s.host) document.getElementById('emSmtpHost').value = s.host;
+            if (s.port) document.getElementById('emSmtpPort').value = s.port;
+            if (s.encryption) document.getElementById('emSmtpEncryption').value = s.encryption;
+            if (s.username) document.getElementById('emSmtpUsername').value = s.username;
+            if (s.from_email) document.getElementById('emSmtpFromEmail').value = s.from_email;
+            if (s.from_name) document.getElementById('emSmtpFromName').value = s.from_name;
+            const e = r.data.effective || {};
+            const ready = e.ready ? '✅ جاهز للإرسال' : '⚠️ غير مكتمل — أضف بيانات SMTP';
+            document.getElementById('emSmtpStatus').innerHTML = `
+                <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;background:#f8fafc;border:1px solid #e5e7eb;">
+                    <span style="font-size:20px;">${e.ready ? '📧' : '⚠️'}</span>
+                    <span style="font-size:14px;">${ready} — المضيف: ${e.host || '—'}، المرسل: ${e.from_email || '—'}</span>
+                </div>`;
+        }
+        async function saveSmtpSettings() {
+            const body = {
+                host: document.getElementById('emSmtpHost').value,
+                port: parseInt(document.getElementById('emSmtpPort').value || '587', 10),
+                encryption: document.getElementById('emSmtpEncryption').value,
+                username: document.getElementById('emSmtpUsername').value,
+                password: document.getElementById('emSmtpPassword').value,
+                from_email: document.getElementById('emSmtpFromEmail').value,
+                from_name: document.getElementById('emSmtpFromName').value,
+                is_active: 1,
+            };
+            const r = await emPost('/smtp-settings', body);
+            if (r.success) { alert('تم حفظ الإعدادات'); loadSmtpSettings(); }
+            else alert(r.error || 'حدث خطأ');
+        }
+        async function testSmtpSettings() {
+            const body = {
+                host: document.getElementById('emSmtpHost').value,
+                port: parseInt(document.getElementById('emSmtpPort').value || '587', 10),
+                encryption: document.getElementById('emSmtpEncryption').value,
+                username: document.getElementById('emSmtpUsername').value,
+                password: document.getElementById('emSmtpPassword').value,
+                from_email: document.getElementById('emSmtpFromEmail').value,
+                from_name: document.getElementById('emSmtpFromName').value,
+            };
+            const r = await emPost('/smtp-settings/test', body);
+            if (r.success) alert('✅ تم الاتصال والمصادقة بنجاح');
+            else alert('❌ ' + (r.error || 'فشل الاختبار'));
+        }
+        loadSmtpSettings();
+        JS;
+    }
+
+    private function transactionalJs(): string
+    {
+        return <<<'JS'
+        async function emApi(path, opts) {
+            const res = await fetch('/api/email-marketing' + path, opts || {});
+            return res.json();
+        }
+        async function emPost(path, body) {
+            return emApi(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+        }
+        let txEditingId = 0;
+        let txSendingTemplateId = 0;
+        async function loadTransactionalTemplates() {
+            const r = await emApi('/transactional/templates');
+            if (!r.success) return;
+            const list = document.getElementById('emTxTemplates');
+            list.innerHTML = (r.data.templates || []).length ? `
+                <table class="p-table" style="width:100%;">
+                    <thead><tr><th>القالب</th><th>الموضوع</th><th>مرات الإرسال</th><th>الحالة</th><th></th></tr></thead>
+                    <tbody>${r.data.templates.map(t => `
+                        <tr>
+                            <td>${t.name} <span class="p-cell-muted">(${t.slug})</span></td>
+                            <td>${t.subject}</td>
+                            <td>${t.send_count || 0}</td>
+                            <td>${parseInt(t.is_active) ? '✅ مفعّل' : '⛔ معطّل'}</td>
+                            <td>
+                                <button class="p-btn xs" onclick="openSendTransactional(${t.id})">📤 إرسال</button>
+                                <button class="p-btn xs" onclick="editTransactionalTemplate(${t.id})">تعديل</button>
+                                <button class="p-btn xs danger" onclick="deleteTransactionalTemplate(${t.id})">حذف</button>
+                            </td>
+                        </tr>`).join('')}</tbody>
+                </table>` : '<p class="p-cell-muted" style="padding:16px;">لا توجد قوالب معاملات بعد — أنشئ أول قالب.</p>';
+            document.getElementById('emTxStats').innerHTML = renderTxStats(r.data);
+        }
+        function renderTxStats(r) {
+            const k = r.templates || [];
+            return `<div class="p-cell" style="flex:1;text-align:center;"><div style="font-size:20px;font-weight:700;">${k.length}</div><div style="font-size:12px;color:#6b7280;">القوالب</div></div>`;
+        }
+        async function openTransactionalTemplateModal() {
+            txEditingId = 0;
+            document.getElementById('emTxModalTitle').textContent = 'قالب معاملات جديد';
+            document.getElementById('emTxName').value = '';
+            document.getElementById('emTxSlug').value = '';
+            document.getElementById('emTxSubject').value = '';
+            document.getElementById('emTxHtml').value = '<h2>مرحبًا {{first_name}}!</h2><p>شكرًا لتواصلك معنا.</p>';
+            document.getElementById('emTxTemplateModal').style.display = 'flex';
+        }
+        function closeTransactionalTemplateModal() {
+            document.getElementById('emTxTemplateModal').style.display = 'none';
+        }
+        async function editTransactionalTemplate(id) {
+            const r = await emApi('/transactional/templates/' + id);
+            if (!r.success) return;
+            const t = r.data.template;
+            txEditingId = id;
+            document.getElementById('emTxModalTitle').textContent = 'تعديل القالب';
+            document.getElementById('emTxName').value = t.name;
+            document.getElementById('emTxSlug').value = t.slug;
+            document.getElementById('emTxSubject').value = t.subject;
+            document.getElementById('emTxHtml').value = t.html_body;
+            document.getElementById('emTxTemplateModal').style.display = 'flex';
+        }
+        async function saveTransactionalTemplate() {
+            const body = {
+                name: document.getElementById('emTxName').value,
+                slug: document.getElementById('emTxSlug').value,
+                subject: document.getElementById('emTxSubject').value,
+                html_body: document.getElementById('emTxHtml').value,
+                is_active: 1,
+            };
+            const path = txEditingId ? '/transactional/templates/' + txEditingId : '/transactional/templates';
+            const opts = txEditingId
+                ? { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+                : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
+            const r = await emApi(path, opts);
+            if (r.success) { closeTransactionalTemplateModal(); loadTransactionalTemplates(); }
+            else alert(r.error || 'حدث خطأ');
+        }
+        async function deleteTransactionalTemplate(id) {
+            if (!confirm('حذف القالب؟')) return;
+            const r = await emApi('/transactional/templates/' + id, { method: 'DELETE' });
+            if (r.success) loadTransactionalTemplates();
+        }
+        async function openSendTransactional(id) {
+            txSendingTemplateId = id;
+            document.getElementById('emTxSendEmail').value = '';
+            document.getElementById('emTxSendName').value = '';
+            document.getElementById('emTxSendData').value = '{"first_name":"أحمد"}';
+            document.getElementById('emTxSendModal').style.display = 'flex';
+        }
+        function closeTransactionalSendModal() {
+            document.getElementById('emTxSendModal').style.display = 'none';
+        }
+        async function sendTransactionalNow() {
+            let data = {};
+            try { data = JSON.parse(document.getElementById('emTxSendData').value || '{}'); }
+            catch (e) { alert('بيانات JSON غير صالحة'); return; }
+            const r = await emPost('/transactional/send', {
+                template_id: txSendingTemplateId,
+                to_email: document.getElementById('emTxSendEmail').value,
+                data: Object.assign({ to_name: document.getElementById('emTxSendName').value }, data),
+            });
+            if (r.success) { alert('تم الإرسال'); closeTransactionalSendModal(); loadTransactionalLogs(); }
+            else alert('❌ ' + (r.error || 'فشل الإرسال'));
+        }
+        async function loadTransactionalLogs() {
+            const r = await emApi('/transactional/logs?limit=20');
+            if (!r.success) return;
+            const logs = r.data.logs || [];
+            document.getElementById('emTxLogs').innerHTML = logs.length ? `
+                <table class="p-table" style="width:100%;">
+                    <thead><tr><th>البريد</th><th>الموضوع</th><th>الحالة</th><th>فتح</th><th>كليك</th><th>التاريخ</th></tr></thead>
+                    <tbody>${logs.map(l => `
+                        <tr>
+                            <td>${l.to_email}</td>
+                            <td>${l.subject}</td>
+                            <td>${l.status === 'sent' ? '✅ مرسل' : '❌ فشل'}</td>
+                            <td>${l.open_count}</td>
+                            <td>${l.click_count}</td>
+                            <td>${l.created_at}</td>
+                        </tr>`).join('')}</tbody>
+                </table>` : '<p class="p-cell-muted" style="padding:16px;">لا سجل إرسال بعد.</p>';
+        }
+        loadTransactionalTemplates();
+        loadTransactionalLogs();
+        JS;
+    }
+
+    private function abTestsJs(): string
+    {
+        return <<<'JS'
+        async function emApi(path, opts) {
+            const res = await fetch('/api/email-marketing' + path, opts || {});
+            return res.json();
+        }
+        async function emPost(path, body) {
+            return emApi(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+        }
+        async function loadAbTests() {
+            const r = await emApi('/ab-tests');
+            if (!r.success) return;
+            document.getElementById('emAbCampaign').innerHTML = (r.data.campaigns || []).map(c =>
+                `<option value="${c.id}">${c.name}</option>`).join('');
+            const list = document.getElementById('emAbTestsList');
+            list.innerHTML = (r.data.ab_tests || []).length ? `
+                <table class="p-table" style="width:100%;">
+                    <thead><tr><th>الاختبار</th><th>الحملة</th><th>النسبة</th><th>المقياس</th><th>الحالة</th><th></th></tr></thead>
+                    <tbody>${r.data.ab_tests.map(t => `
+                        <tr>
+                            <td>${t.name}</td>
+                            <td>${t.base_name || '—'}</td>
+                            <td>أ ${100 - parseInt(t.split_percent)}% / ب ${t.split_percent}%</td>
+                            <td>${t.metric === 'click' ? 'كليك' : 'فتح'}</td>
+                            <td>${t.status_label || t.status}</td>
+                            <td><a class="p-btn xs" href="/email-marketing/ab-tests/${t.id}">إدارة</a></td>
+                        </tr>`).join('')}</tbody>
+                </table>` : '<p class="p-cell-muted" style="padding:16px;">لا توجد اختبارات بعد — أنشئ أول اختبار أ/ب.</p>';
+        }
+        function openAbTestModal() {
+            document.getElementById('emAbName').value = '';
+            document.getElementById('emAbSplit').value = '50';
+            document.getElementById('emAbMetric').value = 'open';
+            document.getElementById('emAbTestModal').style.display = 'flex';
+        }
+        function closeAbTestModal() {
+            document.getElementById('emAbTestModal').style.display = 'none';
+        }
+        async function createAbTest() {
+            const r = await emPost('/ab-tests', {
+                name: document.getElementById('emAbName').value,
+                base_campaign_id: parseInt(document.getElementById('emAbCampaign').value || '0', 10),
+                split_percent: parseInt(document.getElementById('emAbSplit').value || '50', 10),
+                metric: document.getElementById('emAbMetric').value,
+            });
+            if (r.success) { closeAbTestModal(); loadAbTests(); window.location = '/email-marketing/ab-tests/' + r.data.id; }
+            else alert(r.error || 'حدث خطأ');
+        }
+        loadAbTests();
+        JS;
+    }
+
+    private function abTestDetailsJs(int $id): string
+    {
+        return <<<JS
+        async function emApi(path, opts) {
+            const res = await fetch('/api/email-marketing' + path, opts || {});
+            return res.json();
+        }
+        async function emPost(path, body) {
+            return emApi(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+        }
+        async function saveAbVariant(variant) {
+            const body = {
+                variant,
+                subject: document.getElementById('emAb' + (variant === 'a' ? 'A' : 'B') + 'Subject').value,
+                html_body: document.getElementById('emAb' + (variant === 'a' ? 'A' : 'B') + 'Html').value,
+            };
+            const r = await emPost('/ab-tests/{$id}/variant', body);
+            if (r.success) alert('تم حفظ المتغير ' + (variant === 'a' ? 'أ' : 'ب'));
+            else alert(r.error || 'حدث خطأ');
+        }
+        async function runAbTest() {
+            const r = await emPost('/ab-tests/{$id}/start', {});
+            if (r.success) alert('تم التشغيل: أ = ' + r.data.a + '، ب = ' + r.data.b + ' مستلم');
+            else alert(r.error || 'حدث خطأ');
+        }
+        async function sendAbBatch() {
+            const r = await emPost('/ab-tests/{$id}/send-batch', {});
+            if (r.success) {
+                alert('تم إرسال ' + (r.data.processed || 0) + '، فشل ' + (r.data.failed || 0) + (r.data.remaining ? '، بقي مستلمون' : ''));
+            } else alert(r.error || 'حدث خطأ');
+        }
+        async function loadAbReport() {
+            const r = await emApi('/ab-tests/{$id}/report');
+            if (!r.success) return;
+            const rep = r.data.report;
+            const va = rep.variant_a || {}, vb = rep.variant_b || {};
+            document.getElementById('emAbReport').innerHTML = `
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;">
+                    <div class="p-cell" style="text-align:center;"><div style="font-size:20px;font-weight:700;">🅰️ ${va.open_rate || 0}%</div><div style="font-size:12px;color:#6b7280;">فتح أ</div></div>
+                    <div class="p-cell" style="text-align:center;"><div style="font-size:20px;font-weight:700;">🅱️ ${vb.open_rate || 0}%</div><div style="font-size:12px;color:#6b7280;">فتح ب</div></div>
+                    <div class="p-cell" style="text-align:center;${rep.winner ? 'background:#ecfdf5;' : ''}"><div style="font-size:20px;font-weight:700;">${rep.winner ? '🏆 ' + (rep.winner === 'a' ? 'المتغير أ' : 'المتغير ب') : 'متعادل'}</div><div style="font-size:12px;color:#6b7280;">${rep.recommendation || ''}</div></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <table class="p-table"><thead><tr><th>مقياس</th><th>أ</th><th>ب</th></tr></thead><tbody>
+                        <tr><td>مرسل</td><td>${va.sent_count || 0}</td><td>${vb.sent_count || 0}</td></tr>
+                        <tr><td>فتح</td><td>${va.opened_count || 0}</td><td>${vb.opened_count || 0}</td></tr>
+                        <tr><td>كليك</td><td>${va.clicked_count || 0}</td><td>${vb.clicked_count || 0}</td></tr>
+                        <tr><td>معدل الفتح</td><td>${va.open_rate || 0}%</td><td>${vb.open_rate || 0}%</td></tr>
+                        <tr><td>معدل الكليك</td><td>${va.click_rate || 0}%</td><td>${vb.click_rate || 0}%</td></tr>
+                    </tbody></table>
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        <button class="p-btn primary" onclick="declareWinner('a')">🏆 إعلان المتغير أ فائزًا</button>
+                        <button class="p-btn primary" onclick="declareWinner('b')">🏆 إعلان المتغير ب فائزًا</button>
+                        <button class="p-btn" onclick="applyWinner()">📋 نسخ الفائز للحملة الأساسية</button>
+                    </div>
+                </div>`;
+        }
+        async function declareWinner(winner) {
+            const r = await emPost('/ab-tests/{$id}/winner', { winner });
+            if (r.success) { alert('تم إعلان الفائز'); loadAbReport(); }
+            else alert(r.error || 'حدث خطأ');
+        }
+        async function applyWinner() {
+            const r = await emPost('/ab-tests/{$id}/apply-winner', {});
+            if (r.success) alert('تم نسخ الفائز للحملة الأساسية');
+            else alert(r.error || 'حدث خطأ');
+        }
+        loadAbReport();
         JS;
     }
 }

@@ -259,6 +259,7 @@ function applyTestMigrations(): void
         '2026_08_21_000011_email_marketing_contacts.sql',
         '2026_08_22_000012_email_marketing_template_studio.sql',
         '2026_08_22_000013_email_marketing_automations.sql',
+        '2026_08_22_000014_email_marketing_advanced.sql',
         '2026_07_22_000023_create_wallet_system.sql',
         '2026_07_27_000035_create_wallet_recharge_cards.sql',
         '2026_08_12_000049_create_tax_rules_table.sql',

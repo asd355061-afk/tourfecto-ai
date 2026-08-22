@@ -24,6 +24,7 @@ require_once __DIR__ . '/../../app/Models/EmailCampaign.php';
 require_once __DIR__ . '/../../app/Models/EmailCampaignRecipient.php';
 require_once __DIR__ . '/../../app/Services/EmailMarketing/EmailRenderer.php';
 require_once __DIR__ . '/../../app/Services/EmailMarketing/EmailListService.php';
+require_once __DIR__ . '/../../app/Services/EmailMarketing/SmtpSettingsService.php';
 require_once __DIR__ . '/../../app/Services/EmailMarketing/EmailCampaignService.php';
 require_once __DIR__ . '/../../app/Services/EmailMarketing/EmailTrackingService.php';
 

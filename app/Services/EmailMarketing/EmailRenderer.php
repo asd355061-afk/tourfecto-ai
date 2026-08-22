@@ -146,4 +146,30 @@ class EmailRenderer
 
         return $htmlBody;
     }
+
+    /**
+     * يحوّل قالب رسالة معاملات (transactional) إلى HTML نهائي:
+     * تخصيص + تتبع فتح/كليك، لكن من غير رابط إلغاء اشتراك (رسائل
+     * المعاملات زي كلمات المرور والفواتير ما بتتضمنش إلغاء اشتراك).
+     */
+    public function finalizeTransactional(
+        string $htmlBody,
+        array $recipientData,
+        string $openToken,
+        string $clickToken,
+        string $trackingBaseUrl
+    ): string {
+        $htmlBody = $this->personalize($htmlBody, $recipientData);
+        $htmlBody = $this->rewriteLinks($htmlBody, $clickToken, $trackingBaseUrl);
+        $htmlBody .= "\n" . $this->pixelHtml($openToken, $trackingBaseUrl);
+
+        if (stripos($htmlBody, '<html') === false) {
+            $htmlBody = '<!DOCTYPE html><html lang="ar"><head><meta charset="UTF-8">'
+                . '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+                . '</head><body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;">'
+                . $htmlBody . '</body></html>';
+        }
+
+        return $htmlBody;
+    }
 }

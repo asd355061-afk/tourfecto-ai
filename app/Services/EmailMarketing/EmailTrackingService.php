@@ -26,6 +26,55 @@ class EmailTrackingService
     }
 
     /**
+     * تسجيل فتح رسالة معاملات (transactional). يرفع open_count على السجل.
+     */
+    public function recordTransactionalOpen(string $openToken): bool
+    {
+        $rows = $this->db->query(
+            "SELECT id, open_count FROM email_transactional_logs WHERE open_token = ? LIMIT 1",
+            [$openToken]
+        );
+        if (empty($rows)) {
+            return false;
+        }
+        $this->db->query(
+            "UPDATE email_transactional_logs
+             SET open_count = open_count + 1,
+                 opened_at = COALESCE(opened_at, NOW())
+             WHERE id = ?",
+            [(int) $rows[0]['id']]
+        );
+        return true;
+    }
+
+    /**
+     * تسجيل كليك في رسالة معاملات. يعيد الوجهة الأصلية.
+     * @return string|null الـ URL الأصلي أو null لو التوكن غير صالح
+     */
+    public function recordTransactionalClick(string $clickToken, ?string $encodedUrl): ?string
+    {
+        $rows = $this->db->query(
+            "SELECT id, click_count FROM email_transactional_logs WHERE click_token = ? LIMIT 1",
+            [$clickToken]
+        );
+        if (empty($rows)) {
+            return null;
+        }
+        $url = $this->decodeUrl($encodedUrl);
+        if ($url === null) {
+            return null;
+        }
+        $this->db->query(
+            "UPDATE email_transactional_logs
+             SET click_count = click_count + 1,
+                 clicked_at = COALESCE(clicked_at, NOW())
+             WHERE id = ?",
+            [(int) $rows[0]['id']]
+        );
+        return $url;
+    }
+
+    /**
      * تسجيل فتح البريد. يرفع open_count على المستلم ويحدّث عدّاد الحملة.
      */
     public function recordOpen(string $openToken): bool

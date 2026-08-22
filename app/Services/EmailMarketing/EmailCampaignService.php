@@ -258,6 +258,65 @@ class EmailCampaignService
         return ['success' => true, 'recipients' => $inserted, 'total' => $total];
     }
 
+    /**
+     * يجهّز سجلات المستلمين لحملة لكن لقائمة محددة من معرّفات المشتركين
+     * (يستخدمه اختبار أ/ب لتقسيم الجمهور بين المتغيرين). يمسح سجلات
+     * pending السابقة لنفس الحملة ثم يبني من الـ ids المعطاة فقط.
+     *
+     * @param int[] $subscriberIds
+     * @return array ['success'=>bool, 'recipients'=>int, 'total'=>int, 'error'=>?string]
+     */
+    public function prepareRecipientsForSubset(int $userId, int $campaignId, array $subscriberIds): array
+    {
+        $campaign = $this->findOwned($userId, $campaignId);
+        if (!$campaign) {
+            return ['success' => false, 'recipients' => 0, 'total' => 0, 'error' => 'الحملة غير موجودة'];
+        }
+        $ids = array_values(array_unique(array_filter(array_map('intval', $subscriberIds), fn ($v) => $v > 0)));
+        if (empty($ids)) {
+            return ['success' => true, 'recipients' => 0, 'total' => 0];
+        }
+
+        $this->db->query(
+            "DELETE FROM email_campaign_recipients WHERE campaign_id = ? AND status = 'pending'",
+            [$campaignId]
+        );
+
+        $in = implode(',', array_fill(0, count($ids), '?'));
+        $members = $this->db->query(
+            "SELECT id, email, name, attributes FROM email_subscribers
+             WHERE user_id = ? AND id IN ({$in}) AND status = 'subscribed'
+             ORDER BY id ASC",
+            array_merge([$userId], $ids)
+        );
+
+        $inserted = 0;
+        foreach ($members as $member) {
+            $recipient = new EmailCampaignRecipient([
+                'campaign_id' => $campaignId,
+                'subscriber_id' => (int) $member['id'],
+                'email' => $member['email'],
+                'name' => $member['name'] !== null ? (string) $member['name'] : null,
+                'status' => EmailCampaignRecipient::STATUS_PENDING,
+                'open_token' => $this->token(),
+                'click_token' => $this->token(),
+            ]);
+            if ($recipient->save()) {
+                $inserted++;
+            }
+        }
+
+        $total = (int) $this->db->query(
+            "SELECT COUNT(*) AS total FROM email_campaign_recipients WHERE campaign_id = ?",
+            [$campaignId]
+        )[0]['total'];
+
+        $campaign->setAttribute('total_recipients', $total);
+        $campaign->save();
+
+        return ['success' => true, 'recipients' => $inserted, 'total' => $total];
+    }
+
     // ============================ Sending ============================
 
     /**
@@ -509,10 +568,19 @@ class EmailCampaignService
      */
     private function resolveProvider(int $userId, EmailCampaign $campaign): array
     {
+        $mailer = (new SmtpSettingsService())->mailerForUser($userId);
+        $campaignFromEmail = $campaign->getAttribute('from_email') ?: null;
+        $campaignFromName = $campaign->getAttribute('from_name') ?: null;
+        if ($campaignFromEmail) {
+            $mailer->configure(['from_email' => $campaignFromEmail]);
+        }
+        if ($campaignFromName) {
+            $mailer->configure(['from_name' => $campaignFromName]);
+        }
         return [
             'name' => 'mailer',
-            'send' => function (string $toEmail, string $toName, string $subject, string $htmlBody, string $fromEmail, string $fromName) {
-                return (new Mailer())->send($toEmail, $toName, $subject, $htmlBody);
+            'send' => function (string $toEmail, string $toName, string $subject, string $htmlBody, string $fromEmail, string $fromName) use ($mailer) {
+                return $mailer->send($toEmail, $toName, $subject, $htmlBody);
             },
         ];
     }

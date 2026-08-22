@@ -119,6 +119,10 @@ $router->get('/email-marketing/campaigns', 'EmailMarketingController', 'showCamp
 $router->get('/email-marketing/campaigns/{id}', 'EmailMarketingController', 'showCampaignDetailsPage', ['AuthMiddleware']);
 $router->get('/email-marketing/reports', 'EmailMarketingController', 'showReportsPage', ['AuthMiddleware']);
 $router->get('/email-marketing/automations', 'EmailMarketingController', 'showAutomationsPage', ['AuthMiddleware']);
+$router->get('/email-marketing/settings', 'EmailMarketingController', 'showEmailSettingsPage', ['AuthMiddleware']);
+$router->get('/email-marketing/transactional', 'EmailMarketingController', 'showTransactionalPage', ['AuthMiddleware']);
+$router->get('/email-marketing/ab-tests', 'EmailMarketingController', 'showAbTestsPage', ['AuthMiddleware']);
+$router->get('/email-marketing/ab-tests/{id}', 'EmailMarketingController', 'showAbTestDetailsPage', ['AuthMiddleware']);
 $router->get('/ads/connect/meta', 'AdsController', 'connectMeta', ['AuthMiddleware']);
 $router->get('/ads/connect/meta/callback', 'AdsController', 'metaOAuthCallback', ['AuthMiddleware']);
 $router->get('/ads/connect/meta/choose', 'AdsController', 'showMetaAdAccountPicker', ['AuthMiddleware']);

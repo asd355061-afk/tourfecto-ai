@@ -30,6 +30,77 @@ class Mailer
         $this->fromName = defined('MAIL_FROM_NAME') ? MAIL_FROM_NAME : 'Tourfecto';
     }
 
+    /**
+     * يضبط إعدادات SMTP يدويًا (يُستخدم لإعدادات كل مستخدم من قاعدة البيانات).
+     * القيم الفارغة لا تتجاوز القيم الحالية.
+     */
+    public function configure(array $settings): self
+    {
+        if (!empty($settings['host'])) {
+            $this->host = (string) $settings['host'];
+        }
+        if (array_key_exists('port', $settings) && (int) $settings['port'] > 0) {
+            $this->port = (int) $settings['port'];
+        }
+        if (array_key_exists('username', $settings) && $settings['username'] !== null && $settings['username'] !== '') {
+            $this->username = (string) $settings['username'];
+        }
+        if (array_key_exists('password', $settings) && $settings['password'] !== null && $settings['password'] !== '') {
+            $this->password = (string) $settings['password'];
+        }
+        if (!empty($settings['encryption'])) {
+            $this->encryption = strtolower((string) $settings['encryption']);
+        }
+        if (!empty($settings['from_email'])) {
+            $this->fromEmail = (string) $settings['from_email'];
+        }
+        if (!empty($settings['from_name'])) {
+            $this->fromName = (string) $settings['from_name'];
+        }
+        return $this;
+    }
+
+    /**
+     * يختبر الاتصال بسيرفر SMTP والمصادقة دون إرسال أي بريد.
+     * @return array ['success'=>bool, 'error'=>?string]
+     */
+    public function testConnection(): array
+    {
+        $socketHost = ($this->encryption === 'ssl' ? 'ssl://' : '') . $this->host;
+        $errno = 0;
+        $errstr = '';
+        $socket = @stream_socket_client("{$socketHost}:{$this->port}", $errno, $errstr, $this->timeout);
+
+        if (!$socket) {
+            return ['success' => false, 'error' => "تعذر الاتصال بسيرفر البريد ({$errstr})"];
+        }
+
+        try {
+            $this->expect($socket, '220');
+            $this->command($socket, "EHLO " . ($_SERVER['SERVER_NAME'] ?? 'tourfecto.pro'), '250');
+
+            if ($this->encryption === 'tls') {
+                $this->command($socket, "STARTTLS", '220');
+                if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+                    throw new Exception('فشل تفعيل TLS مع سيرفر البريد');
+                }
+                $this->command($socket, "EHLO " . ($_SERVER['SERVER_NAME'] ?? 'tourfecto.pro'), '250');
+            }
+
+            $this->command($socket, "AUTH LOGIN", '334');
+            $this->command($socket, base64_encode($this->username), '334');
+            $this->command($socket, base64_encode($this->password), '235');
+
+            $this->command($socket, "QUIT", '221');
+            fclose($socket);
+
+            return ['success' => true];
+        } catch (Exception $e) {
+            @fclose($socket);
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
     /** هل الإيميل متظبط أصلاً؟ (يوزر/باسورد حقيقيين مش placeholders) */
     public function isConfigured(): bool
     {
