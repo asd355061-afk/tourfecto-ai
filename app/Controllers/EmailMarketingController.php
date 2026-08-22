@@ -821,6 +821,16 @@ class EmailMarketingController extends Controller
             <div class="p-card-head"><h3>🗂 أداء كل حملة</h3></div>
             <div id="emStatsCampaigns"><div class="p-loading-row">جارِ التحميل...</div></div>
         </div>
+
+        <div class="p-card" style="margin-top:16px;">
+            <div class="p-card-head"><h3>⚡ رسائل المعاملات</h3><span class="p-card-sub">إرسال الرسائل الآلية (ترحيب/كلمة مرور/إشعارات)</span></div>
+            <div id="emStatsTransactional"><div class="p-loading-row">جارِ التحميل...</div></div>
+        </div>
+
+        <div class="p-card" style="margin-top:16px;">
+            <div class="p-card-head"><h3>🧪 اختبارات أ/ب</h3><span class="p-card-sub">مقارنة أداء متغيرات الحملات (الفتح/الكليك)</span></div>
+            <div id="emStatsAbTests"><div class="p-loading-row">جارِ التحميل...</div></div>
+        </div>
         HTML;
 
         $script = $this->reportsJs();
@@ -966,6 +976,12 @@ class EmailMarketingController extends Controller
             <div style="display:flex;gap:10px;margin-top:16px;">
                 <button class="p-btn primary" onclick="saveSmtpSettings()">💾 حفظ الإعدادات</button>
                 <button class="p-btn" onclick="testSmtpSettings()">🧪 اختبار الاتصال</button>
+                <button class="p-btn" id="emSmtpToggleBtn" onclick="toggleSmtpSettings()">⏻ تفعيل</button>
+                <button class="p-btn danger" onclick="deleteSmtpSettings()">🗑 حذف الإعدادات</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:14px;" id="emSmtpStatusRow">
+                <input type="checkbox" id="emSmtpActive" onchange="toggleSmtpSettings()">
+                <label for="emSmtpActive">تفعيل الإرسال عبر هذه الإعدادات</label>
             </div>
             <p class="p-cell-muted" style="margin-top:12px;">الإعدادات الخاصة بك تتجاوز إعدادات .env العامة. كلمة المرور لا تُظهر مرة أخرى بعد الحفظ.</p>
         </div>
@@ -1243,6 +1259,12 @@ class EmailMarketingController extends Controller
         $openRate = $sentTotal > 0 ? round((int) $campaigns['opened'] / $sentTotal * 100, 1) : 0;
         $clickRate = $sentTotal > 0 ? round((int) $campaigns['clicked'] / $sentTotal * 100, 1) : 0;
 
+        $txStats = $this->transactionalService()->stats($userId);
+        $abCount = (int) $this->db->query(
+            "SELECT COUNT(*) AS total FROM email_ab_tests WHERE user_id = ?",
+            [$userId]
+        )[0]['total'];
+
         return $this->success([
             'kpis' => [
                 ['label' => 'المشتركون النشطون', 'value' => $subscribers, 'icon' => '👥'],
@@ -1250,6 +1272,8 @@ class EmailMarketingController extends Controller
                 ['label' => 'الحملات', 'value' => (int) $campaigns['total'], 'icon' => '🚀'],
                 ['label' => 'معدل الفتح', 'value' => $openRate . '%', 'icon' => '👁'],
                 ['label' => 'معدل الكليك', 'value' => $clickRate . '%', 'icon' => '🖱'],
+                ['label' => 'رسائل معاملات', 'value' => (int) ($txStats['total'] ?? 0), 'icon' => '⚡'],
+                ['label' => 'اختبارات أ/ب', 'value' => $abCount, 'icon' => '🧪'],
             ],
             'delivery' => $this->deliveryStatus(),
             'recent_campaigns' => $this->campaignService->list($userId),
@@ -2240,6 +2264,17 @@ class EmailMarketingController extends Controller
             : $this->error('فشل الاختبار: ' . ($result['error'] ?? 'خطأ غير معروف'), 422);
     }
 
+    public function deleteSmtpSettings(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->smtpSettingsService()->delete($this->uid());
+        return $result['success']
+            ? $this->success([], $result['deleted'] ? 'تم حذف إعدادات SMTP' : 'لا توجد إعدادات محفوظة')
+            : $this->error('تعذر حذف الإعدادات', 422);
+    }
+
     // ============================================================
     //  API: Transactional Emails
     // ============================================================
@@ -2296,6 +2331,17 @@ class EmailMarketingController extends Controller
         $result = $this->transactionalService()->deleteTemplate($this->uid(), (int) ($params['id'] ?? 0));
         return $result['success']
             ? $this->success([], 'تم حذف القالب')
+            : $this->error($result['error'], 422);
+    }
+
+    public function duplicateTransactionalTemplate(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->transactionalService()->duplicateTemplate($this->uid(), (int) ($params['id'] ?? 0));
+        return $result['success']
+            ? $this->success(['id' => $result['id']], 'تم نسخ القالب')
             : $this->error($result['error'], 422);
     }
 
@@ -2424,8 +2470,25 @@ class EmailMarketingController extends Controller
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
-        $result = $this->abTestService()->sendBatch($this->uid(), (int) ($params['id'] ?? 0));
-        return $this->success($result, $result['error'] ?? 'تمت معالجة الدفعة');
+        $abTestId = (int) ($params['id'] ?? 0);
+        $test = $this->abTestService()->get($this->uid(), $abTestId);
+        if (!$test) {
+            return $this->error('الاختبار غير موجود', 404);
+        }
+        if ($test['status'] !== 'running') {
+            return $this->error('الاختبار غير قيد التشغيل', 422);
+        }
+
+        if (!class_exists('QueueManager')) {
+            return $this->error('نظام الطوابير غير متاح', 500);
+        }
+        $queue = new QueueManager();
+        $queue->push(SendAbTestBatchJob::class, [
+            'user_id' => $this->uid(),
+            'ab_test_id' => $abTestId,
+        ], 'email');
+
+        return $this->success(['queued' => true], 'بدأ إرسال دفعة اختبار أ/ب — سيتم الإرسال عبر cron');
     }
 
     public function abTestReport(array $params = []): array
@@ -2479,7 +2542,6 @@ class EmailMarketingController extends Controller
             [$userId]
         );
 
-        $sentTotal = $campaigns['sent'] ?? 0;
         $sentTotal = 0;
         $openedTotal = 0;
         $clickedTotal = 0;
@@ -3298,14 +3360,14 @@ class EmailMarketingController extends Controller
 
     private function campaignReportJs(int $campaignId): string
     {
-        $cid = $campaignId;
-        return <<<JS
+        $cid = (int) $campaignId;
+        $js = <<<'JS'
         async function emApi(path, opts) {
             const res = await fetch('/api/email-marketing' + path, opts || {});
             return res.json();
         }
         async function loadReport() {
-            const r = await emApi('/campaigns/{$cid}/report');
+            const r = await emApi('/campaigns/__CID__/report');
             if (!r.success) return;
             const c = r.data;
             document.getElementById('crName').textContent = c.name + ' — ' + c.subject;
@@ -3357,11 +3419,12 @@ class EmailMarketingController extends Controller
         async function refreshCampaignReport() { loadReport(); }
         async function cancelCampaign() {
             if (!confirm('إلغاء جدولة الحملة؟')) return;
-            const r = await emApi('/campaigns/{$cid}/cancel', {method:'POST'});
+            const r = await emApi('/campaigns/__CID__/cancel', {method:'POST'});
             if (r.success) loadReport(); else alert(r.error);
         }
         loadReport();
         JS;
+        return str_replace('__CID__', (string) $cid, $js);
     }
 
     private function reportsJs(): string
@@ -3404,7 +3467,65 @@ class EmailMarketingController extends Controller
                         </tr>`;}).join('')}</tbody>
                 </table>` : '<p class="p-cell-muted" style="padding:16px;">لا توجد حملات مُرسلة بعد.</p>';
         }
+        async function loadTransactionalStats() {
+            const r = await emApi('/transactional/stats');
+            if (!r.success) return;
+            const s = r.data.stats || {};
+            const st = [
+                ['المرسل', s.sent || 0],
+                ['المفتوح', s.opened || 0],
+                ['الكليك', s.clicked || 0],
+                ['الفاشل', s.failed || 0],
+            ].map(([l, v]) => `
+                <div class="p-cell" style="text-align:center;padding:14px 10px;">
+                    <div style="font-size:20px;font-weight:700;">${v}</div>
+                    <div style="font-size:12px;color:#6b7280;">${l}</div>
+                </div>`).join('');
+            const recent = (s.recent || []).slice(0, 5);
+            const rows = recent.length ? `
+                <table class="p-table" style="width:100%;">
+                    <thead><tr><th>القالب</th><th>البريد</th><th>الحالة</th><th>الفتح</th><th>الكليك</th><th>التاريخ</th></tr></thead>
+                    <tbody>${recent.map(l => `
+                        <tr>
+                            <td>${l.template_name || '-'}</td>
+                            <td>${l.to_email}</td>
+                            <td>${l.status}</td>
+                            <td>${l.opened_at ? 'نعم' : '-'}</td>
+                            <td>${l.clicked_at ? 'نعم' : '-'}</td>
+                            <td>${l.created_at}</td>
+                        </tr>`).join('')}</tbody>
+                </table>` : '<p class="p-cell-muted" style="padding:12px;">لا توجد رسائل معاملات بعد.</p>';
+            document.getElementById('emStatsTransactional').innerHTML =
+                `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px;">${st}</div>${rows}`;
+        }
+        async function loadAbTestsStats() {
+            const r = await emApi('/ab-tests');
+            if (!r.success) return;
+            const ts = r.data.ab_tests || [];
+            const reports = await Promise.all(ts.map(t => emApi('/ab-tests/' + t.id + '/report')));
+            const rows = reports.filter(x => x.success && x.data.report).map(x => x.data.report);
+            document.getElementById('emStatsAbTests').innerHTML = rows.length ? `
+                <table class="p-table" style="width:100%;">
+                    <thead><tr><th>الاختبار</th><th>الحالة</th><th>المقياس</th><th>أ (فتح/كليك)</th><th>ب (فتح/كليك)</th><th>الفائز</th><th></th></tr></thead>
+                    <tbody>${rows.map(t => {
+                        const a = t.variant_a || {}, b = t.variant_b || {};
+                        const aR = Math.max(1, a.sent_count);
+                        const bR = Math.max(1, b.sent_count);
+                        return `
+                        <tr>
+                            <td><b>${t.name}</b></td>
+                            <td>${t.status}</td>
+                            <td>${t.metric_label || '-'}</td>
+                            <td>${Math.round(a.open_rate * 100) / 100}% / ${Math.round(a.click_rate * 100) / 100}%</td>
+                            <td>${Math.round(b.open_rate * 100) / 100}% / ${Math.round(b.click_rate * 100) / 100}%</td>
+                            <td>${t.declared_winner || t.winner || '-'}</td>
+                            <td><a class="p-btn xs" href="/email-marketing/ab-tests/${t.id}">تقرير</a></td>
+                        </tr>`;}).join('')}</tbody>
+                </table>` : '<p class="p-cell-muted" style="padding:12px;">لا توجد اختبارات أ/ب بعد.</p>';
+        }
         loadStats();
+        loadTransactionalStats();
+        loadAbTestsStats();
         JS;
     }
 
@@ -4150,6 +4271,9 @@ class EmailMarketingController extends Controller
             if (s.username) document.getElementById('emSmtpUsername').value = s.username;
             if (s.from_email) document.getElementById('emSmtpFromEmail').value = s.from_email;
             if (s.from_name) document.getElementById('emSmtpFromName').value = s.from_name;
+            const active = parseInt(s.is_active) === 1;
+            document.getElementById('emSmtpActive').checked = active;
+            document.getElementById('emSmtpToggleBtn').textContent = active ? '⏻ تعطيل' : '⏻ تفعيل';
             const e = r.data.effective || {};
             const ready = e.ready ? '✅ جاهز للإرسال' : '⚠️ غير مكتمل — أضف بيانات SMTP';
             document.getElementById('emSmtpStatus').innerHTML = `
@@ -4171,6 +4295,18 @@ class EmailMarketingController extends Controller
             };
             const r = await emPost('/smtp-settings', body);
             if (r.success) { alert('تم حفظ الإعدادات'); loadSmtpSettings(); }
+            else alert(r.error || 'حدث خطأ');
+        }
+        async function toggleSmtpSettings() {
+            const target = !document.getElementById('emSmtpActive').checked;
+            const r = await emPost('/smtp-settings', { is_active: target ? 1 : 0 });
+            if (r.success) loadSmtpSettings();
+            else alert(r.error || 'حدث خطأ');
+        }
+        async function deleteSmtpSettings() {
+            if (!confirm('حذف إعدادات SMTP؟ سترجع لاستخدام إعدادات .env العامة.')) return;
+            const r = await emApi('/smtp-settings', { method: 'DELETE' });
+            if (r.success) { alert('تم حذف الإعدادات'); ['emSmtpHost','emSmtpPort','emSmtpEncryption','emSmtpUsername','emSmtpPassword','emSmtpFromEmail','emSmtpFromName'].forEach(id => document.getElementById(id).value = id === 'emSmtpPort' ? '587' : id === 'emSmtpEncryption' ? 'tls' : ''); loadSmtpSettings(); }
             else alert(r.error || 'حدث خطأ');
         }
         async function testSmtpSettings() {
@@ -4201,6 +4337,9 @@ class EmailMarketingController extends Controller
         async function emPost(path, body) {
             return emApi(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
         }
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
         let txEditingId = 0;
         let txSendingTemplateId = 0;
         async function loadTransactionalTemplates() {
@@ -4217,8 +4356,10 @@ class EmailMarketingController extends Controller
                             <td>${t.send_count || 0}</td>
                             <td>${parseInt(t.is_active) ? '✅ مفعّل' : '⛔ معطّل'}</td>
                             <td>
+                                <button class="p-btn xs" onclick="previewTransactionalTemplate(${t.id})">👁 معاينة</button>
                                 <button class="p-btn xs" onclick="openSendTransactional(${t.id})">📤 إرسال</button>
                                 <button class="p-btn xs" onclick="editTransactionalTemplate(${t.id})">تعديل</button>
+                                <button class="p-btn xs" onclick="duplicateTransactionalTemplate(${t.id})">نسخ</button>
                                 <button class="p-btn xs danger" onclick="deleteTransactionalTemplate(${t.id})">حذف</button>
                             </td>
                         </tr>`).join('')}</tbody>
@@ -4273,6 +4414,21 @@ class EmailMarketingController extends Controller
             if (!confirm('حذف القالب؟')) return;
             const r = await emApi('/transactional/templates/' + id, { method: 'DELETE' });
             if (r.success) loadTransactionalTemplates();
+        }
+        async function previewTransactionalTemplate(id) {
+            const r = await emApi('/transactional/templates/' + id);
+            if (!r.success) return;
+            const t = r.data.template || {};
+            document.getElementById('previewBody').innerHTML = `<div style="background:#fff;max-width:620px;margin:0 auto;border-radius:12px;overflow:hidden;">
+                <div style="padding:12px 20px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#374151;">الموضوع: <b>${esc(t.subject || '')}</b></div>
+                <iframe sandbox="" style="width:100%;min-height:420px;border:none;background:#fff;" srcdoc="${encodeURI(t.html_body || '')}"></iframe>
+            </div>`;
+            document.getElementById('previewModal').classList.add('open');
+        }
+        async function duplicateTransactionalTemplate(id) {
+            const r = await emApi('/transactional/templates/' + id + '/duplicate', { method: 'POST' });
+            if (r.success) loadTransactionalTemplates();
+            else alert(r.error || 'فشل النسخ');
         }
         async function openSendTransactional(id) {
             txSendingTemplateId = id;
@@ -4374,7 +4530,8 @@ class EmailMarketingController extends Controller
 
     private function abTestDetailsJs(int $id): string
     {
-        return <<<JS
+        $id = (int) $id;
+        $js = <<<'JS'
         async function emApi(path, opts) {
             const res = await fetch('/api/email-marketing' + path, opts || {});
             return res.json();
@@ -4388,23 +4545,23 @@ class EmailMarketingController extends Controller
                 subject: document.getElementById('emAb' + (variant === 'a' ? 'A' : 'B') + 'Subject').value,
                 html_body: document.getElementById('emAb' + (variant === 'a' ? 'A' : 'B') + 'Html').value,
             };
-            const r = await emPost('/ab-tests/{$id}/variant', body);
+            const r = await emPost('/ab-tests/__AB_ID__/variant', body);
             if (r.success) alert('تم حفظ المتغير ' + (variant === 'a' ? 'أ' : 'ب'));
             else alert(r.error || 'حدث خطأ');
         }
         async function runAbTest() {
-            const r = await emPost('/ab-tests/{$id}/start', {});
+            const r = await emPost('/ab-tests/__AB_ID__/start', {});
             if (r.success) alert('تم التشغيل: أ = ' + r.data.a + '، ب = ' + r.data.b + ' مستلم');
             else alert(r.error || 'حدث خطأ');
         }
         async function sendAbBatch() {
-            const r = await emPost('/ab-tests/{$id}/send-batch', {});
+            const r = await emPost('/ab-tests/__AB_ID__/send-batch', {});
             if (r.success) {
-                alert('تم إرسال ' + (r.data.processed || 0) + '، فشل ' + (r.data.failed || 0) + (r.data.remaining ? '، بقي مستلمون' : ''));
+                alert('تمت جدولة إرسال دفعة اختبار أ/ب — سيُرسل عبر cron');
             } else alert(r.error || 'حدث خطأ');
         }
         async function loadAbReport() {
-            const r = await emApi('/ab-tests/{$id}/report');
+            const r = await emApi('/ab-tests/__AB_ID__/report');
             if (!r.success) return;
             const rep = r.data.report;
             const va = rep.variant_a || {}, vb = rep.variant_b || {};
@@ -4430,16 +4587,17 @@ class EmailMarketingController extends Controller
                 </div>`;
         }
         async function declareWinner(winner) {
-            const r = await emPost('/ab-tests/{$id}/winner', { winner });
+            const r = await emPost('/ab-tests/__AB_ID__/winner', { winner });
             if (r.success) { alert('تم إعلان الفائز'); loadAbReport(); }
             else alert(r.error || 'حدث خطأ');
         }
         async function applyWinner() {
-            const r = await emPost('/ab-tests/{$id}/apply-winner', {});
+            const r = await emPost('/ab-tests/__AB_ID__/apply-winner', {});
             if (r.success) alert('تم نسخ الفائز للحملة الأساسية');
             else alert(r.error || 'حدث خطأ');
         }
         loadAbReport();
         JS;
+        return str_replace('__AB_ID__', (string) $id, $js);
     }
 }

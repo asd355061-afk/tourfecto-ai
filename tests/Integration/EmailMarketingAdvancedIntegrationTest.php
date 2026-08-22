@@ -24,6 +24,8 @@ require_once __DIR__ . '/../../app/Models/EmailAbTest.php';
 require_once __DIR__ . '/../../app/Services/EmailMarketing/SmtpSettingsService.php';
 require_once __DIR__ . '/../../app/Services/EmailMarketing/TransactionalEmailService.php';
 require_once __DIR__ . '/../../app/Services/EmailMarketing/AbTestService.php';
+require_once __DIR__ . '/../../app/Core/Queue/QueueManager.php';
+require_once __DIR__ . '/../../app/Jobs/SendAbTestBatchJob.php';
 
 final class EmailMarketingAdvancedIntegrationTest extends TestCase
 {
@@ -265,6 +267,81 @@ final class EmailMarketingAdvancedIntegrationTest extends TestCase
         $this->assertNull($svc->getTemplate(999999, $id));
         $this->assertFalse($svc->updateTemplate(999999, $id, ['name' => 'x'])['success']);
         $this->assertFalse($svc->deleteTemplate(999999, $id)['success']);
+    }
+
+    public function testTransactionalTemplateDuplicate(): void
+    {
+        $svc = new TransactionalEmailService();
+        $created = $svc->createTemplate(self::$userId, [
+            'name' => 'أصلي', 'slug' => 'original-tx', 'subject' => 'أهلاً {{first_name}}', 'html_body' => '<p>مرحبًا {{first_name}}</p>',
+        ]);
+        $id = (int) $created['id'];
+
+        $dup = $svc->duplicateTemplate(self::$userId, $id);
+        $this->assertTrue($dup['success']);
+        $copyId = (int) $dup['id'];
+        $this->assertGreaterThan(0, $copyId);
+        $this->assertNotSame($id, $copyId);
+
+        $copy = $svc->getTemplate(self::$userId, $copyId);
+        $this->assertSame('أصلي (نسخة)', $copy['name']);
+        $this->assertSame('original-tx-copy', $copy['slug']);
+        $this->assertSame('أهلاً {{first_name}}', $copy['subject']);
+        $this->assertSame('<p>مرحبًا {{first_name}}</p>', $copy['html_body']);
+
+        $this->assertFalse($svc->duplicateTemplate(999999, $id)['success']);
+    }
+
+    public function testSmtpSettingsDeleteAndToggleFallback(): void
+    {
+        $svc = new SmtpSettingsService();
+        $svc->save(self::$userId, [
+            'host' => 'smtp.toggle.com', 'port' => 587, 'username' => 'u', 'password' => 'p',
+            'encryption' => 'tls', 'is_active' => 1,
+        ]);
+        // نشط => ياخد إعدادات المستخدم
+        $this->assertSame('smtp.toggle.com', $svc->settingsForUser(self::$userId)['host']);
+
+        // تعطيل => يرجع للـ .env العام
+        $svc->save(self::$userId, ['is_active' => 0]);
+        $effective = $svc->settingsForUser(self::$userId);
+        $this->assertNotSame('smtp.toggle.com', $effective['host']);
+
+        // إعادة التفعيل ثم حذف => يرجع للـ env
+        $svc->save(self::$userId, ['is_active' => 1]);
+        $del = $svc->delete(self::$userId);
+        $this->assertTrue($del['success']);
+        $this->assertTrue($del['deleted']);
+        $this->assertNull($svc->get(self::$userId));
+
+        // الحذف مرة أخرى لا يفشل
+        $del2 = $svc->delete(self::$userId);
+        $this->assertTrue($del2['success']);
+        $this->assertFalse($del2['deleted']);
+    }
+
+    public function testTransactionalStatsIncludesRecent(): void
+    {
+        $svc = new TransactionalEmailService();
+        $created = $svc->createTemplate(self::$userId, [
+            'name' => 'سجل', 'subject' => 'إحصائية', 'html_body' => '<p>x</p>',
+        ]);
+        $id = (int) $created['id'];
+
+        // محاكاة سجل فاشل عبر send (بدون SMTP حقيقي) أو إدراج مباشر
+        $this->dbe(
+            "INSERT INTO email_transactional_logs (user_id, template_id, to_email, subject, status, created_at)
+             VALUES (?, ?, 'log@example.com', 'إحصائية', 'failed', NOW())",
+            [self::$userId, $id]
+        );
+
+        $stats = $svc->stats(self::$userId);
+        $this->assertSame(1, (int) $stats['total']);
+        $this->assertSame(1, (int) $stats['failed']);
+        $this->assertArrayHasKey('recent', $stats);
+        $this->assertNotEmpty($stats['recent']);
+        $this->assertSame('log@example.com', $stats['recent'][0]['to_email']);
+        $this->assertSame('سجل', $stats['recent'][0]['template_name']);
     }
 
     public function testTransactionalSendLogsFailure(): void
@@ -518,6 +595,49 @@ final class EmailMarketingAdvancedIntegrationTest extends TestCase
         $result = $svc->sendBatch(self::$userId, $abId);
         $this->assertFalse($result['remaining']);
         $this->assertStringContainsString('قيد التشغيل', $result['error']);
+    }
+
+    public function testAbTestSendBatchJobRunsViaQueue(): void
+    {
+        if (!class_exists('QueueManager')) {
+            $this->markTestSkipped('QueueManager غير متاح');
+            return;
+        }
+        $queue = new QueueManager();
+        if (!$queue->isReady()) {
+            $this->markTestSkipped('جدول jobs غير موجود');
+            return;
+        }
+
+        $baseId = $this->makeCampaign();
+        $svc = new AbTestService();
+        $created = $svc->create(self::$userId, ['name' => 'اختبار بالطابور', 'base_campaign_id' => $baseId, 'split_percent' => 50]);
+        $abId = (int) $created['id'];
+        $svc->start(self::$userId, $abId);
+
+        $this->dbe("DELETE FROM jobs");
+
+        $jobId = $queue->push(SendAbTestBatchJob::class, [
+            'user_id' => self::$userId,
+            'ab_test_id' => $abId,
+        ], 'email');
+        $this->assertNotFalse($jobId);
+
+        $result = $queue->processDue(20);
+        $this->assertSame(1, $result['processed']);
+
+        $row = $this->dbq("SELECT * FROM jobs WHERE id = ?", [(int) $jobId]);
+        $this->assertSame('completed', $row[0]['status'] ?? '');
+
+        // بدون SMTP => كل المستلمين اتعالجوا (فشل فردي) وعددهم 8
+        $ab = (new EmailAbTest())->find($abId);
+        $total = (int) $this->dbq(
+            "SELECT COUNT(*) AS total FROM email_campaign_recipients WHERE campaign_id IN (?, ?)",
+            [(int) $ab->getAttribute('variant_a_id'), (int) $ab->getAttribute('variant_b_id')]
+        )[0]['total'];
+        $this->assertSame(8, $total);
+
+        $this->dbe("DELETE FROM jobs");
     }
 
     public function testAbTestReportAndWinner(): void

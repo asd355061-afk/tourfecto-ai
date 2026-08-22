@@ -699,12 +699,14 @@ $router->post('/api/email-marketing/automations/run-due', 'EmailMarketingControl
 $router->get('/api/email-marketing/smtp-settings', 'EmailMarketingController', 'smtpSettings', ['AuthMiddleware']);
 $router->post('/api/email-marketing/smtp-settings', 'EmailMarketingController', 'saveSmtpSettings', ['AuthMiddleware']);
 $router->post('/api/email-marketing/smtp-settings/test', 'EmailMarketingController', 'testSmtpSettings', ['AuthMiddleware']);
+$router->delete('/api/email-marketing/smtp-settings', 'EmailMarketingController', 'deleteSmtpSettings', ['AuthMiddleware']);
 
 $router->get('/api/email-marketing/transactional/templates', 'EmailMarketingController', 'transactionalTemplates', ['AuthMiddleware']);
 $router->post('/api/email-marketing/transactional/templates', 'EmailMarketingController', 'createTransactionalTemplate', ['AuthMiddleware']);
 $router->get('/api/email-marketing/transactional/templates/{id}', 'EmailMarketingController', 'getTransactionalTemplate', ['AuthMiddleware']);
 $router->patch('/api/email-marketing/transactional/templates/{id}', 'EmailMarketingController', 'updateTransactionalTemplate', ['AuthMiddleware']);
 $router->delete('/api/email-marketing/transactional/templates/{id}', 'EmailMarketingController', 'deleteTransactionalTemplate', ['AuthMiddleware']);
+$router->post('/api/email-marketing/transactional/templates/{id}/duplicate', 'EmailMarketingController', 'duplicateTransactionalTemplate', ['AuthMiddleware']);
 $router->post('/api/email-marketing/transactional/send', 'EmailMarketingController', 'sendTransactionalEmail', ['AuthMiddleware']);
 $router->get('/api/email-marketing/transactional/logs', 'EmailMarketingController', 'transactionalLogs', ['AuthMiddleware']);
 $router->get('/api/email-marketing/transactional/stats', 'EmailMarketingController', 'transactionalStats', ['AuthMiddleware']);

@@ -514,6 +514,7 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/EmailMarketing/TransactionalEmailService.php',
     APP_PATH . '/Services/EmailMarketing/AbTestService.php',
     APP_PATH . '/Jobs/SendEmailCampaignBatchJob.php',
+    APP_PATH . '/Jobs/SendAbTestBatchJob.php',
     APP_PATH . '/Controllers/EmailMarketingController.php',
 ];
 foreach ($optionalNewClassFiles as $classFile) {

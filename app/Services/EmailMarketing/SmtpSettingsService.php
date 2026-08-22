@@ -37,6 +37,10 @@ class SmtpSettingsService
     public function settingsForUser(int $userId): array
     {
         $row = $this->get($userId);
+        // لو فيه إعدادات محفوظة لكن معطّلة => نرجع للـ .env العام
+        if ($row && !(int) ($row['is_active'] ?? 0)) {
+            $row = null;
+        }
         return [
             'host' => ($row['host'] ?? '') !== '' ? $row['host'] : (defined('MAIL_HOST') ? MAIL_HOST : ''),
             'port' => !empty($row['port']) ? (int) $row['port'] : (defined('MAIL_PORT') ? (int) MAIL_PORT : 587),
@@ -114,6 +118,23 @@ class SmtpSettingsService
         }
 
         return ['success' => true];
+    }
+
+    /**
+     * حذف إعدادات SMTP الخاصة بمستخدم نهائيًا (يرجع للـ fallback env).
+     * @return array ['success'=>bool, 'deleted'=>bool]
+     */
+    public function delete(int $userId): array
+    {
+        $existing = $this->get($userId);
+        if (!$existing) {
+            return ['success' => true, 'deleted' => false];
+        }
+        $this->db->query(
+            "DELETE FROM email_smtp_settings WHERE user_id = ?",
+            [$userId]
+        );
+        return ['success' => true, 'deleted' => true];
     }
 
     /**

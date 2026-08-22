@@ -117,6 +117,41 @@ class TransactionalEmailService
         return ['success' => true];
     }
 
+    /**
+     * نسخ قالب معاملات بقالب جديد. يضيف لاحقة "-copy" للاسم وslug مع ضمان
+     * عدم تكرار slug لكل مستخدم.
+     */
+    public function duplicateTemplate(int $userId, int $templateId): array
+    {
+        $template = (new EmailTransactionalTemplate())->find($templateId);
+        if (!$template || (int) $template->getAttribute('user_id') !== $userId) {
+            return ['success' => false, 'error' => 'القالب غير موجود'];
+        }
+
+        $newName = trim((string) $template->getAttribute('name')) . ' (نسخة)';
+        $baseSlug = rtrim((string) $template->getAttribute('slug'), '-') . '-copy';
+        $slug = $baseSlug;
+        $i = 2;
+        while ($this->getTemplateBySlug($userId, $slug)) {
+            $slug = $baseSlug . '-' . $i;
+            $i++;
+        }
+
+        $copy = new EmailTransactionalTemplate([
+            'user_id' => $userId,
+            'name' => $newName,
+            'slug' => $slug,
+            'subject' => (string) $template->getAttribute('subject'),
+            'html_body' => (string) $template->getAttribute('html_body'),
+            'is_active' => (int) $template->getAttribute('is_active'),
+        ]);
+        $id = (int) $copy->save();
+        if ($id <= 0) {
+            return ['success' => false, 'error' => 'تعذر نسخ القالب'];
+        }
+        return ['success' => true, 'id' => $id];
+    }
+
     // ============================ Sending ============================
 
     /**
@@ -234,6 +269,11 @@ class TransactionalEmailService
              WHERE user_id = ? AND opened_at IS NOT NULL",
             [$userId]
         )[0]['c'] ?? 0;
+        $clicked = (int) $this->db->query(
+            "SELECT COUNT(*) AS c FROM email_transactional_logs
+             WHERE user_id = ? AND clicked_at IS NOT NULL",
+            [$userId]
+        )[0]['c'] ?? 0;
 
         return [
             'total' => $total,
@@ -241,8 +281,11 @@ class TransactionalEmailService
             'failed' => (int) ($row['failed'] ?? 0),
             'opens' => (int) ($row['opens'] ?? 0),
             'clicks' => (int) ($row['clicks'] ?? 0),
+            'opened' => $opened,
+            'clicked' => $clicked,
             'unique_opened' => $opened,
             'open_rate' => $total > 0 ? round($opened / $total * 100, 1) : 0,
+            'recent' => $this->logs($userId, ['limit' => 5]),
         ];
     }
 
