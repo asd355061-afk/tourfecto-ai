@@ -8,6 +8,6 @@ class EmailTemplate extends Model
 {
     protected $table = 'email_templates';
     protected $fillable = [
-        'user_id', 'name', 'subject', 'html_body'
+        'user_id', 'name', 'subject', 'html_body', 'category', 'blocks', 'share_token', 'is_system'
     ];
 }

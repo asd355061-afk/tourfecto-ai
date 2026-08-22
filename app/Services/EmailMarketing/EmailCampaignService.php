@@ -168,6 +168,36 @@ class EmailCampaignService
              JOIN email_lists l ON l.id = els.list_id
              WHERE l.user_id = ? AND l.id IN ({$placeholders})
                AND s.status = 'subscribed'
+               AND NOT EXISTS (
+                   SELECT 1 FROM email_suppressions sup
+                   WHERE sup.user_id = l.user_id AND sup.email = s.email
+               )
+             ORDER BY s.id ASC",
+            $params
+        );
+    }
+
+    /**
+     * جمهور شريحة (segment_id) مع استبعاد الممنوعين ونفس قواعد القوائم
+     */
+    public function segmentAudience(int $userId, int $segmentId): array
+    {
+        $seg = (new ContactManagementService())->evaluateSegment($userId, $segmentId);
+        $ids = $seg['ids'] ?? [];
+        if (empty($ids)) {
+            return [];
+        }
+        $in = implode(',', array_map('intval', $ids));
+        $params = [$userId];
+        return $this->db->query(
+            "SELECT DISTINCT s.id, s.email, s.name, s.attributes
+             FROM email_subscribers s
+             WHERE s.user_id = ? AND s.id IN ({$in})
+               AND s.status = 'subscribed'
+               AND NOT EXISTS (
+                   SELECT 1 FROM email_suppressions sup
+                   WHERE sup.user_id = s.user_id AND sup.email = s.email
+               )
              ORDER BY s.id ASC",
             $params
         );

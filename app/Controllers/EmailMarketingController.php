@@ -191,6 +191,239 @@ class EmailMarketingController extends Controller
         return [];
     }
 
+    public function showContactsPage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $tabs = $this->emailTabsHtml('contacts');
+
+        $body = <<<HTML
+        {$tabs}
+
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;" id="emContactSubTabs">
+            <button class="p-btn primary xs" data-ctab="overview" onclick="switchContactTab('overview')">📇 نظرة عامة</button>
+            <button class="p-btn xs" data-ctab="fields" onclick="switchContactTab('fields')">🏷️ الحقول المخصصة</button>
+            <button class="p-btn xs" data-ctab="tags" onclick="switchContactTab('tags')">📛 الوسوم</button>
+            <button class="p-btn xs" data-ctab="segments" onclick="switchContactTab('segments')">🧩 الشرائح</button>
+            <button class="p-btn xs" data-ctab="suppressions" onclick="switchContactTab('suppressions')">🚫 الممنوعون</button>
+        </div>
+
+        <!-- Overview -->
+        <div id="emContactOverview">
+            <div class="p-card" style="margin-bottom:16px;">
+                <div class="p-card-head"><h3>📇 نظرة عامة على جهات الاتصال</h3></div>
+                <div id="emContactStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+                    <div class="p-loading-row">جارِ التحميل...</div>
+                </div>
+            </div>
+            <div class="p-card">
+                <div class="p-card-head">
+                    <h3>👥 جهات الاتصال <span id="emCSubCountLabel"></span></h3>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <select id="emCListFilter" class="p-select" onchange="loadContactSubscribers()"></select>
+                        <select id="emCStatusFilter" class="p-select" onchange="loadContactSubscribers()">
+                            <option value="">كل الحالات</option>
+                            <option value="subscribed">مشترك</option>
+                            <option value="unsubscribed">ملغي</option>
+                            <option value="bounced">مرتد</option>
+                        </select>
+                        <input type="text" id="emCSearch" class="p-select" placeholder="بحث..." style="max-width:180px;" onkeyup="if(event.key==='Enter')loadContactSubscribers()">
+                        <button class="p-btn xs" onclick="loadContactSubscribers()">🔍</button>
+                        <button class="p-btn primary xs" onclick="exportContacts()">📥 تصدير</button>
+                    </div>
+                </div>
+                <div id="emContactsTable"><div class="p-loading-row">جارِ التحميل...</div></div>
+                <div id="emContactsPager" style="margin-top:10px;"></div>
+            </div>
+        </div>
+
+        <!-- Custom fields -->
+        <div id="emContactFields" style="display:none;">
+            <div class="p-card" style="margin-bottom:16px;">
+                <div class="p-card-head">
+                    <h3>🏷️ الحقول المخصصة</h3>
+                    <button class="p-btn primary xs" onclick="openFieldModal()">+ حقل جديد</button>
+                </div>
+                <p class="p-cell-muted" style="font-size:13px;margin-bottom:10px;">استخدم الحقول المخصصة لتخزين أي بيانات عن جهات الاتصال (الشركة، المدينة، تاريخ الميلاد...) وتخصيص الحملات بها عبر {{custom.field_name}}.</p>
+                <div id="emFieldsTable"><div class="p-loading-row">جارِ التحميل...</div></div>
+            </div>
+        </div>
+
+        <!-- Tags -->
+        <div id="emContactTags" style="display:none;">
+            <div class="p-card" style="margin-bottom:16px;">
+                <div class="p-card-head">
+                    <h3>📛 الوسوم</h3>
+                    <button class="p-btn primary xs" onclick="openTagModal()">+ وسم جديد</button>
+                </div>
+                <p class="p-cell-muted" style="font-size:13px;margin-bottom:10px;">نظّم جهات الاتصال بوسوم (VIP، عملاء محتملون، مهتمون بالعروض...).</p>
+                <div id="emTagsTable"><div class="p-loading-row">جارِ التحميل...</div></div>
+            </div>
+        </div>
+
+        <!-- Segments -->
+        <div id="emContactSegments" style="display:none;">
+            <div class="p-card" style="margin-bottom:16px;">
+                <div class="p-card-head">
+                    <h3>🧩 الشرائح</h3>
+                    <button class="p-btn primary xs" onclick="openSegmentModal()">+ شريحة جديدة</button>
+                </div>
+                <p class="p-cell-muted" style="font-size:13px;margin-bottom:10px;">شرائح ديناميكية تُحسب لحظيًا حسب الشروط (الحالة، الوسم، القائمة، حقل مخصص، التفاعل).</p>
+                <div id="emSegmentsTable"><div class="p-loading-row">جارِ التحميل...</div></div>
+            </div>
+        </div>
+
+        <!-- Suppressions -->
+        <div id="emContactSuppressions" style="display:none;">
+            <div class="p-card">
+                <div class="p-card-head">
+                    <h3>🚫 قائمة الممنوعين</h3>
+                    <button class="p-btn primary xs" onclick="openSuppressionModal()">+ إضافة عنوان</button>
+                </div>
+                <p class="p-cell-muted" style="font-size:13px;margin-bottom:10px;">العناوين هنا لا تتلقى أي حملات (ارتدادات، شكاوى، إلغاءات). تُستثنى تلقائيًا من كل الإرسال.</p>
+                <div id="emSuppressionsTable"><div class="p-loading-row">جارِ التحميل...</div></div>
+            </div>
+        </div>
+
+        <!-- Field modal -->
+        <div class="p-modal-overlay" id="fieldModal">
+            <div class="p-modal">
+                <div class="p-modal-head">
+                    <h3 id="fieldModalTitle">حقل جديد</h3>
+                    <button class="p-modal-close" onclick="document.getElementById('fieldModal').classList.remove('open')">×</button>
+                </div>
+                <div class="p-modal-body">
+                    <input type="hidden" id="fieldId" value="">
+                    <label class="p-cell-muted" style="font-size:12px;">الاسم البرمجي * (snake_case)</label>
+                    <input type="text" id="fieldName" class="p-select" style="width:100%;margin-bottom:8px;" placeholder="company_name">
+                    <label class="p-cell-muted" style="font-size:12px;">التسمية الظاهرة *</label>
+                    <input type="text" id="fieldLabel" class="p-select" style="width:100%;margin-bottom:8px;" placeholder="اسم الشركة">
+                    <label class="p-cell-muted" style="font-size:12px;">النوع</label>
+                    <select id="fieldType" class="p-select" style="width:100%;margin-bottom:8px;" onchange="toggleFieldOptions()">
+                        <option value="text">نص</option>
+                        <option value="number">رقم</option>
+                        <option value="date">تاريخ</option>
+                        <option value="boolean">نعم/لا</option>
+                        <option value="select">قائمة اختيار</option>
+                        <option value="multi_select">قائمة متعددة</option>
+                    </select>
+                    <div id="fieldOptionsWrap" style="display:none;margin-bottom:8px;">
+                        <label class="p-cell-muted" style="font-size:12px;">الخيارات (مفصولة بفاصلة)</label>
+                        <input type="text" id="fieldOptions" class="p-select" style="width:100%;" placeholder="أ، ب، ج">
+                    </div>
+                    <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:12px;">
+                        <input type="checkbox" id="fieldRequired"> حقل مطلوب
+                    </label>
+                    <button class="p-btn primary" onclick="saveField()">حفظ</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tag modal -->
+        <div class="p-modal-overlay" id="tagModal">
+            <div class="p-modal">
+                <div class="p-modal-head">
+                    <h3>وسم جديد</h3>
+                    <button class="p-modal-close" onclick="document.getElementById('tagModal').classList.remove('open')">×</button>
+                </div>
+                <div class="p-modal-body">
+                    <input type="hidden" id="tagId" value="">
+                    <label class="p-cell-muted" style="font-size:12px;">اسم الوسم *</label>
+                    <input type="text" id="tagName" class="p-select" style="width:100%;margin-bottom:8px;" placeholder="VIP">
+                    <label class="p-cell-muted" style="font-size:12px;">اللون (اختياري)</label>
+                    <input type="color" id="tagColor" class="p-select" style="width:100%;height:38px;margin-bottom:12px;" value="#0077be">
+                    <button class="p-btn primary" onclick="saveTag()">حفظ</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Segment modal -->
+        <div class="p-modal-overlay" id="segmentModal">
+            <div class="p-modal">
+                <div class="p-modal-head">
+                    <h3>شريحة جديدة</h3>
+                    <button class="p-modal-close" onclick="document.getElementById('segmentModal').classList.remove('open')">×</button>
+                </div>
+                <div class="p-modal-body">
+                    <input type="hidden" id="segmentId" value="">
+                    <label class="p-cell-muted" style="font-size:12px;">اسم الشريحة *</label>
+                    <input type="text" id="segmentName" class="p-select" style="width:100%;margin-bottom:8px;" placeholder="عملاء الرياض">
+                    <label class="p-cell-muted" style="font-size:12px;">الوصف</label>
+                    <input type="text" id="segmentDesc" class="p-select" style="width:100%;margin-bottom:8px;" placeholder="وصف مختصر">
+                    <label class="p-cell-muted" style="font-size:12px;">منطق الشروط</label>
+                    <select id="segmentMatchAll" class="p-select" style="width:100%;margin-bottom:10px;">
+                        <option value="1">كل الشروط (AND)</option>
+                        <option value="0">أي شرط (OR)</option>
+                    </select>
+                    <div id="segmentConditions"></div>
+                    <button class="p-btn xs" onclick="addSegmentCondition()" style="margin-bottom:10px;">+ إضافة شرط</button>
+                    <div style="margin-bottom:10px;" id="segmentLiveCount" class="p-cell-muted" style="font-size:13px;"></div>
+                    <button class="p-btn primary" onclick="saveSegment()">حفظ</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Suppression modal -->
+        <div class="p-modal-overlay" id="suppressionModal">
+            <div class="p-modal">
+                <div class="p-modal-head">
+                    <h3>إضافة إلى الممنوعين</h3>
+                    <button class="p-modal-close" onclick="document.getElementById('suppressionModal').classList.remove('open')">×</button>
+                </div>
+                <div class="p-modal-body">
+                    <label class="p-cell-muted" style="font-size:12px;">البريد الإلكتروني *</label>
+                    <input type="email" id="supEmail" class="p-select" style="width:100%;margin-bottom:8px;" placeholder="bounce@example.com">
+                    <label class="p-cell-muted" style="font-size:12px;">السبب</label>
+                    <select id="supType" class="p-select" style="width:100%;margin-bottom:8px;">
+                        <option value="manual">إلغاء يدوي</option>
+                        <option value="bounce">ارتداد</option>
+                        <option value="complaint">شكوى</option>
+                        <option value="spam">تبليغ سبام</option>
+                    </select>
+                    <label class="p-cell-muted" style="font-size:12px;">ملاحظات</label>
+                    <input type="text" id="supReason" class="p-select" style="width:100%;margin-bottom:12px;" placeholder="اختياري">
+                    <button class="p-btn primary" onclick="saveSuppression()">حفظ</button>
+                </div>
+            </div>
+        </div>
+
+        <style>
+        .em-condition-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;margin-bottom:8px;align-items:center;}
+        .em-tag-pill{display:inline-block;background:#0b2436;color:#7dd3fc;border-radius:999px;padding:2px 10px;font-size:12px;margin:2px;}
+        .em-seg-badge{display:inline-block;background:#064e3b;color:#6ee7b7;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600;}
+        </style>
+        HTML;
+
+        $script = $this->contactsJs();
+        echo $this->renderPanelPage('email_marketing', 'إدارة جهات الاتصال', 'الحقول والوسوم والشرائح والممنوعين', $body, $script);
+        return [];
+    }
+
+    public function showSubscriberDetailPage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $tabs = $this->emailTabsHtml('contacts');
+
+        $body = <<<HTML
+        {$tabs}
+
+        <div class="p-card" style="margin-bottom:16px;">
+            <div class="p-card-head">
+                <h3 id="subDetailName">👤 تفاصيل جهة الاتصال</h3>
+                <button class="p-btn xs" onclick="window.location.href='/email-marketing/contacts'">← رجوع</button>
+            </div>
+            <div id="subDetailBody"><div class="p-loading-row">جارِ التحميل...</div></div>
+        </div>
+        HTML;
+
+        $script = $this->subscriberDetailJs((int) ($params['id'] ?? 0));
+        echo $this->renderPanelPage('email_marketing', 'تفاصيل جهة الاتصال', 'ملف جهة الاتصال الكامل', $body, $script);
+        return [];
+    }
+
     public function showTemplatesPage(array $params = []): array
     {
         if (!$this->isAuthenticated()) {
@@ -201,13 +434,16 @@ class EmailMarketingController extends Controller
         $body = <<<HTML
         {$tabs}
 
-        <div class="p-card" style="margin-bottom:16px;">
-            <div class="p-card-head">
-                <h3>🎨 قوالب البريد</h3>
-                <button class="p-btn primary xs" onclick="openTemplateModal()">+ قالب جديد</button>
-            </div>
-            <div id="emTemplatesGrid"><div class="p-loading-row">جارِ التحميل...</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+            <button class="p-btn primary xs" onclick="switchTemplatesTab('mine')">🗂️ قوالبك</button>
+            <button class="p-btn xs" onclick="switchTemplatesTab('gallery')">🖼️ معرض القوالب</button>
+            <span style="flex:1;"></span>
+            <button class="p-btn xs" onclick="window.location.href='/email-marketing/templates/builder?new=1'">🎨 محرر بصري</button>
+            <button class="p-btn primary xs" onclick="openTemplateModal()">+ قالب جديد</button>
         </div>
+
+        <div id="emTemplatesGrid"><div class="p-loading-row">جارِ التحميل...</div></div>
+        <div id="emGalleryGrid" style="display:none;"><div class="p-loading-row">جارِ تحميل المعرض...</div></div>
 
         <!-- Template modal -->
         <div class="p-modal-overlay" id="templateModal">
@@ -250,11 +486,197 @@ class EmailMarketingController extends Controller
                 <div class="p-modal-body" id="previewBody" style="background:#f3f4f6;"></div>
             </div>
         </div>
+
+        <!-- Share modal -->
+        <div class="p-modal-overlay" id="shareModal">
+            <div class="p-modal">
+                <div class="p-modal-head">
+                    <h3>🔗 مشاركة القالب</h3>
+                    <button class="p-modal-close" onclick="document.getElementById('shareModal').classList.remove('open')">×</button>
+                </div>
+                <div class="p-modal-body">
+                    <p class="p-cell-muted" style="margin-top:0;">شارك القالب برابط عام، يمكن لأي شخص معاينته واستيراده إلى حسابه.</p>
+                    <input type="text" id="shareUrl" class="p-select" style="width:100%;" readonly>
+                    <div style="display:flex;gap:8px;margin-top:12px;">
+                        <button class="p-btn primary" onclick="copyShareUrl()">📋 نسخ الرابط</button>
+                        <button class="p-btn danger" onclick="stopSharing()">إيقاف المشاركة</button>
+                    </div>
+                </div>
+            </div>
+        </div>
         HTML;
 
         $script = $this->templatesJs();
-        echo $this->renderPanelPage('email_marketing', 'قوالب البريد', 'قوالب جاهزة بمتغيرات التخصيص', $body, $script);
+        echo $this->renderPanelPage('email_marketing', 'قوالب البريد', 'قوالب جاهزة بمتغيرات التخصيص ومحرر بصري', $body, $script);
         return [];
+    }
+
+    public function showTemplateBuilderPage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        $templateId = (int) $this->get('template_id', 0);
+        $galleryKey = (string) $this->get('gallery', '');
+        $isNew = (int) $this->get('new', 0) === 1;
+
+        $templateName = '';
+        $templateSubject = '';
+        $initialBlocks = '[]';
+        $saveTarget = 0;
+
+        if ($templateId > 0) {
+            $template = (new EmailTemplate())->find($templateId);
+            if (!$template || (int) $template->getAttribute('user_id') !== $this->uid()) {
+                return $this->error('القالب غير موجود', 404);
+            }
+            $templateName = (string) $template->getAttribute('name');
+            $templateSubject = (string) $template->getAttribute('subject');
+            $initialBlocks = (string) $template->getAttribute('blocks');
+            if ($initialBlocks === '' || $initialBlocks === null) {
+                $initialBlocks = '[]';
+            }
+            $saveTarget = $templateId;
+        } elseif ($galleryKey !== '') {
+            $catalog = (new EmailTemplateEditorService())->catalog();
+            if (!isset($catalog[$galleryKey])) {
+                return $this->error('القالب غير موجود في المعرض', 404);
+            }
+            $item = $catalog[$galleryKey];
+            $templateName = $item['name'];
+            $templateSubject = $item['subject'];
+            $initialBlocks = json_encode($item['blocks'], JSON_UNESCAPED_UNICODE);
+        }
+
+        $body = <<<HTML
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+            <a href="/email-marketing/templates" class="p-btn xs">→ القوالب</a>
+            <input type="text" id="bdName" class="p-select" style="max-width:280px;" placeholder="اسم القالب *" value="{$this->safeAttr($templateName)}">
+            <input type="text" id="bdSubject" class="p-select" style="max-width:360px;flex:1;min-width:200px;" placeholder="الموضوع الافتراضي (subject)" value="{$this->safeAttr($templateSubject)}">
+            <span style="flex:1;"></span>
+            <button class="p-btn xs" onclick="previewBuilder()">👁 معاينة</button>
+            <button class="p-btn primary" onclick="saveBuilder()">💾 حفظ القالب</button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:210px 1fr 260px;gap:14px;" id="bdLayout">
+            <!-- Palette -->
+            <div class="p-card" style="align-self:start;">
+                <div class="p-card-head"><h3 style="font-size:14px;">🧩 البلوكات</h3></div>
+                <div id="bdPalette" style="display:flex;flex-direction:column;gap:6px;"></div>
+            </div>
+
+            <!-- Canvas -->
+            <div class="p-card" style="background:#1f2937;">
+                <div class="p-card-head">
+                    <h3 style="font-size:14px;">🖥️ المعاينة المباشرة</h3>
+                    <div style="display:flex;gap:6px;">
+                        <button class="p-btn xs" onclick="renderBlocks()">↻ تحديث</button>
+                    </div>
+                </div>
+                <div id="bdCanvasWrap" style="background:repeating-linear-gradient(45deg,#111827,#111827 8px,#0b1220 8px,#0b1220 16px);border-radius:10px;padding:14px;">
+                    <div id="bdCanvas" style="max-width:660px;margin:0 auto;"></div>
+                </div>
+                <div id="bdBlocksBar" style="margin-top:12px;display:flex;flex-direction:column;gap:6px;"></div>
+            </div>
+
+            <!-- Inspector -->
+            <div class="p-card" style="align-self:start;">
+                <div class="p-card-head"><h3 style="font-size:14px;">⚙️ إعدادات البلوك</h3></div>
+                <div id="bdInspector"><p class="p-cell-muted">اختر بلوكًا من القائمة للتحرير.</p></div>
+            </div>
+        </div>
+        HTML;
+
+        $script = $this->builderJs($initialBlocks, $saveTarget);
+        echo $this->renderPanelPage('email_marketing', 'المحرر البصري', 'بناء قالب إيميل بالبلوكات', $body, $script);
+        return [];
+    }
+
+    /** صفحة عامة (بدون تسجيل) لعرض قالب مشترك واستيراده. */
+    public function showSharedTemplatePage(array $params = []): array
+    {
+        $token = (string) ($params['token'] ?? '');
+        $editor = new EmailTemplateEditorService();
+        $shared = $editor->byShareToken($token);
+        if (!$shared) {
+            http_response_code(404);
+            echo '<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>قالب غير موجود</title>'
+                . '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+                . '<style>body{font-family:Arial,Helvetica,sans-serif;background:#f3f4f6;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#374151;}</style>'
+                . '</head><body><div style="text-align:center;padding:24px;"><h2>القالب المشترك غير موجود أو تم إيقاف مشاركته</h2>'
+                . '<a href="/" style="color:#2563eb;">العودة للرئيسية</a></div></body></html>';
+            exit;
+        }
+
+        $name = htmlspecialchars((string) $shared['name'], ENT_QUOTES, 'UTF-8');
+        $subject = htmlspecialchars((string) $shared['subject'], ENT_QUOTES, 'UTF-8');
+        $html = (string) $shared['html_body'];
+        $tokenEsc = htmlspecialchars($token, ENT_QUOTES, 'UTF-8');
+
+        echo <<<HTML
+        <!DOCTYPE html>
+        <html lang="ar" dir="rtl">
+        <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{$name} — قالب مشترك</title>
+        <style>
+            * { box-sizing: border-box; }
+            body { font-family: Arial, Helvetica, sans-serif; background:#f3f4f6; margin:0; padding:0; color:#111827; }
+            .top { background:#111827; color:#fff; padding:14px 20px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+            .top h1 { font-size:17px; margin:0; }
+            .top .sub { font-size:12px; color:#9ca3af; }
+            .wrap { max-width:700px; margin:24px auto; padding:0 16px; }
+            .card { background:#fff; border-radius:14px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.08); margin-bottom:16px; }
+            .card .hd { padding:14px 20px; border-bottom:1px solid #e5e7eb; font-size:13px; color:#374151; }
+            .frame { padding:18px; background:#f9fafb; }
+            iframe { width:100%; min-height:480px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; }
+            .btn { display:inline-block; background:#2563eb; color:#fff; text-decoration:none; padding:10px 22px; border-radius:8px; font-weight:700; border:0; cursor:pointer; font-size:14px; }
+            .btn.ghost { background:#fff; color:#111827; border:1px solid #e5e7eb; margin-right:8px; }
+            .meta { font-size:12px; color:#6b7280; padding:10px 20px; border-top:1px solid #e5e7eb; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+        </style>
+        </head>
+        <body>
+        <div class="top">
+            <div>
+                <h1>📨 {$name}</h1>
+                <div class="sub">قالب بريد مشترك عبر منصة Tourfecto للتسويق</div>
+            </div>
+        </div>
+        <div class="wrap">
+            <div class="card">
+                <div class="hd">الموضوع: <b>{$subject}</b></div>
+                <div class="frame"><iframe sandbox="" srcdoc="{$this->attrEncode($html)}"></iframe></div>
+                <div class="meta">
+                    <button class="btn" id="importBtn">استخدم هذا القالب</button>
+                    <span>استخدم القالب لبدء بناء حملتك الخاصة بسرعة.</span>
+                </div>
+            </div>
+        </div>
+        <script>
+        document.getElementById('importBtn').addEventListener('click', async () => {
+            const res = await fetch('/api/email-marketing/templates/shared/{$tokenEsc}/import', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+            const data = await res.json();
+            if (data.success) { window.location.href = '/email-marketing/templates?imported=1'; }
+            else if (res.status === 401) { window.location.href = '/login?next=/email-marketing/templates/shared/{$tokenEsc}'; }
+            else { alert(data.error || 'تعذر الاستيراد'); }
+        });
+        </script>
+        </body>
+        </html>
+        HTML;
+        exit;
+    }
+
+    private function safeAttr(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    }
+
+    private function attrEncode(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
     }
 
     public function showCampaignsPage(array $params = []): array
@@ -403,6 +825,87 @@ class EmailMarketingController extends Controller
 
         $script = $this->reportsJs();
         echo $this->renderPanelPage('email_marketing', 'التقارير', 'إحصائيات تفاعل حملاتك', $body, $script);
+        return [];
+    }
+
+    public function showAutomationsPage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $tabs = $this->emailTabsHtml('automations');
+
+        $body = <<<HTML
+        {$tabs}
+
+        <div class="p-card" style="margin-bottom:16px;">
+            <div class="p-card-head">
+                <h3>⚙️ سير العمل التلقائي</h3>
+                <span class="p-card-sub">أتمتة مثل Brevo: اشتراك / وسم / فتح / نقر / بعد مدة — مع خطوات انتظار وبريد ووسوم وقوائم</span>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="p-btn primary" onclick="openAutomationModal()">+ سير عمل جديد</button>
+                <button class="p-btn" onclick="runAutomationsDue()">تشغيل المستحقات الآن</button>
+            </div>
+        </div>
+
+        <div class="p-card">
+            <div class="p-card-head"><h3>📋 سير العمل</h3></div>
+            <div id="emAutomationsList"><div class="p-loading-row">جارِ التحميل...</div></div>
+        </div>
+
+        <div id="emAutomationModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:999;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;">
+            <div style="background:#fff;border-radius:14px;max-width:860px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.25);">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                    <h3 id="emAutoModalTitle" style="margin:0;">سير عمل جديد</h3>
+                    <button class="p-btn xs" onclick="closeAutomationModal()">✕ إغلاق</button>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                    <div>
+                        <label class="p-label">الاسم</label>
+                        <input class="p-input" id="emAutoName" placeholder="مثال: ترحيب بالمشتركين الجدد" style="width:100%;"/>
+                    </div>
+                    <div>
+                        <label class="p-label">الوصف</label>
+                        <input class="p-input" id="emAutoDesc" placeholder="وصف اختياري" style="width:100%;"/>
+                    </div>
+                    <div>
+                        <label class="p-label">المشغل</label>
+                        <select class="p-input" id="emAutoTrigger" style="width:100%;"></select>
+                    </div>
+                    <div id="emAutoTriggerValueWrap">
+                        <label class="p-label" id="emAutoTriggerValueLabel">قائمة (اختياري)</label>
+                        <select class="p-input" id="emAutoTriggerValue" style="width:100%;"></select>
+                    </div>
+                    <div>
+                        <label class="p-label">قوائم الدخول المؤهلة (اختياري)</label>
+                        <select class="p-input" id="emAutoEntryAudience" multiple style="width:100%;height:70px;"></select>
+                    </div>
+                    <div>
+                        <label class="p-label">قوائم الخروج (اختياري)</label>
+                        <select class="p-input" id="emAutoExitAudience" multiple style="width:100%;height:70px;"></select>
+                    </div>
+                </div>
+
+                <div style="margin-top:16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <label class="p-label" style="margin:0;">الخطوات</label>
+                        <button class="p-btn xs" onclick="addAutomationStep()">+ إضافة خطوة</button>
+                    </div>
+                    <div id="emAutoSteps" style="display:flex;flex-direction:column;gap:8px;"></div>
+                </div>
+
+                <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px;">
+                    <button class="p-btn" onclick="closeAutomationModal()">إلغاء</button>
+                    <button class="p-btn primary" id="emAutoSaveBtn" onclick="saveAutomation()">💾 حفظ سير العمل</button>
+                </div>
+            </div>
+        </div>
+        HTML;
+
+        $script = $this->automationsJs();
+        echo $this->renderPanelPage('email_marketing', 'سير العمل التلقائي', 'أتمتة تسويق البريد', $body, $script);
         return [];
     }
 
@@ -589,6 +1092,314 @@ class EmailMarketingController extends Controller
     }
 
     // ============================================================
+    //  Contact Management APIs (Phase 1) — fields / tags / segments / suppressions
+    // ============================================================
+
+    private function contacts(): ContactManagementService
+    {
+        return new ContactManagementService();
+    }
+
+    // ----- Subscriber detail & advanced import/export -----
+
+    public function getSubscriber(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $data = $this->contacts()->subscriberDetail($this->uid(), (int) ($params['id'] ?? 0));
+        return $data ? $this->success(['subscriber' => $data]) : $this->error('المشترك غير موجود', 404);
+    }
+
+    public function updateSubscriber(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $id = (int) ($params['id'] ?? 0);
+        $svc = $this->contacts();
+        $body = $this->all();
+
+        if (isset($body['name'])) {
+            $sub = (new EmailSubscriber())->find($id);
+            if (!$sub || (int) $sub->getAttribute('user_id') !== $this->uid()) {
+                return $this->error('المشترك غير موجود', 404);
+            }
+            $sub->setAttribute('name', trim((string) $body['name']));
+            $sub->save();
+        }
+        if (!empty($body['status'])) {
+            $result = $svc->updateSubscriberStatus($this->uid(), $id, (string) $body['status']);
+            if (!$result['success']) {
+                return $this->error($result['error'], 422);
+            }
+        }
+        if (!empty($body['custom_values']) && is_array($body['custom_values'])) {
+            $svc->saveCustomValues($this->uid(), $id, $body['custom_values']);
+        }
+        return $this->success([], 'تم تحديث المشترك');
+    }
+
+    public function importContactsAdvanced(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $raw = (string) $this->get('data');
+        $rows = $this->parseImportData($raw);
+        if (empty($rows)) {
+            return $this->error('لا توجد بيانات صالحة للاستيراد', 422);
+        }
+        $options = [
+            'list_id' => (int) $this->get('list_id', 0),
+            'tags' => is_array($this->get('tags')) ? array_map('strval', $this->get('tags')) : [],
+            'field_map' => is_array($this->get('field_map')) ? $this->get('field_map') : [],
+        ];
+        $result = $this->contacts()->importContacts($this->uid(), $rows, $options);
+        return $this->success($result, 'تم الاستيراد');
+    }
+
+    public function exportSubscribers(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $filters = [
+            'list_id' => (int) $this->get('list_id', 0),
+            'status' => $this->get('status') ? (string) $this->get('status') : null,
+            'segment_id' => (int) $this->get('segment_id', 0),
+        ];
+        $rows = $this->contacts()->exportSubscribers($this->uid(), $filters);
+        $format = $this->get('format') === 'csv' ? 'csv' : 'json';
+        if ($format === 'csv') {
+            return $this->success(['data' => $this->toCsv($rows)]);
+        }
+        return $this->success(['data' => $rows]);
+    }
+
+    private function toCsv(array $rows): string
+    {
+        if (empty($rows)) {
+            return '';
+        }
+        $handle = fopen('php://temp', 'r+');
+        fputcsv($handle, array_keys($rows[0]));
+        foreach ($rows as $row) {
+            fputcsv($handle, array_map(fn ($v) => is_array($v) ? implode(', ', $v) : (string) $v, $row));
+        }
+        rewind($handle);
+        $csv = stream_get_contents($handle);
+        fclose($handle);
+        return $csv;
+    }
+
+    // ----- Custom fields -----
+
+    public function customFields(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        return $this->success(['fields' => $this->contacts()->customFields($this->uid())]);
+    }
+
+    public function createCustomField(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->contacts()->createCustomField($this->uid(), $this->all());
+        return $result['success']
+            ? $this->success(['id' => $result['id']], 'تم إنشاء الحقل')
+            : $this->error($result['error'], 422);
+    }
+
+    public function updateCustomField(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->contacts()->updateCustomField($this->uid(), (int) ($params['id'] ?? 0), $this->all());
+        return $result['success']
+            ? $this->success([], 'تم تحديث الحقل')
+            : $this->error($result['error'], 422);
+    }
+
+    public function deleteCustomField(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->contacts()->deleteCustomField($this->uid(), (int) ($params['id'] ?? 0));
+        return $result['success']
+            ? $this->success([], 'تم حذف الحقل')
+            : $this->error($result['error'], 422);
+    }
+
+    // ----- Tags -----
+
+    public function tags(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        return $this->success(['tags' => $this->contacts()->tags($this->uid())]);
+    }
+
+    public function createTag(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->contacts()->createTag($this->uid(), (string) $this->get('name'), $this->get('color'));
+        return $result['success']
+            ? $this->success(['id' => $result['id']], 'تم إنشاء الوسم')
+            : $this->error($result['error'], 422);
+    }
+
+    public function updateTag(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->contacts()->updateTag($this->uid(), (int) ($params['id'] ?? 0), $this->all());
+        return $result['success']
+            ? $this->success([], 'تم تحديث الوسم')
+            : $this->error($result['error'], 422);
+    }
+
+    public function deleteTag(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->contacts()->deleteTag($this->uid(), (int) ($params['id'] ?? 0));
+        return $result['success']
+            ? $this->success([], 'تم حذف الوسم')
+            : $this->error($result['error'], 422);
+    }
+
+    public function assignSubscriberTag(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->contacts()->assignTag($this->uid(), (int) ($params['id'] ?? 0), (int) $this->get('tag_id'));
+        return $result['success']
+            ? $this->success([], 'تم إضافة الوسم')
+            : $this->error($result['error'], 422);
+    }
+
+    public function removeSubscriberTag(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $this->contacts()->removeTag($this->uid(), (int) ($params['id'] ?? 0), (int) ($params['tagId'] ?? 0));
+        return $this->success([], 'تمت إزالة الوسم');
+    }
+
+    // ----- Segments -----
+
+    public function segments(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $list = $this->contacts()->segments($this->uid());
+        foreach ($list as &$seg) {
+            $seg['conditions'] = json_decode((string) ($seg['conditions'] ?? '[]'), true) ?: [];
+        }
+        return $this->success(['segments' => $list]);
+    }
+
+    public function createSegment(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->contacts()->createSegment($this->uid(), $this->all());
+        return $result['success']
+            ? $this->success(['id' => $result['id']], 'تم إنشاء الشريحة')
+            : $this->error($result['error'], 422);
+    }
+
+    public function updateSegment(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->contacts()->updateSegment($this->uid(), (int) ($params['id'] ?? 0), $this->all());
+        return $result['success']
+            ? $this->success([], 'تم تحديث الشريحة')
+            : $this->error($result['error'], 422);
+    }
+
+    public function deleteSegment(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->contacts()->deleteSegment($this->uid(), (int) ($params['id'] ?? 0));
+        return $result['success']
+            ? $this->success([], 'تم حذف الشريحة')
+            : $this->error($result['error'], 422);
+    }
+
+    public function segmentPreview(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->contacts()->evaluateSegment($this->uid(), (int) ($params['id'] ?? 0), [], 10);
+        return $this->success([
+            'count' => $result['count'] ?? 0,
+            'preview' => array_slice($result['data'] ?? [], 0, 10),
+        ]);
+    }
+
+    // ----- Suppressions -----
+
+    public function suppressions(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->contacts()->suppressions(
+            $this->uid(),
+            ['type' => $this->get('type'), 'q' => $this->get('q')],
+            (int) $this->get('page', 1),
+            (int) $this->get('per_page', 50)
+        );
+        return $this->success($result);
+    }
+
+    public function addSuppression(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->contacts()->addSuppression(
+            $this->uid(),
+            (string) $this->get('email'),
+            (string) $this->get('type', 'manual'),
+            $this->get('reason')
+        );
+        return $result['success']
+            ? $this->success([], 'تمت إضافة العنوان إلى قائمة الممنوعين')
+            : $this->error($result['error'], 422);
+    }
+
+    public function removeSuppression(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $this->contacts()->removeSuppression($this->uid(), (int) ($params['id'] ?? 0));
+        return $this->success([], 'تمت إزالة العنوان من قائمة الممنوعين');
+    }
+
+    // ============================================================
     //  API: Templates
     // ============================================================
 
@@ -600,7 +1411,120 @@ class EmailMarketingController extends Controller
         return $this->success([
             'templates' => (new EmailTemplate())->where(['user_id' => $this->uid()], ['created_at' => 'DESC']),
             'variables' => EmailRenderer::variables(),
+            'categories' => (new EmailTemplateEditorService())->categories(),
         ]);
+    }
+
+    /** معرض القوالب المدمجة + أنواع البلوكات للمحرر المرئي. */
+    public function templateCatalog(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $editor = new EmailTemplateEditorService();
+        return $this->success([
+            'catalog' => $editor->catalog(),
+            'categories' => $editor->categories(),
+            'block_types' => $editor->blockTypes(),
+        ]);
+    }
+
+    /** إنشاء قالب من معرض القوالب المدمجة. */
+    public function createTemplateFromGallery(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = (new EmailTemplateEditorService())->createFromCatalog($this->uid(), (string) $this->get('catalog_key', ''));
+        return $result['success']
+            ? $this->success(['id' => $result['id']], 'تم إضافة القالب إلى قوالبك')
+            : $this->error($result['error'], 422);
+    }
+
+    /** تحويل بلوكات JSON إلى HTML (يستخدمه المحرر المرئي للمعاينة). */
+    public function renderBlocks(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $raw = (string) $this->get('blocks', '[]');
+        $blocks = json_decode($raw, true);
+        if (!is_array($blocks)) {
+            return $this->error('بنية البلوكات غير صالحة', 422);
+        }
+        $html = (new EmailTemplateEditorService())->blocksToHtml($blocks);
+        return $this->success(['html' => $html]);
+    }
+
+    /** نسخ قالب مملوك. */
+    public function duplicateTemplate(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = (new EmailTemplateEditorService())->duplicateTemplate($this->uid(), (int) ($params['id'] ?? 0));
+        return $result['success']
+            ? $this->success(['id' => $result['id']], 'تم نسخ القالب')
+            : $this->error($result['error'], 404);
+    }
+
+    /** تفعيل/إلغاء المشاركة العامة لقالب (body: {enabled: true/false}). */
+    public function shareTemplate(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $enabled = filter_var($this->get('enabled', true), FILTER_VALIDATE_BOOLEAN);
+        $result = (new EmailTemplateEditorService())->setShared($this->uid(), (int) ($params['id'] ?? 0), $enabled);
+        if (!$result['success']) {
+            return $this->error($result['error'], 404);
+        }
+        $url = '';
+        if ($result['share_token']) {
+            $base = rtrim(defined('APP_URL') ? APP_URL : 'https://tourfecto.com', '/');
+            $url = $base . '/email-marketing/templates/shared/' . rawurlencode((string) $result['share_token']);
+        }
+        return $this->success(['share_token' => $result['share_token'], 'share_url' => $url], $enabled ? 'تم تفعيل المشاركة' : 'تم إيقاف المشاركة');
+    }
+
+    /** جلب قالب مشترك عامًا (بدون تحقق ملكية). */
+    public function getSharedTemplate(array $params = []): array
+    {
+        $shared = (new EmailTemplateEditorService())->byShareToken((string) ($params['token'] ?? ''));
+        if (!$shared) {
+            return $this->error('القالب المشترك غير موجود', 404);
+        }
+        return $this->success([
+            'name' => $shared['name'],
+            'subject' => $shared['subject'],
+            'category' => $shared['category'],
+            'blocks' => $shared['blocks'],
+            'html' => $shared['html_body'],
+        ]);
+    }
+
+    /** استيراد قالب مشترك إلى حساب المستخدم. */
+    public function importSharedTemplate(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = (new EmailTemplateEditorService())->importShared($this->uid(), (string) ($params['token'] ?? ''));
+        return $result['success']
+            ? $this->success(['id' => $result['id']], 'تم استيراد القالب إلى حسابك')
+            : $this->error($result['error'], 404);
+    }
+
+    /** نسخ حملة إلى مسودة جديدة. */
+    public function duplicateCampaign(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = (new EmailTemplateEditorService())->duplicateCampaign($this->uid(), (int) ($params['id'] ?? 0));
+        return $result['success']
+            ? $this->success(['id' => $result['id']], 'تم نسخ الحملة')
+            : $this->error($result['error'], 404);
     }
 
     public function createTemplate(array $params = []): array
@@ -615,7 +1539,9 @@ class EmailMarketingController extends Controller
             'user_id' => $this->uid(),
             'name' => trim((string) $this->get('name')),
             'subject' => (string) $this->get('subject', ''),
+            'category' => $this->get('category') ? (string) $this->get('category') : null,
             'html_body' => (string) $this->get('html_body', ''),
+            'blocks' => $this->get('blocks') !== null ? (string) $this->get('blocks') : null,
         ]);
         $id = $template->save();
         return $id ? $this->success(['id' => (int) $id], 'تم إنشاء القالب') : $this->error('تعذر الحفظ', 422);
@@ -630,7 +1556,9 @@ class EmailMarketingController extends Controller
         if (!$template || (int) $template->getAttribute('user_id') !== $this->uid()) {
             return $this->error('القالب غير موجود', 404);
         }
-        return $this->success($template->toArray());
+        $row = $template->toArray();
+        $row['blocks'] = json_decode((string) ($row['blocks'] ?? 'null'), true) ?: [];
+        return $this->success($row);
     }
 
     public function updateTemplate(array $params = []): array
@@ -642,7 +1570,7 @@ class EmailMarketingController extends Controller
         if (!$template || (int) $template->getAttribute('user_id') !== $this->uid()) {
             return $this->error('القالب غير موجود', 404);
         }
-        foreach (['name', 'subject', 'html_body'] as $field) {
+        foreach (['name', 'subject', 'html_body', 'blocks', 'category'] as $field) {
             if ($this->get($field) !== null) {
                 $template->setAttribute($field, (string) $this->get($field));
             }
@@ -854,6 +1782,103 @@ class EmailMarketingController extends Controller
         return $this->success($report);
     }
 
+    // ============================================================
+    //  API: Automations (المرحلة 3)
+    // ============================================================
+
+    private function automationService(): EmailAutomationService
+    {
+        return new EmailAutomationService();
+    }
+
+    public function automations(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        return $this->success([
+            'automations' => $this->automationService()->list($this->uid()),
+            'triggers' => EmailAutomation::triggers(),
+            'step_types' => EmailAutomationStep::types(),
+        ]);
+    }
+
+    public function createAutomation(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->automationService()->create($this->uid(), $this->all());
+        return $result['success']
+            ? $this->success(['id' => $result['id']], 'تم إنشاء سير العمل')
+            : $this->error($result['error'], 422);
+    }
+
+    public function getAutomation(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $automation = $this->automationService()->get($this->uid(), (int) ($params['id'] ?? 0));
+        if (!$automation) {
+            return $this->error('سير العمل غير موجود', 404);
+        }
+        return $this->success($automation);
+    }
+
+    public function updateAutomation(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->automationService()->update($this->uid(), (int) ($params['id'] ?? 0), $this->all());
+        return $result['success']
+            ? $this->success([], 'تم تحديث سير العمل')
+            : $this->error($result['error'], 422);
+    }
+
+    public function deleteAutomation(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->automationService()->delete($this->uid(), (int) ($params['id'] ?? 0));
+        return $result['success']
+            ? $this->success([], 'تم حذف سير العمل')
+            : $this->error($result['error'], 422);
+    }
+
+    public function setAutomationSteps(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->automationService()->setSteps($this->uid(), (int) ($params['id'] ?? 0), (array) $this->get('steps', []));
+        return $result['success']
+            ? $this->success([], 'تم حفظ الخطوات')
+            : $this->error($result['error'], 422);
+    }
+
+    public function setAutomationStatus(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->automationService()->setStatus($this->uid(), (int) ($params['id'] ?? 0), (string) $this->get('status'));
+        return $result['success']
+            ? $this->success([], 'تم تحديث الحالة')
+            : $this->error($result['error'], 422);
+    }
+
+    public function runAutomationsDue(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->automationService()->processDue();
+        return $this->success($result, 'تمت معالجة السير القادمة');
+    }
+
     public function stats(array $params = []): array
     {
         if (!$this->isAuthenticated()) {
@@ -1006,8 +2031,10 @@ class EmailMarketingController extends Controller
         $tabs = [
             'dashboard' => ['/email-marketing', '📊 لوحة التحكم'],
             'lists' => ['/email-marketing/lists', '👥 الجمهور'],
+            'contacts' => ['/email-marketing/contacts', '📇 جهات الاتصال'],
             'templates' => ['/email-marketing/templates', '🎨 القوالب'],
             'campaigns' => ['/email-marketing/campaigns', '🚀 الحملات'],
+            'automations' => ['/email-marketing/automations', '⚙️ الأتمتة'],
             'reports' => ['/email-marketing/reports', '📈 التقارير'],
         ];
         $html = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">';
@@ -1222,6 +2249,8 @@ class EmailMarketingController extends Controller
     private function templatesJs(): string
     {
         return <<<'JS'
+        let activeTemplatesTab = 'mine';
+        const CATEGORY_LABELS = {'welcome':'ترحيب','newsletter':'نشرة إخبارية','promo':'ترويجي','event':'أحداث','transactional':'معاملات','holiday':'مناسبات'};
         async function emApi(path, opts) {
             const res = await fetch('/api/email-marketing' + path, opts || {});
             return res.json();
@@ -1231,19 +2260,96 @@ class EmailMarketingController extends Controller
             if (!r.success) return;
             const list = r.data.templates || [];
             document.getElementById('emTemplatesGrid').innerHTML = list.length ? `
-                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;">
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;">
                     ${list.map(t => `
-                        <div style="border:1px solid #e5e7eb;border-radius:12px;padding:14px;">
-                            <div style="font-weight:600;">${t.name}</div>
-                            <div style="font-size:12px;color:#6b7280;margin:6px 0;">${t.subject || 'بدون موضوع'}</div>
-                            <div style="font-size:11px;color:#9ca3af;">${(t.html_body || '').length} حرف</div>
-                            <div style="margin-top:10px;display:flex;gap:6px;">
-                                <button class="p-btn xs" onclick="editTemplate(${t.id})">تعديل</button>
+                        <div style="border:1px solid #e5e7eb;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px;">
+                            <div style="font-weight:600;display:flex;align-items:center;gap:6px;">
+                                ${t.name}
+                                ${t.category ? `<span class="em-tag-pill" style="font-size:10px;">${CATEGORY_LABELS[t.category] || t.category}</span>` : ''}
+                                ${t.share_token ? '<span class="em-tag-pill" style="font-size:10px;background:#064e3b;">مُشارك</span>' : ''}
+                            </div>
+                            <div style="font-size:12px;color:#6b7280;">${t.subject || 'بدون موضوع'}</div>
+                            <div style="font-size:11px;color:#9ca3af;">${(t.html_body || '').length} حرف${t.blocks ? ' · بلوكات' : ''}</div>
+                            <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+                                <button class="p-btn xs" onclick="window.location.href='/email-marketing/templates/builder?template_id=${t.id}'">🎨 تحرير</button>
                                 <button class="p-btn xs" onclick="previewT(${t.id})">👁 معاينة</button>
+                                <button class="p-btn xs" onclick="duplicateTemplate(${t.id})">⧉ نسخ</button>
+                                <button class="p-btn xs" onclick="shareTemplate(${t.id})">🔗</button>
                                 <button class="p-btn xs danger" onclick="removeTemplate(${t.id})">حذف</button>
                             </div>
                         </div>`).join('')}
-                </div>` : '<p class="p-cell-muted" style="padding:16px;">لا توجد قوالب — أنشئ قالبًا لتسرّع بناء الحملات.</p>';
+                </div>` : '<p class="p-cell-muted" style="padding:16px;">لا توجد قوالب — استخدم المعرض أو المحرر البصري لبناء أول قالب.</p>';
+        }
+        async function loadGallery() {
+            const r = await emApi('/templates/catalog');
+            if (!r.success) return;
+            const catalog = Object.entries(r.data.catalog || {});
+            const cats = [['all','الكل'], ...Object.entries(r.data.categories || {})];
+            let filter = 'all';
+            document.getElementById('emGalleryGrid').innerHTML = `
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
+                    ${cats.map(([k,v]) => `<button class="p-btn xs ${filter===k?'primary':''}" data-cat="${k}" onclick="filterGallery('${k}')">${v}</button>`).join('')}
+                </div>
+                <div id="emGalleryCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;">
+                    ${catalog.map(([key,item]) => `
+                        <div class="gallery-card" data-cat="${item.category}" style="border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;">
+                            <div style="height:120px;background:linear-gradient(135deg,#1e3a8a,#7c3aed);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:15px;padding:10px;text-align:center;">${item.name}</div>
+                            <div style="padding:12px;display:flex;flex-direction:column;gap:6px;flex:1;">
+                                <div style="font-size:12px;color:#6b7280;">${item.description}</div>
+                                <div style="font-size:11px;color:#9ca3af;">${CATEGORY_LABELS[item.category] || item.category}</div>
+                                <div style="margin-top:auto;display:flex;gap:6px;">
+                                    <button class="p-btn primary xs" onclick="useGallery('${key}')">استخدم القالب</button>
+                                    <button class="p-btn xs" onclick="window.location.href='/email-marketing/templates/builder?gallery=${key}'">🎨 تخصيص</button>
+                                </div>
+                            </div>
+                        </div>`).join('')}
+                </div>`;
+            window.galleryCat = 'all';
+        }
+        function filterGallery(cat) {
+            window.galleryCat = cat;
+            document.querySelectorAll('.gallery-card').forEach(c => {
+                c.style.display = (cat === 'all' || c.dataset.cat === cat) ? '' : 'none';
+            });
+            document.querySelectorAll('#emGalleryGrid [data-cat]').forEach(b => b.classList.toggle('primary', b.dataset.cat === cat));
+        }
+        function switchTemplatesTab(tab) {
+            activeTemplatesTab = tab;
+            document.getElementById('emTemplatesGrid').style.display = tab === 'mine' ? '' : 'none';
+            document.getElementById('emGalleryGrid').style.display = tab === 'gallery' ? '' : 'none';
+            if (tab === 'gallery' && !window.galleryLoaded) { window.galleryLoaded = true; loadGallery(); }
+            const btns = document.querySelectorAll('button[onclick^="switchTemplatesTab"]');
+            btns.forEach(b => b.classList.toggle('primary', b.textContent.includes(tab === 'mine' ? 'قوالبك' : 'المعرض')));
+        }
+        async function useGallery(key) {
+            const r = await emApi('/templates/from-gallery', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({catalog_key: key})});
+            if (r.success) { alert('تم إضافة القالب إلى قوالبك'); loadTemplates(); switchTemplatesTab('mine'); }
+            else alert(r.error);
+        }
+        async function duplicateTemplate(id) {
+            const r = await emApi('/templates/' + id + '/duplicate', {method:'POST'});
+            if (r.success) loadTemplates(); else alert(r.error);
+        }
+        let currentShareId = null;
+        async function shareTemplate(id) {
+            const r = await emApi('/templates/' + id + '/share', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({enabled:true})});
+            if (r.success) {
+                currentShareId = id;
+                document.getElementById('shareUrl').value = window.location.origin + '/email-marketing/templates/shared/' + (r.data.share_token || '');
+                document.getElementById('shareModal').classList.add('open');
+                loadTemplates();
+            } else alert(r.error);
+        }
+        async function stopSharing() {
+            if (!currentShareId) return;
+            const r = await emApi('/templates/' + currentShareId + '/share', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({enabled:false})});
+            if (r.success) { document.getElementById('shareModal').classList.remove('open'); loadTemplates(); }
+            else alert(r.error);
+        }
+        function copyShareUrl() {
+            const el = document.getElementById('shareUrl');
+            el.select(); document.execCommand('copy');
+            alert('تم نسخ الرابط');
         }
         function openTemplateModal(id, name, subject, html) {
             document.getElementById('templateModalTitle').textContent = id ? 'تعديل القالب' : 'قالب جديد';
@@ -1251,7 +2357,6 @@ class EmailMarketingController extends Controller
             document.getElementById('templateName').value = name || '';
             document.getElementById('templateSubject').value = subject || '';
             document.getElementById('templateHtml').value = html || '';
-            document.getElementById('templateModal').classList.add('add');
             document.getElementById('templateModal').classList.add('open');
         }
         function editTemplate(id) {
@@ -1303,6 +2408,165 @@ class EmailMarketingController extends Controller
         JS;
     }
 
+    private function builderJs(string $initialBlocks, int $saveTarget): string
+    {
+        $blocks = str_replace('</', '<\\/', (string) $initialBlocks);
+        $target = $saveTarget;
+        $js = <<<'JS'
+        const INITIAL_BLOCKS = __INITIAL_BLOCKS__;
+        const SAVE_TARGET = __SAVE_TARGET__;
+        let bdBlocks = [];
+        let bdSelected = -1;
+        const BLOCK_TYPES = [
+            {type:'text', label:'نص', icon:'📝'},
+            {type:'heading', label:'عنوان', icon:'🅷'},
+            {type:'image', label:'صورة', icon:'🖼'},
+            {type:'button', label:'زر', icon:'🔘'},
+            {type:'divider', label:'فاصل', icon:'➖'},
+            {type:'spacer', label:'مسافة', icon:'⬜'},
+            {type:'social', label:'سوشيال', icon:'🌐'},
+            {type:'html', label:'كود HTML', icon:'💻'}
+        ];
+        const FIELD_DEFS = {
+            text: [ {k:'content', label:'المحتوى', type:'textarea'} ],
+            heading: [ {k:'text', label:'النص', type:'text'}, {k:'level', label:'الحجم', type:'select', opts:[['h1','عنوان 1'],['h2','عنوان 2'],['h3','عنوان 3'],['h4','عنوان 4']]}, {k:'align', label:'المحاذاة', type:'select', opts:[['right','يمين'],['center','وسط'],['left','يسار']]} ],
+            image: [ {k:'src', label:'رابط الصورة', type:'text'}, {k:'alt', label:'نص بديل', type:'text'}, {k:'width', label:'العرض (px)', type:'number'}, {k:'url', label:'رابط عند النقر', type:'text'} ],
+            button: [ {k:'text', label:'نص الزر', type:'text'}, {k:'url', label:'الرابط', type:'text'}, {k:'bg', label:'لون الخلفية', type:'color'}, {k:'color', label:'لون النص', type:'color'} ],
+            divider: [ {k:'color', label:'اللون', type:'color'}, {k:'thickness', label:'السماكة (px)', type:'number'} ],
+            spacer: [ {k:'height', label:'الارتفاع (px)', type:'number'} ],
+            social: [ {k:'networks', label:'الشبكات', type:'checkboxes', opts:['facebook','twitter','instagram','linkedin','youtube','whatsapp']} ],
+            html: [ {k:'html', label:'كود HTML', type:'textarea'} ]
+        };
+        const NET_LABELS = {facebook:'فيسبوك', twitter:'إكس', instagram:'إنستغرام', linkedin:'لينكدإن', youtube:'يوتيوب', whatsapp:'واتساب'};
+
+        async function emApiBuilder(path, opts) {
+            const res = await fetch('/api/email-marketing' + path, opts || {});
+            return res.json();
+        }
+        function defaultBlock(type) {
+            const base = {
+                text: {type:'text', content:'<p>اكتب نصك هنا. يمكنك إدراج المتغيرات مثل {{first_name}}.</p>'},
+                heading: {type:'heading', text:'عنوان رئيسي', level:'h2', align:'right'},
+                image: {type:'image', src:'', alt:'', width:'600', url:''},
+                button: {type:'button', text:'اضغط هنا', url:'https://example.com', bg:'#2563eb', color:'#ffffff'},
+                divider: {type:'divider', color:'#e5e7eb', thickness:'1'},
+                spacer: {type:'spacer', height:'24'},
+                social: {type:'social', networks:['facebook','twitter','instagram','linkedin']},
+                html: {type:'html', html:'<div style="background:#f3f4f6;padding:16px;border-radius:8px;">كود مخصص</div>'}
+            };
+            return JSON.parse(JSON.stringify(base[type] || base.text));
+        }
+        function renderPalette() {
+            document.getElementById('bdPalette').innerHTML = BLOCK_TYPES.map(bt =>
+                `<button class="p-btn xs" style="justify-content:flex-start;text-align:right;" onclick="addBlock('${bt.type}')">${bt.icon} ${bt.label}</button>`
+            ).join('');
+        }
+        function addBlock(type) {
+            bdBlocks.push(defaultBlock(type));
+            bdSelected = bdBlocks.length - 1;
+            renderAll();
+        }
+        function moveBlock(i, dir) {
+            const j = i + dir;
+            if (j < 0 || j >= bdBlocks.length) return;
+            [bdBlocks[i], bdBlocks[j]] = [bdBlocks[j], bdBlocks[i]];
+            bdSelected = j;
+            renderAll();
+        }
+        function removeBlock(i) {
+            bdBlocks.splice(i, 1);
+            if (bdSelected >= bdBlocks.length) bdSelected = bdBlocks.length - 1;
+            renderAll();
+        }
+        function selectBlock(i) {
+            bdSelected = i;
+            renderAll();
+        }
+        function renderAll() {
+            renderBlocksList();
+            renderBlocks();
+            renderInspector();
+        }
+        function renderBlocksList() {
+            const wrap = document.getElementById('bdBlocksBar');
+            if (!bdBlocks.length) { wrap.innerHTML = '<p class="p-cell-muted" style="padding:8px;">أضف بلوكات من القائمة الجانبية.</p>'; return; }
+            wrap.innerHTML = bdBlocks.map((b, i) => {
+                const def = BLOCK_TYPES.find(t => t.type === b.type) || {label:b.type, icon:'🧩'};
+                const sel = i === bdSelected ? 'background:#0b2436;border-color:#3b82f6;' : '';
+                return `<div style="display:flex;align-items:center;gap:8px;background:#0b2436;border:1px solid ${i===bdSelected?'#3b82f6':'#1f2937'};border-radius:8px;padding:6px 10px;cursor:pointer;${sel}" onclick="selectBlock(${i})">
+                    <span>${def.icon}</span>
+                    <span style="flex:1;font-size:13px;">${def.label} #${i+1}</span>
+                    <button class="p-btn xs" onclick="event.stopPropagation();moveBlock(${i},-1)">↑</button>
+                    <button class="p-btn xs" onclick="event.stopPropagation();moveBlock(${i},1)">↓</button>
+                    <button class="p-btn xs danger" onclick="event.stopPropagation();removeBlock(${i})">×</button>
+                </div>`;
+            }).join('');
+        }
+        async function renderBlocks() {
+            const r = await emApiBuilder('/templates/blocks/render', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({blocks: JSON.stringify(bdBlocks)})});
+            const html = r.success ? r.data.html : '<div style="color:#f87171;padding:12px;">تعذر عرض المعاينة</div>';
+            document.getElementById('bdCanvas').innerHTML = `<iframe sandbox="" style="width:100%;min-height:520px;border:none;border-radius:8px;background:#fff;" srcdoc="${encodeURI(html)}"></iframe>`;
+        }
+        function renderInspector() {
+            const el = document.getElementById('bdInspector');
+            if (bdSelected < 0 || bdSelected >= bdBlocks.length) { el.innerHTML = '<p class="p-cell-muted">اختر بلوكًا من القائمة للتحرير.</p>'; return; }
+            const b = bdBlocks[bdSelected];
+            const defs = FIELD_DEFS[b.type] || [];
+            el.innerHTML = defs.map(f => {
+                let val = b[f.k];
+                if (f.type === 'checkboxes') {
+                    const list = Array.isArray(val) ? val : [];
+                    return `<label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">${f.label}</label>` + f.opts.map(o =>
+                        `<label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:4px;"><input type="checkbox" value="${o}" ${list.includes(o)?'checked':''} onchange="setField(${bdSelected},'${f.k}',Array.from(document.querySelectorAll('#bdInspector input[type=checkbox]:checked')).map(x=>x.value))"> ${NET_LABELS[o]||o}</label>`).join('');
+                }
+                if (f.type === 'select') {
+                    return `<label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">${f.label}</label><select class="p-select" style="width:100%;margin-bottom:10px;" onchange="setField(${bdSelected},'${f.k}',this.value)">` + f.opts.map(o => `<option value="${o[0]}" ${String(val)===o[0]?'selected':''}>${o[1]}</option>`).join('') + '</select>';
+                }
+                if (f.type === 'color') {
+                    return `<label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">${f.label}</label><input type="color" value="${val||'#000000'}" class="p-select" style="width:100%;height:36px;margin-bottom:10px;padding:2px;" onchange="setField(${bdSelected},'${f.k}',this.value)">`;
+                }
+                if (f.type === 'textarea') {
+                    return `<label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">${f.label}</label><textarea class="p-select" style="width:100%;min-height:110px;margin-bottom:10px;font-family:monospace;font-size:12px;" oninput="setField(${bdSelected},'${f.k}',this.value)">${String(val||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`;
+                }
+                return `<label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">${f.label}</label><input type="${f.type}" value="${String(val||'').replace(/"/g,'&quot;')}" class="p-select" style="width:100%;margin-bottom:10px;" oninput="setField(${bdSelected},'${f.k}',this.value)">`;
+            }).join('') + `<button class="p-btn xs danger" style="margin-top:6px;" onclick="removeBlock(${bdSelected})">حذف البلوك</button>`;
+        }
+        function setField(i, k, v) {
+            if (i < 0 || i >= bdBlocks.length) return;
+            bdBlocks[i][k] = v;
+            renderBlocks();
+        }
+        async function previewBuilder() {
+            const r = await emApiBuilder('/templates/blocks/render', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({blocks: JSON.stringify(bdBlocks)})});
+            if (!r.success) return;
+            const name = document.getElementById('bdName').value;
+            const subject = document.getElementById('bdSubject').value;
+            window.open('', '_blank').document.write('<html><head><title>' + name + '</title></head><body>' + r.data.html + '</body></html>');
+        }
+        async function saveBuilder() {
+            const name = document.getElementById('bdName').value.trim();
+            if (!name) { alert('اسم القالب مطلوب'); return; }
+            const subject = document.getElementById('bdSubject').value;
+            const r1 = await emApiBuilder('/templates/blocks/render', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({blocks: JSON.stringify(bdBlocks)})});
+            if (!r1.success) { alert('تعذر توليد HTML'); return; }
+            const body = { name: name, subject: subject, blocks: JSON.stringify(bdBlocks), html_body: r1.data.html };
+            const path = SAVE_TARGET ? '/templates/' + SAVE_TARGET : '/templates';
+            const opts = {method: SAVE_TARGET ? 'PATCH' : 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)};
+            const r = await emApiBuilder(path, opts);
+            if (r.success) { alert('تم حفظ القالب'); window.location.href = '/email-marketing/templates'; }
+            else alert(r.error);
+        }
+        try { bdBlocks = JSON.parse(INITIAL_BLOCKS || '[]'); if (!Array.isArray(bdBlocks)) bdBlocks = []; } catch(e) { bdBlocks = []; }
+        renderPalette();
+        renderAll();
+        JS;
+        return str_replace(
+            ['__INITIAL_BLOCKS__', '__SAVE_TARGET__'],
+            [$blocks, $target],
+            $js
+        );
+    }
+
     private function campaignsJs(): string
     {
         return <<<'JS'
@@ -1334,6 +2598,7 @@ class EmailMarketingController extends Controller
                                 ${canAct(c.status) ? `<button class="p-btn xs primary" onclick="sendNow(${c.id})">إرسال</button>` : ''}
                                 ${c.status === 'scheduled' ? `<button class="p-btn xs danger" onclick="cancelC(${c.id})">إلغاء</button>` : ''}
                                 ${['draft','scheduled','cancelled'].includes(c.status) ? `<button class="p-btn xs" onclick="editCampaign(${c.id})">تعديل</button>` : ''}
+                                ${['draft','scheduled','cancelled'].includes(c.status) ? `<button class="p-btn xs" onclick="duplicateC(${c.id})">⧉ نسخ</button>` : ''}
                                 ${['draft','cancelled'].includes(c.status) ? `<button class="p-btn xs danger" onclick="deleteC(${c.id})">حذف</button>` : ''}
                                 <a class="p-btn xs" href="/email-marketing/campaigns/${c.id}">تقرير</a>
                             </td>
@@ -1407,6 +2672,10 @@ class EmailMarketingController extends Controller
         async function cancelC(id) {
             if (!confirm('إلغاء هذه الحملة المجدولة؟')) return;
             const r = await emApi('/campaigns/' + id + '/cancel', {method:'POST'});
+            if (r.success) loadCampaigns(); else alert(r.error);
+        }
+        async function duplicateC(id) {
+            const r = await emApi('/campaigns/' + id + '/duplicate', {method:'POST'});
             if (r.success) loadCampaigns(); else alert(r.error);
         }
         async function deleteC(id) {
@@ -1529,6 +2798,728 @@ class EmailMarketingController extends Controller
                 </table>` : '<p class="p-cell-muted" style="padding:16px;">لا توجد حملات مُرسلة بعد.</p>';
         }
         loadStats();
+        JS;
+    }
+
+    private function contactsJs(): string
+    {
+        return <<<'JS'
+        async function emApi(path, opts) {
+            const res = await fetch('/api/email-marketing' + path, opts || {});
+            return res.json();
+        }
+        async function emPost(path, body) {
+            const headers = { 'Content-Type': 'application/json' };
+            return emApi(path, { method: 'POST', headers, body: JSON.stringify(body) });
+        }
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+        let emContactPage = 1;
+        let emCFields = [];
+        let emCTags = [];
+        let emCStatus = 'subscribed';
+        let emCListId = 0;
+        let emCQ = '';
+
+        function switchContactTab(tab) {
+            document.querySelectorAll('#emContactSubTabs .p-btn').forEach(b => {
+                b.classList.toggle('primary', b.dataset.ctab === tab);
+            });
+            document.getElementById('emContactOverview').style.display = tab === 'overview' ? '' : 'none';
+            document.getElementById('emContactFields').style.display = tab === 'fields' ? '' : 'none';
+            document.getElementById('emContactTags').style.display = tab === 'tags' ? '' : 'none';
+            document.getElementById('emContactSegments').style.display = tab === 'segments' ? '' : 'none';
+            document.getElementById('emContactSuppressions').style.display = tab === 'suppressions' ? '' : 'none';
+            if (tab === 'overview') { loadContactOverview(); loadContactSubscribers(); }
+            if (tab === 'fields') loadFields();
+            if (tab === 'tags') loadTags();
+            if (tab === 'segments') loadSegments();
+            if (tab === 'suppressions') loadSuppressions();
+        }
+
+        async function loadContactOverview() {
+            const [subs, lists, tags, segs, supps, custom] = await Promise.all([
+                emApi('/subscribers?per_page=1'),
+                emApi('/lists'),
+                emApi('/contacts/tags'),
+                emApi('/contacts/segments'),
+                emApi('/contacts/suppressions?per_page=1'),
+                emApi('/contacts/custom-fields'),
+            ]);
+            emCFields = custom.fields || [];
+            emCTags = tags.tags || [];
+            let html = '';
+            const cards = [
+                ['👥', subs.total ?? 0, 'إجمالي جهات الاتصال'],
+                ['✅', subs.data.filter(s => s.status === 'subscribed').length, 'نشطون الآن'],
+                ['🚫', supps.total ?? 0, 'في قائمة الممنوعين'],
+                ['🧩', (segs.segments || []).length, 'شريحة'],
+                ['🏷️', emCFields.length, 'حقل مخصص'],
+                ['📛', emCTags.length, 'وسم'],
+            ];
+            html = cards.map(([ic, val, lbl]) => `
+                <div class="p-cell" style="text-align:center;padding:18px 10px;">
+                    <div style="font-size:24px;">${ic}</div>
+                    <div style="font-size:20px;font-weight:700;margin-top:4px;">${val}</div>
+                    <div style="font-size:12px;color:#6b7280;">${esc(lbl)}</div>
+                </div>`).join('');
+            document.getElementById('emContactStats').innerHTML = html;
+
+            const listSel = document.getElementById('emCListFilter');
+            listSel.innerHTML = '<option value="0">كل القوائم</option>' + (lists.lists || []).map(l =>
+                `<option value="${l.id}">${esc(l.name)} (${l.actual_count})</option>`).join('');
+            listSel.value = emCListId;
+        }
+
+        async function loadContactSubscribers() {
+            emCListId = parseInt(document.getElementById('emCListFilter').value || '0');
+            emCStatus = document.getElementById('emCStatusFilter').value || '';
+            emCQ = document.getElementById('emCSearch').value || '';
+            const q = `per_page=20&page=${emContactPage}&list_id=${emCListId}&status=${encodeURIComponent(emCStatus)}&q=${encodeURIComponent(emCQ)}`;
+            const r = await emApi('/subscribers?' + q);
+            const rows = (r.data || []).map(s => `
+                <tr>
+                    <td><b>${esc(s.email)}</b></td>
+                    <td>${esc(s.name || '-')}</td>
+                    <td>${s.status === 'subscribed' ? '✅' : s.status === 'unsubscribed' ? '🚫' : '⚠️'} ${esc(s.status)}</td>
+                    <td>${s.list_count || 0}</td>
+                    <td>${s.engagement_score || 0}</td>
+                    <td>${esc((s.created_at || '').slice(0, 10))}</td>
+                    <td><a class="p-btn xs" href="/email-marketing/contacts/${s.id}">عرض</a></td>
+                </tr>`).join('');
+            document.getElementById('emContactsTable').innerHTML = r.data.length
+                ? `<table class="p-table"><thead><tr><th>البريد</th><th>الاسم</th><th>الحالة</th><th>القوائم</th><th>التفاعل</th><th>تاريخ الإضافة</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+                : '<p class="p-cell-muted" style="padding:16px;">لا توجد جهات اتصال.</p>';
+            document.getElementById('emCSubCountLabel').textContent = `(${r.total})`;
+            const pages = Math.max(1, Math.ceil((r.total || 0) / 20));
+            document.getElementById('emContactsPager').innerHTML =
+                `<button class="p-btn xs" onclick="emContactPage=Math.max(1,emContactPage-1);loadContactSubscribers()">‹</button>
+                 <span style="margin:0 10px;">${emContactPage} / ${pages}</span>
+                 <button class="p-btn xs" onclick="emContactPage=Math.min(${pages},emContactPage+1);loadContactSubscribers()">›</button>`;
+        }
+
+        async function exportContacts() {
+            const list = parseInt(document.getElementById('emCListFilter').value || '0');
+            const q = `format=csv&list_id=${list}&status=${encodeURIComponent(emCStatus)}`;
+            const r = await emApi('/subscribers/export?' + q);
+            if (!r.data) return;
+            const blob = new Blob([r.data], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'contacts.csv';
+            a.click();
+        }
+
+        // ----- Custom fields -----
+        async function loadFields() {
+            const r = await emApi('/contacts/custom-fields');
+            const rows = (r.fields || []).map(f => `
+                <tr>
+                    <td><code>{{custom.${esc(f.name)}}}</code></td>
+                    <td>${esc(f.label)}</td>
+                    <td>${esc(f.field_type)}</td>
+                    <td>${f.is_system ? 'نظامي' : f.is_required ? 'مطلوب' : '-'}</td>
+                    <td style="text-align:left;">
+                        ${f.is_system ? '' : `<button class="p-btn xs" onclick="openFieldModal(${f.id})">تعديل</button>
+                        <button class="p-btn xs" onclick="deleteField(${f.id})">حذف</button>`}
+                    </td>
+                </tr>`).join('');
+            document.getElementById('emFieldsTable').innerHTML = r.fields.length
+                ? `<table class="p-table"><thead><tr><th>المتغير</th><th>التسمية</th><th>النوع</th><th>الخاصية</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+                : '<p class="p-cell-muted" style="padding:16px;">لا توجد حقول مخصصة.</p>';
+        }
+        function openFieldModal(id) {
+            document.getElementById('fieldId').value = id || '';
+            if (id) {
+                const f = emCFields.find(x => x.id === id);
+                if (f) {
+                    document.getElementById('fieldName').value = f.name;
+                    document.getElementById('fieldLabel').value = f.label;
+                    document.getElementById('fieldType').value = f.field_type;
+                    document.getElementById('fieldOptions').value = (f.options || []).join(', ');
+                    toggleFieldOptions();
+                }
+            } else {
+                ['fieldName', 'fieldLabel', 'fieldOptions'].forEach(i => document.getElementById(i).value = '');
+                document.getElementById('fieldType').value = 'text';
+                toggleFieldOptions();
+            }
+            document.getElementById('fieldModal').classList.add('open');
+        }
+        function toggleFieldOptions() {
+            const t = document.getElementById('fieldType').value;
+            document.getElementById('fieldOptionsWrap').style.display = ['select', 'multi_select'].includes(t) ? '' : 'none';
+        }
+        async function saveField() {
+            const id = document.getElementById('fieldId').value;
+            const body = {
+                name: document.getElementById('fieldName').value,
+                label: document.getElementById('fieldLabel').value,
+                field_type: document.getElementById('fieldType').value,
+                options: document.getElementById('fieldOptions').value,
+                is_required: document.getElementById('fieldRequired').checked,
+            };
+            const r = id ? await emApi('/contacts/custom-fields/' + id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+                          : await emPost('/contacts/custom-fields', body);
+            if (r.success) { document.getElementById('fieldModal').classList.remove('open'); loadFields(); }
+            else alert(r.error || 'حدث خطأ');
+        }
+        async function deleteField(id) {
+            if (!confirm('حذف الحقل؟')) return;
+            const r = await emApi('/contacts/custom-fields/' + id, { method: 'DELETE' });
+            if (r.success) loadFields();
+        }
+
+        // ----- Tags -----
+        async function loadTags() {
+            const r = await emApi('/contacts/tags');
+            const rows = (r.tags || []).map(t => `
+                <tr>
+                    <td><span class="em-tag-pill" style="background:${t.color || '#0b2436'};">${esc(t.name)}</span></td>
+                    <td>${t.subscriber_count || 0} مشترك</td>
+                    <td style="text-align:left;">
+                        <button class="p-btn xs" onclick="openTagModal(${t.id})">تعديل</button>
+                        <button class="p-btn xs" onclick="deleteTag(${t.id})">حذف</button>
+                    </td>
+                </tr>`).join('');
+            document.getElementById('emTagsTable').innerHTML = r.tags.length
+                ? `<table class="p-table"><thead><tr><th>الوسم</th><th>المشتركون</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+                : '<p class="p-cell-muted" style="padding:16px;">لا توجد وسوم.</p>';
+        }
+        function openTagModal(id) {
+            document.getElementById('tagId').value = id || '';
+            if (id) {
+                const t = emCTags.find(x => x.id === id);
+                if (t) {
+                    document.getElementById('tagName').value = t.name;
+                    document.getElementById('tagColor').value = t.color || '#0077be';
+                }
+            } else {
+                document.getElementById('tagName').value = '';
+                document.getElementById('tagColor').value = '#0077be';
+            }
+            document.getElementById('tagModal').classList.add('open');
+        }
+        async function saveTag() {
+            const id = document.getElementById('tagId').value;
+            const body = { name: document.getElementById('tagName').value, color: document.getElementById('tagColor').value };
+            const r = id ? await emApi('/contacts/tags/' + id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+                          : await emPost('/contacts/tags', body);
+            if (r.success) { document.getElementById('tagModal').classList.remove('open'); loadTags(); }
+            else alert(r.error || 'حدث خطأ');
+        }
+        async function deleteTag(id) {
+            if (!confirm('حذف الوسم؟')) return;
+            const r = await emApi('/contacts/tags/' + id, { method: 'DELETE' });
+            if (r.success) loadTags();
+        }
+
+        // ----- Segments -----
+        async function loadSegments() {
+            const r = await emApi('/contacts/segments');
+            const rows = (r.segments || []).map(s => `
+                <tr>
+                    <td><b>${esc(s.name)}</b></td>
+                    <td>${esc(s.description || '-')}</td>
+                    <td><span class="em-seg-badge">${s.subscriber_count} جهة</span></td>
+                    <td>${(s.conditions || []).length} شرط</td>
+                    <td style="text-align:left;">
+                        <button class="p-btn xs" onclick="openSegmentModal(${s.id})">تعديل</button>
+                        <button class="p-btn xs" onclick="deleteSegment(${s.id})">حذف</button>
+                    </td>
+                </tr>`).join('');
+            document.getElementById('emSegmentsTable').innerHTML = r.segments.length
+                ? `<table class="p-table"><thead><tr><th>الاسم</th><th>الوصف</th><th>النتيجة</th><th>الشروط</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+                : '<p class="p-cell-muted" style="padding:16px;">لا توجد شرائح. أنشئ شريحة لاستهداف شرائح محددة من جمهورك.</p>';
+        }
+        function openSegmentModal(id) {
+            document.getElementById('segmentId').value = id || '';
+            const seg = id ? (emSegs || []).find(x => x.id === id) : null;
+            document.getElementById('segmentName').value = seg ? seg.name : '';
+            document.getElementById('segmentDesc').value = seg ? (seg.description || '') : '';
+            document.getElementById('segmentMatchAll').value = seg ? (seg.match_all ? '1' : '0') : '1';
+            document.getElementById('segmentConditions').innerHTML = '';
+            const conds = seg && seg.conditions ? seg.conditions : [{ field: 'status', operator: 'is', value: 'subscribed' }];
+            conds.forEach(c => addSegmentCondition(c));
+            document.getElementById('segmentModal').classList.add('open');
+            updateSegmentLive();
+        }
+        function segmentFieldOptions() {
+            let opts = '<option value="status">الحالة</option><option value="email">البريد</option><option value="name">الاسم</option>';
+            opts += '<option value="created_at">تاريخ الإضافة</option><option value="engagement_score">درجة التفاعل</option>';
+            opts += '<option value="language">اللغة</option><option value="has_tag">يملك وسم</option><option value="not_has_tag">لا يملك وسم</option>';
+            opts += '<option value="in_list">في قائمة</option><option value="not_in_list">ليس في قائمة</option>';
+            opts += '<option value="opened">فتح أي بريد</option><option value="not_opened">لم يفتح</option><option value="clicked">نقر أي بريد</option><option value="not_clicked">لم ينقر</option>';
+            (emCFields || []).forEach(f => opts += `<option value="custom:${esc(f.name)}">حقل: ${esc(f.label)}</option>`);
+            return opts;
+        }
+        function addSegmentCondition(cond) {
+            cond = cond || { field: 'status', operator: 'is', value: '' };
+            const div = document.createElement('div');
+            div.className = 'em-condition-row';
+            div.innerHTML = `
+                <select class="p-select" onchange="updateSegmentLive()">${segmentFieldOptions().replace(`value="${esc(cond.field)}"`, `value="${esc(cond.field)}" selected`)}</select>
+                <select class="p-select" onchange="updateSegmentLive()">
+                    <option value="is" ${cond.operator==='is'?'selected':''}>يساوي</option>
+                    <option value="is_not" ${cond.operator==='is_not'?'selected':''}>لا يساوي</option>
+                    <option value="contains" ${cond.operator==='contains'?'selected':''}>يحتوي</option>
+                    <option value="starts_with" ${cond.operator==='starts_with'?'selected':''}>يبدأ بـ</option>
+                    <option value="ends_with" ${cond.operator==='ends_with'?'selected':''}>ينتهي بـ</option>
+                    <option value="greater_than" ${cond.operator==='greater_than'?'selected':''}>></option>
+                    <option value="less_than" ${cond.operator==='less_than'?'selected':''}><</option>
+                    <option value="is_empty" ${cond.operator==='is_empty'?'selected':''}>فارغ</option>
+                    <option value="is_not_empty" ${cond.operator==='is_not_empty'?'selected':''}>غير فارغ</option>
+                </select>
+                <input type="text" class="p-select" value="${esc(cond.value)}" placeholder="القيمة" onkeyup="updateSegmentLive()">
+                <button class="p-btn xs" onclick="this.parentNode.remove();updateSegmentLive()">×</button>`;
+            document.getElementById('segmentConditions').appendChild(div);
+        }
+        async function updateSegmentLive() {
+            const conditions = [];
+            document.querySelectorAll('#segmentConditions .em-condition-row').forEach(row => {
+                conditions.push({ field: row.children[0].value, operator: row.children[1].value, value: row.children[2].value });
+            });
+            document.getElementById('segmentLiveCount').textContent = `جارٍ حساب النتيجة...`;
+            if (!document.getElementById('segmentId').value) return;
+            const r = await emApi(`/contacts/segments/${document.getElementById('segmentId').value}/preview`);
+            if (r.success) document.getElementById('segmentLiveCount').textContent = `النتيجة الحالية: ${r.count} جهة اتصال`;
+        }
+        async function saveSegment() {
+            const id = document.getElementById('segmentId').value;
+            const conditions = [];
+            document.querySelectorAll('#segmentConditions .em-condition-row').forEach(row => {
+                conditions.push({ field: row.children[0].value, operator: row.children[1].value, value: row.children[2].value });
+            });
+            const body = {
+                name: document.getElementById('segmentName').value,
+                description: document.getElementById('segmentDesc').value,
+                match_all: document.getElementById('segmentMatchAll').value === '1',
+                conditions,
+            };
+            const r = id ? await emApi('/contacts/segments/' + id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+                          : await emPost('/contacts/segments', body);
+            if (r.success) { document.getElementById('segmentModal').classList.remove('open'); loadSegments(); }
+            else alert(r.error || 'حدث خطأ');
+        }
+        async function deleteSegment(id) {
+            if (!confirm('حذف الشريحة؟')) return;
+            const r = await emApi('/contacts/segments/' + id, { method: 'DELETE' });
+            if (r.success) loadSegments();
+        }
+
+        // ----- Suppressions -----
+        async function loadSuppressions() {
+            const r = await emApi('/contacts/suppressions');
+            const rows = (r.data || []).map(s => `
+                <tr>
+                    <td><b>${esc(s.email)}</b></td>
+                    <td>${s.type === 'bounce' ? '⚠️ ارتداد' : s.type === 'complaint' ? '🚫 شكوى' : s.type === 'spam' ? '📧 سبام' : '✋ يدوي'}</td>
+                    <td>${esc(s.reason || '-')}</td>
+                    <td>${esc((s.suppressed_at || '').slice(0, 10))}</td>
+                    <td style="text-align:left;"><button class="p-btn xs" onclick="deleteSuppression(${s.id})">إزالة</button></td>
+                </tr>`).join('');
+            document.getElementById('emSuppressionsTable').innerHTML = r.data.length
+                ? `<table class="p-table"><thead><tr><th>البريد</th><th>السبب</th><th>الملاحظات</th><th>التاريخ</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+                : '<p class="p-cell-muted" style="padding:16px;">قائمة الممنوعين فارغة.</p>';
+        }
+        async function saveSuppression() {
+            const r = await emPost('/contacts/suppressions', {
+                email: document.getElementById('supEmail').value,
+                type: document.getElementById('supType').value,
+                reason: document.getElementById('supReason').value,
+            });
+            if (r.success) { document.getElementById('suppressionModal').classList.remove('open'); loadSuppressions(); }
+            else alert(r.error || 'حدث خطأ');
+        }
+        async function deleteSuppression(id) {
+            if (!confirm('إزالة العنوان من قائمة الممنوعين؟')) return;
+            const r = await emApi('/contacts/suppressions/' + id, { method: 'DELETE' });
+            if (r.success) loadSuppressions();
+        }
+
+        emContactPage = 1;
+        loadContactOverview();
+        loadContactSubscribers();
+        JS;
+    }
+
+    private function subscriberDetailJs(int $subscriberId): string
+    {
+        $js = <<<'JS'
+        const SUB_ID = __SUB_ID__;
+        async function emApi(path, opts) {
+            const res = await fetch('/api/email-marketing' + path, opts || {});
+            return res.json();
+        }
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+        let subDetail = null;
+        let subAllTags = [];
+
+        async function loadSubscriberDetail() {
+            const r = await emApi('/subscribers/' + SUB_ID);
+            if (!r.success) { document.getElementById('subDetailBody').innerHTML = '<p class="p-cell-muted" style="padding:16px;">جهة الاتصال غير موجودة.</p>'; return; }
+            subDetail = r.subscriber;
+            const s = subDetail;
+            document.getElementById('subDetailName').textContent = '👤 ' + (s.name || s.email);
+            const tags = (s.tags || []).map(t => `<span class="em-tag-pill" style="background:${t.color || '#0b2436'};">${esc(t.name)}</span>`).join('') || '-';
+            const lists = (s.lists || []).map(l => `<span class="em-seg-badge" style="background:#1e3a8a;color:#bfdbfe;">${esc(l.name)}</span>`).join('') || '-';
+            const statusBadge = s.status === 'subscribed' ? '✅ مشترك' : s.status === 'unsubscribed' ? '🚫 ملغي' : '⚠️ مرتد';
+            const cvs = Object.entries(s.custom_values || {}).map(([fid, v]) =>
+                `<tr><td><code>${esc(v.name)}</code></td><td>${esc(v.value)}</td></tr>`).join('');
+
+            document.getElementById('subDetailBody').innerHTML = `
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px;">
+                <div class="p-cell" style="padding:16px;"><div style="font-size:12px;color:#6b7280;">البريد</div><b>${esc(s.email)}</b></div>
+                <div class="p-cell" style="padding:16px;"><div style="font-size:12px;color:#6b7280;">الحالة</div>${statusBadge}</div>
+                <div class="p-cell" style="padding:16px;"><div style="font-size:12px;color:#6b7280;">درجة التفاعل</div><b>${s.engagement_score || 0}/100</b></div>
+                <div class="p-cell" style="padding:16px;"><div style="font-size:12px;color:#6b7280;">أُضيف</div>${esc((s.created_at || '').slice(0, 10))}</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div class="p-card">
+                    <div class="p-card-head"><h3>📛 الوسوم</h3><button class="p-btn xs" onclick="toggleTagPicker()">+ إضافة</button></div>
+                    <div style="margin-bottom:8px;">${tags}</div>
+                    <div id="tagPicker" style="display:none;margin-top:8px;">
+                        <select id="tagPickSel" class="p-select" style="width:100%;margin-bottom:6px;"></select>
+                        <button class="p-btn primary xs" onclick="addTagToSub()">إضافة</button>
+                    </div>
+                </div>
+                <div class="p-card">
+                    <div class="p-card-head"><h3>🗂️ القوائم</h3></div>
+                    <div>${lists}</div>
+                </div>
+                <div class="p-card">
+                    <div class="p-card-head"><h3>🏷️ الحقول المخصصة</h3></div>
+                    <table class="p-table"><tbody>${cvs || '<tr><td class="p-cell-muted">لا توجد قيم.</td></tr>'}</tbody></table>
+                </div>
+                <div class="p-card">
+                    <div class="p-card-head"><h3>📊 النشاط</h3></div>
+                    ${(s.activity || []).map(a => `
+                        <div style="padding:8px 0;border-bottom:1px solid #1f2937;">
+                            <b>${esc(a.campaign_name)}</b><br>
+                            <span style="font-size:12px;color:#6b7280;">${esc(a.status)} · فتح: ${a.open_count} · نقر: ${a.click_count} · ${esc((a.opened_at || a.created_at || '').slice(0, 16))}</span>
+                        </div>`).join('') || '<p class="p-cell-muted">لا نشاط بعد.</p>'}
+                </div>
+            </div>`;
+            loadSubTagsPicker();
+        }
+        async function loadSubTagsPicker() {
+            const r = await emApi('/contacts/tags');
+            subAllTags = r.tags || [];
+            const have = new Set((subDetail.tags || []).map(t => t.id));
+            document.getElementById('tagPickSel').innerHTML = subAllTags.filter(t => !have.has(t.id))
+                .map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+        }
+        function toggleTagPicker() {
+            const el = document.getElementById('tagPicker');
+            el.style.display = el.style.display === 'none' ? '' : 'none';
+            if (el.style.display !== 'none') loadSubTagsPicker();
+        }
+        async function addTagToSub() {
+            const tagId = document.getElementById('tagPickSel').value;
+            if (!tagId) return;
+            const r = await emApi('/contacts/subscribers/' + SUB_ID + '/tags', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tag_id: tagId })
+            });
+            if (r.success) loadSubscriberDetail();
+        }
+        loadSubscriberDetail();
+        JS;
+        return str_replace('__SUB_ID__', (string) $subscriberId, $js);
+    }
+
+    private function automationsJs(): string
+    {
+        return <<<'JS'
+        async function emApi(path, opts) {
+            const res = await fetch('/api/email-marketing' + path, opts || {});
+            return res.json();
+        }
+        async function emPost(path, body) {
+            const headers = { 'Content-Type': 'application/json' };
+            return emApi(path, { method: 'POST', headers, body: JSON.stringify(body) });
+        }
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        let emAutomations = [];
+        let emAutoMeta = { triggers: {}, step_types: {} };
+        let emAutoLists = [];
+        let emAutoTemplates = [];
+        let emAutoCampaigns = [];
+        let emAutoEditingId = null;
+        let emAutoStepCount = 0;
+
+        const EM_AUTO_TRIGGER_OPTIONS = {
+            subscribed: { label: 'قائمة (اختياري)', type: 'list' },
+            tag_added: { label: 'اسم الوسم (اختياري)', type: 'text' },
+            campaign_opened: { label: 'الحملة (اختياري)', type: 'campaign' },
+            campaign_clicked: { label: 'الحملة (اختياري)', type: 'campaign' },
+            date_after: { label: 'عدد الأيام بعد الاشتراك', type: 'days' },
+        };
+
+        async function loadAutomations() {
+            const r = await emApi('/automations');
+            if (!r.success) return;
+            emAutomations = r.data.automations || [];
+            emAutoMeta = { triggers: r.data.triggers || {}, step_types: r.data.step_types || {} };
+            const [listsR, tmplR, campR] = await Promise.all([emApi('/lists'), emApi('/templates'), emApi('/campaigns')]);
+            emAutoLists = listsR.lists || [];
+            emAutoTemplates = (tmplR.templates || []).filter(t => t.status === 'ready' || !t.status);
+            emAutoCampaigns = campR.campaigns || [];
+
+            const rows = emAutomations.map(a => {
+                const trigLabel = emAutoMeta.triggers[a.trigger_type] || a.trigger_type;
+                const steps = (a.steps_count ?? 0);
+                const active = a.active_entries ?? 0;
+                return `
+                <tr>
+                    <td><b>${esc(a.name)}</b>${a.description ? `<div class="p-cell-muted" style="font-size:12px;">${esc(a.description)}</div>` : ''}</td>
+                    <td>${esc(trigLabel)}</td>
+                    <td>${steps} خطوة</td>
+                    <td>${active} نشط</td>
+                    <td>${a.status === 'active' ? '<span style="color:#16a34a;font-weight:700;">مفعّل</span>' : '<span style="color:#9ca3af;font-weight:700;">متوقف</span>'}</td>
+                    <td style="text-align:left;white-space:nowrap;">
+                        <button class="p-btn xs" onclick="toggleAutomationStatus(${a.id}, ${a.status === 'active' ? 0 : 1})">${a.status === 'active' ? 'إيقاف' : 'تشغيل'}</button>
+                        <button class="p-btn xs" onclick="openAutomationModal(${a.id})">تعديل</button>
+                        <button class="p-btn xs" onclick="deleteAutomation(${a.id})">حذف</button>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            document.getElementById('emAutomationsList').innerHTML = emAutomations.length
+                ? `<table class="p-table"><thead><tr><th>سير العمل</th><th>المشغل</th><th>الخطوات</th><th>نشط</th><th>الحالة</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+                : '<p class="p-cell-muted" style="padding:16px;">لا توجد سير عمل بعد. أنشئ أول سير عمل تلقائي.</p>';
+
+            const triggerSel = document.getElementById('emAutoTrigger');
+            if (!triggerSel.options.length) {
+                triggerSel.innerHTML = Object.entries(emAutoMeta.triggers).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('');
+            }
+            const entrySel = document.getElementById('emAutoEntryAudience');
+            if (!entrySel.options.length) {
+                const opts = emAutoLists.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
+                entrySel.innerHTML = opts;
+                document.getElementById('emAutoExitAudience').innerHTML = opts;
+            }
+        }
+
+        function automationTriggerValueHtml(type) {
+            if (type === 'list') {
+                const opts = emAutoLists.map(l => `<option value="">كل القوائم</option><option value="${l.id}">${esc(l.name)}</option>`).join('');
+                return `<select class="p-input" id="emAutoTriggerValue" style="width:100%;">${opts}</select>`;
+            }
+            if (type === 'campaign') {
+                const opts = emAutoCampaigns.map(c => `<option value="">كل الحملات</option><option value="${c.id}">${esc(c.name)}</option>`).join('');
+                return `<select class="p-input" id="emAutoTriggerValue" style="width:100%;">${opts}</select>`;
+            }
+            if (type === 'days') {
+                return `<input class="p-input" id="emAutoTriggerValue" type="number" min="1" value="7" style="width:100%;"/>`;
+            }
+            return `<input class="p-input" id="emAutoTriggerValue" placeholder="مثال: vip" style="width:100%;"/>`;
+        }
+
+        function onAutomationTriggerChange() {
+            const type = EM_AUTO_TRIGGER_OPTIONS[document.getElementById('emAutoTrigger').value] || { label: '', type: 'text' };
+            document.getElementById('emAutoTriggerValueLabel').textContent = type.label;
+            const wrap = document.getElementById('emAutoTriggerValueWrap');
+            wrap.innerHTML = '<label class="p-label" id="emAutoTriggerValueLabel">' + esc(type.label) + '</label>' + automationTriggerValueHtml(type.type);
+        }
+
+        function openAutomationModal(id) {
+            emAutoEditingId = id || null;
+            document.getElementById('emAutoModalTitle').textContent = id ? 'تعديل سير العمل' : 'سير عمل جديد';
+            document.getElementById('emAutoName').value = '';
+            document.getElementById('emAutoDesc').value = '';
+            document.getElementById('emAutoEntryAudience').value = '';
+            document.getElementById('emAutoExitAudience').value = '';
+            emAutoStepCount = 0;
+            document.getElementById('emAutoSteps').innerHTML = '';
+            document.getElementById('emAutoTrigger').value = 'subscribed';
+            onAutomationTriggerChange();
+            document.getElementById('emAutomationModal').style.display = 'flex';
+
+            if (id) {
+                emApi('/automations/' + id).then(r => {
+                    if (!r.success) return;
+                    const a = r.data;
+                    document.getElementById('emAutoName').value = a.name || '';
+                    document.getElementById('emAutoDesc').value = a.description || '';
+                    document.getElementById('emAutoTrigger').value = a.trigger_type || 'subscribed';
+                    onAutomationTriggerChange();
+                    const tv = a.trigger_value || {};
+                    const tvEl = document.getElementById('emAutoTriggerValue');
+                    if (tvEl) {
+                        if (a.trigger_type === 'subscribed' || a.trigger_type === 'campaign_opened' || a.trigger_type === 'campaign_clicked') {
+                            tvEl.value = String(tv.list_id || tv.campaign_id || '');
+                        } else if (a.trigger_type === 'tag_added') {
+                            tvEl.value = tv.tag || '';
+                        } else if (a.trigger_type === 'date_after') {
+                            tvEl.value = tv.days || 7;
+                        }
+                    }
+                    if ((a.entry_audience_ids || []).length) document.getElementById('emAutoEntryAudience').value = a.entry_audience_ids;
+                    if ((a.exit_audience_ids || []).length) document.getElementById('emAutoExitAudience').value = a.exit_audience_ids;
+                    (a.steps || []).forEach(s => {
+                        const value = s.step_value || {};
+                        addAutomationStep(s.step_type, {
+                            days: value.days, hours: value.hours, minutes: value.minutes,
+                            subject: value.subject, html: value.html, template_id: value.template_id,
+                            tag: value.tag, list_id: value.list_id,
+                        });
+                    });
+                    if (!(a.steps || []).length) addAutomationStep();
+                });
+            } else {
+                addAutomationStep();
+            }
+        }
+
+        function closeAutomationModal() {
+            document.getElementById('emAutomationModal').style.display = 'none';
+        }
+
+        function addAutomationStep(stepType, value) {
+            stepType = stepType || 'wait';
+            value = value || {};
+            const idx = emAutoStepCount++;
+            const options = Object.entries(emAutoMeta.step_types).map(([k, v]) => {
+                const sel = k === stepType ? ' selected' : '';
+                return `<option value="${k}"${sel}>${esc(v)}</option>`;
+            }).join('');
+            const row = document.createElement('div');
+            row.className = 'em-auto-step-row';
+            row.style.cssText = 'border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;background:#f9fafb;';
+            row.dataset.idx = idx;
+            row.innerHTML = `
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <span style="font-weight:700;color:#6b7280;">#${idx + 1}</span>
+                    <select class="p-input" style="flex:1;" onchange="renderAutomationStepBody(this, ${idx})">
+                        ${options}
+                    </select>
+                    <button class="p-btn xs" onclick="moveAutomationStep(${idx}, -1)">↑</button>
+                    <button class="p-btn xs" onclick="moveAutomationStep(${idx}, 1)">↓</button>
+                    <button class="p-btn xs" onclick="document.querySelectorAll('[data-idx]').forEach(r=>{ if(parseInt(r.dataset.idx)===${idx}) r.remove(); })">✕</button>
+                </div>
+                <div class="em-auto-step-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;"></div>`;
+            document.getElementById('emAutoSteps').appendChild(row);
+            const sel = row.querySelector('select');
+            renderAutomationStepBody(sel, idx, value);
+        }
+
+        function moveAutomationStep(idx, dir) {
+            const rows = [...document.querySelectorAll('.em-auto-step-row')];
+            const i = rows.findIndex(r => parseInt(r.dataset.idx) === idx);
+            const j = i + dir;
+            if (i < 0 || j < 0 || j >= rows.length) return;
+            const parent = rows[i].parentNode;
+            parent.insertBefore(rows[i], dir < 0 ? rows[j] : rows[j].nextSibling);
+        }
+
+        function renderAutomationStepBody(sel, idx, value) {
+            value = value || {};
+            const body = sel.closest ? sel.closest('.em-auto-step-row').querySelector('.em-auto-step-body') : null;
+            if (!body) return;
+            const type = sel.value;
+            if (type === 'wait') {
+                body.innerHTML = `
+                    <input class="p-input" placeholder="أيام" type="number" min="0" data-step-k="days" value="${value.days || 0}"/>
+                    <input class="p-input" placeholder="ساعات" type="number" min="0" data-step-k="hours" value="${value.hours || 0}"/>
+                    <input class="p-input" placeholder="دقائق" type="number" min="0" data-step-k="minutes" value="${value.minutes || 0}"/>`;
+            } else if (type === 'send_email') {
+                body.innerHTML = `
+                    <input class="p-input" placeholder="الموضوع" data-step-k="subject" value="${esc(value.subject || '')}" style="grid-column:1/-1;"/>
+                    <input class="p-input" placeholder="نص الإيميل (HTML أو نص)" data-step-k="html" value="${esc(value.html || '')}" style="grid-column:1/-1;"/>
+                    <select class="p-input" data-step-k="template_id"><option value="">بدون قالب</option>
+                        ${emAutoTemplates.map(t => `<option value="${t.id}"${String(value.template_id) === String(t.id) ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}
+                    </select>`;
+            } else if (type === 'add_tag' || type === 'remove_tag') {
+                body.innerHTML = `<input class="p-input" placeholder="اسم الوسم" data-step-k="tag" value="${esc(value.tag || '')}" style="grid-column:1/-1;"/>`;
+            } else if (type === 'add_to_list' || type === 'remove_from_list') {
+                body.innerHTML = `<select class="p-input" data-step-k="list_id" style="grid-column:1/-1;"><option value="">اختر قائمة...</option>
+                    ${emAutoLists.map(l => `<option value="${l.id}"${String(value.list_id) === String(l.id) ? ' selected' : ''}>${esc(l.name)}</option>`).join('')}
+                </select>`;
+            } else {
+                body.innerHTML = '';
+            }
+        }
+
+        function collectAutomationSteps() {
+            const steps = [];
+            document.querySelectorAll('.em-auto-step-row').forEach((row, position) => {
+                const type = row.querySelector('select').value;
+                const value = {};
+                row.querySelectorAll('[data-step-k]').forEach(inp => {
+                    const k = inp.dataset.stepK;
+                    let v = inp.value;
+                    if (k === 'days' || k === 'hours' || k === 'minutes' || k === 'list_id' || k === 'template_id') {
+                        v = v === '' ? 0 : parseInt(v, 10) || 0;
+                    }
+                    value[k] = v;
+                });
+                if (type === 'send_email' && !value.subject && !value.html && !value.template_id) return;
+                if ((type === 'add_tag' || type === 'remove_tag') && !value.tag) return;
+                steps.push({ position, step_type: type, step_value: value });
+            });
+            return steps;
+        }
+
+        async function saveAutomation() {
+            const name = document.getElementById('emAutoName').value.trim();
+            if (!name) { alert('اسم سير العمل مطلوب'); return; }
+            const triggerType = document.getElementById('emAutoTrigger').value;
+            const tvEl = document.getElementById('emAutoTriggerValue');
+            const tvRaw = tvEl ? tvEl.value : '';
+            let triggerValue = {};
+            if (triggerType === 'subscribed') triggerValue = { list_id: parseInt(tvRaw, 10) || 0 };
+            else if (triggerType === 'campaign_opened' || triggerType === 'campaign_clicked') triggerValue = { campaign_id: parseInt(tvRaw, 10) || 0 };
+            else if (triggerType === 'tag_added') triggerValue = { tag: tvRaw || '' };
+            else if (triggerType === 'date_after') triggerValue = { days: parseInt(tvRaw, 10) || 7 };
+
+            const body = {
+                name,
+                description: document.getElementById('emAutoDesc').value.trim(),
+                trigger_type: triggerType,
+                trigger_value: triggerValue,
+                entry_audience_ids: [...document.getElementById('emAutoEntryAudience').selectedOptions].map(o => parseInt(o.value, 10)).filter(v => v > 0),
+                exit_audience_ids: [...document.getElementById('emAutoExitAudience').selectedOptions].map(o => parseInt(o.value, 10)).filter(v => v > 0),
+            };
+
+            const steps = collectAutomationSteps();
+            const url = emAutoEditingId ? '/automations/' + emAutoEditingId : '/automations';
+            const r = emAutoEditingId
+                ? await emApi(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+                : await emPost(url, body);
+            if (!r.success) { alert(r.error || 'حدث خطأ'); return; }
+            const autoId = r.data.id || emAutoEditingId;
+            const stepsR = await emPost('/automations/' + autoId + '/steps', { steps });
+            if (!stepsR.success) { alert(stepsR.error || 'فشل حفظ الخطوات'); return; }
+            closeAutomationModal();
+            loadAutomations();
+        }
+
+        async function toggleAutomationStatus(id, active) {
+            const r = await emPost('/automations/' + id + '/status', { status: active ? 'active' : 'paused' });
+            if (r.success) loadAutomations();
+        }
+
+        async function deleteAutomation(id) {
+            if (!confirm('حذف سير العمل؟')) return;
+            const r = await emApi('/automations/' + id, { method: 'DELETE' });
+            if (r.success) loadAutomations();
+        }
+
+        async function runAutomationsDue() {
+            const r = await emPost('/automations/run-due', {});
+            if (r.success) {
+                alert(`تمت المعالجة: ${r.data.processed || 0} مشاركة، اكتمل ${r.data.completed || 0}`);
+                loadAutomations();
+            }
+        }
+
+        loadAutomations();
         JS;
     }
 }

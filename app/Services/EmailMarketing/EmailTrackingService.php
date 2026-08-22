@@ -31,7 +31,8 @@ class EmailTrackingService
     public function recordOpen(string $openToken): bool
     {
         $rows = $this->db->query(
-            "SELECT id, campaign_id, open_count FROM email_campaign_recipients WHERE open_token = ? LIMIT 1",
+            "SELECT r.id, r.campaign_id, r.subscriber_id, r.open_count
+             FROM email_campaign_recipients r WHERE r.open_token = ? LIMIT 1",
             [$openToken]
         );
         if (empty($rows)) {
@@ -40,6 +41,7 @@ class EmailTrackingService
         $recipient = $rows[0];
         $id = (int) $recipient['id'];
         $campaignId = (int) $recipient['campaign_id'];
+        $subscriberId = (int) ($recipient['subscriber_id'] ?? 0);
 
         $this->db->query(
             "UPDATE email_campaign_recipients
@@ -55,6 +57,21 @@ class EmailTrackingService
             [$id]
         );
         $this->recomputeCampaignCounts($campaignId);
+
+        // خطاف الأتمتة: "عند فتح حملة"
+        if ($subscriberId > 0 && class_exists('EmailAutomationService')) {
+            $userId = (int) $this->db->query("SELECT user_id FROM email_campaigns WHERE id = ? LIMIT 1", [$campaignId])[0]['user_id'] ?? 0;
+            if ($userId > 0) {
+                try {
+                    (new EmailAutomationService())->handleEvent($userId, 'campaign_opened', [
+                        'subscriber_id' => $subscriberId,
+                        'campaign_id' => $campaignId,
+                    ]);
+                } catch (\Throwable $e) {
+                    // لا نفشل التتبع بسبب الأتمتة
+                }
+            }
+        }
         return true;
     }
 
@@ -65,7 +82,8 @@ class EmailTrackingService
     public function recordClick(string $clickToken, ?string $encodedUrl): ?string
     {
         $rows = $this->db->query(
-            "SELECT id, campaign_id, click_count FROM email_campaign_recipients WHERE click_token = ? LIMIT 1",
+            "SELECT r.id, r.campaign_id, r.subscriber_id, r.click_count
+             FROM email_campaign_recipients r WHERE r.click_token = ? LIMIT 1",
             [$clickToken]
         );
         if (empty($rows)) {
@@ -74,6 +92,7 @@ class EmailTrackingService
         $recipient = $rows[0];
         $id = (int) $recipient['id'];
         $campaignId = (int) $recipient['campaign_id'];
+        $subscriberId = (int) ($recipient['subscriber_id'] ?? 0);
 
         $url = $this->decodeUrl($encodedUrl);
         if ($url === null) {
@@ -93,6 +112,22 @@ class EmailTrackingService
             [$id]
         );
         $this->recomputeCampaignCounts($campaignId);
+
+        // خطاف الأتمتة: "عند النقر في حملة"
+        if ($subscriberId > 0 && class_exists('EmailAutomationService')) {
+            $rows2 = $this->db->query("SELECT user_id FROM email_campaigns WHERE id = ? LIMIT 1", [$campaignId]);
+            $userId = (int) ($rows2[0]['user_id'] ?? 0);
+            if ($userId > 0) {
+                try {
+                    (new EmailAutomationService())->handleEvent($userId, 'campaign_clicked', [
+                        'subscriber_id' => $subscriberId,
+                        'campaign_id' => $campaignId,
+                    ]);
+                } catch (\Throwable $e) {
+                    // لا نفشل التتبع بسبب الأتمتة
+                }
+            }
+        }
         return $url;
     }
 
