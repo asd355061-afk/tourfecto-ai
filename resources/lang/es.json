@@ -1,0 +1,48 @@
+{
+    "common": {
+        "welcome": "Bienvenido",
+        "goodbye": "Adiós",
+        "save": "Guardar",
+        "cancel": "Cancelar",
+        "delete": "Eliminar",
+        "edit": "Editar",
+        "view": "Ver",
+        "search": "Buscar",
+        "loading": "Cargando...",
+        "error": "Error",
+        "success": "Éxito",
+        "warning": "Advertencia",
+        "info": "Información"
+    },
+    "auth": {
+        "login": "Iniciar sesión",
+        "logout": "Cerrar sesión",
+        "register": "Registrarse",
+        "forgot_password": "¿Olvidaste tu contraseña?",
+        "reset_password": "Restablecer contraseña",
+        "email": "Correo electrónico",
+        "password": "Contraseña",
+        "remember_me": "Recuérdame"
+    },
+    "dashboard": {
+        "title": "Panel de control",
+        "overview": "Resumen",
+        "analytics": "Analíticas",
+        "reports": "Informes",
+        "settings": "Configuración"
+    },
+    "crm": {
+        "customers": "Clientes",
+        "leads": "Clientes potenciales",
+        "deals": "Negocios",
+        "pipeline": "Pipeline",
+        "activities": "Actividades"
+    },
+    "ai": {
+        "assistant": "Asistente de IA",
+        "chat": "Chat",
+        "analyze": "Analizar",
+        "generate": "Generar",
+        "optimize": "Optimizar"
+    }
+}

@@ -1,139 +1,147 @@
-# ============================================
-# Tourfecto - .gitignore
-# تجاهل الملفات والمجلدات من Git
-# @version 1.0.0
-# @author Tourfecto Team
-# @copyright 2026 Tourfecto
-# ============================================
+```
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
+*.class
+*.so
+*.dll
+*.exe
+*.out
 
-# ============================================
-# Composer
-# ============================================
-/vendor/
+# Dependencies
+node_modules/
+vendor/
 composer.lock
-composer.phar
+*.lock
+.cache/
 
-# ============================================
-# Environment
-# ============================================
-.env
-.env.*
-!.env.example
-.env.testing
-.env.production
-.env.local
-
-# ============================================
-# PHPUnit
-# ============================================
-/phpunit.xml
-.phpunit.result.cache
-coverage/
-tests/coverage/
-*.coverage
-.clover
-tests/junit.xml
-tests/testdox.html
-tests/testdox.txt
-tests/clover.xml
-tests/crap4j.xml
-tests/coverage.php
-tests/coverage.txt
-
-# ============================================
-# IDE
-# ============================================
-.idea/
-.vscode/
+# Logs and temp files
+*.log
+*.tmp
 *.swp
 *.swo
-*~
-.DS_Store
-*.log
-*.cache
-*.tmp
-*.pid
-*.lock
 
-# ============================================
-# Storage
-# ============================================
-/storage/logs/*.log
-/storage/cache/*
-/storage/sessions/*
-/storage/uploads/*
-/storage/backups/*
-/storage/phpstan/
-!/storage/logs/.gitkeep
-!/storage/cache/.gitkeep
-!/storage/sessions/.gitkeep
-!/storage/uploads/.gitkeep
-!/storage/backups/.gitkeep
+# Environment
+.env
+.env.local
+.env.*
 
-# ============================================
-# Security
-# ============================================
-*.pem
-*.key
-*.crt
-*.csr
-*.p12
-*.pfx
-*.p8
-*.pub
-
-# ============================================
-# OS
-# ============================================
-Thumbs.db
-.DS_Store
-*.exe
-*.dll
-*.so
-*.dylib
-*.bin
-
-# ============================================
-# Temporary Files
-# ============================================
-*.tmp
-*.temp
-*.cache
-*.log
-*.pid
-*.socket
-*.lock
+# Editors
+.vscode/
+.idea/
 *.swp
+*.swo
 
-# ============================================
-# Documentation
-# ============================================
-*.pdf
-*.docx
-*.xlsx
-*.pptx
+# Build and distribution
+dist/
+build/
+target/
+coverage/
+htmlcov/
+.coverage
 
-# ============================================
-# Archives
-# ============================================
-*.zip
-*.tar.gz
+# OS generated
+.DS_Store
+Thumbs.db
+
+# Laravel/Lumen specific
+/storage/logs/*
+!/storage/logs/.gitkeep
+/bootstrap/cache/*
+!/bootstrap/cache/.gitkeep
+/public/hot
+public/storage
+!.styleci.yml
+
+# PHP specific
+.php_cs.cache
+.phpunit.result.cache
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache and sessions
+/storage/framework/cache/*
+!/storage/framework/cache/.gitkeep
+/storage/framework/sessions/*
+!/storage/framework/sessions/.gitkeep
+/storage/framework/views/*
+!/storage/framework/views/.gitkeep
+
+# Compiled assets
+/public/css/app.css
+/public/js/app.js
+/public/mix-manifest.json
+
+# Deployment
 *.tgz
-*.rar
-*.7z
+
+# Testing
+.phpunit
+.phpunit.xml
+tests/_output/
+
+# IDE
+.nyc_output/
+.coverage/
+istanbul/
+.jscs-cache/
+eslintcache
+
+# Framework
+.sass-cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Security
+/security/advisories/*.json
+
+# GitHub
+.github/
+
+# Temporary files
+tmp/
+temp/
+
+# Backup files
+*~
+*.bak
+*.backup
+
+# Archive files
+*.zip
 *.gz
+*.tar
+*.tgz
 *.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
 
-# ============================================
-# Local dev-only tools (preview / seeding)
-# ============================================
-local_router.php
-seed_ai_chat.php
-
-# ============================================
-# Project Specific
-# ============================================
-.htaccess.bak
-.htaccess.save
-public/.htaccess.bak
-public/.htaccess.save
+# Images (if generated/compressed)
+*.png
+*.jpg
+*.jpeg
+*.bmp
+*.gif
+*.webm
+```
