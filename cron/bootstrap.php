@@ -197,6 +197,38 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Models/InventoryDay.php',
     APP_PATH . '/Services/BookingEngine.php',
     APP_PATH . '/Services/InventoryService.php',
+    // Email Marketing (منافس Brevo) - SendEmailCampaignBatchJob و
+    // SendAbTestBatchJob بينادوا على خدمات EmailMarketing في سياق الـ Queue
+    // Worker (cron/process_queue.php) اللي مختلف عن public_html/index.php.
+    // الترتيب: Models قبل Services قبل Jobs.
+    APP_PATH . '/Models/EmailList.php',
+    APP_PATH . '/Models/EmailSubscriber.php',
+    APP_PATH . '/Models/EmailTemplate.php',
+    APP_PATH . '/Models/EmailCampaign.php',
+    APP_PATH . '/Models/EmailCampaignRecipient.php',
+    APP_PATH . '/Models/EmailCustomField.php',
+    APP_PATH . '/Models/EmailSubscriberCustomValue.php',
+    APP_PATH . '/Models/EmailTag.php',
+    APP_PATH . '/Models/EmailSegment.php',
+    APP_PATH . '/Models/EmailSuppression.php',
+    APP_PATH . '/Models/EmailAutomation.php',
+    APP_PATH . '/Models/EmailAutomationStep.php',
+    APP_PATH . '/Models/EmailAutomationEntry.php',
+    APP_PATH . '/Models/EmailSmtpSetting.php',
+    APP_PATH . '/Models/EmailTransactionalTemplate.php',
+    APP_PATH . '/Models/EmailTransactionalLog.php',
+    APP_PATH . '/Models/EmailAbTest.php',
+    APP_PATH . '/Services/EmailMarketing/EmailRenderer.php',
+    APP_PATH . '/Services/EmailMarketing/EmailListService.php',
+    APP_PATH . '/Services/EmailMarketing/ContactManagementService.php',
+    APP_PATH . '/Services/EmailMarketing/EmailCampaignService.php',
+    APP_PATH . '/Services/EmailMarketing/EmailTrackingService.php',
+    APP_PATH . '/Services/EmailMarketing/EmailTemplateEditorService.php',
+    APP_PATH . '/Services/EmailMarketing/EmailAutomationService.php',
+    APP_PATH . '/Services/EmailMarketing/SmtpSettingsService.php',
+    APP_PATH . '/Services/EmailMarketing/TransactionalEmailService.php',
+    APP_PATH . '/Services/EmailMarketing/AbTestService.php',
+    APP_PATH . '/Services/Mailer.php',
 ];
 foreach ($optionalJobDependencyFiles as $depFile) {
     if (file_exists($depFile)) {

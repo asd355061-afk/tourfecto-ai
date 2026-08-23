@@ -1,0 +1,360 @@
+<?php
+
+/**
+ * Tourfecto - Email Marketing A/B Testing Service (المرحلة 4)
+ * @version 1.0.0
+ *
+ * اختبار أ/ب للحملات (مثل Brevo/Mailchimp): من حملة أساسية بيقسم المستخدم
+ * الجمهور لنسبتين (مثل 50/50) بين متغيرين (أ/ب) مختلفين في العنوان أو
+ * المحتوى، وبيتم الإرسال لكل متغير بسجلات مستلمين منفصلة، ثم يُحسب
+ * معدل الفتح/الكليك ويُحدد المتغير الفائز.
+ *
+ * Additive خالص - يبني على EmailCampaignService القائمة دون تعديلها.
+ */
+class AbTestService
+{
+    /** @var Database */
+    private $db;
+
+    public function __construct()
+    {
+        $this->db = Database::getInstance();
+    }
+
+    // ============================ CRUD ============================
+
+    /**
+     * إنشاء اختبار أ/ب: ينشئ حملتين (متغير أ و ب) من نسخ الحملة الأساسية.
+     * @return array ['success'=>bool, 'id'=>int, 'error'=>?string]
+     */
+    public function create(int $userId, array $data): array
+    {
+        if (trim((string) ($data['name'] ?? '')) === '') {
+            return ['success' => false, 'id' => 0, 'error' => 'اسم الاختبار مطلوب'];
+        }
+        $baseCampaignId = (int) ($data['base_campaign_id'] ?? 0);
+        $base = (new EmailCampaign())->find($baseCampaignId);
+        if (!$base || (int) $base->getAttribute('user_id') !== $userId) {
+            return ['success' => false, 'id' => 0, 'error' => 'الحملة الأساسية غير موجودة'];
+        }
+        $split = (int) ($data['split_percent'] ?? 50);
+        if ($split < 5 || $split > 95) {
+            return ['success' => false, 'id' => 0, 'error' => 'نسبة التقسيم يجب أن تكون بين 5 و95'];
+        }
+        $metric = in_array($data['metric'] ?? '', [EmailAbTest::METRIC_OPEN, EmailAbTest::METRIC_CLICK], true)
+            ? $data['metric']
+            : EmailAbTest::METRIC_OPEN;
+
+        $baseRow = $base->toArray();
+        $aId = $this->duplicateAsVariant($userId, $baseRow, (string) $data['name'] . ' (أ)');
+        $bId = $this->duplicateAsVariant($userId, $baseRow, (string) $data['name'] . ' (ب)');
+        if ($aId <= 0 || $bId <= 0) {
+            return ['success' => false, 'id' => 0, 'error' => 'تعذر إنشاء متغيرات الاختبار'];
+        }
+
+        $ab = new EmailAbTest([
+            'user_id' => $userId,
+            'name' => trim((string) $data['name']),
+            'base_campaign_id' => $baseCampaignId,
+            'variant_a_id' => $aId,
+            'variant_b_id' => $bId,
+            'split_percent' => $split,
+            'metric' => $metric,
+            'status' => EmailAbTest::STATUS_DRAFT,
+        ]);
+        $id = (int) $ab->save();
+        if ($id <= 0) {
+            return ['success' => false, 'id' => 0, 'error' => 'تعذر حفظ الاختبار'];
+        }
+        return ['success' => true, 'id' => $id];
+    }
+
+    public function get(int $userId, int $abTestId): ?array
+    {
+        $ab = $this->findOwned($userId, $abTestId);
+        if (!$ab) {
+            return null;
+        }
+        $row = $ab->toArray();
+        $row['base_campaign'] = $this->campaignArray((int) $row['base_campaign_id']);
+        $row['variant_a'] = $this->campaignArray((int) $row['variant_a_id']);
+        $row['variant_b'] = $this->campaignArray((int) $row['variant_b_id']);
+        $row['recipients'] = [
+            'a' => (int) ($row['variant_a']['total_recipients'] ?? 0),
+            'b' => (int) ($row['variant_b']['total_recipients'] ?? 0),
+        ];
+        return $row;
+    }
+
+    public function list(int $userId): array
+    {
+        $rows = $this->db->query(
+            "SELECT t.*,
+                    c.name AS base_name
+             FROM email_ab_tests t
+             LEFT JOIN email_campaigns c ON c.id = t.base_campaign_id
+             WHERE t.user_id = ?
+             ORDER BY t.created_at DESC",
+            [$userId]
+        );
+        foreach ($rows as &$row) {
+            $row['status_label'] = EmailAbTest::statuses()[$row['status']] ?? $row['status'];
+        }
+        return $rows;
+    }
+
+    public function delete(int $userId, int $abTestId): array
+    {
+        $ab = $this->findOwned($userId, $abTestId);
+        if (!$ab) {
+            return ['success' => false, 'error' => 'الاختبار غير موجود'];
+        }
+        if ($ab->getAttribute('status') === EmailAbTest::STATUS_RUNNING) {
+            return ['success' => false, 'error' => 'لا يمكن حذف اختبار قيد التشغيل'];
+        }
+        $ab->delete();
+        return ['success' => true];
+    }
+
+    /**
+     * تعديل محتوى متغير (أ/ب): subject/html_body على حملة المتغير.
+     */
+    public function setVariantContent(int $userId, int $abTestId, string $variant, array $data): array
+    {
+        $ab = $this->findOwned($userId, $abTestId);
+        if (!$ab) {
+            return ['success' => false, 'error' => 'الاختبار غير موجود'];
+        }
+        if (in_array($ab->getAttribute('status'), [EmailAbTest::STATUS_FINISHED, EmailAbTest::STATUS_CANCELLED], true)) {
+            return ['success' => false, 'error' => 'لا يمكن تعديل اختبار منتهٍ أو ملغي'];
+        }
+        if (!in_array($variant, ['a', 'b'], true)) {
+            return ['success' => false, 'error' => 'متغير غير صالح'];
+        }
+        $campaignId = (int) $ab->getAttribute($variant === 'a' ? 'variant_a_id' : 'variant_b_id');
+        $result = (new EmailCampaignService())->update($userId, $campaignId, $data);
+        return $result;
+    }
+
+    // ============================ Run ============================
+
+    /**
+     * تشغيل الاختبار: يقسم جمهور الحملة الأساسية بين المتغيرين ويجهّز
+     * سجلات المستلمين لكل متغير. المتغير ب يأخذ split_percent%، و أ يأخذ
+     * الباقي (تقسيم بنسبة تقريبية حسب الترتيب الافتراضي id ASC).
+     * @return array ['success'=>bool, 'a'=>int, 'b'=>int, 'total'=>int, 'error'=>?string]
+     */
+    public function start(int $userId, int $abTestId): array
+    {
+        $ab = $this->findOwned($userId, $abTestId);
+        if (!$ab) {
+            return ['success' => false, 'a' => 0, 'b' => 0, 'total' => 0, 'error' => 'الاختبار غير موجود'];
+        }
+        if ($ab->getAttribute('status') === EmailAbTest::STATUS_FINISHED) {
+            return ['success' => false, 'a' => 0, 'b' => 0, 'total' => 0, 'error' => 'الاختبار منتهٍ بالفعل'];
+        }
+
+        $baseCampaign = (new EmailCampaign())->find((int) $ab->getAttribute('base_campaign_id'));
+        if (!$baseCampaign || (int) $baseCampaign->getAttribute('user_id') !== $userId) {
+            return ['success' => false, 'a' => 0, 'b' => 0, 'total' => 0, 'error' => 'الحملة الأساسية غير موجودة'];
+        }
+
+        $audience = (new EmailCampaignService())->audience($userId, $baseCampaign);
+        $total = count($audience);
+        if ($total === 0) {
+            return ['success' => false, 'a' => 0, 'b' => 0, 'total' => 0, 'error' => 'لا يوجد جمهور للتقسيم'];
+        }
+
+        $split = max(5, min(95, (int) $ab->getAttribute('split_percent')));
+        $bCount = (int) round($total * $split / 100);
+        $bCount = max(1, min($total - 1, $bCount)); // كل متغير لازم ياخد واحد على الأقل
+
+        $aIds = [];
+        $bIds = [];
+        foreach ($audience as $i => $member) {
+            if ($i < $total - $bCount) {
+                $aIds[] = (int) $member['id'];
+            } else {
+                $bIds[] = (int) $member['id'];
+            }
+        }
+
+        $svc = new EmailCampaignService();
+        $rA = $svc->prepareRecipientsForSubset($userId, (int) $ab->getAttribute('variant_a_id'), $aIds);
+        $rB = $svc->prepareRecipientsForSubset($userId, (int) $ab->getAttribute('variant_b_id'), $bIds);
+
+        if (empty($rA['success']) || empty($rB['success'])) {
+            return ['success' => false, 'a' => 0, 'b' => 0, 'total' => $total, 'error' => 'تعذر تجهيز سجلات المستلمين'];
+        }
+
+        if ($ab->getAttribute('status') !== EmailAbTest::STATUS_RUNNING) {
+            $ab->setAttribute('status', EmailAbTest::STATUS_RUNNING);
+            $ab->save();
+        }
+
+        return [
+            'success' => true,
+            'a' => (int) $rA['total'],
+            'b' => (int) $rB['total'],
+            'total' => (int) $rA['total'] + (int) $rB['total'],
+        ];
+    }
+
+    /**
+     * إرسال دفعة من كل متغير (يستدعيه cron أو المستخدم). يرسل حتى BATCH_SIZE
+     * لكل متغير ويعيد ملخص الدفعة.
+     * @return array ['processed'=>int, 'failed'=>int, 'remaining'=>bool, 'error'=>?string]
+     */
+    public function sendBatch(int $userId, int $abTestId): array
+    {
+        $ab = $this->findOwned($userId, $abTestId);
+        if (!$ab) {
+            return ['processed' => 0, 'failed' => 0, 'remaining' => false, 'error' => 'الاختبار غير موجود'];
+        }
+        if ($ab->getAttribute('status') !== EmailAbTest::STATUS_RUNNING) {
+            return ['processed' => 0, 'failed' => 0, 'remaining' => false, 'error' => 'الاختبار غير قيد التشغيل'];
+        }
+
+        $svc = new EmailCampaignService();
+        $ra = $svc->sendBatch($userId, (int) $ab->getAttribute('variant_a_id'));
+        $rb = $svc->sendBatch($userId, (int) $ab->getAttribute('variant_b_id'));
+
+        $processed = (int) $ra['processed'] + (int) $rb['processed'];
+        $failed = (int) $ra['failed'] + (int) $rb['failed'];
+        $remaining = (bool) ($ra['remaining'] || $rb['remaining']);
+        $error = $ra['error'] ?? $rb['error'] ?? null;
+
+        if (!$remaining && $processed === 0 && $failed === 0) {
+            // كل المتغيرات خلصت إرسال (حتى لو فشلت فرديًا)
+            $ab->setAttribute('status', EmailAbTest::STATUS_FINISHED);
+            $ab->save();
+        }
+
+        return ['processed' => $processed, 'failed' => $failed, 'remaining' => $remaining, 'error' => $error];
+    }
+
+    // ============================ Report ============================
+
+    /**
+     * تقرير الاختبار: مقارنة معدلات الفتح/الكليك لكل متغير.
+     * @return array|null ['variant_a'=>array, 'variant_b'=>array, 'winner'=>?string, ...]
+     */
+    public function report(int $userId, int $abTestId): ?array
+    {
+        $ab = $this->findOwned($userId, $abTestId);
+        if (!$ab) {
+            return null;
+        }
+        $svc = new EmailCampaignService();
+        $ra = $svc->report($userId, (int) $ab->getAttribute('variant_a_id'));
+        $rb = $svc->report($userId, (int) $ab->getAttribute('variant_b_id'));
+
+        $metric = $ab->getAttribute('metric') ?: EmailAbTest::METRIC_OPEN;
+        $keyA = $metric === EmailAbTest::METRIC_CLICK ? 'click_rate' : 'open_rate';
+        $keyB = $metric === EmailAbTest::METRIC_CLICK ? 'click_rate' : 'open_rate';
+
+        $rateA = (float) ($ra[$keyA] ?? 0);
+        $rateB = (float) ($rb[$keyB] ?? 0);
+
+        // تحديد الفائز المبدئي عند اختلاف ملحوظ في المعدل
+        $winner = null;
+        if (abs($rateA - $rateB) > 0.001 && ($rateA > 0 || $rateB > 0)) {
+            $winner = $rateA > $rateB ? EmailAbTest::WINNER_A : EmailAbTest::WINNER_B;
+        }
+
+        return [
+            'id' => (int) $ab->getAttribute('id'),
+            'name' => (string) $ab->getAttribute('name'),
+            'status' => (string) $ab->getAttribute('status'),
+            'metric' => $metric,
+            'metric_label' => $metric === EmailAbTest::METRIC_CLICK ? 'معدل الكليك' : 'معدل الفتح',
+            'declared_winner' => $ab->getAttribute('winner'),
+            'variant_a' => $ra,
+            'variant_b' => $rb,
+            'winner' => $winner,
+            'recommendation' => $winner === null
+                ? 'النتائج متعادلة تقريبًا — أرسل المزيد أو أعلن الفائز يدويًا'
+                : 'المتغير ' . ($winner === EmailAbTest::WINNER_A ? 'أ' : 'ب') . ' يتفوق حاليًا',
+        ];
+    }
+
+    /**
+     * إعلان فائز رسمي وإنهاء الاختبار.
+     */
+    public function declareWinner(int $userId, int $abTestId, string $winner): array
+    {
+        $ab = $this->findOwned($userId, $abTestId);
+        if (!$ab) {
+            return ['success' => false, 'error' => 'الاختبار غير موجود'];
+        }
+        if (!in_array($winner, [EmailAbTest::WINNER_A, EmailAbTest::WINNER_B], true)) {
+            return ['success' => false, 'error' => 'متغير الفائز غير صالح'];
+        }
+        $ab->setAttribute('winner', $winner);
+        $ab->setAttribute('winner_at', date('Y-m-d H:i:s'));
+        $ab->setAttribute('status', EmailAbTest::STATUS_FINISHED);
+        $ab->save();
+        return ['success' => true];
+    }
+
+    /**
+     * نسخ الفائز إلى الحملة الأساسية (ليكون هو النسخة المرسلة نهائيًا).
+     */
+    public function applyWinnerToBase(int $userId, int $abTestId): array
+    {
+        $ab = $this->findOwned($userId, $abTestId);
+        if (!$ab) {
+            return ['success' => false, 'error' => 'الاختبار غير موجود'];
+        }
+        $winner = $ab->getAttribute('winner');
+        if (!in_array($winner, [EmailAbTest::WINNER_A, EmailAbTest::WINNER_B], true)) {
+            return ['success' => false, 'error' => 'لا يوجد فائز معلن بعد'];
+        }
+        $winnerCampaignId = (int) $ab->getAttribute($winner === EmailAbTest::WINNER_A ? 'variant_a_id' : 'variant_b_id');
+        $winnerCampaign = (new EmailCampaign())->find($winnerCampaignId);
+        if (!$winnerCampaign) {
+            return ['success' => false, 'error' => 'حملة الفائز غير موجودة'];
+        }
+        $row = $winnerCampaign->toArray();
+
+        $svc = new EmailCampaignService();
+        return $svc->update($userId, (int) $ab->getAttribute('base_campaign_id'), [
+            'subject' => $row['subject'] ?? '',
+            'html_body' => $row['html_body'] ?? '',
+        ]);
+    }
+
+    // ============================ Helpers ============================
+
+    private function findOwned(int $userId, int $abTestId): ?EmailAbTest
+    {
+        $ab = (new EmailAbTest())->find($abTestId);
+        if (!$ab || (int) $ab->getAttribute('user_id') !== $userId) {
+            return null;
+        }
+        return $ab;
+    }
+
+    private function campaignArray(int $campaignId): ?array
+    {
+        $campaign = (new EmailCampaign())->find($campaignId);
+        return $campaign ? $campaign->toArray() : null;
+    }
+
+    private function duplicateAsVariant(int $userId, array $baseRow, string $name): int
+    {
+        $campaign = new EmailCampaign([
+            'user_id' => $userId,
+            'name' => $name,
+            'subject' => (string) ($baseRow['subject'] ?? ''),
+            'from_name' => $baseRow['from_name'] ?? null,
+            'from_email' => $baseRow['from_email'] ?? null,
+            'template_id' => !empty($baseRow['template_id']) ? (int) $baseRow['template_id'] : null,
+            'list_id' => !empty($baseRow['list_id']) ? (int) $baseRow['list_id'] : null,
+            'audience_ids' => (string) ($baseRow['audience_ids'] ?? '[]'),
+            'html_body' => (string) ($baseRow['html_body'] ?? ''),
+            'status' => EmailCampaign::STATUS_DRAFT,
+        ]);
+        return (int) $campaign->save();
+    }
+}

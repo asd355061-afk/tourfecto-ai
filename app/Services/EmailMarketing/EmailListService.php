@@ -176,6 +176,18 @@ class EmailListService
             $this->attachToList($userId, $id, $listId);
         }
 
+        // خطاف الأتمتة: مشغّل "عند الاشتراك" للمشتركين الجدد
+        if ($created && class_exists('EmailAutomationService')) {
+            try {
+                (new EmailAutomationService())->handleEvent($userId, 'subscribed', [
+                    'subscriber_id' => $id,
+                    'list_id' => $listId !== null ? (int) $listId : 0,
+                ]);
+            } catch (\Throwable $e) {
+                // خطأ أتمتة لا يفشل الاشتراك
+            }
+        }
+
         return ['success' => true, 'id' => $id, 'created' => $created];
     }
 

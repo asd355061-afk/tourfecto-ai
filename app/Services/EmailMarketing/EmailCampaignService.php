@@ -168,6 +168,36 @@ class EmailCampaignService
              JOIN email_lists l ON l.id = els.list_id
              WHERE l.user_id = ? AND l.id IN ({$placeholders})
                AND s.status = 'subscribed'
+               AND NOT EXISTS (
+                   SELECT 1 FROM email_suppressions sup
+                   WHERE sup.user_id = l.user_id AND sup.email = s.email
+               )
+             ORDER BY s.id ASC",
+            $params
+        );
+    }
+
+    /**
+     * جمهور شريحة (segment_id) مع استبعاد الممنوعين ونفس قواعد القوائم
+     */
+    public function segmentAudience(int $userId, int $segmentId): array
+    {
+        $seg = (new ContactManagementService())->evaluateSegment($userId, $segmentId);
+        $ids = $seg['ids'] ?? [];
+        if (empty($ids)) {
+            return [];
+        }
+        $in = implode(',', array_map('intval', $ids));
+        $params = [$userId];
+        return $this->db->query(
+            "SELECT DISTINCT s.id, s.email, s.name, s.attributes
+             FROM email_subscribers s
+             WHERE s.user_id = ? AND s.id IN ({$in})
+               AND s.status = 'subscribed'
+               AND NOT EXISTS (
+                   SELECT 1 FROM email_suppressions sup
+                   WHERE sup.user_id = s.user_id AND sup.email = s.email
+               )
              ORDER BY s.id ASC",
             $params
         );
@@ -203,6 +233,65 @@ class EmailCampaignService
                 continue; // سبق إرساله في محاولة سابقة (مش هيعاد)
             }
 
+            $recipient = new EmailCampaignRecipient([
+                'campaign_id' => $campaignId,
+                'subscriber_id' => (int) $member['id'],
+                'email' => $member['email'],
+                'name' => $member['name'] !== null ? (string) $member['name'] : null,
+                'status' => EmailCampaignRecipient::STATUS_PENDING,
+                'open_token' => $this->token(),
+                'click_token' => $this->token(),
+            ]);
+            if ($recipient->save()) {
+                $inserted++;
+            }
+        }
+
+        $total = (int) $this->db->query(
+            "SELECT COUNT(*) AS total FROM email_campaign_recipients WHERE campaign_id = ?",
+            [$campaignId]
+        )[0]['total'];
+
+        $campaign->setAttribute('total_recipients', $total);
+        $campaign->save();
+
+        return ['success' => true, 'recipients' => $inserted, 'total' => $total];
+    }
+
+    /**
+     * يجهّز سجلات المستلمين لحملة لكن لقائمة محددة من معرّفات المشتركين
+     * (يستخدمه اختبار أ/ب لتقسيم الجمهور بين المتغيرين). يمسح سجلات
+     * pending السابقة لنفس الحملة ثم يبني من الـ ids المعطاة فقط.
+     *
+     * @param int[] $subscriberIds
+     * @return array ['success'=>bool, 'recipients'=>int, 'total'=>int, 'error'=>?string]
+     */
+    public function prepareRecipientsForSubset(int $userId, int $campaignId, array $subscriberIds): array
+    {
+        $campaign = $this->findOwned($userId, $campaignId);
+        if (!$campaign) {
+            return ['success' => false, 'recipients' => 0, 'total' => 0, 'error' => 'الحملة غير موجودة'];
+        }
+        $ids = array_values(array_unique(array_filter(array_map('intval', $subscriberIds), fn ($v) => $v > 0)));
+        if (empty($ids)) {
+            return ['success' => true, 'recipients' => 0, 'total' => 0];
+        }
+
+        $this->db->query(
+            "DELETE FROM email_campaign_recipients WHERE campaign_id = ? AND status = 'pending'",
+            [$campaignId]
+        );
+
+        $in = implode(',', array_fill(0, count($ids), '?'));
+        $members = $this->db->query(
+            "SELECT id, email, name, attributes FROM email_subscribers
+             WHERE user_id = ? AND id IN ({$in}) AND status = 'subscribed'
+             ORDER BY id ASC",
+            array_merge([$userId], $ids)
+        );
+
+        $inserted = 0;
+        foreach ($members as $member) {
             $recipient = new EmailCampaignRecipient([
                 'campaign_id' => $campaignId,
                 'subscriber_id' => (int) $member['id'],
@@ -355,6 +444,45 @@ class EmailCampaignService
     }
 
     /**
+     * إعادة محاولة الإرسال لحملة فشلت بالكامل: يعيد المستلمين الفاشلين
+     * إلى حالة pending (مع مسح خطأ كل مستلم) كي يعيد طابور الإرسال محاولته.
+     *
+     * @return array ['success'=>bool, 'reset'=>int, 'error'=>?string]
+     */
+    public function retryFailed(int $userId, int $campaignId): array
+    {
+        $campaign = $this->findOwned($userId, $campaignId);
+        if (!$campaign) {
+            return ['success' => false, 'reset' => 0, 'error' => 'الحملة غير موجودة'];
+        }
+        if ($campaign->getAttribute('status') !== EmailCampaign::STATUS_FAILED) {
+            return ['success' => false, 'reset' => 0, 'error' => 'لا يمكن إعادة محاولة حملة لم تفشل'];
+        }
+
+        $failedCount = (int) $this->db->query(
+            "SELECT COUNT(*) AS total FROM email_campaign_recipients WHERE campaign_id = ? AND status = ?",
+            [$campaignId, EmailCampaignRecipient::STATUS_FAILED]
+        )[0]['total'];
+
+        if ($failedCount === 0) {
+            return ['success' => false, 'reset' => 0, 'error' => 'لا يوجد مستلمون فاشلون لإعادة المحاولة'];
+        }
+
+        $this->db->query(
+            "UPDATE email_campaign_recipients
+             SET status = ?, error_message = NULL
+             WHERE campaign_id = ? AND status = ?",
+            [EmailCampaignRecipient::STATUS_PENDING, $campaignId, EmailCampaignRecipient::STATUS_FAILED]
+        );
+
+        $campaign->setAttribute('status', EmailCampaign::STATUS_SENDING);
+        $campaign->setAttribute('error_message', null);
+        $campaign->save();
+
+        return ['success' => true, 'reset' => $failedCount];
+    }
+
+    /**
      * إرسال فوري متزامن (يستخدمه اختبار "إرسال اختبار" والقوائم الصغيرة).
      * @return array ['success'=>bool, 'sent'=>int, 'error'=>?string]
      */
@@ -479,10 +607,19 @@ class EmailCampaignService
      */
     private function resolveProvider(int $userId, EmailCampaign $campaign): array
     {
+        $mailer = (new SmtpSettingsService())->mailerForUser($userId);
+        $campaignFromEmail = $campaign->getAttribute('from_email') ?: null;
+        $campaignFromName = $campaign->getAttribute('from_name') ?: null;
+        if ($campaignFromEmail) {
+            $mailer->configure(['from_email' => $campaignFromEmail]);
+        }
+        if ($campaignFromName) {
+            $mailer->configure(['from_name' => $campaignFromName]);
+        }
         return [
             'name' => 'mailer',
-            'send' => function (string $toEmail, string $toName, string $subject, string $htmlBody, string $fromEmail, string $fromName) {
-                return (new Mailer())->send($toEmail, $toName, $subject, $htmlBody);
+            'send' => function (string $toEmail, string $toName, string $subject, string $htmlBody, string $fromEmail, string $fromName) use ($mailer) {
+                return $mailer->send($toEmail, $toName, $subject, $htmlBody);
             },
         ];
     }
