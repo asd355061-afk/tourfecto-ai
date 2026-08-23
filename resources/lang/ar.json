@@ -1,0 +1,48 @@
+{
+    "common": {
+        "welcome": "مرحباً",
+        "goodbye": "وداعاً",
+        "save": "حفظ",
+        "cancel": "إلغاء",
+        "delete": "حذف",
+        "edit": "تعديل",
+        "view": "عرض",
+        "search": "بحث",
+        "loading": "جاري التحميل...",
+        "error": "خطأ",
+        "success": "نجاح",
+        "warning": "تحذير",
+        "info": "معلومات"
+    },
+    "auth": {
+        "login": "تسجيل الدخول",
+        "logout": "تسجيل الخروج",
+        "register": "إنشاء حساب",
+        "forgot_password": "نسيت كلمة المرور؟",
+        "reset_password": "إعادة تعيين كلمة المرور",
+        "email": "البريد الإلكتروني",
+        "password": "كلمة المرور",
+        "remember_me": "تذكرني"
+    },
+    "dashboard": {
+        "title": "لوحة التحكم",
+        "overview": "نظرة عامة",
+        "analytics": "التحليلات",
+        "reports": "التقارير",
+        "settings": "الإعدادات"
+    },
+    "crm": {
+        "customers": "العملاء",
+        "leads": "العملاء المحتملين",
+        "deals": "الصفقات",
+        "pipeline": "خط الأنابيب",
+        "activities": "الأنشطة"
+    },
+    "ai": {
+        "assistant": "مساعد الذكاء الاصطناعي",
+        "chat": "الدردشة",
+        "analyze": "تحليل",
+        "generate": "توليد",
+        "optimize": "تحسين"
+    }
+}
