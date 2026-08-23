@@ -614,6 +614,114 @@ $router->get('/api/ads/autopilot/logs', 'AdsController', 'listOptimizationLogs',
 $router->post('/api/ads/autopilot/logs/{id}/rollback', 'AdsController', 'rollbackOptimizationLog', ['AuthMiddleware']);
 $router->post('/api/ads/autopilot/run', 'AdsController', 'runAutopilotNow', ['AuthMiddleware']);
 
+// ============================================
+// موديول تسويق البريد (Email Marketing) - منافس Brevo، مبني بالكامل على بنية Tourfecto
+// ============================================
+// Dashboard & Stats
+$router->get('/api/email-marketing/dashboard', 'EmailMarketingController', 'dashboard', ['AuthMiddleware']);
+$router->get('/api/email-marketing/stats', 'EmailMarketingController', 'stats', ['AuthMiddleware']);
+// Lists
+$router->get('/api/email-marketing/lists', 'EmailMarketingController', 'lists', ['AuthMiddleware']);
+$router->post('/api/email-marketing/lists', 'EmailMarketingController', 'createList', ['AuthMiddleware']);
+$router->patch('/api/email-marketing/lists/{id}', 'EmailMarketingController', 'updateList', ['AuthMiddleware']);
+$router->delete('/api/email-marketing/lists/{id}', 'EmailMarketingController', 'deleteList', ['AuthMiddleware']);
+// Subscribers
+$router->get('/api/email-marketing/subscribers', 'EmailMarketingController', 'allSubscribers', ['AuthMiddleware']);
+$router->get('/api/email-marketing/lists/{id}/subscribers', 'EmailMarketingController', 'listSubscribers', ['AuthMiddleware']);
+$router->post('/api/email-marketing/subscribers', 'EmailMarketingController', 'createSubscriber', ['AuthMiddleware']);
+$router->post('/api/email-marketing/subscribers/import', 'EmailMarketingController', 'importSubscribers', ['AuthMiddleware']);
+$router->post('/api/email-marketing/subscribers/import-advanced', 'EmailMarketingController', 'importContactsAdvanced', ['AuthMiddleware']);
+$router->get('/api/email-marketing/subscribers/export', 'EmailMarketingController', 'exportSubscribers', ['AuthMiddleware']);
+$router->get('/api/email-marketing/subscribers/{id}', 'EmailMarketingController', 'getSubscriber', ['AuthMiddleware']);
+$router->patch('/api/email-marketing/subscribers/{id}', 'EmailMarketingController', 'updateSubscriber', ['AuthMiddleware']);
+$router->post('/api/email-marketing/subscribers/{id}/unsubscribe', 'EmailMarketingController', 'unsubscribeSubscriber', ['AuthMiddleware']);
+$router->delete('/api/email-marketing/subscribers/{id}', 'EmailMarketingController', 'deleteSubscriber', ['AuthMiddleware']);
+// Contact Management (custom fields / tags / segments / suppressions)
+$router->get('/api/email-marketing/contacts/custom-fields', 'EmailMarketingController', 'customFields', ['AuthMiddleware']);
+$router->post('/api/email-marketing/contacts/custom-fields', 'EmailMarketingController', 'createCustomField', ['AuthMiddleware']);
+$router->patch('/api/email-marketing/contacts/custom-fields/{id}', 'EmailMarketingController', 'updateCustomField', ['AuthMiddleware']);
+$router->delete('/api/email-marketing/contacts/custom-fields/{id}', 'EmailMarketingController', 'deleteCustomField', ['AuthMiddleware']);
+$router->get('/api/email-marketing/contacts/tags', 'EmailMarketingController', 'tags', ['AuthMiddleware']);
+$router->post('/api/email-marketing/contacts/tags', 'EmailMarketingController', 'createTag', ['AuthMiddleware']);
+$router->patch('/api/email-marketing/contacts/tags/{id}', 'EmailMarketingController', 'updateTag', ['AuthMiddleware']);
+$router->delete('/api/email-marketing/contacts/tags/{id}', 'EmailMarketingController', 'deleteTag', ['AuthMiddleware']);
+$router->post('/api/email-marketing/contacts/subscribers/{id}/tags', 'EmailMarketingController', 'assignSubscriberTag', ['AuthMiddleware']);
+$router->delete('/api/email-marketing/contacts/subscribers/{id}/tags/{tagId}', 'EmailMarketingController', 'removeSubscriberTag', ['AuthMiddleware']);
+$router->get('/api/email-marketing/contacts/segments', 'EmailMarketingController', 'segments', ['AuthMiddleware']);
+$router->post('/api/email-marketing/contacts/segments', 'EmailMarketingController', 'createSegment', ['AuthMiddleware']);
+$router->patch('/api/email-marketing/contacts/segments/{id}', 'EmailMarketingController', 'updateSegment', ['AuthMiddleware']);
+$router->delete('/api/email-marketing/contacts/segments/{id}', 'EmailMarketingController', 'deleteSegment', ['AuthMiddleware']);
+$router->get('/api/email-marketing/contacts/segments/{id}/preview', 'EmailMarketingController', 'segmentPreview', ['AuthMiddleware']);
+$router->get('/api/email-marketing/contacts/suppressions', 'EmailMarketingController', 'suppressions', ['AuthMiddleware']);
+$router->post('/api/email-marketing/contacts/suppressions', 'EmailMarketingController', 'addSuppression', ['AuthMiddleware']);
+$router->delete('/api/email-marketing/contacts/suppressions/{id}', 'EmailMarketingController', 'removeSuppression', ['AuthMiddleware']);
+// Templates
+$router->get('/api/email-marketing/templates', 'EmailMarketingController', 'templates', ['AuthMiddleware']);
+$router->get('/api/email-marketing/templates/catalog', 'EmailMarketingController', 'templateCatalog', ['AuthMiddleware']);
+$router->post('/api/email-marketing/templates/from-gallery', 'EmailMarketingController', 'createTemplateFromGallery', ['AuthMiddleware']);
+$router->post('/api/email-marketing/templates/blocks/render', 'EmailMarketingController', 'renderBlocks', ['AuthMiddleware']);
+$router->get('/api/email-marketing/templates/{id}', 'EmailMarketingController', 'getTemplate', ['AuthMiddleware']);
+$router->post('/api/email-marketing/templates/{id}/duplicate', 'EmailMarketingController', 'duplicateTemplate', ['AuthMiddleware']);
+$router->post('/api/email-marketing/templates/{id}/share', 'EmailMarketingController', 'shareTemplate', ['AuthMiddleware']);
+$router->post('/api/email-marketing/templates/preview-html', 'EmailMarketingController', 'previewHtml', ['AuthMiddleware']);
+$router->post('/api/email-marketing/templates/{id}/preview', 'EmailMarketingController', 'previewTemplate', ['AuthMiddleware']);
+$router->patch('/api/email-marketing/templates/{id}', 'EmailMarketingController', 'updateTemplate', ['AuthMiddleware']);
+$router->delete('/api/email-marketing/templates/{id}', 'EmailMarketingController', 'deleteTemplate', ['AuthMiddleware']);
+// Public share: جلب واستيراد قالب مشترك (من غير ملكية)
+$router->get('/api/email-marketing/templates/shared/{token}', 'EmailMarketingController', 'getSharedTemplate', []);
+$router->post('/api/email-marketing/templates/shared/{token}/import', 'EmailMarketingController', 'importSharedTemplate', ['AuthMiddleware']);
+// Campaigns
+$router->get('/api/email-marketing/campaigns', 'EmailMarketingController', 'campaigns', ['AuthMiddleware']);
+$router->post('/api/email-marketing/campaigns', 'EmailMarketingController', 'createCampaign', ['AuthMiddleware']);
+$router->get('/api/email-marketing/campaigns/{id}', 'EmailMarketingController', 'getCampaign', ['AuthMiddleware']);
+$router->patch('/api/email-marketing/campaigns/{id}', 'EmailMarketingController', 'updateCampaign', ['AuthMiddleware']);
+$router->delete('/api/email-marketing/campaigns/{id}', 'EmailMarketingController', 'deleteCampaign', ['AuthMiddleware']);
+$router->post('/api/email-marketing/campaigns/{id}/duplicate', 'EmailMarketingController', 'duplicateCampaign', ['AuthMiddleware']);
+$router->post('/api/email-marketing/campaigns/{id}/send', 'EmailMarketingController', 'sendCampaign', ['AuthMiddleware']);
+$router->post('/api/email-marketing/campaigns/{id}/send-test', 'EmailMarketingController', 'sendTestEmail', ['AuthMiddleware']);
+$router->post('/api/email-marketing/campaigns/{id}/schedule', 'EmailMarketingController', 'scheduleCampaign', ['AuthMiddleware']);
+$router->post('/api/email-marketing/campaigns/{id}/cancel', 'EmailMarketingController', 'cancelCampaign', ['AuthMiddleware']);
+$router->get('/api/email-marketing/campaigns/{id}/report', 'EmailMarketingController', 'campaignReport', ['AuthMiddleware']);
+// Public tracking endpoints (بيطلبها عملاء البريد والمتصفحات - من غير Auth)
+$router->get('/api/email-marketing/track/open/{token}.gif', 'EmailMarketingController', 'trackOpen', []);
+$router->get('/api/email-marketing/track/click/{click_token}', 'EmailMarketingController', 'trackClick', []);
+$router->get('/api/email-marketing/unsubscribe/{unsubscribe_token}', 'EmailMarketingController', 'unsubscribeLink', []);
+// Automations (المرحلة 3)
+$router->get('/api/email-marketing/automations', 'EmailMarketingController', 'automations', ['AuthMiddleware']);
+$router->post('/api/email-marketing/automations', 'EmailMarketingController', 'createAutomation', ['AuthMiddleware']);
+$router->get('/api/email-marketing/automations/{id}', 'EmailMarketingController', 'getAutomation', ['AuthMiddleware']);
+$router->patch('/api/email-marketing/automations/{id}', 'EmailMarketingController', 'updateAutomation', ['AuthMiddleware']);
+$router->delete('/api/email-marketing/automations/{id}', 'EmailMarketingController', 'deleteAutomation', ['AuthMiddleware']);
+$router->post('/api/email-marketing/automations/{id}/steps', 'EmailMarketingController', 'setAutomationSteps', ['AuthMiddleware']);
+$router->post('/api/email-marketing/automations/{id}/status', 'EmailMarketingController', 'setAutomationStatus', ['AuthMiddleware']);
+$router->post('/api/email-marketing/automations/run-due', 'EmailMarketingController', 'runAutomationsDue', ['AuthMiddleware']);
+
+$router->get('/api/email-marketing/smtp-settings', 'EmailMarketingController', 'smtpSettings', ['AuthMiddleware']);
+$router->post('/api/email-marketing/smtp-settings', 'EmailMarketingController', 'saveSmtpSettings', ['AuthMiddleware']);
+$router->post('/api/email-marketing/smtp-settings/test', 'EmailMarketingController', 'testSmtpSettings', ['AuthMiddleware']);
+$router->delete('/api/email-marketing/smtp-settings', 'EmailMarketingController', 'deleteSmtpSettings', ['AuthMiddleware']);
+
+$router->get('/api/email-marketing/transactional/templates', 'EmailMarketingController', 'transactionalTemplates', ['AuthMiddleware']);
+$router->post('/api/email-marketing/transactional/templates', 'EmailMarketingController', 'createTransactionalTemplate', ['AuthMiddleware']);
+$router->get('/api/email-marketing/transactional/templates/{id}', 'EmailMarketingController', 'getTransactionalTemplate', ['AuthMiddleware']);
+$router->patch('/api/email-marketing/transactional/templates/{id}', 'EmailMarketingController', 'updateTransactionalTemplate', ['AuthMiddleware']);
+$router->delete('/api/email-marketing/transactional/templates/{id}', 'EmailMarketingController', 'deleteTransactionalTemplate', ['AuthMiddleware']);
+$router->post('/api/email-marketing/transactional/templates/{id}/duplicate', 'EmailMarketingController', 'duplicateTransactionalTemplate', ['AuthMiddleware']);
+$router->post('/api/email-marketing/transactional/send', 'EmailMarketingController', 'sendTransactionalEmail', ['AuthMiddleware']);
+$router->get('/api/email-marketing/transactional/logs', 'EmailMarketingController', 'transactionalLogs', ['AuthMiddleware']);
+$router->get('/api/email-marketing/transactional/stats', 'EmailMarketingController', 'transactionalStats', ['AuthMiddleware']);
+
+$router->get('/api/email-marketing/ab-tests', 'EmailMarketingController', 'abTests', ['AuthMiddleware']);
+$router->post('/api/email-marketing/ab-tests', 'EmailMarketingController', 'createAbTest', ['AuthMiddleware']);
+$router->get('/api/email-marketing/ab-tests/{id}', 'EmailMarketingController', 'getAbTest', ['AuthMiddleware']);
+$router->delete('/api/email-marketing/ab-tests/{id}', 'EmailMarketingController', 'deleteAbTest', ['AuthMiddleware']);
+$router->post('/api/email-marketing/ab-tests/{id}/variant', 'EmailMarketingController', 'setAbTestVariant', ['AuthMiddleware']);
+$router->post('/api/email-marketing/ab-tests/{id}/start', 'EmailMarketingController', 'startAbTest', ['AuthMiddleware']);
+$router->post('/api/email-marketing/ab-tests/{id}/send-batch', 'EmailMarketingController', 'sendAbTestBatch', ['AuthMiddleware']);
+$router->get('/api/email-marketing/ab-tests/{id}/report', 'EmailMarketingController', 'abTestReport', ['AuthMiddleware']);
+$router->post('/api/email-marketing/ab-tests/{id}/winner', 'EmailMarketingController', 'declareAbTestWinner', ['AuthMiddleware']);
+$router->post('/api/email-marketing/ab-tests/{id}/apply-winner', 'EmailMarketingController', 'applyAbTestWinner', ['AuthMiddleware']);
+
 $router->get('/api/ads/alerts/rules', 'AdsController', 'getAlertRules', ['AuthMiddleware']);
 $router->post('/api/ads/alerts/rules', 'AdsController', 'saveAlertRules', ['AuthMiddleware']);
 $router->get('/api/ads/alerts', 'AdsController', 'listAlerts', ['AuthMiddleware']);

@@ -107,6 +107,22 @@ $router->get('/ads/alerts', 'AdsController', 'showAlertsPage', ['AuthMiddleware'
 $router->get('/ads/market-research', 'AdsController', 'showMarketResearchPage', ['AuthMiddleware']);
 $router->get('/ads/team', 'AdsController', 'showTeamPage', ['AuthMiddleware']);
 $router->get('/ads/campaigns/{id}', 'AdsController', 'showCampaignDetailsPage', ['AuthMiddleware']);
+// Email Marketing (منافس Brevo) - موديول تسويق البريد
+$router->get('/email-marketing', 'EmailMarketingController', 'index', ['AuthMiddleware']);
+$router->get('/email-marketing/lists', 'EmailMarketingController', 'showListsPage', ['AuthMiddleware']);
+$router->get('/email-marketing/contacts', 'EmailMarketingController', 'showContactsPage', ['AuthMiddleware']);
+$router->get('/email-marketing/contacts/{id}', 'EmailMarketingController', 'showSubscriberDetailPage', ['AuthMiddleware']);
+$router->get('/email-marketing/templates', 'EmailMarketingController', 'showTemplatesPage', ['AuthMiddleware']);
+$router->get('/email-marketing/templates/builder', 'EmailMarketingController', 'showTemplateBuilderPage', ['AuthMiddleware']);
+$router->get('/email-marketing/templates/shared/{token}', 'EmailMarketingController', 'showSharedTemplatePage', []);
+$router->get('/email-marketing/campaigns', 'EmailMarketingController', 'showCampaignsPage', ['AuthMiddleware']);
+$router->get('/email-marketing/campaigns/{id}', 'EmailMarketingController', 'showCampaignDetailsPage', ['AuthMiddleware']);
+$router->get('/email-marketing/reports', 'EmailMarketingController', 'showReportsPage', ['AuthMiddleware']);
+$router->get('/email-marketing/automations', 'EmailMarketingController', 'showAutomationsPage', ['AuthMiddleware']);
+$router->get('/email-marketing/settings', 'EmailMarketingController', 'showEmailSettingsPage', ['AuthMiddleware']);
+$router->get('/email-marketing/transactional', 'EmailMarketingController', 'showTransactionalPage', ['AuthMiddleware']);
+$router->get('/email-marketing/ab-tests', 'EmailMarketingController', 'showAbTestsPage', ['AuthMiddleware']);
+$router->get('/email-marketing/ab-tests/{id}', 'EmailMarketingController', 'showAbTestDetailsPage', ['AuthMiddleware']);
 $router->get('/ads/connect/meta', 'AdsController', 'connectMeta', ['AuthMiddleware']);
 $router->get('/ads/connect/meta/callback', 'AdsController', 'metaOAuthCallback', ['AuthMiddleware']);
 $router->get('/ads/connect/meta/choose', 'AdsController', 'showMetaAdAccountPicker', ['AuthMiddleware']);

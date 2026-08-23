@@ -311,6 +311,7 @@ return [
     'sidebar.ai_keywords' => 'الكلمات المفتاحية',
     'sidebar.social' => 'السوشيال ميديا',
     'sidebar.ads' => 'إدارة الإعلانات',
+    'sidebar.email_marketing' => 'تسويق البريد',
     'sidebar.marketing_assistant' => 'مساعد التسويق الذكي',
     'sidebar.creative_studio' => 'Creative Studio',
     'sidebar.crm' => 'إدارة العملاء (CRM)',
