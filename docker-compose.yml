@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # قاعدة البيانات
+  db:
+    image: mysql:8.0
+    container_name: tourfecto_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-TourfectoRoot@2024}
+      MYSQL_DATABASE: ${DB_DATABASE:-tourfecto_db}
+      MYSQL_USER: ${DB_USERNAME:-tourfecto_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-TourfectoPass@2024}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - tourfecto_net
+    ports:
+      - "3306:3306"
+
+  # تطبيق PHP
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tourfecto_app
+    restart: always
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+    depends_on:
+      - db
+    networks:
+      - tourfecto_net
+    environment:
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_DATABASE=${DB_DATABASE:-tourfecto_db}
+      - DB_USERNAME=${DB_USERNAME:-tourfecto_user}
+      - DB_PASSWORD=${DB_PASSWORD:-TourfectoPass@2024}
+
+  # خادم الويب Nginx
+  web:
+    image: nginx:alpine
+    container_name: tourfecto_web
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./:/var/www/html
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - tourfecto_net
+
+volumes:
+  db_data:
+
+networks:
+  tourfecto_net:
+    driver: bridge

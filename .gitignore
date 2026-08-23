@@ -5,17 +5,22 @@ __pycache__/
 *.o
 *.obj
 *.class
-*.so
-*.dll
 *.exe
+*.dll
+*.so
+*.a
 *.out
 
 # Dependencies
+.venv/
+venv/
 node_modules/
-vendor/
-composer.lock
-*.lock
-.cache/
+dist/
+build/
+target/
+.gradle/
+.mypy_cache/
+.pytest_cache/
 
 # Logs and temp files
 *.log
@@ -26,94 +31,22 @@ composer.lock
 # Environment
 .env
 .env.local
-.env.*
+*.env.*
 
 # Editors
 .vscode/
 .idea/
-*.swp
-*.swo
 
-# Build and distribution
-dist/
-build/
-target/
+# System files
+.DS_Store
+Thumbs.db
+
+# Coverage
 coverage/
 htmlcov/
 .coverage
 
-# OS generated
-.DS_Store
-Thumbs.db
-
-# Laravel/Lumen specific
-/storage/logs/*
-!/storage/logs/.gitkeep
-/bootstrap/cache/*
-!/bootstrap/cache/.gitkeep
-/public/hot
-public/storage
-!.styleci.yml
-
-# PHP specific
-.php_cs.cache
-.phpunit.result.cache
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Cache and sessions
-/storage/framework/cache/*
-!/storage/framework/cache/.gitkeep
-/storage/framework/sessions/*
-!/storage/framework/sessions/.gitkeep
-/storage/framework/views/*
-!/storage/framework/views/.gitkeep
-
-# Compiled assets
-/public/css/app.css
-/public/js/app.js
-/public/mix-manifest.json
-
-# Deployment
-*.tgz
-
-# Testing
-.phpunit
-.phpunit.xml
-tests/_output/
-
-# IDE
-.nyc_output/
-.coverage/
-istanbul/
-.jscs-cache/
-eslintcache
-
-# Framework
-.sass-cache/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Security
-/security/advisories/*.json
-
-# GitHub
-.github/
-
-# Temporary files
-tmp/
-temp/
-
-# Backup files
-*~
-*.bak
-*.backup
-
-# Archive files
+# Compressed files
 *.zip
 *.gz
 *.tar
@@ -136,12 +69,4 @@ temp/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
-
-# Images (if generated/compressed)
-*.png
-*.jpg
-*.jpeg
-*.bmp
-*.gif
-*.webm
 ```
