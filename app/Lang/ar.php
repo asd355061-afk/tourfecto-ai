@@ -1463,6 +1463,7 @@ return [
     'dashboard.notifications' => 'الإشعارات',
     'dashboard.no_notifications' => 'لا يوجد إشعارات جديدة',
     'dashboard.recent_activity' => 'آخر نشاط',
+    'dashboard.recent_logins' => 'آخر عمليات الدخول',
     'dashboard.view_all' => 'عرض الكل ←',
     'dashboard.no_activity' => 'لا يوجد نشاط حتى الآن',
     'dashboard.review_distribution' => 'توزيع المراجعات',

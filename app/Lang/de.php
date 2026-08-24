@@ -1433,6 +1433,7 @@ return [
     'dashboard.notifications' => 'Benachrichtigungen',
     'dashboard.no_notifications' => 'Keine neuen Benachrichtigungen',
     'dashboard.recent_activity' => 'Letzte Aktivität',
+    'dashboard.recent_logins' => 'Letzte Anmeldungen',
     'dashboard.view_all' => 'Alle anzeigen →',
     'dashboard.no_activity' => 'Noch keine Aktivität',
     'dashboard.review_distribution' => 'Bewertungsverteilung',

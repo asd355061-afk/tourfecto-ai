@@ -1475,6 +1475,7 @@ return [
     'dashboard.notifications' => 'Notifications',
     'dashboard.no_notifications' => 'No new notifications',
     'dashboard.recent_activity' => 'Recent Activity',
+    'dashboard.recent_logins' => 'Recent Logins',
     'dashboard.view_all' => 'View all →',
     'dashboard.no_activity' => 'No activity yet',
     'dashboard.review_distribution' => 'Review Distribution',
