@@ -207,7 +207,8 @@ class ChatController extends Controller
         $token = $this->get('hub.verify_token');
         $challenge = $this->get('hub.challenge');
 
-        if ($mode === 'subscribe' && $token === WHATSAPP_WEBHOOK_VERIFY_TOKEN) {
+        $verifyToken = WHATSAPP_WEBHOOK_VERIFY_TOKEN;
+        if ($mode === 'subscribe' && $verifyToken !== '' && hash_equals($verifyToken, $token ?? '')) {
             return [
                 'success' => true,
                 'challenge' => $challenge
@@ -563,6 +564,9 @@ class ChatController extends Controller
     private function validateWebhook(?string $token): bool
     {
         $verifyToken = WHATSAPP_WEBHOOK_VERIFY_TOKEN;
+        if ($verifyToken === '') {
+            return false;
+        }
         return hash_equals($verifyToken, $token ?? '');
     }
 
@@ -3043,7 +3047,10 @@ JS;
      */
     private function ultraMsgWebhookSecret(int $websiteId): string
     {
-        $secretKey = (defined('ENCRYPTION_KEY') && ENCRYPTION_KEY) ? ENCRYPTION_KEY : 'tourfecto-fallback-secret';
+        $secretKey = (defined('ENCRYPTION_KEY') && ENCRYPTION_KEY) ? ENCRYPTION_KEY : '';
+        if ($secretKey === '') {
+            return '';
+        }
         return substr(hash_hmac('sha256', 'ultramsg-webhook:' . $websiteId, $secretKey), 0, 24);
     }
 

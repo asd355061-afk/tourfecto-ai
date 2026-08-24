@@ -616,8 +616,13 @@ class WebhookController extends Controller
             return false;
         }
 
+        $secret = WHATSAPP_WEBHOOK_VERIFY_TOKEN;
+        if ($secret === '') {
+            return false;
+        }
+
         $payload = file_get_contents('php://input');
-        $computed = 'sha256=' . hash_hmac('sha256', $payload, WHATSAPP_ACCESS_TOKEN);
+        $computed = 'sha256=' . hash_hmac('sha256', $payload, $secret);
 
         return hash_equals($signature, $computed);
     }
