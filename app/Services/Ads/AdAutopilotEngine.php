@@ -449,7 +449,12 @@ class AdAutopilotEngine
             if ($rec['action_type'] === 'decrease_budget' && $afterBudget <= 0) {
                 return $api->pauseCampaign($externalCampaignId);
             }
-            return $api->updateCampaignBudget($externalCampaignId, $afterBudget);
+
+            $adSetId = (string) $campaign->getAttribute('external_adset_id');
+            if ($adSetId === '') {
+                return ['success' => false, 'error' => 'Meta Ad Set ID غير متاح - شغّل مزامنة Meta الأول (syncMetaCampaigns) عشان يتحفظ'];
+            }
+            return $api->updateCampaignBudget($adSetId, $afterBudget);
         }
 
         if ($platform === 'google_ads') {

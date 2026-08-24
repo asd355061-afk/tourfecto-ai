@@ -266,7 +266,9 @@ class GeminiClient
 
                 // استخراج الإحصائيات
                 $tokensUsed = $data['usageMetadata']['totalTokenCount'] ?? 0;
-                $cost = ($tokensUsed / 1000000) * 0.000125; // تقدير التكلفة
+                // التكلفة لكل 1K رمز (مش لكل مليون) - نفس نمط باقي المزودين
+                $costPer1k = defined('GEMINI_COST_PER_1K_INPUT_TOKENS') ? GEMINI_COST_PER_1K_INPUT_TOKENS : 0.000125;
+                $cost = ($tokensUsed / 1000) * $costPer1k; // تقدير التكلفة
 
                 return [
                     'success' => true,

@@ -1548,12 +1548,19 @@ JS;
                 );
 
             case 'entity_schema':
+                $orgName = $suggestedTitle ?? trim((string) ($context['title'] ?? ''));
+                $orgName = $orgName !== '' ? mb_substr($orgName, 0, 120) : 'اسم الشركة';
+                $orgDesc = $suggestedDescription ?? '';
+                if ($orgDesc === '') {
+                    $orgDesc = trim((string) ($context['title'] ?? ''));
+                }
+                $orgDesc = $orgDesc !== '' ? mb_substr(preg_replace('/\s+/', ' ', $orgDesc), 0, 160) : 'وصف مختصر لنشاط الشركة';
                 return $this->fix(
                     'geo',
                     'إضافة بيانات الكيان (Organization Schema)',
                     'أهم إشارة بتساعد نماذج الذكاء الاصطناعي تتعرف على هوية موقعك بدقة قبل ما تستشهد بيه في إجاباتها.',
                     'code_snippet',
-                    "<script type=\"application/ld+json\">\n{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"Organization\",\n  \"name\": \"اسم الشركة\",\n  \"url\": \"https://{$host}\",\n  \"logo\": \"https://{$host}/logo.png\",\n  \"description\": \"وصف مختصر لنشاط الشركة\",\n  \"contactPoint\": {\n    \"@type\": \"ContactPoint\",\n    \"telephone\": \"+20-XXX-XXX-XXXX\",\n    \"contactType\": \"customer service\"\n  }\n}\n</script>",
+                    "<script type=\"application/ld+json\">\n{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"Organization\",\n  \"name\": \"" . htmlspecialchars($orgName, ENT_QUOTES, 'UTF-8') . "\",\n  \"url\": \"https://{$host}\",\n  \"logo\": \"https://{$host}/logo.png\",\n  \"description\": \"" . htmlspecialchars($orgDesc, ENT_QUOTES, 'UTF-8') . "\",\n  \"contactPoint\": {\n    \"@type\": \"ContactPoint\",\n    \"telephone\": \"+20-XXX-XXX-XXXX\",\n    \"contactType\": \"customer service\"\n  }\n}\n</script>",
                     '<head> أو نهاية <body> في الصفحة الرئيسية'
                 );
 

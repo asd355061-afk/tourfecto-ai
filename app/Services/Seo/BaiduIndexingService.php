@@ -9,7 +9,7 @@
 class BaiduIndexingService
 {
     /** @var string */
-    private $apiUrl = 'http://data.zz.baidu.com/urls';
+    private $apiUrl = 'https://data.zz.baidu.com/urls';
 
     /**
      * Submit URLs to Baidu for immediate indexing.
