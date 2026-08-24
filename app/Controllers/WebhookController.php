@@ -395,6 +395,29 @@ class WebhookController extends Controller
     }
 
     /**
+     * Webhook Stripe لشحن المحفظة (wallet top-up) + تأكيد الحجوزات.
+     * مسار موحّد لكل Stripe Checkout Sessions (يحدد الغرض من metadata).
+     * بدون Auth - التوثيق بالتوقيع HMAC.
+     */
+    public function walletStripeWebhook(array $params = []): array
+    {
+        $payload = file_get_contents('php://input') ?: '';
+        $signature = $_SERVER['HTTP_STRIPE_SIGNATURE'] ?? '';
+
+        try {
+            if (!class_exists('StripeCheckoutService')) {
+                return $this->error('نظام الدفع غير متاح', 500);
+            }
+            $result = (new StripeCheckoutService())->handleWebhook($payload, $signature);
+            return $this->success(['handled' => $result['handled'] ?? false, 'event' => $result['event'] ?? '']);
+        } catch (Exception $e) {
+            $code = $e->getCode() === 401 ? 401 : 500;
+            http_response_code($code);
+            return $this->error($e->getMessage(), $code);
+        }
+    }
+
+    /**
      * معالجة Webhook من PayPal
      * @param array $data
      * @return array

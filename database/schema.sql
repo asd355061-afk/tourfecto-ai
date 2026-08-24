@@ -29,16 +29,43 @@ SET TIME_ZONE = '+00:00';
 DROP TABLE IF EXISTS `users`;
 CREATE TABLE `users` (
     `id` INT(11) NOT NULL AUTO_INCREMENT COMMENT 'المعرف الفريد للمستخدم',
+    `owner_user_id` INT(11) NULL DEFAULT NULL COMMENT 'لو مش NULL: هذا الحساب عضو فريق تابع لصاحب الحساب ده (مش حساب مستقل بفوترة خاصة)',
     `company_name` VARCHAR(255) NOT NULL COMMENT 'اسم الشركة',
+    `avatar_url` VARCHAR(500) DEFAULT NULL COMMENT 'رابط الصورة الشخصية (نسبي من جذر الموقع)',
+    `job_title` VARCHAR(120) DEFAULT NULL COMMENT 'المسمى الوظيفي',
+    `industry` VARCHAR(100) NULL DEFAULT NULL COMMENT 'صناعة/مجال النشاط - جزء من Workspace Settings',
+    `workspace_logo_url` VARCHAR(255) NULL DEFAULT NULL COMMENT 'لوجو الـ Workspace (منفصل عن avatar_url الشخصي)',
+    `bio` VARCHAR(500) DEFAULT NULL COMMENT 'نبذة مختصرة عن المستخدم (حد أقصى 500 حرف)',
     `email` VARCHAR(255) NOT NULL UNIQUE COMMENT 'البريد الإلكتروني',
-    `password` VARCHAR(255) NOT NULL COMMENT 'كلمة المرور (مشفرة)',
+    `password` VARCHAR(255) DEFAULT NULL COMMENT 'كلمة المرور القديمة (مشفرة) - خلف التوافق',
+    `password_hash` VARCHAR(255) DEFAULT NULL COMMENT 'كلمة المرور (مشفرة) - العمود الصحيح',
+    `password_changed_at` TIMESTAMP NULL DEFAULT NULL COMMENT 'آخر تغيير فعلي لكلمة المرور',
+    `first_name` VARCHAR(100) DEFAULT NULL COMMENT 'الاسم الأول',
+    `last_name` VARCHAR(100) DEFAULT NULL COMMENT 'اسم العائلة',
+    `display_name` VARCHAR(120) DEFAULT NULL COMMENT 'الاسم المعروض للمستخدم',
     `phone` VARCHAR(50) DEFAULT NULL COMMENT 'رقم الهاتف',
     `country` VARCHAR(100) DEFAULT NULL COMMENT 'الدولة',
+    `country_code` VARCHAR(10) DEFAULT NULL COMMENT 'رمز الدولة (ISO)',
     `language` VARCHAR(10) DEFAULT 'ar' COMMENT 'اللغة المفضلة',
     `timezone` VARCHAR(50) DEFAULT 'UTC' COMMENT 'المنطقة الزمنية',
     `role` ENUM('super_admin', 'admin', 'manager', 'agent', 'user') DEFAULT 'user' COMMENT 'دور المستخدم',
+    `workspace_role` ENUM('admin', 'manager', 'sales', 'support', 'viewer') NULL DEFAULT NULL COMMENT 'دور العضو داخل الـ Workspace',
+    `status` ENUM('active', 'inactive', 'banned') NOT NULL DEFAULT 'active' COMMENT 'حالة الحساب',
     `is_active` TINYINT(1) DEFAULT 1 COMMENT 'حالة النشاط',
     `email_verified` TINYINT(1) DEFAULT 0 COMMENT 'حالة التحقق من البريد',
+    `email_verified_at` TIMESTAMP NULL DEFAULT NULL COMMENT 'تاريخ تأكيد البريد',
+    `gdpr_consent` TINYINT(1) DEFAULT 0 COMMENT 'موافقة GDPR',
+    `gdpr_consent_at` TIMESTAMP NULL DEFAULT NULL COMMENT 'تاريخ موافقة GDPR',
+    `notify_email` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'تفعيل إشعارات البريد الإلكتروني',
+    `notify_chat` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'تفعيل إشعارات المحادثات',
+    `notify_reviews` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'تفعيل إشعارات المراجعات الجديدة',
+    `notification_preferences` TEXT NULL DEFAULT NULL COMMENT 'JSON: تفضيل تشغيل/إيقاف لكل فئة إشعار',
+    `notify_billing_usage` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'تفعيل إشعارات استهلاك الفوترة',
+    `currency` VARCHAR(3) DEFAULT NULL COMMENT 'عملة تفضيل عرض الملف الشخصي (ISO 4217)',
+    `two_factor_enabled` TINYINT(1) DEFAULT 0 COMMENT 'تفعيل المصادقة الثنائية',
+    `two_factor_secret` VARCHAR(255) DEFAULT NULL COMMENT 'سر المصادقة الثنائية',
+    `two_factor_recovery_codes` TEXT DEFAULT NULL COMMENT 'رموز الاسترداد للمصادقة الثنائية',
+    `two_factor_confirmed_at` TIMESTAMP NULL DEFAULT NULL COMMENT 'تاريخ تأكيد المصادقة الثنائية',
     `api_token` VARCHAR(255) DEFAULT NULL COMMENT 'توكن API',
     `token_expiry` TIMESTAMP NULL DEFAULT NULL COMMENT 'تاريخ انتهاء التوكن',
     `remember_token` VARCHAR(255) DEFAULT NULL COMMENT 'توكن التذكر',
@@ -58,8 +85,55 @@ CREATE TABLE `users` (
     INDEX `idx_created_at` (`created_at`),
     INDEX `idx_email_verified` (`email_verified`),
     INDEX `idx_deleted_at` (`deleted_at`),
-    INDEX `idx_last_activity` (`last_activity`)
+    INDEX `idx_last_activity` (`last_activity`),
+    INDEX `idx_owner_user_id` (`owner_user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='جدول المستخدمين';
+
+-- ============================================
+-- 4. جدول باقات الاشتراك الفعلية (subscription_plans)
+-- محرك الفوترة الحقيقي (Subscription::createSubscription) بيقرأ منه
+-- بعمود plan_code (نمط: starter_monthly). منفصل تمامًا عن
+-- plan_pricing_display (جدول العرض العام) - القيم هنا هي نفس أسعار
+-- العرض بالدولار، والحدود هي نفس قيم plan_pricing_display.
+-- ============================================
+DROP TABLE IF EXISTS `subscription_plans`;
+CREATE TABLE `subscription_plans` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT COMMENT 'المعرف الفريد',
+    `plan_code` VARCHAR(50) NOT NULL COMMENT 'رمز الباقة الكامل (starter_monthly)',
+    `name` VARCHAR(150) NOT NULL COMMENT 'اسم الباقة المعروض',
+    `price` DECIMAL(10,2) NOT NULL DEFAULT 0 COMMENT 'السعر الفعلي (USD)',
+    `currency` VARCHAR(10) NOT NULL DEFAULT 'USD' COMMENT 'العملة',
+    `billing_cycle` VARCHAR(20) NOT NULL DEFAULT 'monthly' COMMENT 'monthly أو yearly',
+    `ai_analysis_limit` INT(11) NOT NULL DEFAULT 0 COMMENT 'حد تحليلات AI',
+    `ai_message_limit` INT(11) NOT NULL DEFAULT 0 COMMENT 'حد رسائل الشات الذكي',
+    `review_auto_reply_limit` INT(11) NOT NULL DEFAULT 0 COMMENT 'حد الردود التلقائية',
+    `features_json` TEXT DEFAULT NULL COMMENT 'JSON: مميزات إضافية (competitor_analysis, auto_pilot...)',
+    `is_active` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'تفعيل الباقة',
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `idx_plan_code` (`plan_code`),
+    INDEX `idx_is_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='باقات الاشتراك الفعلية لمحرك الفوترة';
+
+INSERT INTO `subscription_plans`
+    (`plan_code`, `name`, `price`, `currency`, `billing_cycle`,
+     `ai_analysis_limit`, `ai_message_limit`, `review_auto_reply_limit`,
+     `features_json`, `is_active`)
+VALUES
+    ('starter_monthly', 'الباقة الأساسية', 49.00, 'USD', 'monthly',
+     50, 100, 10, '{"competitor_analysis": 5, "auto_pilot": 0}', 1),
+    ('starter_yearly', 'الباقة الأساسية', 490.00, 'USD', 'yearly',
+     50, 100, 10, '{"competitor_analysis": 5, "auto_pilot": 0}', 1),
+    ('professional_monthly', 'الباقة الاحترافية', 99.00, 'USD', 'monthly',
+     200, 500, 50, '{"competitor_analysis": 20, "auto_pilot": 1}', 1),
+    ('professional_yearly', 'الباقة الاحترافية', 990.00, 'USD', 'yearly',
+     200, 500, 50, '{"competitor_analysis": 20, "auto_pilot": 1}', 1),
+    ('enterprise_monthly', 'الباقة المؤسسية', 299.00, 'USD', 'monthly',
+     1000, 2000, 200, '{"competitor_analysis": 100, "auto_pilot": 1}', 1),
+    ('enterprise_yearly', 'الباقة المؤسسية', 2990.00, 'USD', 'yearly',
+     1000, 2000, 200, '{"competitor_analysis": 100, "auto_pilot": 1}', 1)
+ON DUPLICATE KEY UPDATE `plan_code` = `plan_code`;
 
 -- ============================================
 -- 4. جدول الاشتراكات (subscriptions)
@@ -70,7 +144,8 @@ CREATE TABLE `subscriptions` (
     `user_id` INT(11) NOT NULL COMMENT 'معرف المستخدم',
     `plan_name` ENUM('starter', 'professional', 'enterprise') NOT NULL DEFAULT 'starter' COMMENT 'اسم الباقة',
     `plan_type` ENUM('monthly', 'yearly') NOT NULL DEFAULT 'monthly' COMMENT 'نوع الاشتراك',
-    `status` ENUM('active', 'expired', 'cancelled', 'pending') NOT NULL DEFAULT 'pending' COMMENT 'حالة الاشتراك',
+    `plan_id` INT(11) DEFAULT NULL COMMENT 'مرجع لجدول subscription_plans',
+    `status` ENUM('active', 'trialing', 'past_due', 'expired', 'cancelled', 'pending') NOT NULL DEFAULT 'pending' COMMENT 'حالة الاشتراك',
     `price` DECIMAL(10, 2) NOT NULL DEFAULT 0.00 COMMENT 'السعر',
     `currency` VARCHAR(3) DEFAULT 'USD' COMMENT 'العملة',
     `ai_credits` INT(11) NOT NULL DEFAULT 100 COMMENT 'رصيد الذكاء الاصطناعي',
@@ -82,8 +157,16 @@ CREATE TABLE `subscriptions` (
     `competitor_analysis_limit` INT(11) NOT NULL DEFAULT 10 COMMENT 'حد تحليل المنافسين',
     `competitor_analysis_used` INT(11) NOT NULL DEFAULT 0 COMMENT 'تحليل المنافسين المستخدم',
     `auto_pilot` TINYINT(1) DEFAULT 0 COMMENT 'تفعيل الطيار الآلي',
+    `usage_ai_analysis_count` INT(11) DEFAULT 0 COMMENT 'عداد استهلاك تحليلات AI',
+    `usage_ai_message_count` INT(11) DEFAULT 0 COMMENT 'عداد استهلاك رسائل الشات',
+    `usage_review_reply_count` INT(11) DEFAULT 0 COMMENT 'عداد استهلاك الردود التلقائية',
+    `last_usage_reset_at` DATETIME DEFAULT NULL COMMENT 'آخر تصفير للعدادات',
     `start_date` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'تاريخ البدء',
     `expiry_date` TIMESTAMP NULL DEFAULT NULL COMMENT 'تاريخ الانتهاء',
+    `current_period_start` DATETIME DEFAULT NULL COMMENT 'بداية الفترة الحالية',
+    `current_period_end` DATETIME DEFAULT NULL COMMENT 'نهاية الفترة الحالية',
+    `trial_ends_at` DATETIME DEFAULT NULL COMMENT 'نهاية فترة التجربة',
+    `cancel_at_period_end` TINYINT(1) DEFAULT 0 COMMENT 'إلغاء في نهاية الفترة',
     `cancelled_at` TIMESTAMP NULL DEFAULT NULL COMMENT 'تاريخ الإلغاء',
     `cancellation_reason` TEXT DEFAULT NULL COMMENT 'سبب الإلغاء',
     `last_billed_at` TIMESTAMP NULL DEFAULT NULL COMMENT 'تاريخ آخر فاتورة',
@@ -91,6 +174,8 @@ CREATE TABLE `subscriptions` (
     `invoice_id` INT(11) DEFAULT NULL COMMENT 'معرف الفاتورة الحالية',
     `payment_method` VARCHAR(50) DEFAULT NULL COMMENT 'طريقة الدفع',
     `payment_gateway` VARCHAR(50) DEFAULT NULL COMMENT 'بوابة الدفع',
+    `gateway_subscription_id` VARCHAR(255) DEFAULT NULL COMMENT 'معرف الاشتراك عند البوابة',
+    `gateway_customer_id` VARCHAR(255) DEFAULT NULL COMMENT 'معرف العميل عند البوابة',
     `subscription_id_external` VARCHAR(255) DEFAULT NULL COMMENT 'معرف الاشتراك الخارجي',
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'تاريخ الإنشاء',
     `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'تاريخ التحديث',
@@ -100,6 +185,7 @@ CREATE TABLE `subscriptions` (
     INDEX `idx_status` (`status`),
     INDEX `idx_expiry` (`expiry_date`),
     INDEX `idx_plan` (`plan_name`),
+    INDEX `idx_plan_id` (`plan_id`),
     INDEX `idx_created_at` (`created_at`),
     INDEX `idx_next_billing` (`next_billing_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='جدول الاشتراكات';
@@ -444,6 +530,10 @@ CREATE TABLE `invoices` (
     `plan_name` VARCHAR(50) NOT NULL COMMENT 'اسم الباقة',
     `plan_type` ENUM('monthly', 'yearly') NOT NULL COMMENT 'نوع الباقة',
     `amount` DECIMAL(10, 2) NOT NULL COMMENT 'المبلغ',
+    `subtotal` DECIMAL(10,2) NULL DEFAULT NULL COMMENT 'المبلغ قبل الضريبة',
+    `tax_country` CHAR(2) NULL DEFAULT NULL,
+    `tax_type` VARCHAR(30) NULL DEFAULT NULL COMMENT 'VAT / GST / ... - NULL يعني Not Configured',
+    `tax_amount` DECIMAL(10,2) NULL DEFAULT NULL COMMENT 'معلوماتي حاليًا - غير مضاف لمبلغ amount المخصوم فعليًا',
     `currency` VARCHAR(3) DEFAULT 'USD' COMMENT 'العملة',
     `status` ENUM('pending', 'paid', 'failed', 'cancelled') DEFAULT 'pending' COMMENT 'حالة الفاتورة',
     `payment_method` VARCHAR(50) DEFAULT NULL COMMENT 'طريقة الدفع',

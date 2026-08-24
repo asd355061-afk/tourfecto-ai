@@ -43,7 +43,7 @@ class BillingManager
      * @param array $items
      * @return array
      */
-    public function createInvoice(int $userId, string $planName, string $planType = 'monthly', array $items = []): array
+    public function createInvoice(int $userId, string $planName, string $planType = 'monthly', array $items = [], array $options = []): array
     {
         try {
             $plans = $this->getPlans();
@@ -61,12 +61,24 @@ class BillingManager
             // إنشاء رقم فاتورة فريد
             $invoiceNumber = $this->generateInvoiceNumber();
 
+            // المصدر الوحيد لحالة الفاتورة: الافتراضي pending (مسار بوابة
+            // الدفع الخارجية)، ولو المرسل حدد status = 'paid' (زي الدفع من
+            // المحفظة اللي خلص فعليًا لحظة الخصم) بنحترم ده.
+            $status = $options['status'] ?? 'pending';
+            $paymentMethod = $options['payment_method'] ?? null;
+            $transactionId = $options['transaction_id'] ?? null;
+            $paidAtSql = ($status === 'paid') ? 'NOW()' : 'NULL';
+            $subtotal = $options['subtotal'] ?? $amount;
+            $taxCountry = $options['tax_country'] ?? null;
+            $taxType = $options['tax_type'] ?? null;
+            $taxAmount = $options['tax_amount'] ?? null;
+
             $sql = "INSERT INTO invoices 
-                    (user_id, invoice_number, plan_name, plan_type, amount, currency, 
-                     status, items, created_at, due_date) 
+                    (user_id, invoice_number, plan_name, plan_type, amount, subtotal, tax_country, tax_type, tax_amount,
+                     currency, status, payment_method, transaction_id, items, due_date, paid_at, created_at) 
                     VALUES 
-                    (:user_id, :invoice_number, :plan_name, :plan_type, :amount, :currency,
-                     'pending', :items, NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY))";
+                    (:user_id, :invoice_number, :plan_name, :plan_type, :amount, :subtotal, :tax_country, :tax_type, :tax_amount,
+                     :currency, :status, :payment_method, :transaction_id, :items, CURDATE(), {$paidAtSql}, NOW())";
 
             $invoiceId = $this->db->query($sql, [
                 ':user_id' => $userId,
@@ -74,7 +86,14 @@ class BillingManager
                 ':plan_name' => $planName,
                 ':plan_type' => $planType,
                 ':amount' => $amount,
-                ':currency' => $this->defaultCurrency,
+                ':subtotal' => $subtotal,
+                ':tax_country' => $taxCountry,
+                ':tax_type' => $taxType,
+                ':tax_amount' => $taxAmount,
+                ':currency' => $options['currency'] ?? $this->defaultCurrency,
+                ':status' => $status,
+                ':payment_method' => $paymentMethod,
+                ':transaction_id' => $transactionId,
                 ':items' => json_encode($items ?: [
                     [
                         'description' => $plan['name'] . ' - ' . ($planType === 'yearly' ? 'سنوي' : 'شهري'),
@@ -90,7 +109,7 @@ class BillingManager
                 'invoice_number' => $invoiceNumber,
                 'amount' => $amount,
                 'currency' => $this->defaultCurrency,
-                'status' => 'pending'
+                'status' => $status
             ];
 
         } catch (Exception $e) {
@@ -140,7 +159,7 @@ class BillingManager
             $sql = "UPDATE invoices 
                     SET status = 'paid',
                         payment_method = :payment_method,
-                        payment_date = NOW(),
+                        paid_at = NOW(),
                         transaction_id = :transaction_id,
                         updated_at = NOW()
                     WHERE id = :invoice_id";

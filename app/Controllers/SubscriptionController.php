@@ -1582,8 +1582,53 @@ CSS;
     /** POST /api/subscription/payment */
     public function processPayment(array $params = []): array
     {
-        // ملاحظة: لا توجد بوابة دفع (Stripe/PayPal) مفعّلة فعليًا بالكود حاليًا
-        // رغم وجود مفاتيحها في .env، لذا هذه الدالة لا تخترع منطق دفع وهمي.
-        return $this->error('بوابة الدفع غير مفعّلة بعد في هذه النسخة', 501);
+        // الدفع الإلكتروني للاشتراك: العميل بيشحن رصيد محفظته ببطاقة
+        // عبر Stripe Checkout (إيداع فوري بلا موافقة أدمن)، وبعدها
+        // الاشتراك نفسه بيتفعّل من الرصيد عبر subscribeWithBalance()
+        // (نفس مسار create() الحالي). لو Stripe مش مُفعّل، نرد بالرصيد
+        // الحالي والمبلغ المطلوب عشان الواجهة توجّهه للإيداع اليدوي.
+        try {
+            if (!$this->isAuthenticated()) {
+                return $this->error('Unauthorized', 401);
+            }
+
+            $amount = (float) ($this->get('amount') ?? 0);
+            $currency = (string) ($this->get('currency') ?: 'USD');
+            $successUrl = (string) ($this->get('success_url') ?: '');
+            $cancelUrl = (string) ($this->get('cancel_url') ?: '');
+
+            if ($amount <= 0) {
+                return $this->error('المبلغ مطلوب وأكبر من صفر', 422);
+            }
+
+            if (!class_exists('StripeCheckoutService')) {
+                return $this->error('نظام الدفع غير متاح', 500);
+            }
+
+            $stripe = new StripeCheckoutService();
+            if (!$stripe->isConfigured()) {
+                $balance = 0;
+                if (class_exists('WalletService')) {
+                    $balance = (new WalletService())->getBalance((int) $this->user['id']);
+                }
+                return $this->error('بوابة الدفع الإلكتروني غير مُفعّلة حاليًا - استخدم الإيداع اليدوي', 400, [
+                    'balance' => $balance,
+                    'action' => '/wallet',
+                ]);
+            }
+
+            $session = $stripe->createWalletTopUpSession(
+                (int) $this->user['id'],
+                $amount,
+                $currency,
+                $successUrl !== '' ? $successUrl : rtrim(defined('APP_URL') ? APP_URL : '', '/') . '/subscription',
+                $cancelUrl !== '' ? $cancelUrl : rtrim(defined('APP_URL') ? APP_URL : '', '/') . '/wallet'
+            );
+
+            return $this->success($session, 'تم إنشاء جلسة الدفع');
+        } catch (Exception $e) {
+            Logger::error('Subscription Payment Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر بدء عملية الدفع: ' . $e->getMessage(), 422);
+        }
     }
 }
