@@ -691,12 +691,18 @@ class EmailCampaignService
     private function subscriberToken(?int $subscriberId): string
     {
         if ($subscriberId === null || $subscriberId <= 0) {
-            return 'test-token';
+            return '';
         }
         $rows = $this->db->query(
             "SELECT unsubscribe_token FROM email_subscribers WHERE id = ? LIMIT 1",
             [$subscriberId]
         );
-        return $rows[0]['unsubscribe_token'] ?? 'test-token';
+        $token = $rows[0]['unsubscribe_token'] ?? '';
+        if ($token === '') {
+            // لو الـ token مفقود من السجل، نولّد فريد مستقر من المعرّف بدل
+            // قيمة ثابتة يتشاركها كل المشتركين الناقصين.
+            $token = 'auto-' . substr(hash('sha256', 'sub:' . (int) $subscriberId), 0, 24);
+        }
+        return $token;
     }
 }

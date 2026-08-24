@@ -660,7 +660,7 @@ class EmailMarketingController extends Controller
             const data = await res.json();
             if (data.success) { window.location.href = '/email-marketing/templates?imported=1'; }
             else if (res.status === 401) { window.location.href = '/login?next=/email-marketing/templates/shared/{$tokenEsc}'; }
-            else { alert(data.error || 'تعذر الاستيراد'); }
+            else { notify(data.error || 'تعذر الاستيراد'); }
         });
         </script>
         </body>
@@ -856,7 +856,7 @@ class EmailMarketingController extends Controller
             </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
                 <button class="p-btn primary" onclick="openAutomationModal()">+ سير عمل جديد</button>
-                <button class="p-btn" onclick="runAutomationsDue()">تشغيل المستحقات الآن</button>
+                <button class="p-btn" onclick="runAutomationsDue(this)">تشغيل المستحقات الآن</button>
             </div>
         </div>
 
@@ -1193,9 +1193,19 @@ class EmailMarketingController extends Controller
                 <span class="p-card-sub">الحالة: {$abStatus} — المقياس: {$abMetric} — نسبة ب: {$abSplit}%</span>
             </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                <button class="p-btn primary" onclick="runAbTest()">🚀 تشغيل وتقسيم الجمهور</button>
-                <button class="p-btn" onclick="sendAbBatch()">📤 إرسال دفعة</button>
+                <button class="p-btn primary" onclick="runAbTest(this)">🚀 تشغيل وتقسيم الجمهور</button>
+                <button class="p-btn" onclick="sendAbBatch(this)">📤 إرسال دفعة</button>
                 <button class="p-btn" onclick="loadAbReport()">📈 التقرير</button>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;background:var(--panel-card-bg-2,#f9fafb);padding:10px;border-radius:10px;">
+                <span style="font-size:13px;font-weight:600;">✉️ إرسال اختبار:</span>
+                <select id="emAbTestVariant" class="p-select" style="max-width:150px;">
+                    <option value="all">كل المتغيرات</option>
+                    <option value="a">المتغير أ</option>
+                    <option value="b">المتغير ب</option>
+                </select>
+                <input type="email" id="emAbTestEmail" class="p-select" style="flex:1;min-width:200px;" placeholder="your-email@example.com">
+                <button class="p-btn xs primary" onclick="sendAbTestEmail(this)">📬 إرسال</button>
             </div>
         </div>
 
@@ -2500,6 +2510,24 @@ class EmailMarketingController extends Controller
         return $this->success(['queued' => true], 'بدأ إرسال دفعة اختبار أ/ب — سيتم الإرسال عبر cron');
     }
 
+    /**
+     * إرسال بريد اختبار لأحد متغيرات اختبار أ/ب (أو كلاهما) لمعاينة الشكل
+     * قبل الإرسال الفعلي — دون التأثير على الجمهور.
+     */
+    public function sendAbTestTestEmail(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $abTestId = (int) ($params['id'] ?? 0);
+        $variant = (string) ($this->data['variant'] ?? 'all');
+        $toEmail = trim((string) ($this->data['email'] ?? ''));
+        $result = $this->abTestService()->sendTest($this->uid(), $abTestId, $variant, $toEmail);
+        return $result['success']
+            ? $this->success(['sent' => $result['sent']], 'تم إرسال رسائل الاختبار بنجاح')
+            : $this->error($result['error'] ?? 'فشل إرسال رسائل الاختبار', 422);
+    }
+
     public function abTestReport(array $params = []): array
     {
         if (!$this->isAuthenticated()) {
@@ -2735,6 +2763,27 @@ class EmailMarketingController extends Controller
             const res = await fetch('/api/email-marketing' + path, opts || {});
             return res.json();
         }
+        function notify(msg, type) {
+            window.__emFallbackAlert = window.__emFallbackAlert || function (m) { alert(m); };
+            if (!type) {
+                const m = String(msg || '');
+                if (/^(تم|تمت|أُعيد|✅|نجح|حُفظ)/.test(m) || m.indexOf('نجاح') !== -1) type = 'success';
+                else if (/^(❌|لا يوجد|تعذر|فشل|خطأ)/.test(m) || m.indexOf('خطأ') !== -1 || m.indexOf('مطلوب') !== -1 || m.indexOf('غير موجود') !== -1) type = 'error';
+            }
+            try { P.toast(msg, type); } catch (e) { window.__emFallbackAlert(msg); }
+        }
+        function btnBusy(btn, busy, doneLabel) {
+            if (!btn) return;
+            if (busy) {
+                btn.dataset.orig = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span style="opacity:.7;">جارٍ...</span>';
+            } else {
+                btn.disabled = false;
+                if (doneLabel) btn.innerHTML = doneLabel;
+                else if (btn.dataset.orig) btn.innerHTML = btn.dataset.orig;
+            }
+        }
         async function loadDashboard() {
             const r = await emApi('/dashboard');
             if (!r.success) return;
@@ -2793,6 +2842,27 @@ class EmailMarketingController extends Controller
             const res = await fetch('/api/email-marketing' + path, opts || {});
             return res.json();
         }
+        function notify(msg, type) {
+            window.__emFallbackAlert = window.__emFallbackAlert || function (m) { alert(m); };
+            if (!type) {
+                const m = String(msg || '');
+                if (/^(تم|تمت|أُعيد|✅|نجح|حُفظ)/.test(m) || m.indexOf('نجاح') !== -1) type = 'success';
+                else if (/^(❌|لا يوجد|تعذر|فشل|خطأ)/.test(m) || m.indexOf('خطأ') !== -1 || m.indexOf('مطلوب') !== -1 || m.indexOf('غير موجود') !== -1) type = 'error';
+            }
+            try { P.toast(msg, type); } catch (e) { window.__emFallbackAlert(msg); }
+        }
+        function btnBusy(btn, busy, doneLabel) {
+            if (!btn) return;
+            if (busy) {
+                btn.dataset.orig = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span style="opacity:.7;">جارٍ...</span>';
+            } else {
+                btn.disabled = false;
+                if (doneLabel) btn.innerHTML = doneLabel;
+                else if (btn.dataset.orig) btn.innerHTML = btn.dataset.orig;
+            }
+        }
         async function loadLists() {
             const r = await emApi('/lists');
             if (!r.success) return;
@@ -2838,7 +2908,7 @@ class EmailMarketingController extends Controller
         async function saveList() {
             const id = document.getElementById('listId').value;
             const name = document.getElementById('listName').value.trim();
-            if (!name) { alert('اسم القائمة مطلوب'); return; }
+            if (!name) { notify('اسم القائمة مطلوب'); return; }
             const path = id ? '/lists/' + id : '/lists';
             const opts = {
                 method: id ? 'PATCH' : 'POST',
@@ -2847,12 +2917,12 @@ class EmailMarketingController extends Controller
             };
             const r = await emApi(path, opts);
             if (r.success) { document.getElementById('listModal').classList.remove('open'); loadLists(); }
-            else alert(r.error || 'خطأ');
+            else notify(r.error || 'خطأ');
         }
         async function removeList(id) {
             if (!confirm('حذف هذه القائمة؟ (المشتركون أنفسهم لا يُحذفون)')) return;
             const r = await emApi('/lists/' + id, {method: 'DELETE'});
-            if (r.success) loadLists(); else alert(r.error);
+            if (r.success) loadLists(); else notify(r.error);
         }
         let emSubPage = 1;
         async function loadSubscribers() {
@@ -2899,7 +2969,7 @@ class EmailMarketingController extends Controller
             };
             const r = await emApi('/subscribers', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
             if (r.success) { document.getElementById('subscriberModal').classList.remove('open'); loadSubscribers(); }
-            else alert(r.error);
+            else notify(r.error);
         }
         function openImportModal() { document.getElementById('importData').value = ''; document.getElementById('importResult').innerHTML=''; document.getElementById('importModal').classList.add('open'); }
         async function importSubscribers() {
@@ -2913,12 +2983,12 @@ class EmailMarketingController extends Controller
         async function unsubSub(id) {
             if (!confirm('إلغاء اشتراك هذا المشترك نهائيًا؟')) return;
             const r = await emApi('/subscribers/' + id + '/unsubscribe', {method:'POST'});
-            if (r.success) loadSubscribers(); else alert(r.error);
+            if (r.success) loadSubscribers(); else notify(r.error);
         }
         async function delSub(id) {
             if (!confirm('حذف هذا المشترك نهائيًا؟')) return;
             const r = await emApi('/subscribers/' + id, {method:'DELETE'});
-            if (r.success) loadSubscribers(); else alert(r.error);
+            if (r.success) loadSubscribers(); else notify(r.error);
         }
         loadLists();
         JS;
@@ -2932,6 +3002,27 @@ class EmailMarketingController extends Controller
         async function emApi(path, opts) {
             const res = await fetch('/api/email-marketing' + path, opts || {});
             return res.json();
+        }
+        function notify(msg, type) {
+            window.__emFallbackAlert = window.__emFallbackAlert || function (m) { alert(m); };
+            if (!type) {
+                const m = String(msg || '');
+                if (/^(تم|تمت|أُعيد|✅|نجح|حُفظ)/.test(m) || m.indexOf('نجاح') !== -1) type = 'success';
+                else if (/^(❌|لا يوجد|تعذر|فشل|خطأ)/.test(m) || m.indexOf('خطأ') !== -1 || m.indexOf('مطلوب') !== -1 || m.indexOf('غير موجود') !== -1) type = 'error';
+            }
+            try { P.toast(msg, type); } catch (e) { window.__emFallbackAlert(msg); }
+        }
+        function btnBusy(btn, busy, doneLabel) {
+            if (!btn) return;
+            if (busy) {
+                btn.dataset.orig = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span style="opacity:.7;">جارٍ...</span>';
+            } else {
+                btn.disabled = false;
+                if (doneLabel) btn.innerHTML = doneLabel;
+                else if (btn.dataset.orig) btn.innerHTML = btn.dataset.orig;
+            }
         }
         async function loadTemplates() {
             const r = await emApi('/templates');
@@ -3001,12 +3092,12 @@ class EmailMarketingController extends Controller
         }
         async function useGallery(key) {
             const r = await emApi('/templates/from-gallery', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({catalog_key: key})});
-            if (r.success) { alert('تم إضافة القالب إلى قوالبك'); loadTemplates(); switchTemplatesTab('mine'); }
-            else alert(r.error);
+            if (r.success) { notify('تم إضافة القالب إلى قوالبك'); loadTemplates(); switchTemplatesTab('mine'); }
+            else notify(r.error);
         }
         async function duplicateTemplate(id) {
             const r = await emApi('/templates/' + id + '/duplicate', {method:'POST'});
-            if (r.success) loadTemplates(); else alert(r.error);
+            if (r.success) loadTemplates(); else notify(r.error);
         }
         let currentShareId = null;
         async function shareTemplate(id) {
@@ -3016,18 +3107,18 @@ class EmailMarketingController extends Controller
                 document.getElementById('shareUrl').value = window.location.origin + '/email-marketing/templates/shared/' + (r.data.share_token || '');
                 document.getElementById('shareModal').classList.add('open');
                 loadTemplates();
-            } else alert(r.error);
+            } else notify(r.error);
         }
         async function stopSharing() {
             if (!currentShareId) return;
             const r = await emApi('/templates/' + currentShareId + '/share', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({enabled:false})});
             if (r.success) { document.getElementById('shareModal').classList.remove('open'); loadTemplates(); }
-            else alert(r.error);
+            else notify(r.error);
         }
         function copyShareUrl() {
             const el = document.getElementById('shareUrl');
             el.select(); document.execCommand('copy');
-            alert('تم نسخ الرابط');
+            notify('تم نسخ الرابط');
         }
         function openTemplateModal(id, name, subject, html) {
             document.getElementById('templateModalTitle').textContent = id ? 'تعديل القالب' : 'قالب جديد';
@@ -3058,7 +3149,7 @@ class EmailMarketingController extends Controller
             const opts = {method: id ? 'PATCH' : 'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)};
             const r = await emApi(path, opts);
             if (r.success) { document.getElementById('templateModal').classList.remove('open'); loadTemplates(); }
-            else alert(r.error);
+            else notify(r.error);
         }
         async function previewT(id) {
             const r = await emApi('/templates/' + id + '/preview', {method:'POST'});
@@ -3080,7 +3171,7 @@ class EmailMarketingController extends Controller
         async function removeTemplate(id) {
             if (!confirm('حذف هذا القالب؟')) return;
             const r = await emApi('/templates/' + id, {method:'DELETE'});
-            if (r.success) loadTemplates(); else alert(r.error);
+            if (r.success) loadTemplates(); else notify(r.error);
         }
         loadTemplates();
         JS;
@@ -3120,6 +3211,27 @@ class EmailMarketingController extends Controller
         async function emApiBuilder(path, opts) {
             const res = await fetch('/api/email-marketing' + path, opts || {});
             return res.json();
+        }
+        function notify(msg, type) {
+            window.__emFallbackAlert = window.__emFallbackAlert || function (m) { alert(m); };
+            if (!type) {
+                const m = String(msg || '');
+                if (/^(تم|تمت|أُعيد|✅|نجح|حُفظ)/.test(m) || m.indexOf('نجاح') !== -1) type = 'success';
+                else if (/^(❌|لا يوجد|تعذر|فشل|خطأ)/.test(m) || m.indexOf('خطأ') !== -1 || m.indexOf('مطلوب') !== -1 || m.indexOf('غير موجود') !== -1) type = 'error';
+            }
+            try { P.toast(msg, type); } catch (e) { window.__emFallbackAlert(msg); }
+        }
+        function btnBusy(btn, busy, doneLabel) {
+            if (!btn) return;
+            if (busy) {
+                btn.dataset.orig = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span style="opacity:.7;">جارٍ...</span>';
+            } else {
+                btn.disabled = false;
+                if (doneLabel) btn.innerHTML = doneLabel;
+                else if (btn.dataset.orig) btn.innerHTML = btn.dataset.orig;
+            }
         }
         function defaultBlock(type) {
             const base = {
@@ -3223,16 +3335,16 @@ class EmailMarketingController extends Controller
         }
         async function saveBuilder() {
             const name = document.getElementById('bdName').value.trim();
-            if (!name) { alert('اسم القالب مطلوب'); return; }
+            if (!name) { notify('اسم القالب مطلوب'); return; }
             const subject = document.getElementById('bdSubject').value;
             const r1 = await emApiBuilder('/templates/blocks/render', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({blocks: JSON.stringify(bdBlocks)})});
-            if (!r1.success) { alert('تعذر توليد HTML'); return; }
+            if (!r1.success) { notify('تعذر توليد HTML'); return; }
             const body = { name: name, subject: subject, blocks: JSON.stringify(bdBlocks), html_body: r1.data.html };
             const path = SAVE_TARGET ? '/templates/' + SAVE_TARGET : '/templates';
             const opts = {method: SAVE_TARGET ? 'PATCH' : 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)};
             const r = await emApiBuilder(path, opts);
-            if (r.success) { alert('تم حفظ القالب'); window.location.href = '/email-marketing/templates'; }
-            else alert(r.error);
+            if (r.success) { notify('تم حفظ القالب'); window.location.href = '/email-marketing/templates'; }
+            else notify(r.error);
         }
         try { bdBlocks = JSON.parse(INITIAL_BLOCKS || '[]'); if (!Array.isArray(bdBlocks)) bdBlocks = []; } catch(e) { bdBlocks = []; }
         renderPalette();
@@ -3251,6 +3363,27 @@ class EmailMarketingController extends Controller
         async function emApi(path, opts) {
             const res = await fetch('/api/email-marketing' + path, opts || {});
             return res.json();
+        }
+        function notify(msg, type) {
+            window.__emFallbackAlert = window.__emFallbackAlert || function (m) { alert(m); };
+            if (!type) {
+                const m = String(msg || '');
+                if (/^(تم|تمت|أُعيد|✅|نجح|حُفظ)/.test(m) || m.indexOf('نجاح') !== -1) type = 'success';
+                else if (/^(❌|لا يوجد|تعذر|فشل|خطأ)/.test(m) || m.indexOf('خطأ') !== -1 || m.indexOf('مطلوب') !== -1 || m.indexOf('غير موجود') !== -1) type = 'error';
+            }
+            try { P.toast(msg, type); } catch (e) { window.__emFallbackAlert(msg); }
+        }
+        function btnBusy(btn, busy, doneLabel) {
+            if (!btn) return;
+            if (busy) {
+                btn.dataset.orig = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span style="opacity:.7;">جارٍ...</span>';
+            } else {
+                btn.disabled = false;
+                if (doneLabel) btn.innerHTML = doneLabel;
+                else if (btn.dataset.orig) btn.innerHTML = btn.dataset.orig;
+            }
         }
         async function loadCampaigns() {
             const r = await emApi('/campaigns');
@@ -3273,7 +3406,7 @@ class EmailMarketingController extends Controller
                             <td>${c.clicked_count}</td>
                             <td style="font-size:12px;color:#6b7280;">${c.scheduled_at || '—'}</td>
                             <td style="text-align:left;white-space:nowrap;">
-                                ${canAct(c.status) ? `<button class="p-btn xs primary" onclick="sendNow(${c.id})">${c.status === 'failed' ? '↻ إعادة المحاولة' : 'إرسال'}</button>` : ''}
+                                ${canAct(c.status) ? `<button class="p-btn xs primary" onclick="sendNow(${c.id}, this)">${c.status === 'failed' ? '↻ إعادة المحاولة' : 'إرسال'}</button>` : ''}
                                 ${c.status === 'scheduled' ? `<button class="p-btn xs danger" onclick="cancelC(${c.id})">إلغاء</button>` : ''}
                                 ${['draft','scheduled','cancelled'].includes(c.status) ? `<button class="p-btn xs" onclick="editCampaign(${c.id})">تعديل</button>` : ''}
                                 ${['draft','scheduled','cancelled'].includes(c.status) ? `<button class="p-btn xs" onclick="duplicateC(${c.id})">⧉ نسخ</button>` : ''}
@@ -3328,38 +3461,41 @@ class EmailMarketingController extends Controller
                 html_body: document.getElementById('campaignHtml').value,
                 scheduled_at: schedule ? document.getElementById('campaignScheduledAt').value : null
             };
-            if (!body.name || !body.subject || !body.html_body) { alert('املأ اسم الحملة والموضوع والمحتوى'); return; }
+            if (!body.name || !body.subject || !body.html_body) { notify('املأ اسم الحملة والموضوع والمحتوى'); return; }
             const path = id ? '/campaigns/' + id : '/campaigns';
             const opts = {method: id ? 'PATCH' : 'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)};
             const r = await emApi(path, opts);
-            if (!r.success) { alert(r.error); return; }
+            if (!r.success) { notify(r.error); return; }
             const cid = r.data.id || id;
             if (schedule) {
                 const s = await emApi('/campaigns/' + cid + '/schedule', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({scheduled_at: document.getElementById('campaignScheduledAt').value})});
-                if (!s.success) { alert(s.error); return; }
+                if (!s.success) { notify(s.error); return; }
             }
             document.getElementById('campaignModal').classList.remove('open');
             loadCampaigns();
         }
-        async function sendNow(id) {
+        async function sendNow(id, btn) {
             if (!confirm('بدء إرسال الحملة لكل المشتركين النشطين في الجمهور؟')) return;
-            const r = await emApi('/campaigns/' + id + '/send', {method:'POST'});
-            alert(r.success ? r.message : (r.error || 'خطأ'));
-            if (r.success) loadCampaigns();
+            btnBusy(btn, true);
+            try {
+                const r = await emApi('/campaigns/' + id + '/send', {method:'POST'});
+                notify(r.success ? r.message : (r.error || 'خطأ'));
+                if (r.success) loadCampaigns();
+            } finally { btnBusy(btn, false); }
         }
         async function cancelC(id) {
             if (!confirm('إلغاء هذه الحملة المجدولة؟')) return;
             const r = await emApi('/campaigns/' + id + '/cancel', {method:'POST'});
-            if (r.success) loadCampaigns(); else alert(r.error);
+            if (r.success) loadCampaigns(); else notify(r.error);
         }
         async function duplicateC(id) {
             const r = await emApi('/campaigns/' + id + '/duplicate', {method:'POST'});
-            if (r.success) loadCampaigns(); else alert(r.error);
+            if (r.success) loadCampaigns(); else notify(r.error);
         }
         async function deleteC(id) {
             if (!confirm('حذف هذه الحملة نهائيًا؟')) return;
             const r = await emApi('/campaigns/' + id, {method:'DELETE'});
-            if (r.success) loadCampaigns(); else alert(r.error);
+            if (r.success) loadCampaigns(); else notify(r.error);
         }
         const params = new URLSearchParams(window.location.search);
         if (params.get('new') === '1') { openCampaignModal(); history.replaceState({}, '', '/email-marketing/campaigns'); }
@@ -3374,6 +3510,27 @@ class EmailMarketingController extends Controller
         async function emApi(path, opts) {
             const res = await fetch('/api/email-marketing' + path, opts || {});
             return res.json();
+        }
+        function notify(msg, type) {
+            window.__emFallbackAlert = window.__emFallbackAlert || function (m) { alert(m); };
+            if (!type) {
+                const m = String(msg || '');
+                if (/^(تم|تمت|أُعيد|✅|نجح|حُفظ)/.test(m) || m.indexOf('نجاح') !== -1) type = 'success';
+                else if (/^(❌|لا يوجد|تعذر|فشل|خطأ)/.test(m) || m.indexOf('خطأ') !== -1 || m.indexOf('مطلوب') !== -1 || m.indexOf('غير موجود') !== -1) type = 'error';
+            }
+            try { P.toast(msg, type); } catch (e) { window.__emFallbackAlert(msg); }
+        }
+        function btnBusy(btn, busy, doneLabel) {
+            if (!btn) return;
+            if (busy) {
+                btn.dataset.orig = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span style="opacity:.7;">جارٍ...</span>';
+            } else {
+                btn.disabled = false;
+                if (doneLabel) btn.innerHTML = doneLabel;
+                else if (btn.dataset.orig) btn.innerHTML = btn.dataset.orig;
+            }
         }
         async function loadReport() {
             const r = await emApi('/campaigns/__CID__/report');
@@ -3430,11 +3587,11 @@ class EmailMarketingController extends Controller
         async function cancelCampaign() {
             if (!confirm('إلغاء جدولة الحملة؟')) return;
             const r = await emApi('/campaigns/__CID__/cancel', {method:'POST'});
-            if (r.success) loadReport(); else alert(r.error);
+            if (r.success) loadReport(); else notify(r.error);
         }
         async function retryFailedCampaign() {
             const r = await emApi('/campaigns/__CID__/send', {method:'POST'});
-            if (r.success) alert('أُعيد تعيين ' + r.data.total + ' مستلم — بدأ الإرسال عبر cron.'); else alert(r.error);
+            if (r.success) notify('أُعيد تعيين ' + r.data.total + ' مستلم — بدأ الإرسال عبر cron.'); else notify(r.error);
             if (r.success) loadReport();
         }
         loadReport();
@@ -3448,6 +3605,27 @@ class EmailMarketingController extends Controller
         async function emApi(path, opts) {
             const res = await fetch('/api/email-marketing' + path, opts || {});
             return res.json();
+        }
+        function notify(msg, type) {
+            window.__emFallbackAlert = window.__emFallbackAlert || function (m) { alert(m); };
+            if (!type) {
+                const m = String(msg || '');
+                if (/^(تم|تمت|أُعيد|✅|نجح|حُفظ)/.test(m) || m.indexOf('نجاح') !== -1) type = 'success';
+                else if (/^(❌|لا يوجد|تعذر|فشل|خطأ)/.test(m) || m.indexOf('خطأ') !== -1 || m.indexOf('مطلوب') !== -1 || m.indexOf('غير موجود') !== -1) type = 'error';
+            }
+            try { P.toast(msg, type); } catch (e) { window.__emFallbackAlert(msg); }
+        }
+        function btnBusy(btn, busy, doneLabel) {
+            if (!btn) return;
+            if (busy) {
+                btn.dataset.orig = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span style="opacity:.7;">جارٍ...</span>';
+            } else {
+                btn.disabled = false;
+                if (doneLabel) btn.innerHTML = doneLabel;
+                else if (btn.dataset.orig) btn.innerHTML = btn.dataset.orig;
+            }
         }
         async function loadStats() {
             const r = await emApi('/stats');
@@ -3550,6 +3728,27 @@ class EmailMarketingController extends Controller
         async function emApi(path, opts) {
             const res = await fetch('/api/email-marketing' + path, opts || {});
             return res.json();
+        }
+        function notify(msg, type) {
+            window.__emFallbackAlert = window.__emFallbackAlert || function (m) { alert(m); };
+            if (!type) {
+                const m = String(msg || '');
+                if (/^(تم|تمت|أُعيد|✅|نجح|حُفظ)/.test(m) || m.indexOf('نجاح') !== -1) type = 'success';
+                else if (/^(❌|لا يوجد|تعذر|فشل|خطأ)/.test(m) || m.indexOf('خطأ') !== -1 || m.indexOf('مطلوب') !== -1 || m.indexOf('غير موجود') !== -1) type = 'error';
+            }
+            try { P.toast(msg, type); } catch (e) { window.__emFallbackAlert(msg); }
+        }
+        function btnBusy(btn, busy, doneLabel) {
+            if (!btn) return;
+            if (busy) {
+                btn.dataset.orig = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span style="opacity:.7;">جارٍ...</span>';
+            } else {
+                btn.disabled = false;
+                if (doneLabel) btn.innerHTML = doneLabel;
+                else if (btn.dataset.orig) btn.innerHTML = btn.dataset.orig;
+            }
         }
         async function emPost(path, body) {
             const headers = { 'Content-Type': 'application/json' };
@@ -3706,7 +3905,7 @@ class EmailMarketingController extends Controller
             const r = id ? await emApi('/contacts/custom-fields/' + id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
                           : await emPost('/contacts/custom-fields', body);
             if (r.success) { document.getElementById('fieldModal').classList.remove('open'); loadFields(); }
-            else alert(r.error || 'حدث خطأ');
+            else notify(r.error || 'حدث خطأ');
         }
         async function deleteField(id) {
             if (!confirm('حذف الحقل؟')) return;
@@ -3750,7 +3949,7 @@ class EmailMarketingController extends Controller
             const r = id ? await emApi('/contacts/tags/' + id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
                           : await emPost('/contacts/tags', body);
             if (r.success) { document.getElementById('tagModal').classList.remove('open'); loadTags(); }
-            else alert(r.error || 'حدث خطأ');
+            else notify(r.error || 'حدث خطأ');
         }
         async function deleteTag(id) {
             if (!confirm('حذف الوسم؟')) return;
@@ -3843,7 +4042,7 @@ class EmailMarketingController extends Controller
             const r = id ? await emApi('/contacts/segments/' + id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
                           : await emPost('/contacts/segments', body);
             if (r.success) { document.getElementById('segmentModal').classList.remove('open'); loadSegments(); }
-            else alert(r.error || 'حدث خطأ');
+            else notify(r.error || 'حدث خطأ');
         }
         async function deleteSegment(id) {
             if (!confirm('حذف الشريحة؟')) return;
@@ -3873,7 +4072,7 @@ class EmailMarketingController extends Controller
                 reason: document.getElementById('supReason').value,
             });
             if (r.success) { document.getElementById('suppressionModal').classList.remove('open'); loadSuppressions(); }
-            else alert(r.error || 'حدث خطأ');
+            else notify(r.error || 'حدث خطأ');
         }
         async function deleteSuppression(id) {
             if (!confirm('إزالة العنوان من قائمة الممنوعين؟')) return;
@@ -3894,6 +4093,27 @@ class EmailMarketingController extends Controller
         async function emApi(path, opts) {
             const res = await fetch('/api/email-marketing' + path, opts || {});
             return res.json();
+        }
+        function notify(msg, type) {
+            window.__emFallbackAlert = window.__emFallbackAlert || function (m) { alert(m); };
+            if (!type) {
+                const m = String(msg || '');
+                if (/^(تم|تمت|أُعيد|✅|نجح|حُفظ)/.test(m) || m.indexOf('نجاح') !== -1) type = 'success';
+                else if (/^(❌|لا يوجد|تعذر|فشل|خطأ)/.test(m) || m.indexOf('خطأ') !== -1 || m.indexOf('مطلوب') !== -1 || m.indexOf('غير موجود') !== -1) type = 'error';
+            }
+            try { P.toast(msg, type); } catch (e) { window.__emFallbackAlert(msg); }
+        }
+        function btnBusy(btn, busy, doneLabel) {
+            if (!btn) return;
+            if (busy) {
+                btn.dataset.orig = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span style="opacity:.7;">جارٍ...</span>';
+            } else {
+                btn.disabled = false;
+                if (doneLabel) btn.innerHTML = doneLabel;
+                else if (btn.dataset.orig) btn.innerHTML = btn.dataset.orig;
+            }
         }
         function esc(s) {
             return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -3979,6 +4199,27 @@ class EmailMarketingController extends Controller
         async function emApi(path, opts) {
             const res = await fetch('/api/email-marketing' + path, opts || {});
             return res.json();
+        }
+        function notify(msg, type) {
+            window.__emFallbackAlert = window.__emFallbackAlert || function (m) { alert(m); };
+            if (!type) {
+                const m = String(msg || '');
+                if (/^(تم|تمت|أُعيد|✅|نجح|حُفظ)/.test(m) || m.indexOf('نجاح') !== -1) type = 'success';
+                else if (/^(❌|لا يوجد|تعذر|فشل|خطأ)/.test(m) || m.indexOf('خطأ') !== -1 || m.indexOf('مطلوب') !== -1 || m.indexOf('غير موجود') !== -1) type = 'error';
+            }
+            try { P.toast(msg, type); } catch (e) { window.__emFallbackAlert(msg); }
+        }
+        function btnBusy(btn, busy, doneLabel) {
+            if (!btn) return;
+            if (busy) {
+                btn.dataset.orig = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span style="opacity:.7;">جارٍ...</span>';
+            } else {
+                btn.disabled = false;
+                if (doneLabel) btn.innerHTML = doneLabel;
+                else if (btn.dataset.orig) btn.innerHTML = btn.dataset.orig;
+            }
         }
         async function emPost(path, body) {
             const headers = { 'Content-Type': 'application/json' };
@@ -4211,7 +4452,7 @@ class EmailMarketingController extends Controller
 
         async function saveAutomation() {
             const name = document.getElementById('emAutoName').value.trim();
-            if (!name) { alert('اسم سير العمل مطلوب'); return; }
+            if (!name) { notify('اسم سير العمل مطلوب'); return; }
             const triggerType = document.getElementById('emAutoTrigger').value;
             const tvEl = document.getElementById('emAutoTriggerValue');
             const tvRaw = tvEl ? tvEl.value : '';
@@ -4235,10 +4476,10 @@ class EmailMarketingController extends Controller
             const r = emAutoEditingId
                 ? await emApi(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
                 : await emPost(url, body);
-            if (!r.success) { alert(r.error || 'حدث خطأ'); return; }
+            if (!r.success) { notify(r.error || 'حدث خطأ'); return; }
             const autoId = r.data.id || emAutoEditingId;
             const stepsR = await emPost('/automations/' + autoId + '/steps', { steps });
-            if (!stepsR.success) { alert(stepsR.error || 'فشل حفظ الخطوات'); return; }
+            if (!stepsR.success) { notify(stepsR.error || 'فشل حفظ الخطوات'); return; }
             closeAutomationModal();
             loadAutomations();
         }
@@ -4254,12 +4495,15 @@ class EmailMarketingController extends Controller
             if (r.success) loadAutomations();
         }
 
-        async function runAutomationsDue() {
-            const r = await emPost('/automations/run-due', {});
-            if (r.success) {
-                alert(`تمت المعالجة: ${r.data.processed || 0} مشاركة، اكتمل ${r.data.completed || 0}`);
-                loadAutomations();
-            }
+        async function runAutomationsDue(btn) {
+            btnBusy(btn, true);
+            try {
+                const r = await emPost('/automations/run-due', {});
+                if (r.success) {
+                    notify(`تمت المعالجة: ${r.data.processed || 0} مشاركة، اكتمل ${r.data.completed || 0}`);
+                    loadAutomations();
+                }
+            } finally { btnBusy(btn, false); }
         }
 
         loadAutomations();
@@ -4272,6 +4516,27 @@ class EmailMarketingController extends Controller
         async function emApi(path, opts) {
             const res = await fetch('/api/email-marketing' + path, opts || {});
             return res.json();
+        }
+        function notify(msg, type) {
+            window.__emFallbackAlert = window.__emFallbackAlert || function (m) { alert(m); };
+            if (!type) {
+                const m = String(msg || '');
+                if (/^(تم|تمت|أُعيد|✅|نجح|حُفظ)/.test(m) || m.indexOf('نجاح') !== -1) type = 'success';
+                else if (/^(❌|لا يوجد|تعذر|فشل|خطأ)/.test(m) || m.indexOf('خطأ') !== -1 || m.indexOf('مطلوب') !== -1 || m.indexOf('غير موجود') !== -1) type = 'error';
+            }
+            try { P.toast(msg, type); } catch (e) { window.__emFallbackAlert(msg); }
+        }
+        function btnBusy(btn, busy, doneLabel) {
+            if (!btn) return;
+            if (busy) {
+                btn.dataset.orig = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span style="opacity:.7;">جارٍ...</span>';
+            } else {
+                btn.disabled = false;
+                if (doneLabel) btn.innerHTML = doneLabel;
+                else if (btn.dataset.orig) btn.innerHTML = btn.dataset.orig;
+            }
         }
         async function emPost(path, body) {
             return emApi(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
@@ -4309,20 +4574,20 @@ class EmailMarketingController extends Controller
                 is_active: 1,
             };
             const r = await emPost('/smtp-settings', body);
-            if (r.success) { alert('تم حفظ الإعدادات'); loadSmtpSettings(); }
-            else alert(r.error || 'حدث خطأ');
+            if (r.success) { notify('تم حفظ الإعدادات'); loadSmtpSettings(); }
+            else notify(r.error || 'حدث خطأ');
         }
         async function toggleSmtpSettings() {
             const target = !document.getElementById('emSmtpActive').checked;
             const r = await emPost('/smtp-settings', { is_active: target ? 1 : 0 });
             if (r.success) loadSmtpSettings();
-            else alert(r.error || 'حدث خطأ');
+            else notify(r.error || 'حدث خطأ');
         }
         async function deleteSmtpSettings() {
             if (!confirm('حذف إعدادات SMTP؟ سترجع لاستخدام إعدادات .env العامة.')) return;
             const r = await emApi('/smtp-settings', { method: 'DELETE' });
-            if (r.success) { alert('تم حذف الإعدادات'); ['emSmtpHost','emSmtpPort','emSmtpEncryption','emSmtpUsername','emSmtpPassword','emSmtpFromEmail','emSmtpFromName'].forEach(id => document.getElementById(id).value = id === 'emSmtpPort' ? '587' : id === 'emSmtpEncryption' ? 'tls' : ''); loadSmtpSettings(); }
-            else alert(r.error || 'حدث خطأ');
+            if (r.success) { notify('تم حذف الإعدادات'); ['emSmtpHost','emSmtpPort','emSmtpEncryption','emSmtpUsername','emSmtpPassword','emSmtpFromEmail','emSmtpFromName'].forEach(id => document.getElementById(id).value = id === 'emSmtpPort' ? '587' : id === 'emSmtpEncryption' ? 'tls' : ''); loadSmtpSettings(); }
+            else notify(r.error || 'حدث خطأ');
         }
         async function testSmtpSettings() {
             const body = {
@@ -4335,8 +4600,8 @@ class EmailMarketingController extends Controller
                 from_name: document.getElementById('emSmtpFromName').value,
             };
             const r = await emPost('/smtp-settings/test', body);
-            if (r.success) alert('✅ تم الاتصال والمصادقة بنجاح');
-            else alert('❌ ' + (r.error || 'فشل الاختبار'));
+            if (r.success) notify('✅ تم الاتصال والمصادقة بنجاح');
+            else notify('❌ ' + (r.error || 'فشل الاختبار'));
         }
         loadSmtpSettings();
         JS;
@@ -4348,6 +4613,27 @@ class EmailMarketingController extends Controller
         async function emApi(path, opts) {
             const res = await fetch('/api/email-marketing' + path, opts || {});
             return res.json();
+        }
+        function notify(msg, type) {
+            window.__emFallbackAlert = window.__emFallbackAlert || function (m) { alert(m); };
+            if (!type) {
+                const m = String(msg || '');
+                if (/^(تم|تمت|أُعيد|✅|نجح|حُفظ)/.test(m) || m.indexOf('نجاح') !== -1) type = 'success';
+                else if (/^(❌|لا يوجد|تعذر|فشل|خطأ)/.test(m) || m.indexOf('خطأ') !== -1 || m.indexOf('مطلوب') !== -1 || m.indexOf('غير موجود') !== -1) type = 'error';
+            }
+            try { P.toast(msg, type); } catch (e) { window.__emFallbackAlert(msg); }
+        }
+        function btnBusy(btn, busy, doneLabel) {
+            if (!btn) return;
+            if (busy) {
+                btn.dataset.orig = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span style="opacity:.7;">جارٍ...</span>';
+            } else {
+                btn.disabled = false;
+                if (doneLabel) btn.innerHTML = doneLabel;
+                else if (btn.dataset.orig) btn.innerHTML = btn.dataset.orig;
+            }
         }
         async function emPost(path, body) {
             return emApi(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
@@ -4423,7 +4709,7 @@ class EmailMarketingController extends Controller
                 : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
             const r = await emApi(path, opts);
             if (r.success) { closeTransactionalTemplateModal(); loadTransactionalTemplates(); }
-            else alert(r.error || 'حدث خطأ');
+            else notify(r.error || 'حدث خطأ');
         }
         async function deleteTransactionalTemplate(id) {
             if (!confirm('حذف القالب؟')) return;
@@ -4443,7 +4729,7 @@ class EmailMarketingController extends Controller
         async function duplicateTransactionalTemplate(id) {
             const r = await emApi('/transactional/templates/' + id + '/duplicate', { method: 'POST' });
             if (r.success) loadTransactionalTemplates();
-            else alert(r.error || 'فشل النسخ');
+            else notify(r.error || 'فشل النسخ');
         }
         async function openSendTransactional(id) {
             txSendingTemplateId = id;
@@ -4458,14 +4744,14 @@ class EmailMarketingController extends Controller
         async function sendTransactionalNow() {
             let data = {};
             try { data = JSON.parse(document.getElementById('emTxSendData').value || '{}'); }
-            catch (e) { alert('بيانات JSON غير صالحة'); return; }
+            catch (e) { notify('بيانات JSON غير صالحة'); return; }
             const r = await emPost('/transactional/send', {
                 template_id: txSendingTemplateId,
                 to_email: document.getElementById('emTxSendEmail').value,
                 data: Object.assign({ to_name: document.getElementById('emTxSendName').value }, data),
             });
-            if (r.success) { alert('تم الإرسال'); closeTransactionalSendModal(); loadTransactionalLogs(); }
-            else alert('❌ ' + (r.error || 'فشل الإرسال'));
+            if (r.success) { notify('تم الإرسال'); closeTransactionalSendModal(); loadTransactionalLogs(); }
+            else notify('❌ ' + (r.error || 'فشل الإرسال'));
         }
         async function loadTransactionalLogs() {
             const r = await emApi('/transactional/logs?limit=20');
@@ -4496,6 +4782,27 @@ class EmailMarketingController extends Controller
         async function emApi(path, opts) {
             const res = await fetch('/api/email-marketing' + path, opts || {});
             return res.json();
+        }
+        function notify(msg, type) {
+            window.__emFallbackAlert = window.__emFallbackAlert || function (m) { alert(m); };
+            if (!type) {
+                const m = String(msg || '');
+                if (/^(تم|تمت|أُعيد|✅|نجح|حُفظ)/.test(m) || m.indexOf('نجاح') !== -1) type = 'success';
+                else if (/^(❌|لا يوجد|تعذر|فشل|خطأ)/.test(m) || m.indexOf('خطأ') !== -1 || m.indexOf('مطلوب') !== -1 || m.indexOf('غير موجود') !== -1) type = 'error';
+            }
+            try { P.toast(msg, type); } catch (e) { window.__emFallbackAlert(msg); }
+        }
+        function btnBusy(btn, busy, doneLabel) {
+            if (!btn) return;
+            if (busy) {
+                btn.dataset.orig = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span style="opacity:.7;">جارٍ...</span>';
+            } else {
+                btn.disabled = false;
+                if (doneLabel) btn.innerHTML = doneLabel;
+                else if (btn.dataset.orig) btn.innerHTML = btn.dataset.orig;
+            }
         }
         async function emPost(path, body) {
             return emApi(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
@@ -4537,7 +4844,7 @@ class EmailMarketingController extends Controller
                 metric: document.getElementById('emAbMetric').value,
             });
             if (r.success) { closeAbTestModal(); loadAbTests(); window.location = '/email-marketing/ab-tests/' + r.data.id; }
-            else alert(r.error || 'حدث خطأ');
+            else notify(r.error || 'حدث خطأ');
         }
         loadAbTests();
         JS;
@@ -4551,6 +4858,27 @@ class EmailMarketingController extends Controller
             const res = await fetch('/api/email-marketing' + path, opts || {});
             return res.json();
         }
+        function notify(msg, type) {
+            window.__emFallbackAlert = window.__emFallbackAlert || function (m) { alert(m); };
+            if (!type) {
+                const m = String(msg || '');
+                if (/^(تم|تمت|أُعيد|✅|نجح|حُفظ)/.test(m) || m.indexOf('نجاح') !== -1) type = 'success';
+                else if (/^(❌|لا يوجد|تعذر|فشل|خطأ)/.test(m) || m.indexOf('خطأ') !== -1 || m.indexOf('مطلوب') !== -1 || m.indexOf('غير موجود') !== -1) type = 'error';
+            }
+            try { P.toast(msg, type); } catch (e) { window.__emFallbackAlert(msg); }
+        }
+        function btnBusy(btn, busy, doneLabel) {
+            if (!btn) return;
+            if (busy) {
+                btn.dataset.orig = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span style="opacity:.7;">جارٍ...</span>';
+            } else {
+                btn.disabled = false;
+                if (doneLabel) btn.innerHTML = doneLabel;
+                else if (btn.dataset.orig) btn.innerHTML = btn.dataset.orig;
+            }
+        }
         async function emPost(path, body) {
             return emApi(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
         }
@@ -4561,19 +4889,36 @@ class EmailMarketingController extends Controller
                 html_body: document.getElementById('emAb' + (variant === 'a' ? 'A' : 'B') + 'Html').value,
             };
             const r = await emPost('/ab-tests/__AB_ID__/variant', body);
-            if (r.success) alert('تم حفظ المتغير ' + (variant === 'a' ? 'أ' : 'ب'));
-            else alert(r.error || 'حدث خطأ');
+            if (r.success) notify('تم حفظ المتغير ' + (variant === 'a' ? 'أ' : 'ب'));
+            else notify(r.error || 'حدث خطأ');
         }
-        async function runAbTest() {
-            const r = await emPost('/ab-tests/__AB_ID__/start', {});
-            if (r.success) alert('تم التشغيل: أ = ' + r.data.a + '، ب = ' + r.data.b + ' مستلم');
-            else alert(r.error || 'حدث خطأ');
+        async function runAbTest(btn) {
+            btnBusy(btn, true);
+            try {
+                const r = await emPost('/ab-tests/__AB_ID__/start', {});
+                if (r.success) notify('تم التشغيل: أ = ' + r.data.a + '، ب = ' + r.data.b + ' مستلم');
+                else notify(r.error || 'حدث خطأ');
+            } finally { btnBusy(btn, false); }
         }
-        async function sendAbBatch() {
-            const r = await emPost('/ab-tests/__AB_ID__/send-batch', {});
-            if (r.success) {
-                alert('تمت جدولة إرسال دفعة اختبار أ/ب — سيُرسل عبر cron');
-            } else alert(r.error || 'حدث خطأ');
+        async function sendAbBatch(btn) {
+            btnBusy(btn, true);
+            try {
+                const r = await emPost('/ab-tests/__AB_ID__/send-batch', {});
+                if (r.success) {
+                    notify('تمت جدولة إرسال دفعة اختبار أ/ب — سيُرسل عبر cron');
+                } else notify(r.error || 'حدث خطأ');
+            } finally { btnBusy(btn, false); }
+        }
+        async function sendAbTestEmail(btn) {
+            const email = (document.getElementById('emAbTestEmail') || {}).value || '';
+            if (!email || email.indexOf('@') === -1) { notify('أدخل بريدًا صالحًا لإرسال الاختبار'); return; }
+            const variant = (document.getElementById('emAbTestVariant') || {}).value || 'all';
+            btnBusy(btn, true);
+            try {
+                const r = await emPost('/ab-tests/__AB_ID__/send-test', { email, variant });
+                if (r.success) notify('تم إرسال رسائل الاختبار بنجاح إلى ' + email);
+                else notify(r.error || 'حدث خطأ');
+            } finally { btnBusy(btn, false); }
         }
         async function loadAbReport() {
             const r = await emApi('/ab-tests/__AB_ID__/report');
@@ -4603,13 +4948,13 @@ class EmailMarketingController extends Controller
         }
         async function declareWinner(winner) {
             const r = await emPost('/ab-tests/__AB_ID__/winner', { winner });
-            if (r.success) { alert('تم إعلان الفائز'); loadAbReport(); }
-            else alert(r.error || 'حدث خطأ');
+            if (r.success) { notify('تم إعلان الفائز'); loadAbReport(); }
+            else notify(r.error || 'حدث خطأ');
         }
         async function applyWinner() {
             const r = await emPost('/ab-tests/__AB_ID__/apply-winner', {});
-            if (r.success) alert('تم نسخ الفائز للحملة الأساسية');
-            else alert(r.error || 'حدث خطأ');
+            if (r.success) notify('تم نسخ الفائز للحملة الأساسية');
+            else notify(r.error || 'حدث خطأ');
         }
         loadAbReport();
         JS;

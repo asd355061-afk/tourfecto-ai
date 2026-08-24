@@ -718,6 +718,7 @@ $router->delete('/api/email-marketing/ab-tests/{id}', 'EmailMarketingController'
 $router->post('/api/email-marketing/ab-tests/{id}/variant', 'EmailMarketingController', 'setAbTestVariant', ['AuthMiddleware']);
 $router->post('/api/email-marketing/ab-tests/{id}/start', 'EmailMarketingController', 'startAbTest', ['AuthMiddleware']);
 $router->post('/api/email-marketing/ab-tests/{id}/send-batch', 'EmailMarketingController', 'sendAbTestBatch', ['AuthMiddleware']);
+$router->post('/api/email-marketing/ab-tests/{id}/send-test', 'EmailMarketingController', 'sendAbTestTestEmail', ['AuthMiddleware']);
 $router->get('/api/email-marketing/ab-tests/{id}/report', 'EmailMarketingController', 'abTestReport', ['AuthMiddleware']);
 $router->post('/api/email-marketing/ab-tests/{id}/winner', 'EmailMarketingController', 'declareAbTestWinner', ['AuthMiddleware']);
 $router->post('/api/email-marketing/ab-tests/{id}/apply-winner', 'EmailMarketingController', 'applyAbTestWinner', ['AuthMiddleware']);

@@ -153,10 +153,11 @@ final class EmailMarketingAdvancedIntegrationTest extends TestCase
         $this->assertNotNull($saved);
         $this->assertSame('smtp.example.com', $saved['host']);
         $this->assertSame(587, (int) $saved['port']);
-        $this->assertSame('secret-pass', $saved['password']);
+        $this->assertNotSame('secret-pass', $saved['password']); // مشفرة في DB
 
         $effective = $svc->settingsForUser(self::$userId);
         $this->assertSame('smtp.example.com', $effective['host']);
+        $this->assertSame('secret-pass', $effective['password']); // مفكوكة عند الاستخدام
         $this->assertSame('no-reply@example.com', $effective['from_email']);
         $this->assertTrue($svc->isReady(self::$userId));
     }
@@ -595,6 +596,35 @@ final class EmailMarketingAdvancedIntegrationTest extends TestCase
         $result = $svc->sendBatch(self::$userId, $abId);
         $this->assertFalse($result['remaining']);
         $this->assertStringContainsString('قيد التشغيل', $result['error']);
+    }
+
+    public function testAbTestSendTestValidatesAndFailsGracefully(): void
+    {
+        $baseId = $this->makeCampaign();
+        $svc = new AbTestService();
+        $created = $svc->create(self::$userId, ['name' => 'اختبار', 'base_campaign_id' => $baseId, 'split_percent' => 50]);
+        $abId = (int) $created['id'];
+
+        // بريد غير صالح
+        $bad = $svc->sendTest(self::$userId, $abId, 'all', 'not-an-email');
+        $this->assertFalse($bad['success']);
+        $this->assertStringContainsString('غير صالح', $bad['error']);
+
+        // متغير غير صالح
+        $badVar = $svc->sendTest(self::$userId, $abId, 'z', 'test@example.com');
+        $this->assertFalse($badVar['success']);
+
+        // غير موجود
+        $missing = $svc->sendTest(self::$userId, 99999999, 'a', 'test@example.com');
+        $this->assertFalse($missing['success']);
+        $this->assertStringContainsString('غير موجود', $missing['error']);
+
+        // بدون SMTP => يحاول الإرسال ويفشل بأمان (لا يرمي استثناء)
+        $result = $svc->sendTest(self::$userId, $abId, 'all', 'test@example.com');
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('sent', $result);
+        $this->assertArrayHasKey('a', $result['sent']);
+        $this->assertArrayHasKey('b', $result['sent']);
     }
 
     public function testAbTestSendBatchJobRunsViaQueue(): void

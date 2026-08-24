@@ -41,11 +41,21 @@ class SmtpSettingsService
         if ($row && !(int) ($row['is_active'] ?? 0)) {
             $row = null;
         }
+        $password = '';
+        if ($row && ($row['password'] ?? '') !== '') {
+            try {
+                $encryption = new Encryption();
+                $decrypted = $encryption->decrypt((string) $row['password'], 'smtp:' . (int) $userId);
+                $password = $decrypted !== '' ? $decrypted : (string) $row['password'];
+            } catch (Throwable $e) {
+                $password = (string) $row['password'];
+            }
+        }
         return [
             'host' => ($row['host'] ?? '') !== '' ? $row['host'] : (defined('MAIL_HOST') ? MAIL_HOST : ''),
             'port' => !empty($row['port']) ? (int) $row['port'] : (defined('MAIL_PORT') ? (int) MAIL_PORT : 587),
             'username' => ($row['username'] ?? '') !== '' ? $row['username'] : (defined('MAIL_USERNAME') ? MAIL_USERNAME : ''),
-            'password' => ($row['password'] ?? '') !== '' ? $row['password'] : (defined('MAIL_PASSWORD') ? MAIL_PASSWORD : ''),
+            'password' => $password !== '' ? $password : (defined('MAIL_PASSWORD') ? MAIL_PASSWORD : ''),
             'encryption' => ($row['encryption'] ?? '') !== '' ? $row['encryption'] : (defined('MAIL_ENCRYPTION') ? strtolower(MAIL_ENCRYPTION) : 'tls'),
             'from_email' => ($row['from_email'] ?? '') !== '' ? $row['from_email'] : (defined('MAIL_FROM_ADDRESS') ? MAIL_FROM_ADDRESS : 'noreply@tourfecto.com'),
             'from_name' => ($row['from_name'] ?? '') !== '' ? $row['from_name'] : (defined('MAIL_FROM_NAME') ? MAIL_FROM_NAME : 'Tourfecto'),
@@ -91,6 +101,17 @@ class SmtpSettingsService
         }
         if (array_key_exists('is_active', $data)) {
             $row['is_active'] = !empty($data['is_active']) ? 1 : 0;
+        }
+
+        // تشفير كلمة المرور قبل الحفظ (لما المستخدم يدخل كلمة مرور جديدة).
+        // لو مفيش password جديد في الطلب بنخلي القديم كما هو (مشفر أصلًا).
+        if (array_key_exists('password', $data) && trim((string) $data['password']) !== '') {
+            try {
+                $encryption = new Encryption();
+                $row['password'] = $encryption->encrypt(trim((string) $data['password']), 'smtp:' . (int) $userId);
+            } catch (Throwable $e) {
+                return ['success' => false, 'error' => 'فشل تشفير كلمة مرور SMTP: ' . $e->getMessage()];
+            }
         }
 
         if ($existing) {

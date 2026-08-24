@@ -82,6 +82,18 @@ database/           # المخطط والتحديثات
 tests/              # الاختبارات
 ```
 
+## المهام المجدولة (Cron)
+
+شغّل سكربتات `cron/` عبر crontab. الأهم لتسويق البريد:
+
+```bash
+# كل دقيقة: إرسال دفعات الحملات واختبارات أ/ب من الطابور
+* * * * * php /path/to/project/cron/process_queue.php >> /path/to/logs/queue.log 2>&1
+
+# كل دقيقة: تنفيذ الأتمتة المستحقة (خطوات انتظار / تاريخ محدد)
+* * * * * php /path/to/project/cron/process_email_automations.php >> /path/to/logs/email_automations.log 2>&1
+```
+
 ## النشر
 
 1. شغّل `composer install --no-dev --optimize-autoloader` (أو ارفع `vendor/` المبنية)

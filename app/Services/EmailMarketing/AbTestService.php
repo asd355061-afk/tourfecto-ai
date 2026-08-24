@@ -233,6 +233,51 @@ class AbTestService
         return ['processed' => $processed, 'failed' => $failed, 'remaining' => $remaining, 'error' => $error];
     }
 
+    /**
+     * إرسال فوري متزامن لاختبار أ/ب: يرسل نسخة من المتغير أ و/أو ب إلى بريد
+     * محدد (مثل زر "إرسال اختبار" في الحملات) — دون التأثير على الجمهور.
+     *
+     * @param string $variant 'a' | 'b' | 'all'
+     * @return array ['success'=>bool, 'sent'=>array, 'error'=>?string]
+     */
+    public function sendTest(int $userId, int $abTestId, string $variant, string $toEmail): array
+    {
+        if (!in_array($variant, ['a', 'b', 'all'], true)) {
+            return ['success' => false, 'sent' => [], 'error' => 'المتغير غير صالح'];
+        }
+        if (!filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
+            return ['success' => false, 'sent' => [], 'error' => 'بريد إرسال الاختبار غير صالح'];
+        }
+        $ab = $this->findOwned($userId, $abTestId);
+        if (!$ab) {
+            return ['success' => false, 'sent' => [], 'error' => 'الاختبار غير موجود'];
+        }
+
+        $svc = new EmailCampaignService();
+        $sent = [];
+        $campaigns = [];
+        if ($variant !== 'b') {
+            $campaigns['a'] = (int) $ab->getAttribute('variant_a_id');
+        }
+        if ($variant !== 'a') {
+            $campaigns['b'] = (int) $ab->getAttribute('variant_b_id');
+        }
+
+        foreach ($campaigns as $key => $campaignId) {
+            $r = $svc->sendTest($userId, $campaignId, $toEmail);
+            if ($r['success']) {
+                $sent[$key] = ['sent' => 1];
+            } else {
+                $sent[$key] = ['sent' => 0, 'error' => $r['error']];
+            }
+        }
+
+        $allOk = !empty($sent) && count(array_filter($sent, fn ($s) => $s['sent'] === 1)) === count($sent);
+        return $allOk
+            ? ['success' => true, 'sent' => $sent]
+            : ['success' => false, 'sent' => $sent, 'error' => 'تعذر إرسال واحد أو أكثر من المتغيرات'];
+    }
+
     // ============================ Report ============================
 
     /**

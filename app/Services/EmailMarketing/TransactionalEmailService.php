@@ -80,7 +80,7 @@ class TransactionalEmailService
             'slug' => $slug,
             'subject' => trim((string) $data['subject']),
             'html_body' => (string) $data['html_body'],
-            'is_active' => !empty($data['is_active']) ? 1 : 1,
+            'is_active' => array_key_exists('is_active', $data) ? (!empty($data['is_active']) ? 1 : 0) : 1,
         ]);
         $id = (int) $template->save();
         if ($id <= 0) {
