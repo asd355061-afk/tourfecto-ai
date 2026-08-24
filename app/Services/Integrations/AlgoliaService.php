@@ -97,6 +97,11 @@ class AlgoliaService extends BaseIntegrationService
                 return $this->indexObjects($params['index'] ?? '', $params['objects'] ?? []);
             case 'delete_object':
                 return $this->deleteObject($params['index'] ?? '', $params['object_id'] ?? '');
+            case 'test':
+                return $this->httpJson('GET', 'https://' . $this->appId() . '-dsn.algolia.net/1/indexes', [
+                    'X-Algolia-Application-Id: ' . $this->appId(),
+                    'X-Algolia-API-Key: ' . $this->conf('ALGOLIA_SEARCH_API_KEY', 'ALGOLIA_SEARCH_API_KEY'),
+                ]);
             default:
                 return ['success' => false, 'data' => null, 'error' => "action '{$action}' غير مدعوم في AlgoliaService", 'http_code' => 0];
         }

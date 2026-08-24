@@ -48,6 +48,10 @@ class OneSignalService extends BaseIntegrationService
         switch ($action) {
             case 'send_notification':
                 return $this->sendNotification($params);
+            case 'test':
+                return $this->httpJson('GET', 'https://onesignal.com/api/v1/apps/' . rawurlencode($this->conf('ONESIGNAL_APP_ID', 'ONESIGNAL_APP_ID')), [
+                    'Authorization: Basic ' . $this->conf('ONESIGNAL_REST_API_KEY', 'ONESIGNAL_REST_API_KEY'),
+                ]);
             default:
                 return ['success' => false, 'data' => null, 'error' => "action '{$action}' غير مدعوم في OneSignalService", 'http_code' => 0];
         }

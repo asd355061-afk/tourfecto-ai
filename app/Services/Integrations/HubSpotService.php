@@ -57,6 +57,10 @@ class HubSpotService extends BaseIntegrationService
                 return $this->createOrUpdateContact($params['email'] ?? '', $params['properties'] ?? []);
             case 'create_deal':
                 return $this->createDeal($params['dealname'] ?? '', $params['stage'] ?? '', $params['properties'] ?? []);
+            case 'test':
+                return $this->httpJson('GET', 'https://api.hubapi.com/account-info/v3/details', [
+                    'Authorization: Bearer ' . $this->conf('HUBSPOT_API_KEY', 'HUBSPOT_API_KEY'),
+                ]);
             default:
                 return ['success' => false, 'data' => null, 'error' => "action '{$action}' غير مدعوم في HubSpotService", 'http_code' => 0];
         }

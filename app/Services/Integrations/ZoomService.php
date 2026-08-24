@@ -108,6 +108,14 @@ class ZoomService extends BaseIntegrationService
         switch ($action) {
             case 'create_meeting':
                 return $this->createMeeting($params);
+            case 'test':
+                $token = $this->getAccessToken();
+                if ($token === '') {
+                    return ['success' => false, 'data' => null, 'error' => 'تعذر الحصول على Zoom access token', 'http_code' => 0];
+                }
+                return $this->httpJson('GET', 'https://api.zoom.us/v2/users/me', [
+                    'Authorization: Bearer ' . $token,
+                ]);
             default:
                 return ['success' => false, 'data' => null, 'error' => "action '{$action}' غير مدعوم في ZoomService", 'http_code' => 0];
         }

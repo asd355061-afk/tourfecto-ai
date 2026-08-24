@@ -38,6 +38,12 @@ class ZapierService extends BaseIntegrationService
         switch ($action) {
             case 'trigger':
                 return $this->trigger($params['event'] ?? 'generic', $params['payload'] ?? []);
+            case 'test':
+                $url = $this->conf('ZAPIER_WEBHOOK_URL', 'ZAPIER_WEBHOOK_URL');
+                if ($url === '') {
+                    return ['success' => false, 'data' => null, 'error' => 'Zapier Webhook URL غير مضبوط', 'http_code' => 0];
+                }
+                return $this->httpJson('POST', $url, [], ['event' => 'connection.test', 'sent_at' => date('c')]);
             default:
                 return ['success' => false, 'data' => null, 'error' => "action '{$action}' غير مدعوم في ZapierService", 'http_code' => 0];
         }

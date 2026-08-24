@@ -53,6 +53,10 @@ class SlackService extends BaseIntegrationService
         switch ($action) {
             case 'send_message':
                 return $this->sendMessage($params['text'] ?? '', $params['channel'] ?? null, $params['blocks'] ?? null);
+            case 'test':
+                return $this->httpJson('POST', 'https://slack.com/api/auth.test', [
+                    'Authorization: Bearer ' . $this->conf('SLACK_BOT_TOKEN', 'SLACK_BOT_TOKEN'),
+                ]);
             default:
                 return ['success' => false, 'data' => null, 'error' => "action '{$action}' غير مدعوم في SlackService", 'http_code' => 0];
         }

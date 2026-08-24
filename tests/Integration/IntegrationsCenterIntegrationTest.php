@@ -191,4 +191,30 @@ final class IntegrationsCenterIntegrationTest extends TestCase
         $this->assertFalse($result['success'] ?? true);
         $this->assertEquals(403, $result['code'] ?? ($result['status'] ?? 0));
     }
+
+    public function testAllServicesSupportTestAction(): void
+    {
+        // تحقق بنيوي (مفيش استدعاءات شبكة): كل كلاس في integrations registry
+        // لازم يوفّر case 'test' في دوال request() عشان زر "اختبار الاتصال"
+        // في لوحة الأدمن يشتغل فعلًا.
+        if (!class_exists('IntegrationManager')) {
+            $this->markTestSkipped('IntegrationManager غير محمّل في هذه البيئة.');
+        }
+
+        $registry = IntegrationManager::all();
+        $baseDir = dirname(__DIR__, 2);
+
+        foreach ($registry as $key => $meta) {
+            $classFile = $baseDir . '/app/Services/Integrations/' . $meta['class'] . '.php';
+            if (!is_file($classFile)) {
+                continue;
+            }
+            $src = (string) file_get_contents($classFile);
+            $this->assertStringContainsString(
+                "case 'test':",
+                $src,
+                "الخدمة {$meta['class']} لازم توفّر case 'test' في request() عشان اختبار الاتصال يشتغل"
+            );
+        }
+    }
 }
