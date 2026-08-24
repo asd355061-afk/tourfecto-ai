@@ -1333,3 +1333,13 @@ $router->post('/api/bookings/{id}/checkout', 'BookingController', 'checkout', ['
 $router->post('/api/webhook/booking/stripe', 'BookingController', 'stripeWebhook');
 $router->get('/api/inventory/{productId}/calendar', 'BookingController', 'calendar', ['AuthMiddleware']);
 $router->post('/api/inventory/{productId}', 'BookingController', 'setInventory', ['AuthMiddleware']);
+
+// ============================================
+// التكاملات الخارجية (Integrations Center)
+// إدارة مفاتيح Slack/Zapier/HubSpot/Algolia/... من لوحة الأدمن
+// الصلاحية: admin/super_admin (متفرضة داخل الـ Controller)
+// ============================================
+$router->get('/api/integrations', 'IntegrationsController', 'index', ['AuthMiddleware']);
+$router->get('/api/integrations/{key}/status', 'IntegrationsController', 'status', ['AuthMiddleware']);
+$router->post('/api/integrations/{key}/save', 'IntegrationsController', 'save', ['AuthMiddleware']);
+$router->post('/api/integrations/{key}/test', 'IntegrationsController', 'test', ['AuthMiddleware']);
