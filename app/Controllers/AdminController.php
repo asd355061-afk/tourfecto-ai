@@ -3036,25 +3036,25 @@ HTML;
     {
         $groups = [
             $this->tr('admin.nav.general') => [
-                'overview' => [$this->tr('admin.nav.overview'), '📊', '/admin'],
-                'platform' => [$this->tr('admin.nav.platform_overview'), '🧭', '/admin/platform'],
+                'overview' => [$this->tr('admin.nav.overview'), 'bar-chart-2', '/admin'],
+                'platform' => [$this->tr('admin.nav.platform_overview'), 'compass', '/admin/platform'],
             ],
             $this->tr('admin.nav.customers') => [
-                'users' => [$this->tr('admin.nav.users'), '👥', '/admin/users'],
-                'subscriptions' => [$this->tr('admin.nav.subscriptions'), '💳', '/admin/subscriptions'],
-                'contact-messages' => [$this->tr('admin.nav.contact_messages'), '✉️', '/admin/contact-messages'],
-                'plans' => [$this->tr('admin.nav.plans'), '💰', '/admin/plans'],
+                'users' => [$this->tr('admin.nav.users'), 'users', '/admin/users'],
+                'subscriptions' => [$this->tr('admin.nav.subscriptions'), 'credit-card', '/admin/subscriptions'],
+                'contact-messages' => [$this->tr('admin.nav.contact_messages'), 'mail', '/admin/contact-messages'],
+                'plans' => [$this->tr('admin.nav.plans'), 'dollar', '/admin/plans'],
             ],
             $this->tr('admin.nav.security_tracking') => [
-                'visitors' => [$this->tr('admin.nav.visitors'), '🧭', '/admin/visitors'],
-                'login-history' => [$this->tr('admin.nav.login_history'), '🔐', '/admin/login-history'],
-                'onboarding-funnel' => [$this->tr('admin.nav.onboarding_funnel'), '🧪', '/admin/onboarding-funnel'],
+                'visitors' => [$this->tr('admin.nav.visitors'), 'eye', '/admin/visitors'],
+                'login-history' => [$this->tr('admin.nav.login_history'), 'lock', '/admin/login-history'],
+                'onboarding-funnel' => [$this->tr('admin.nav.onboarding_funnel'), 'flask', '/admin/onboarding-funnel'],
             ],
             $this->tr('admin.nav.system') => [
-                'system' => [$this->tr('admin.nav.system_status'), '🖥️', '/admin/system'],
-                'logs' => [$this->tr('admin.nav.logs'), '📜', '/admin/logs'],
-                'settings' => [$this->tr('admin.nav.settings'), '⚙️', '/admin/settings'],
-                'integrations' => [$this->tr('admin.nav.integrations'), '🔌', '/admin/integrations'],
+                'system' => [$this->tr('admin.nav.system_status'), 'monitor', '/admin/system'],
+                'logs' => [$this->tr('admin.nav.logs'), 'file-text', '/admin/logs'],
+                'settings' => [$this->tr('admin.nav.settings'), 'settings', '/admin/settings'],
+                'integrations' => [$this->tr('admin.nav.integrations'), 'plug', '/admin/integrations'],
             ],
         ];
 
@@ -3064,7 +3064,7 @@ HTML;
             foreach ($items as $key => $item) {
                 [$label, $icon, $href] = $item;
                 $active = $key === $activeTab ? ' active' : '';
-                $html .= "<a href=\"{$href}\" class=\"panel-nav-link{$active}\"><span class=\"ic\">{$icon}</span>{$label}</a>";
+                $html .= "<a href=\"{$href}\" class=\"panel-nav-link{$active}\"><span class=\"ic\">" . icon_svg($icon) . "</span>{$label}</a>";
             }
             $html .= '</div>';
         }

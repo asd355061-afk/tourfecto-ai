@@ -165,7 +165,8 @@
     margin-bottom: 2px; transition: var(--transition-fast);
     position: relative;
 }
-.panel-nav-link .ic { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+.panel-nav-link .ic { font-size: 16px; width: 20px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.panel-nav-link .ic svg { flex-shrink: 0; }
 .panel-nav-link:hover { background: var(--panel-sidebar-bg-hover); color: #fff; }
 .panel-nav-link.active {
     background: linear-gradient(160deg, var(--panel-card-bg-2), var(--panel-card-bg));
