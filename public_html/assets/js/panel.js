@@ -75,6 +75,85 @@
                 shell.classList.remove('sidebar-open');
             });
         }
+
+        initNavGroups();
+        initNavSearch();
+    }
+
+    // المجموعات القابلة للطي في السايد بار: حالة كل مجموعة محفوظة في
+    // localStorage عشان تفضل زي ما المستخدم سابها بين الصفحات. المجموعة
+    // اللي فيها العنصر النشط دايمًا مفتوحة مهما كانت الحالة المحفوظة.
+    function initNavGroups() {
+        const groups = document.querySelectorAll('.panel-nav-group');
+        if (!groups.length) return;
+        let storage = null;
+        try { storage = JSON.parse(localStorage.getItem('tf_nav_collapsed') || '{}'); } catch (e) { storage = {}; }
+
+        groups.forEach(function (group) {
+            const title = group.querySelector('.panel-nav-group-title');
+            if (!title) return;
+            const idx = String(group.getAttribute('data-group-idx'));
+            const hasActive = group.querySelector('.panel-nav-link.active') !== null;
+            if (!hasActive && storage[idx]) {
+                group.classList.add('collapsed');
+                title.setAttribute('aria-expanded', 'false');
+            }
+            title.addEventListener('click', function () {
+                const willCollapse = !group.classList.contains('collapsed');
+                group.classList.toggle('collapsed');
+                title.setAttribute('aria-expanded', String(!willCollapse));
+                storage[idx] = willCollapse ? 1 : 0;
+                try { localStorage.setItem('tf_nav_collapsed', JSON.stringify(storage)); } catch (e) {}
+            });
+            title.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); title.click(); }
+            });
+        });
+    }
+
+    // بحث فوري في السايد بار: بينطّي المجموعات اللي مالهاش عنصر مطابق،
+    // وبيشيل الـ collapse مؤقتًا عشان النتايج تبان. لو المسطرة اتفضّت
+    // بيرجع الـ collapse للحالة المحفوظة.
+    function initNavSearch() {
+        const input = document.getElementById('panelNavSearch');
+        if (!input) return;
+        const groups = Array.prototype.slice.call(document.querySelectorAll('.panel-nav-group'));
+        let storage = null;
+        try { storage = JSON.parse(localStorage.getItem('tf_nav_collapsed') || '{}'); } catch (e) { storage = {}; }
+
+        input.addEventListener('input', function () {
+            const q = input.value.trim().toLowerCase();
+            let anyMatch = false;
+            groups.forEach(function (group) {
+                const links = group.querySelectorAll('.panel-nav-link');
+                let groupMatch = false;
+                links.forEach(function (link) {
+                    const hay = (link.getAttribute('data-search') || '').toLowerCase();
+                    const m = q === '' || hay.indexOf(q) !== -1;
+                    link.style.display = m ? '' : 'none';
+                    if (m) groupMatch = true;
+                });
+                group.classList.toggle('hidden-group', q !== '' && !groupMatch);
+                if (q !== '') {
+                    if (groupMatch) group.classList.remove('collapsed');
+                } else {
+                    // رجوع للحالة المحفوظة بعد مسح البحث
+                    const idx = String(group.getAttribute('data-group-idx'));
+                    const hasActive = group.querySelector('.panel-nav-link.active') !== null;
+                    const title = group.querySelector('.panel-nav-group-title');
+                    if (storage[idx] && !hasActive) {
+                        group.classList.add('collapsed');
+                        if (title) title.setAttribute('aria-expanded', 'false');
+                    } else {
+                        group.classList.remove('collapsed');
+                        if (title) title.setAttribute('aria-expanded', 'true');
+                    }
+                }
+                if (groupMatch) anyMatch = true;
+            });
+            const footer = document.querySelector('.panel-sidebar-footer');
+            if (footer) footer.style.display = (q === '' || anyMatch) ? '' : 'none';
+        });
     }
 
     function openModal(id) {
