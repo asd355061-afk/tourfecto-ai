@@ -380,6 +380,13 @@ class EmailCampaignService
             $unsubscribeToken = $this->subscriberToken($row['subscriber_id']);
             $unsubscribeUrl = $baseUrl . '/api/email-marketing/unsubscribe/' . rawurlencode($unsubscribeToken);
 
+            // RFC 8058: هيدرز List-Unsubscribe + List-Unsubscribe-Post للتوافق
+            // مع متطلبات Gmail/Yahoo (فبراير 2024) — mailto + رابط one-click.
+            $extraHeaders = [
+                'List-Unsubscribe' => '<mailto:unsubscribe@' . $provider['mail_domain'] . '?subject=unsubscribe>, <' . $unsubscribeUrl . '>',
+                'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
+            ];
+
             $subject = $this->renderer->personalize((string) $campaign->getAttribute('subject'), $recipientData);
             $html = $this->renderer->finalize(
                 (string) $campaign->getAttribute('html_body'),
@@ -390,7 +397,7 @@ class EmailCampaignService
                 $unsubscribeUrl
             );
 
-            $result = $provider['send']($row['email'], (string) ($row['name'] ?? ''), $subject, $html, $fromEmail, $fromName);
+            $result = $provider['send']($row['email'], (string) ($row['name'] ?? ''), $subject, $html, $fromEmail, $fromName, $extraHeaders);
 
             if (!empty($result['success'])) {
                 $this->db->query(
@@ -519,7 +526,12 @@ class EmailCampaignService
         $fromName = $campaign->getAttribute('from_name') ?: (defined('MAIL_FROM_NAME') ? MAIL_FROM_NAME : 'Tourfecto');
         $subject = $this->renderer->personalize((string) $campaign->getAttribute('subject'), $data);
 
-        $result = $provider['send']($toEmail, 'Test Recipient', $subject, $html, $fromEmail, $fromName);
+        $extraHeaders = [
+            'List-Unsubscribe' => '<mailto:unsubscribe@' . $provider['mail_domain'] . '?subject=unsubscribe>, <' . $baseUrl . '/api/email-marketing/unsubscribe/test-token>',
+            'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
+        ];
+
+        $result = $provider['send']($toEmail, 'Test Recipient', $subject, $html, $fromEmail, $fromName, $extraHeaders);
         return $result['success']
             ? ['success' => true, 'sent' => 1]
             : ['success' => false, 'sent' => 0, 'error' => $result['error']];
@@ -618,8 +630,9 @@ class EmailCampaignService
         }
         return [
             'name' => 'mailer',
-            'send' => function (string $toEmail, string $toName, string $subject, string $htmlBody, string $fromEmail, string $fromName) use ($mailer) {
-                return $mailer->send($toEmail, $toName, $subject, $htmlBody);
+            'mail_domain' => $this->domainFromEmail($mailer->getFromEmail()),
+            'send' => function (string $toEmail, string $toName, string $subject, string $htmlBody, string $fromEmail, string $fromName, array $extraHeaders = []) use ($mailer) {
+                return $mailer->send($toEmail, $toName, $subject, $htmlBody, $extraHeaders);
             },
         ];
     }
@@ -704,5 +717,25 @@ class EmailCampaignService
             $token = 'auto-' . substr(hash('sha256', 'sub:' . (int) $subscriberId), 0, 24);
         }
         return $token;
+    }
+
+    /**
+     * دومين البريد المستخدم في mailto داخل هيدر List-Unsubscribe.
+     * يُشتق من دومين عنوان المرسل الفعلي (إعدادات SMTP/من From)، ولو فشل
+     * يقع على دومين APP_URL ثم tourfecto.com كملاذ أخير.
+     */
+    private function domainFromEmail(string $email): string
+    {
+        $atPos = strrpos($email, '@');
+        if ($atPos !== false) {
+            $domain = strtolower(substr($email, $atPos + 1));
+            $domain = preg_replace('/[^a-z0-9.\-]/', '', $domain) ?? '';
+            if ($domain !== '') {
+                return $domain;
+            }
+        }
+        $host = (string) (parse_url($this->trackingBaseUrl(), PHP_URL_HOST) ?? '');
+        $host = preg_replace('/[^a-z0-9.\-]/', '', strtolower($host)) ?? '';
+        return $host !== '' ? $host : 'tourfecto.com';
     }
 }

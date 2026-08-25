@@ -110,9 +110,12 @@ class Mailer
     }
 
     /**
+     * @param array<string,string> $extraHeaders هيدرز إضافية تُحقن في الرسالة
+     *                              (مثل List-Unsubscribe). القيم تُنقّى من CR/LF
+     *                              حمايةً من header injection.
      * @return array ['success'=>bool, 'error'=>?string]
      */
-    public function send(string $toEmail, string $toName, string $subject, string $htmlBody): array
+    public function send(string $toEmail, string $toName, string $subject, string $htmlBody, array $extraHeaders = []): array
     {
         if (!$this->isConfigured()) {
             return ['success' => false, 'error' => 'إعدادات البريد (MAIL_USERNAME/MAIL_PASSWORD في .env) لسه مش متظبطة'];
@@ -148,18 +151,7 @@ class Mailer
             $this->command($socket, "RCPT TO:<{$toEmail}>", '250');
             $this->command($socket, "DATA", '354');
 
-            $boundaryDate = date('r');
-            $fromNameEncoded = '=?UTF-8?B?' . base64_encode($this->fromName) . '?=';
-            $toNameEncoded = '=?UTF-8?B?' . base64_encode($toName) . '?=';
-            $subjectEncoded = '=?UTF-8?B?' . base64_encode($subject) . '?=';
-
-            $headers = "Date: {$boundaryDate}\r\n"
-                . "From: {$fromNameEncoded} <{$this->fromEmail}>\r\n"
-                . "To: {$toNameEncoded} <{$toEmail}>\r\n"
-                . "Subject: {$subjectEncoded}\r\n"
-                . "MIME-Version: 1.0\r\n"
-                . "Content-Type: text/html; charset=UTF-8\r\n"
-                . "Content-Transfer-Encoding: 8bit\r\n";
+            $headers = $this->compileHeaders($toEmail, $toName, $subject, $extraHeaders);
 
             // كل سطر يبدأ بنقطة لازم يتضاعف (SMTP dot-stuffing)
             $escapedBody = preg_replace('/^\./m', '..', $htmlBody);
@@ -175,6 +167,43 @@ class Mailer
             @fclose($socket);
             return ['success' => false, 'error' => $e->getMessage()];
         }
+    }
+
+    /** بريد المرسل الفعلي كما سيستخدمه السيرفر (مهم لاشتقاق دومين List-Unsubscribe). */
+    public function getFromEmail(): string
+    {
+        return $this->fromEmail;
+    }
+
+    /**
+     * بناء هيدرز الرسالة كاملة (Date/From/To/Subject + إضافية).
+     * protected عشان الاختبارات تقدر تتأكد من المحتوى من غير socket.
+     * @param array<string,string> $extraHeaders
+     */
+    protected function compileHeaders(string $toEmail, string $toName, string $subject, array $extraHeaders = []): string
+    {
+        $boundaryDate = date('r');
+        $fromNameEncoded = '=?UTF-8?B?' . base64_encode($this->fromName) . '?=';
+        $toNameEncoded = '=?UTF-8?B?' . base64_encode($toName) . '?=';
+        $subjectEncoded = '=?UTF-8?B?' . base64_encode($subject) . '?=';
+
+        $headers = "Date: {$boundaryDate}\r\n"
+            . "From: {$fromNameEncoded} <{$this->fromEmail}>\r\n"
+            . "To: {$toNameEncoded} <{$toEmail}>\r\n"
+            . "Subject: {$subjectEncoded}\r\n"
+            . "MIME-Version: 1.0\r\n"
+            . "Content-Type: text/html; charset=UTF-8\r\n"
+            . "Content-Transfer-Encoding: 8bit\r\n";
+
+        foreach ($extraHeaders as $name => $value) {
+            $safeName = preg_replace('/[^A-Za-z0-9\-]/', '', (string) $name);
+            $safeValue = str_replace(["\r", "\n"], '', (string) $value);
+            if ($safeName !== '') {
+                $headers .= $safeName . ': ' . $safeValue . "\r\n";
+            }
+        }
+
+        return $headers;
     }
 
     private function rawWrite($socket, string $data): void

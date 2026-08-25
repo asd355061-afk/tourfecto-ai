@@ -686,6 +686,8 @@ $router->get('/api/email-marketing/campaigns/{id}/report', 'EmailMarketingContro
 $router->get('/api/email-marketing/track/open/{token}.gif', 'EmailMarketingController', 'trackOpen', []);
 $router->get('/api/email-marketing/track/click/{click_token}', 'EmailMarketingController', 'trackClick', []);
 $router->get('/api/email-marketing/unsubscribe/{unsubscribe_token}', 'EmailMarketingController', 'unsubscribeLink', []);
+// RFC 8058 one-click: Gmail/Yahoo يرسلون POST لرابط List-Unsubscribe
+$router->post('/api/email-marketing/unsubscribe/{unsubscribe_token}', 'EmailMarketingController', 'unsubscribeLink', []);
 // Automations (المرحلة 3)
 $router->get('/api/email-marketing/automations', 'EmailMarketingController', 'automations', ['AuthMiddleware']);
 $router->post('/api/email-marketing/automations', 'EmailMarketingController', 'createAutomation', ['AuthMiddleware']);
