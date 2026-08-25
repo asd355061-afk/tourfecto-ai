@@ -531,8 +531,19 @@ abstract class Controller
         // رابط تسويق البريد في الشريط العلوي (مبني قبل الـ heredoc لأن
         // صيغة {if} مش بتتفسّر جواه - نفس درس asset_v).
         $emailMarketingLinkHtml = $emailMarketingHeader
-            ? '<a href="/email-marketing" class="icon-btn" title="' . $this->tr('sidebar.email_marketing') . '">📬</a>'
+            ? '<a href="/email-marketing" class="icon-btn" title="' . $this->tr('sidebar.email_marketing') . '">' . icon_svg('mail') . '</a>'
             : '';
+        // نفس درس asset_v: استدعاءات icon_svg() جوه الـ heredoc مبيتفسّرش
+        // من PHP (الصياغة {$var} بتشتغل لمتغيرات بس، مش لاستدعاءات دوال)
+        // - لازم نحسب الـ SVG في متغيرات الأول وبعدين نستخدمها.
+        $iconLogout = icon_svg('log-out');
+        $iconMenu = icon_svg('menu');
+        $iconDollar = icon_svg('dollar', 15);
+        $iconZap = icon_svg('zap', 15);
+        $iconBell = icon_svg('bell');
+        $iconGlobe = icon_svg('globe');
+        $iconSparkles = icon_svg('sparkles');
+        $iconUser = icon_svg('user');
 
         return <<<HTML
 <!DOCTYPE html>
@@ -574,13 +585,13 @@ abstract class Controller
                 {$navHtml}
             </nav>
             <div class="panel-sidebar-footer">
-                <a href="/logout">{icon_svg('log-out')} {$this->tr('nav.logout')}</a>
+                <a href="/logout">{$iconLogout} {$this->tr('nav.logout')}</a>
             </div>
         </aside>
 
         <div class="panel-main">
             <header class="panel-topbar">
-                <button class="panel-menu-toggle" id="panelMenuToggle">{icon_svg('menu')}</button>
+                <button class="panel-menu-toggle" id="panelMenuToggle">{$iconMenu}</button>
                 <div>
                     <h1>{$pageTitleSafe}</h1>
                     <div class="subtitle">{$pageSubtitleSafe}</div>
@@ -589,26 +600,26 @@ abstract class Controller
                 <div class="panel-topbar-actions">
                     <select id="panelWebsiteSelect" class="panel-website-select" style="display:none;" title="{$this->tr('website_context.tooltip')}"></select>
                     <a href="/subscription" id="panelWalletWrap" class="panel-credits" style="display:none;" title="{$this->tr('wallet.tooltip')}">
-                        <span>{icon_svg('dollar', 15)}</span>
+                        <span>{$iconDollar}</span>
                         <span id="panelWalletText"></span>
                     </a>
                     <a href="/subscription" id="panelCreditsWrap" class="panel-credits" style="display:none;" title="{$this->tr('credits.tooltip')}">
-                        <span id="panelCreditsIcon">{icon_svg('zap', 15)}</span>
+                        <span id="panelCreditsIcon">{$iconZap}</span>
                         <span id="panelCreditsText"></span>
                     </a>
                     <div class="panel-notif" id="panelNotifWrap">
                         <button class="icon-btn" id="panelNotifBtn" title="الإشعارات" style="position:relative;">
-                            {icon_svg('bell')}<span id="panelNotifBadge" class="panel-notif-badge" style="display:none;">0</span>
+                            {$iconBell}<span id="panelNotifBadge" class="panel-notif-badge" style="display:none;">0</span>
                         </button>
                         <div class="panel-notif-menu" id="panelNotifMenu" style="display:none;"></div>
                     </div>
                     <details class="panel-langsel">
-                        <summary class="icon-btn" title="{$this->tr('lang.switch')}">{icon_svg('globe')}</summary>
+                        <summary class="icon-btn" title="{$this->tr('lang.switch')}">{$iconGlobe}</summary>
                         <div class="panel-langsel-menu">{$langMenu}</div>
                     </details>
-                    <a href="/ai/analyze" class="icon-btn" title="{$this->tr('dashboard.action.new_seo_analysis')}">{icon_svg('sparkles')}</a>
+                    <a href="/ai/analyze" class="icon-btn" title="{$this->tr('dashboard.action.new_seo_analysis')}">{$iconSparkles}</a>
                     {$emailMarketingLinkHtml}
-                    <a href="/profile/settings" class="icon-btn" title="{$this->tr('sidebar.profile')}">{icon_svg('user')}</a>
+                    <a href="/profile/settings" class="icon-btn" title="{$this->tr('sidebar.profile')}">{$iconUser}</a>
                 </div>
             </header>
 
