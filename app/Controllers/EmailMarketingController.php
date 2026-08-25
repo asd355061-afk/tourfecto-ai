@@ -391,7 +391,6 @@ class EmailMarketingController extends Controller
         <style>
         .em-condition-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;margin-bottom:8px;align-items:center;}
         .em-tag-pill{display:inline-block;background:#0b2436;color:#7dd3fc;border-radius:999px;padding:2px 10px;font-size:12px;margin:2px;}
-        .em-seg-badge{display:inline-block;background:#064e3b;color:#6ee7b7;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600;}
         </style>
         HTML;
 
@@ -4128,7 +4127,7 @@ class EmailMarketingController extends Controller
             const s = subDetail;
             document.getElementById('subDetailName').textContent = '👤 ' + (s.name || s.email);
             const tags = (s.tags || []).map(t => `<span class="em-tag-pill" style="background:${t.color || '#0b2436'};">${esc(t.name)}</span>`).join('') || '-';
-            const lists = (s.lists || []).map(l => `<span class="em-seg-badge" style="background:#1e3a8a;color:#bfdbfe;">${esc(l.name)}</span>`).join('') || '-';
+            const lists = (s.lists || []).map(l => `<span class="em-seg-badge info">${esc(l.name)}</span>`).join('') || '-';
             const statusBadge = s.status === 'subscribed' ? '✅ مشترك' : s.status === 'unsubscribed' ? '🚫 ملغي' : '⚠️ مرتد';
             const cvs = Object.entries(s.custom_values || {}).map(([fid, v]) =>
                 `<tr><td><code>${esc(v.name)}</code></td><td>${esc(v.value)}</td></tr>`).join('');

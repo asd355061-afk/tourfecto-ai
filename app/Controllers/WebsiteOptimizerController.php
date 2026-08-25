@@ -53,7 +53,6 @@ class WebsiteOptimizerController extends Controller
         .wo-history-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--panel-border); font-size: 12.5px; }
         .wo-history-row:last-child { border-bottom: none; }
         .wo-history-score { font-weight: 800; font-family: 'JetBrains Mono', monospace; }
-        .wo-cat-badge { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: var(--panel-accent-light); color: var(--panel-accent); }
         @media (max-width: 720px) { .wo-hero { grid-template-columns: 1fr; } }
         </style>
 

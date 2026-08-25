@@ -550,15 +550,25 @@ table.p-table tbody tr:last-child td { border-bottom: none; }
 }
 .panel-shell.sidebar-open .panel-overlay-bg { display: block; }
 
-/* ============ p-tabs (فلاتر شبيهة بالتابس - صفحة Reputation Overview) ============ */
-.p-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
-.p-tab {
+/* ============ Unified tabs (p-tabs/ch-tabs/ri-tabs) ============
+   نظام تابات واحد لكل اللوحة: الـ pill style اللي مستخدم في أغلب
+   الصفحات. كل أنظمة التابات القديمة (ch-tab/ri-tab) بتشترك في نفس
+   القاعدة دي. */
+.p-tabs,
+.ch-tabs,
+.ri-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.p-tab,
+.ch-tab,
+.ri-tab {
     cursor: pointer; border: 1px solid var(--panel-border); background: var(--panel-card-bg);
     color: var(--panel-text-muted); font-size: 12.5px; font-weight: 600; padding: 6px 14px;
     border-radius: 20px; transition: var(--transition-fast);
+    display: inline-flex; align-items: center; gap: 6px;
+    white-space: nowrap;
 }
-.p-tab:hover { border-color: var(--panel-accent); color: var(--panel-text); }
-.p-tab.active { background: var(--panel-accent); border-color: var(--panel-accent); color: #fff; }
+.p-tab svg, .ch-tab svg, .ri-tab svg { width: 14px; height: 14px; flex-shrink: 0; }
+.p-tab:hover, .ch-tab:hover, .ri-tab:hover { border-color: var(--panel-accent); color: var(--panel-text); }
+.p-tab.active, .ch-tab.active, .ri-tab.active { background: var(--panel-accent); border-color: var(--panel-accent); color: #fff; }
 
 /* ============ Language switcher (topbar) ============ */
 .panel-langsel { position: relative; }
@@ -705,20 +715,45 @@ pre, code { white-space: pre-wrap; word-break: break-word; overflow-wrap: break-
 }
 .field-error:empty { display: none; }
 
-.p-badge {
+/* ============ Unified badge system ============
+   كل أنواع الشارات في اللوحة (p-badge, ri-risk-badge, aiz/kw-badge,
+   wo-cat-badge, em-seg-badge) بتتقاسم نفس القاعدة والـ variants الدلالية.
+   ألوان الحالات من توكينات التصميم مش ألوان hardcoded. */
+.p-badge,
+.ri-risk-badge,
+.aiz-badge,
+.kw-badge,
+.wo-cat-badge,
+.em-seg-badge {
     display: inline-block;
     padding: 3px 10px;
     border-radius: 999px;
     font-size: 12px;
     font-weight: 600;
-    text-transform: capitalize;
     background: var(--panel-text-muted, #8996AC);
     color: #fff;
 }
-.p-badge.status-active { background: var(--panel-success-light); color: var(--panel-success); }
-.p-badge.status-pending { background: var(--panel-warning-light); color: var(--panel-warning); }
+.p-badge { text-transform: capitalize; }
+.p-badge.status-active,
+.p-badge.green,
+.ri-risk-badge.low { background: var(--panel-success-light); color: var(--panel-success); }
+.p-badge.status-pending,
+.p-badge.gold,
+.ri-risk-badge.medium { background: var(--panel-warning-light); color: var(--panel-warning); }
 .p-badge.status-suspended,
-.p-badge.status-cancelled { background: var(--panel-danger-light); color: var(--panel-danger); }
+.p-badge.status-cancelled,
+.p-badge.danger,
+.ri-risk-badge.high { background: var(--panel-danger-light); color: var(--panel-danger); }
+.aiz-badge,
+.kw-badge,
+.wo-cat-badge,
+.em-seg-badge { background: var(--panel-accent-light); color: var(--panel-accent); }
+.p-badge.info,
+.em-seg-badge.info { background: var(--panel-info-light); color: var(--panel-info); }
+.p-badge-dot {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--panel-accent); vertical-align: middle; margin-inline-start: 4px;
+}
 
 /* ============ Business Center (Phase 23) ============ */
 .bc-ring {
