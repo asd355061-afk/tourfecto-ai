@@ -156,7 +156,7 @@ class Subscription extends Model
                         sp.review_auto_reply_limit AS review_credits,
                         s.usage_review_reply_count AS review_credits_used,
                         COALESCE(JSON_UNQUOTE(JSON_EXTRACT(sp.features_json, '$.competitor_analysis')), 0) AS competitor_analysis_limit,
-                        0 AS competitor_analysis_used,
+                        s.competitor_analysis_used AS competitor_analysis_used,
                         COALESCE(JSON_EXTRACT(sp.features_json, '$.auto_pilot'), 0) AS auto_pilot,
                         s.current_period_start AS start_date,
                         s.current_period_end AS expiry_date,

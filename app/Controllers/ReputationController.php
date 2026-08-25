@@ -990,6 +990,14 @@ JS;
                     reply_approved_by = ? WHERE id = ? AND user_id = ?";
             $this->db->exec($sql, [$replyText, $this->user['id'], $reviewId, $this->user['id']]);
 
+            // تصحيح (2026-08-25): كان الرد بيتبعت فعليًا لكن رصيد الردود
+            // (المعروض في الباقات 10/50/200) مكنش بيتخصم خالص. دلوقتي
+            // بنستهلك رصيدًا بعد الإرسال الناجح، مع الرجوع للمحفظة لو
+            // الاستخدام "ادفع حسب الاستخدام".
+            $creditsCheck = $this->subscription->checkReviewCredits((int) $this->user['id'], 1);
+            $viaWallet = $creditsCheck['source'] === 'wallet';
+            $this->subscription->consumeReviewCredits((int) $this->user['id'], 1, $viaWallet);
+
             return $this->success([], 'تم إرسال الرد');
         } catch (Exception $e) {
             Logger::error('Send Reply Error', ['message' => $e->getMessage()]);

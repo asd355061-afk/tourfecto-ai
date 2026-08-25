@@ -192,7 +192,7 @@ $router->group('/google-analytics', function ($router) {
 // ============================================
 // صفحة الربط والتكاملات الموحّدة
 // ============================================
-$router->get('/integrations', 'IntegrationsController', 'index', ['AuthMiddleware']);
+$router->get('/integrations', 'IntegrationsController', 'showIntegrationsPage', ['AuthMiddleware']);
 
 // ============================================
 // صفحات الشات
