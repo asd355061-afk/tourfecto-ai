@@ -718,6 +718,7 @@ $router->delete('/api/email-marketing/ab-tests/{id}', 'EmailMarketingController'
 $router->post('/api/email-marketing/ab-tests/{id}/variant', 'EmailMarketingController', 'setAbTestVariant', ['AuthMiddleware']);
 $router->post('/api/email-marketing/ab-tests/{id}/start', 'EmailMarketingController', 'startAbTest', ['AuthMiddleware']);
 $router->post('/api/email-marketing/ab-tests/{id}/send-batch', 'EmailMarketingController', 'sendAbTestBatch', ['AuthMiddleware']);
+$router->post('/api/email-marketing/ab-tests/{id}/send-test', 'EmailMarketingController', 'sendAbTestTestEmail', ['AuthMiddleware']);
 $router->get('/api/email-marketing/ab-tests/{id}/report', 'EmailMarketingController', 'abTestReport', ['AuthMiddleware']);
 $router->post('/api/email-marketing/ab-tests/{id}/winner', 'EmailMarketingController', 'declareAbTestWinner', ['AuthMiddleware']);
 $router->post('/api/email-marketing/ab-tests/{id}/apply-winner', 'EmailMarketingController', 'applyAbTestWinner', ['AuthMiddleware']);
@@ -1331,5 +1332,17 @@ $router->post('/api/bookings/{id}/cancel', 'BookingController', 'cancel', ['Auth
 $router->post('/api/bookings/{id}/checkout', 'BookingController', 'checkout', ['AuthMiddleware']);
 // Webhook دفع Stripe للحجوزات - بدون Auth (التحقق بالتوقيع داخل الـ service)
 $router->post('/api/webhook/booking/stripe', 'BookingController', 'stripeWebhook');
+// Webhook Stripe موحّد لشحن المحفظة وتأكيد الحجوزات - بدون Auth (التوقيع HMAC)
+$router->post('/api/webhook/stripe', 'WebhookController', 'walletStripeWebhook');
 $router->get('/api/inventory/{productId}/calendar', 'BookingController', 'calendar', ['AuthMiddleware']);
 $router->post('/api/inventory/{productId}', 'BookingController', 'setInventory', ['AuthMiddleware']);
+
+// ============================================
+// التكاملات الخارجية (Integrations Center)
+// إدارة مفاتيح Slack/Zapier/HubSpot/Algolia/... من لوحة الأدمن
+// الصلاحية: admin/super_admin (متفرضة داخل الـ Controller)
+// ============================================
+$router->get('/api/integrations', 'IntegrationsController', 'index', ['AuthMiddleware']);
+$router->get('/api/integrations/{key}/status', 'IntegrationsController', 'status', ['AuthMiddleware']);
+$router->post('/api/integrations/{key}/save', 'IntegrationsController', 'save', ['AuthMiddleware']);
+$router->post('/api/integrations/{key}/test', 'IntegrationsController', 'test', ['AuthMiddleware']);

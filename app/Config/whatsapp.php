@@ -21,7 +21,7 @@ define('WHATSAPP_CLOUD_BASE_URL', 'https://graph.facebook.com/' . WHATSAPP_API_V
 define('WHATSAPP_PHONE_ID', env('WHATSAPP_PHONE_ID') ?: '');
 define('WHATSAPP_ACCESS_TOKEN', env('WHATSAPP_ACCESS_TOKEN') ?: '');
 define('WHATSAPP_BUSINESS_ACCOUNT_ID', env('WHATSAPP_BUSINESS_ACCOUNT_ID') ?: '');
-define('WHATSAPP_WEBHOOK_VERIFY_TOKEN', env('WHATSAPP_WEBHOOK_VERIFY_TOKEN') ?: 'tourfecto_verify_2026');
+define('WHATSAPP_WEBHOOK_VERIFY_TOKEN', env('WHATSAPP_WEBHOOK_VERIFY_TOKEN') ?: '');
 
 // ============================================
 // إعدادات UltraMsg API

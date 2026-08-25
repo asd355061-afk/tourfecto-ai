@@ -454,7 +454,12 @@ class EmailAutomationService
         ];
         $renderer = new EmailRenderer();
         $subject = $renderer->personalize($subject, $data);
-        $unsubToken = $sub['unsubscribe_token'] ?? 'test-token';
+        // لو الـ token مفقود لأي سبب، نولّد واحد فريد من البريد (مش قيم ثابتة
+        // يتشاركها كل المشتركين الناقصين فيرتبط إلغاء اشتراك أي حد بالباقيين).
+        $unsubToken = $sub['unsubscribe_token'] ?? '';
+        if ($unsubToken === '') {
+            $unsubToken = hash('sha256', 'auto-unsub:' . ($sub['email'] ?? '') . ':' . ($sub['id'] ?? 0));
+        }
         $baseUrl = rtrim(defined('APP_URL') ? APP_URL : 'https://tourfecto.com', '/');
         $html = $renderer->finalize(
             $html,

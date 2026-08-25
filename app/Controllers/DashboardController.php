@@ -1521,7 +1521,7 @@ HTML;
                     <div class="p-card" style="grid-column: span 1;">
                         <div class="p-card-head"><h3>{$this->tr('dashboard.notifications')}</h3></div>
                         <div id="notifList"><div class="p-empty" style="padding:20px;">{$this->tr('common.loading')}</div></div>
-                        <h4 style="margin:16px 0 8px;font-size:13px;color:var(--panel-text-muted);">{$this->tr('dashboard.recent_activity')}</h4>
+                        <h4 style="margin:16px 0 8px;font-size:13px;color:var(--panel-text-muted);">{$this->tr('dashboard.recent_logins')}</h4>
                         <div id="loginMiniList"></div>
                     </div>
                 </div>

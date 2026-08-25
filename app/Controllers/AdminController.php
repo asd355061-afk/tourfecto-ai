@@ -1150,6 +1150,14 @@ class AdminController extends Controller
         exit;
     }
 
+    /** GET /admin/integrations - إدارة مفاتيح التكاملات الخارجية */
+    public function integrations(array $params = []): array
+    {
+        header('Content-Type: text/html; charset=utf-8');
+        echo $this->renderAdminPage('integrations');
+        exit;
+    }
+
     /** GET /admin/login-history */
     public function loginHistory(array $params = []): array
     {
@@ -1589,6 +1597,7 @@ class AdminController extends Controller
             'system' => [$this->tr('admin.tab.system'), $this->tr('admin.tab.system_sub')],
             'logs' => [$this->tr('admin.tab.logs'), $this->tr('admin.tab.logs_sub')],
             'settings' => [$this->tr('admin.tab.settings'), $this->tr('admin.tab.settings_sub')],
+            'integrations' => [$this->tr('admin.tab.integrations'), $this->tr('admin.tab.integrations_sub')],
         ];
         $pageTitle = $titles[$tab][0] ?? $this->tr('admin.page_title');
         $pageSubtitle = $titles[$tab][1] ?? '';
@@ -2732,6 +2741,106 @@ class AdminController extends Controller
         else toast(res.error || I18N['common.update_failed'], 'error');
     };
 
+    // ============ التكاملات الخارجية (Integrations Center) ============
+    let intCache = [];
+    let intCurrentKey = null;
+
+    async function loadIntegrations() {
+        const res = await fetchJSON('/api/integrations');
+        const box = document.getElementById('integrationsList');
+        if (!box) return;
+        if (!res.success) {
+            box.innerHTML = '<div class="p-empty">' + (res.error || I18N['admin.load_data_error']) + '</div>';
+            return;
+        }
+        intCache = res.data.integrations || [];
+        const q = (document.getElementById('intFilter')?.value || '').trim().toLowerCase();
+        const filtered = q
+            ? intCache.filter(i => (i.label || '').toLowerCase().includes(q) || (i.category || '').toLowerCase().includes(q))
+            : intCache;
+
+        if (!filtered.length) {
+            box.innerHTML = '<div class="p-empty">' + I18N['admin.integrations.no_integrations'] + '</div>';
+            return;
+        }
+
+        box.innerHTML = filtered.map(i => `
+            <div class="p-kv" style="padding:10px 0;border-bottom:1px solid var(--panel-border);">
+                <span class="k">
+                    <strong>${esc(i.label || i.key)}</strong>
+                    <span class="pill gray" style="margin-inline-start:6px;">${esc(i.category || '')}</span>
+                    ${i.configured
+                        ? '<span class="pill green">' + I18N['admin.integrations.configured'] + '</span>'
+                        : '<span class="pill gray">' + I18N['admin.integrations.not_configured'] + '</span>'}
+                </span>
+                <span class="v">
+                    <button class="p-btn outline xs" onclick="openIntModal('${esc(i.key)}')">⚙️ ${I18N['admin.integrations.save_keys']}</button>
+                </span>
+            </div>
+        `).join('');
+    }
+
+    window.openIntModal = async function (key) {
+        const res = await fetchJSON('/api/integrations/' + key + '/status');
+        if (!res.success) { toast(res.error || I18N['admin.load_data_error'], 'error'); return; }
+        const meta = res.data;
+        intCurrentKey = key;
+        document.getElementById('intModalTitle').textContent = '⚙️ ' + (meta.label || key);
+        document.getElementById('intModalStatus').textContent =
+            (meta.configured ? '● ' + I18N['admin.integrations.configured'] : '○ ' + I18N['admin.integrations.not_configured'])
+            + ' · ' + (meta.env_keys || []).join(', ');
+        document.getElementById('intModalKeys').innerHTML = (meta.env_keys || []).map(envName => `
+            <div class="form-group">
+                <label class="form-label" style="font-family:monospace;font-size:12px;direction:ltr;text-align:right;">${esc(envName)}</label>
+                <input type="password" class="form-control" data-env-key="${esc(envName)}" placeholder="${I18N['admin.integrations.secret_placeholder']}" dir="ltr" autocomplete="off">
+            </div>
+        `).join('');
+        document.getElementById('intModalAlert').style.display = 'none';
+        document.getElementById('intModalOverlay').style.display = 'flex';
+    };
+
+    window.closeIntModal = function () {
+        document.getElementById('intModalOverlay').style.display = 'none';
+        intCurrentKey = null;
+    };
+
+    window.saveIntegrationKeys = async function () {
+        if (!intCurrentKey) return;
+        const values = {};
+        document.querySelectorAll('#intModalKeys [data-env-key]').forEach(inp => {
+            const envKey = inp.getAttribute('data-env-key');
+            if (inp.value.trim() !== '') values[envKey] = inp.value.trim();
+        });
+        const btn = document.getElementById('intSaveBtn');
+        btn.disabled = true;
+        try {
+            const res = await fetchJSON('/api/integrations/' + intCurrentKey + '/save', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values }),
+            });
+            toast(res.success ? I18N['admin.integrations.keys_saved'] : (res.error || I18N['common.update_failed']), res.success ? 'success' : 'error');
+            if (res.success) {
+                document.querySelectorAll('#intModalKeys [data-env-key]').forEach(inp => inp.value = '');
+                await loadIntegrations();
+            }
+        } finally {
+            btn.disabled = false;
+        }
+    };
+
+    window.testIntegrationConnection = async function () {
+        if (!intCurrentKey) return;
+        const btn = document.getElementById('intTestBtn');
+        btn.disabled = true;
+        btn.textContent = I18N['admin.integrations.testing'];
+        try {
+            const res = await fetchJSON('/api/integrations/' + intCurrentKey + '/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+            toast(res.success ? I18N['admin.integrations.test_ok'] : (res.error || I18N['admin.integrations.test_fail']), res.success ? 'success' : 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = I18N['admin.integrations.test_connection'];
+        }
+    };
+
     async function loadSystem() {
         const statsRes = await fetchJSON('/api/admin/system/stats');
         if (statsRes.success) {
@@ -2814,6 +2923,7 @@ class AdminController extends Controller
             else if (tab === 'system') await loadSystem();
             else if (tab === 'platform') await loadPlatform();
             else if (tab === 'settings') { await loadSystemSettings(); await loadFeaturesList(); await loadFaqList(); }
+            else if (tab === 'integrations') await loadIntegrations();
         } catch (e) {
             toast(I18N['admin.load_data_error'], 'error');
         } finally {
@@ -2940,6 +3050,7 @@ HTML;
                 'system' => [$this->tr('admin.nav.system_status'), '🖥️', '/admin/system'],
                 'logs' => [$this->tr('admin.nav.logs'), '📜', '/admin/logs'],
                 'settings' => [$this->tr('admin.nav.settings'), '⚙️', '/admin/settings'],
+                'integrations' => [$this->tr('admin.nav.integrations'), '🔌', '/admin/integrations'],
             ],
         ];
 
@@ -3507,6 +3618,35 @@ HTML;
                     </p>
                 </div>
 HTML;
+
+            case 'integrations':
+                return <<<HTML
+                <div class="p-card" style="margin-bottom:20px;">
+                    <div class="p-card-head"><h3>🔌 {$this->tr('admin.tab.integrations')}</h3><span class="p-card-sub">{$this->tr('admin.tab.integrations_sub')}</span></div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+                        <input type="text" id="intFilter" class="p-input" style="max-width:260px;" placeholder="ابحث بالاسم أو الفئة..." oninput="loadIntegrations()">
+                        <button class="p-btn outline xs" onclick="loadIntegrations()">↻ تحديث</button>
+                    </div>
+                    <div id="integrationsList"><div class="p-empty">{$this->tr('common.loading')}</div></div>
+                </div>
+
+                <div id="intModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;">
+                    <div class="p-card" style="max-width:560px;width:92%;max-height:86vh;overflow:auto;">
+                        <div class="p-card-head" style="display:flex;justify-content:space-between;align-items:center;">
+                            <h3 id="intModalTitle">—</h3>
+                            <button class="p-btn outline xs" onclick="closeIntModal()">✕</button>
+                        </div>
+                        <p class="p-cell-muted" id="intModalStatus" style="margin-bottom:12px;"></p>
+                        <div id="intModalKeys" style="display:flex;flex-direction:column;gap:12px;margin-bottom:14px;"></div>
+                        <div id="intModalAlert" class="alert alert-danger" style="display:none;margin-bottom:10px;"></div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button class="p-btn primary" id="intSaveBtn" onclick="saveIntegrationKeys()">{$this->tr('admin.integrations.save_keys')}</button>
+                            <button class="p-btn outline" id="intTestBtn" onclick="testIntegrationConnection()">{$this->tr('admin.integrations.test_connection')}</button>
+                        </div>
+                    </div>
+                </div>
+HTML;
+
             default:
                 return <<<HTML
                 <div class="p-grid cols-4">

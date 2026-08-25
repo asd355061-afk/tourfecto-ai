@@ -72,6 +72,8 @@ class MixpanelService extends BaseIntegrationService
         switch ($action) {
             case 'track':
                 return $this->track($params['event'] ?? 'generic', $params['properties'] ?? [], $params['distinct_id'] ?? null);
+            case 'test':
+                return $this->track('connection.test', [], 'test@tourfecto.local');
             default:
                 return ['success' => false, 'data' => null, 'error' => "action '{$action}' غير مدعوم في MixpanelService", 'http_code' => 0];
         }

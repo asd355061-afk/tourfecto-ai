@@ -37,6 +37,96 @@ class StripeCheckoutService
     }
 
     /**
+     * إنشاء جلسة Checkout لشحن محفظة المستخدم عبر بطاقة (Stripe).
+     *
+     * عند اكتمال الدفع، الـ Webhook (checkout.session.completed) بيحدّث
+     * معاملة payment_transactions وبيشحن الرصيد فورًا عبر
+     * WalletService::applyCardTopUp() (مش محتاج موافقة أدمن زي الـ
+     * IBAN/PayPal اليدويين).
+     *
+     * @return array { checkout_url, session_id }
+     * @throws Exception لو Stripe غير مُفعّل أو فشل إنشاء الجلسة.
+     */
+    public function createWalletTopUpSession(int $userId, float $amount, string $currency, string $successUrl, string $cancelUrl): array
+    {
+        if (!$this->isConfigured()) {
+            throw new Exception('بوابة الدفع Stripe غير مُفعّلة. أضف STRIPE_API_KEY و STRIPE_ENABLED في .env');
+        }
+        if ($amount <= 0) {
+            throw new Exception('المبلغ لازم يكون أكبر من صفر');
+        }
+        if ($successUrl === '' || $cancelUrl === '') {
+            throw new Exception('success_url و cancel_url مطلوبين');
+        }
+
+        $amountMinor = $this->toMinorUnits($amount, $currency);
+        $reference   = 'WTX-' . strtoupper(bin2hex(random_bytes(8)));
+        $idempotency = 'wallet-topup-' . $userId . '-' . $reference;
+
+        // افحص إن في معاملة pending موجودة بالفعل بنفس مفتاح الـ idempotency
+        $existing = $this->db->query(
+            'SELECT * FROM payment_transactions
+             WHERE idempotency_key = ? AND status IN ("pending","processing") LIMIT 1',
+            [$idempotency]
+        );
+        if (!empty($existing)) {
+            $stored = json_decode($existing[0]['metadata'] ?? '{}', true);
+            if (!empty($stored['checkout_url'])) {
+                return ['checkout_url' => $stored['checkout_url'], 'session_id' => $existing[0]['gateway_transaction_id']];
+            }
+        }
+
+        // 1) سجّل المعاملة محليًا (pending) قبل أي اتصال بالبوابة
+        $internalId = 'PTX-' . strtoupper(bin2hex(random_bytes(12)));
+        $paymentId  = $this->db->query(
+            'INSERT INTO payment_transactions
+                (internal_transaction_id, user_id, amount, currency, payment_method,
+                 gateway, status, reference, metadata, idempotency_key)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [
+                $internalId, $userId, $amount, strtoupper($currency), 'card',
+                'stripe', 'pending', $reference,
+                json_encode(['purpose' => 'wallet_topup']), $idempotency,
+            ]
+        );
+
+        // 2) أنشئ الجلسة عند Stripe
+        $session = $this->request('POST', '/checkout/sessions', [
+            'mode'                 => 'payment',
+            'success_url'          => $successUrl,
+            'cancel_url'           => $cancelUrl,
+            'client_reference_id'  => $reference,
+            'metadata[user_id]'    => (string) $userId,
+            'metadata[purpose]'    => 'wallet_topup',
+            'line_items[0][quantity]'                          => '1',
+            'line_items[0][price_data][currency]'              => strtolower($currency),
+            'line_items[0][price_data][unit_amount]'           => (string) $amountMinor,
+            'line_items[0][price_data][product_data][name]'    => 'Wallet Top-Up',
+        ]);
+
+        if (empty($session['id']) || empty($session['url'])) {
+            $this->markPaymentFailed($paymentId, 'Stripe returned invalid session payload');
+            throw new Exception('تعذر إنشاء جلسة الدفع - استجابة غير صالحة من Stripe');
+        }
+
+        // 3) اربط session_id + رابط الدفع بالمعاملة وحدّث الميتاداتا
+        $this->db->query(
+            'UPDATE payment_transactions
+             SET gateway_transaction_id = ?, status = ?, metadata = ?
+             WHERE id = ?',
+            [$session['id'], 'pending', json_encode([
+                'purpose'      => 'wallet_topup',
+                'checkout_url' => $session['url'],
+            ]), $paymentId]
+        );
+
+        return [
+            'checkout_url' => $session['url'],
+            'session_id'   => $session['id'],
+        ];
+    }
+
+    /**
      * إنشاء جلسة Checkout للحجز.
      *
      * @param int    $userId     صاحب الحساب (يُستخدم لفرض الملكية)
@@ -221,6 +311,33 @@ class StripeCheckoutService
         // Idempotent: لو المعاملة succeeded قبل كده، ما تعيدش التأكيد
         if (in_array($tx['status'], ['succeeded', 'refunded'], true)) {
             return ['handled' => true, 'event' => 'checkout.session.completed', 'message' => 'already handled'];
+        }
+
+        $metadata = json_decode($tx['metadata'] ?? '{}', true) ?: [];
+
+        // غرض "شحن محفظة": الدفع اتقبض فعليًا → اشحن الرصيد فورًا
+        if (($metadata['purpose'] ?? '') === 'wallet_topup') {
+            if (!class_exists('WalletService')) {
+                throw new Exception('نظام المحفظة غير متاح');
+            }
+            $topUp = (new WalletService())->applyCardTopUp(
+                (int) $tx['user_id'],
+                (float) $tx['amount'],
+                (string) $tx['currency'],
+                $sessionId,
+                (int) $tx['id']
+            );
+            if (empty($topUp['success'])) {
+                $this->logWarning('Wallet top-up failed after Stripe payment', [
+                    'payment_transaction_id' => $tx['id'],
+                    'error' => $topUp['error'] ?? null,
+                ]);
+            }
+            $this->db->query(
+                'UPDATE payment_transactions SET status = ?, gateway_transaction_id = ? WHERE id = ?',
+                ['succeeded', $sessionId, $tx['id']]
+            );
+            return ['handled' => true, 'event' => 'checkout.session.completed', 'wallet_topup' => true];
         }
 
         $bookingId = (int) ($tx['booking_id'] ?? 0);

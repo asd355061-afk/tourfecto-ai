@@ -46,19 +46,42 @@ class IntegrationManager
             return false;
         }
         foreach (self::$registry[$platformKey]['env_keys'] as $envKey) {
-            $value = defined($envKey) ? constant($envKey) : getenv($envKey);
+            $value = self::envValue($envKey);
             if (!$value || strpos((string)$value, 'your-') === 0) {
                 return false;
             }
         }
         $enabledEnv = self::$registry[$platformKey]['enabled_env'] ?? null;
         if ($enabledEnv !== null) {
-            $enabled = defined($enabledEnv) ? constant($enabledEnv) : getenv($enabledEnv);
+            $enabled = self::envValue($enabledEnv);
             if (filter_var($enabled, FILTER_VALIDATE_BOOLEAN) === false) {
                 return false;
             }
         }
         return true;
+    }
+
+    /**
+     * قراءة قيمة متغير إعداد - الأولوية لـ system_settings (الإعدادات
+     * المحفوظة من لوحة الأدمن)، وبعدين الثابت/env. لو في خطأ (جدول مش
+     * موجود) بنكمل على الـ env.
+     */
+    private static function envValue(string $envKey): string
+    {
+        if (class_exists('SystemSettingsService')) {
+            try {
+                $dbValue = (new SystemSettingsService())->get('integration_' . strtolower($envKey), '');
+                if ($dbValue !== '') {
+                    return $dbValue;
+                }
+            } catch (Throwable $e) {
+                // نتجاهل - بنكمل على الـ env
+            }
+        }
+        if (defined($envKey)) {
+            return (string) constant($envKey);
+        }
+        return (string) (function_exists('env') ? env($envKey) : getenv($envKey));
     }
 
     /**

@@ -218,6 +218,27 @@ class MetaAdsAPI
         return $result['success'] ? ['success' => true] : ['success' => false, 'error' => $result['error'] ?? 'فشل إلغاء الحملة'];
     }
 
+    /** إيقاف حملة مؤقتًا (PAUSED) - مجرد wrapper على updateCampaignStatus */
+    public function pauseCampaign(string $campaignId): array
+    {
+        return $this->updateCampaignStatus($campaignId, 'PAUSED');
+    }
+
+    /** إعادة تشغيل حملة موقوفة (ACTIVE) - مجرد wrapper على updateCampaignStatus */
+    public function resumeCampaign(string $campaignId): array
+    {
+        return $this->updateCampaignStatus($campaignId, 'ACTIVE');
+    }
+
+    /**
+     * تعديل الميزانية اليومية لحملة Meta (بتعدل على مستوى الـ Ad Set،
+     * فبتستقبل external_adset_id مش campaign_id).
+     */
+    public function updateCampaignBudget(string $adSetId, float $dailyBudgetUsd): array
+    {
+        return $this->updateAdSetBudget($adSetId, $dailyBudgetUsd);
+    }
+
     /** تعديل الميزانية اليومية لمجموعة إعلانية موجودة (adset_id، مش campaign_id) */
     public function updateAdSetBudget(string $adSetId, float $dailyBudgetUsd): array
     {

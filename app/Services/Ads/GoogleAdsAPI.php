@@ -311,6 +311,33 @@ class GoogleAdsAPI
         return $result['success'] ? ['success' => true] : ['success' => false, 'error' => $result['error'] ?? 'فشل إلغاء الحملة'];
     }
 
+    /** إيقاف حملة مؤقتًا (PAUSED) - يستقبل resource name مثل customers/{id}/campaigns/{id} */
+    public function pauseCampaign(string $customerId, string $campaignResourceName): array
+    {
+        return $this->updateCampaignStatus($customerId, $this->extractCampaignId($campaignResourceName), 'PAUSED');
+    }
+
+    /** إعادة تشغيل حملة موقوفة (ENABLED) - يستقبل resource name مثل customers/{id}/campaigns/{id} */
+    public function resumeCampaign(string $customerId, string $campaignResourceName): array
+    {
+        return $this->updateCampaignStatus($customerId, $this->extractCampaignId($campaignResourceName), 'ENABLED');
+    }
+
+    /** استخراج معرّف الحملة الرقمي من resource name مثل customers/123/campaigns/456 -> 456 */
+    private function extractCampaignId(string $campaignResourceName): string
+    {
+        if (preg_match('#customers/\d+/campaigns/(\d+)#', $campaignResourceName, $m)) {
+            return $m[1];
+        }
+        return $campaignResourceName;
+    }
+
+    /** تعديل الميزانية اليومية لحملة Google عبر resource name للميزانية - مجرد wrapper على updateBudget */
+    public function updateCampaignBudget(string $customerId, string $budgetResourceName, float $dailyBudgetUsd): array
+    {
+        return $this->updateBudget($budgetResourceName, $dailyBudgetUsd);
+    }
+
     /** تعديل الميزانية اليومية عبر resource name المحفوظ وقت الإنشاء (مثال: customers/123/campaignBudgets/456) */
     public function updateBudget(string $budgetResourceName, float $dailyBudgetUsd): array
     {

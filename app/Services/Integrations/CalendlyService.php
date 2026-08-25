@@ -77,6 +77,8 @@ class CalendlyService extends BaseIntegrationService
                 return $this->getEventTypes($params['user_uri'] ?? null);
             case 'scheduling_links':
                 return $this->getSchedulingLinks($params['user_uri'] ?? null);
+            case 'test':
+                return $this->me();
             default:
                 return ['success' => false, 'data' => null, 'error' => "action '{$action}' غير مدعوم في CalendlyService", 'http_code' => 0];
         }

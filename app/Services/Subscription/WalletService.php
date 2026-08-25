@@ -97,6 +97,73 @@ class WalletService
         return $tx;
     }
 
+    /**
+     * شحن فوري للمحفظة بعد دفع ناجح عبر بوابة (Stripe Checkout) -
+     * مش محتاج موافقة أدمن زي الـ IBAN/PayPal اليدويين (الفلوس اتقبضت
+     * فعليًا قبل ما نوصّل هنا من الـ Webhook).
+     *
+     * @param string $gatewayReference رقم العملية عند البوابة (رقم Session ID)
+     * @return array ['success'=>bool, 'balance'=>float, 'transaction_id'=>int, 'error'=>?string]
+     */
+    public function applyCardTopUp(int $userId, float $amount, string $currency, string $gatewayReference, ?int $paymentTransactionId = null): array
+    {
+        if ($amount <= 0) {
+            return ['success' => false, 'error' => 'المبلغ لازم يكون أكبر من صفر'];
+        }
+
+        try {
+            // Idempotency: نفس مرجع البوابة ما يعملش إيداع مكرر
+            $existing = $this->db->query(
+                "SELECT id FROM wallet_transactions
+                 WHERE user_id = ? AND type = 'deposit' AND payment_method = 'card'
+                   AND reference_note = ? LIMIT 1",
+                [$userId, 'stripe:' . $gatewayReference]
+            );
+            if (!empty($existing)) {
+                return [
+                    'success' => true,
+                    'balance' => $this->getBalance($userId),
+                    'transaction_id' => (int) $existing[0]['id'],
+                    'already_applied' => true,
+                ];
+            }
+
+            $tx = new WalletTransaction();
+            $tx->fill([
+                'user_id' => $userId,
+                'type' => 'deposit',
+                'amount' => $amount,
+                'currency' => strtoupper($currency),
+                'status' => 'completed',
+                'payment_method' => 'card',
+                'reference_note' => 'stripe:' . $gatewayReference,
+                'admin_note' => 'دفع إلكتروني فوري عبر Stripe',
+            ]);
+            $tx->save();
+
+            $newBalance = $this->getBalance($userId);
+
+            if (class_exists('Notification')) {
+                Notification::notify(
+                    $userId,
+                    'wallet_deposit_approved',
+                    'تم شحن رصيدك',
+                    'تم شحن محفظتك بمبلغ ' . $amount . '$ عبر الدفع الإلكتروني.',
+                    '/subscription'
+                );
+            }
+
+            ActivityLog::record('wallet', 'wallet.card_topup', [
+                'user_id' => $userId, 'subject_type' => 'wallet_transactions', 'subject_id' => (int) $tx->getAttribute('id'),
+                'meta' => ['amount' => $amount, 'gateway_reference' => $gatewayReference, 'payment_transaction_id' => $paymentTransactionId],
+            ]);
+
+            return ['success' => true, 'balance' => $newBalance, 'transaction_id' => (int) $tx->getAttribute('id')];
+        } catch (Throwable $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
     /** رفض طلب إيداع (لو الفلوس ما وصلتش فعليًا مثلاً) */
     public function rejectDeposit(int $transactionId, int $adminId, string $adminNote = ''): WalletTransaction
     {
@@ -1127,14 +1194,6 @@ class WalletService
     private function createInvoiceForCharge(int $userId, string $planKey, array $plan, string $planType, float $amount, ?WalletTransaction $chargeTx): void
     {
         try {
-            $invoiceNumber = 'INV-' . date('Ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 6));
-            $cycleLabel = $planType === 'yearly' ? 'سنوي' : 'شهري';
-            $items = json_encode([[
-                'description' => ($plan['name'] ?? $planKey) . ' - ' . $cycleLabel,
-                'amount' => $amount,
-                'quantity' => 1,
-            ]], JSON_UNESCAPED_UNICODE);
-
             // Section 12: ضريبة معلوماتية بس - من دولة العميل الحقيقية
             // في billing_profile لو موجودة. مفيش نسبة افتراضية، ومفيش
             // إضافة تلقائية لمبلغ amount المخصوم فعليًا (شوف تعليق
@@ -1160,18 +1219,31 @@ class WalletService
                 Logger::error('Invoice tax lookup failed (invoice still created without tax data)', ['message' => $taxError->getMessage()]);
             }
 
-            $this->db->exec(
-                "INSERT INTO invoices
-                    (user_id, invoice_number, plan_name, plan_type, amount, subtotal, tax_country, tax_type, tax_amount,
-                     currency, status, payment_method, transaction_id, items, due_date, paid_at, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'USD', 'paid', 'wallet', ?, ?, CURDATE(), NOW(), NOW())",
-                [
-                    $userId, $invoiceNumber, ($plan['name'] ?? $planKey), $planType, $amount, $amount,
-                    $taxCountry, $taxType, $taxAmount,
-                    $chargeTx ? 'wallet_tx_' . $chargeTx->getAttribute('id') : 'wallet_no_charge',
-                    $items,
-                ]
-            );
+            // إنشاء الفاتورة عبر BillingManager - المسار الموحّد الوحيد
+            // لكتابة جدول invoices (الدفع خلص فعليًا لحظة خصم المحفظة
+            // فوق، فبنمرر status = 'paid' فورًا - مش 'pending' زي تدفق
+            // بوابة الدفع الخارجية المعطّل).
+            $items = [[
+                'description' => ($plan['name'] ?? $planKey) . ' - ' . ($planType === 'yearly' ? 'سنوي' : 'شهري'),
+                'amount' => $amount,
+                'quantity' => 1,
+            ]];
+
+            $result = (new BillingManager())->createInvoice($userId, $planKey, $planType, $items, [
+                'status' => 'paid',
+                'payment_method' => 'wallet',
+                'transaction_id' => $chargeTx ? 'wallet_tx_' . $chargeTx->getAttribute('id') : 'wallet_no_charge',
+                'subtotal' => $amount,
+                'tax_country' => $taxCountry,
+                'tax_type' => $taxType,
+                'tax_amount' => $taxAmount,
+            ]);
+
+            if (!$result['success']) {
+                Logger::error('createInvoiceForCharge failed - subscription/charge succeeded but no invoice was recorded', [
+                    'user_id' => $userId, 'plan' => $planKey, 'amount' => $amount, 'message' => $result['error'] ?? 'unknown',
+                ]);
+            }
         } catch (Exception $e) {
             // مقصود: فشل إنشاء الفاتورة ميلغيش الخصم أو الاشتراك اللي
             // نجحوا فعلاً. بس المشكلة لازم تتسجل بوضوح عشان تتراجع

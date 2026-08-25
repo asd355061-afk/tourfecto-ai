@@ -290,6 +290,7 @@ $router->group('/admin', function ($router) {
     $router->get('/system', 'AdminController', 'system', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/logs', 'AdminController', 'logs', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/settings', 'AdminController', 'settings', ['AuthMiddleware', 'AdminMiddleware']);
+    $router->get('/integrations', 'AdminController', 'integrations', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/login-history', 'AdminController', 'loginHistory', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/onboarding-funnel', 'AdminController', 'onboardingFunnelPage', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/visitors', 'AdminController', 'visitorStatsPage', ['AuthMiddleware', 'AdminMiddleware']);

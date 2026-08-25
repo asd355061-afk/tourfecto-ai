@@ -107,9 +107,22 @@ abstract class BaseIntegrationService implements IntegrationInterface
         }
     }
 
-    /** ربط متغير بيئة بأمان (ثابت أو env) */
+    /** ربط متغير بيئة بأمان (ثابت أو env أو system_settings) */
     protected function conf(string $const, string $envKey): string
     {
+        // الأولوية: الإعداد المحفوظ من لوحة الأدمن (system_settings)
+        // وده الشكل اللي بينضبط منه فعليًا بعد ما وحدة التكاملات اتربطت.
+        if (class_exists('SystemSettingsService')) {
+            try {
+                $dbValue = (new SystemSettingsService())->get('integration_' . strtolower($envKey), '');
+                if ($dbValue !== '') {
+                    return $dbValue;
+                }
+            } catch (Throwable $e) {
+                // الجدول مش موجود لسه - نكمل على الـ env/const
+            }
+        }
+
         if (defined($const)) {
             return (string) constant($const);
         }
