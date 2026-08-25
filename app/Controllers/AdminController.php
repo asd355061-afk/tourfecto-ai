@@ -2976,21 +2976,21 @@ JS;
             </div>
             <nav class="panel-nav">{$navHtml}</nav>
             <div class="panel-sidebar-footer">
-                <a href="/dashboard">↩️ {$this->tr('admin.back_to_dashboard')}</a><br><br>
-                <a href="/logout">🚪 {$this->tr('admin.logout')}</a>
+                <a href="/dashboard">{icon_svg('arrow-left')} {$this->tr('admin.back_to_dashboard')}</a><br><br>
+                <a href="/logout">{icon_svg('log-out')} {$this->tr('admin.logout')}</a>
             </div>
         </aside>
 
         <div class="panel-main">
             <header class="panel-topbar">
-                <button class="panel-menu-toggle" id="panelMenuToggle">☰</button>
+                <button class="panel-menu-toggle" id="panelMenuToggle">{icon_svg('menu')}</button>
                 <div>
                     <h1>{$pageTitle}</h1>
                     <div class="subtitle">{$pageSubtitle}</div>
                 </div>
                 <div class="panel-topbar-spacer"></div>
                 <div class="panel-topbar-actions">
-                    <a href="/" class="icon-btn" title="{$this->tr('admin.main_site')}">🏠</a>
+                    <a href="/" class="icon-btn" title="{$this->tr('admin.main_site')}">{icon_svg('home')}</a>
                 </div>
             </header>
 

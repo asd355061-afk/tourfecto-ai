@@ -570,7 +570,7 @@ abstract class Controller
                 </div>
             </div>
             <nav class="panel-nav">
-                <input type="search" class="panel-nav-search" id="panelNavSearch" placeholder="🔍 " autocomplete="off" aria-label="بحث في القائمة">
+                <input type="search" class="panel-nav-search" id="panelNavSearch" placeholder="بحث في القائمة" autocomplete="off" aria-label="بحث في القائمة">
                 {$navHtml}
             </nav>
             <div class="panel-sidebar-footer">
