@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS `users` (
     `id` INT(11) NOT NULL AUTO_INCREMENT COMMENT 'المعرف الفريد للمستخدم',
     `company_name` VARCHAR(255) NOT NULL COMMENT 'اسم الشركة',
     `email` VARCHAR(255) NOT NULL UNIQUE COMMENT 'البريد الإلكتروني',
-    `password` VARCHAR(255) NOT NULL COMMENT 'كلمة المرور (مشفرة)',
+    `password_hash` VARCHAR(255) NOT NULL COMMENT 'كلمة المرور (مشفرة) بعد password_hash()',
     `phone` VARCHAR(50) DEFAULT NULL COMMENT 'رقم الهاتف',
     `country` VARCHAR(100) DEFAULT NULL COMMENT 'الدولة',
     `language` VARCHAR(10) DEFAULT 'ar' COMMENT 'اللغة المفضلة',
