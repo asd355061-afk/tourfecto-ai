@@ -323,7 +323,7 @@ function createTestUser(array $overrides = []): int
     $defaults = [
         'company_name' => 'Test Company',
         'email' => 'test_' . uniqid() . '@example.com',
-        'password' => password_hash('Test@123', PASSWORD_ARGON2ID),
+        'password_hash' => password_hash('Test@123', PASSWORD_ARGON2ID),
         'phone' => '+966500000001',
         'country' => 'SA',
         'language' => 'ar',
@@ -336,10 +336,10 @@ function createTestUser(array $overrides = []): int
     $data = array_merge($defaults, $overrides);
 
     $sql = "INSERT INTO users (
-        company_name, email, password, phone, country, language,
+        company_name, email, password_hash, phone, country, language,
         timezone, role, is_active, email_verified
     ) VALUES (
-        :company_name, :email, :password, :phone, :country, :language,
+        :company_name, :email, :password_hash, :phone, :country, :language,
         :timezone, :role, :is_active, :email_verified
     )";
 

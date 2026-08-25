@@ -83,10 +83,10 @@ class FixtureLoader
 
         foreach ($users as $user) {
             $sql = "INSERT INTO users (
-                company_name, email, password, phone, country, language, 
+                company_name, email, password_hash, phone, country, language, 
                 timezone, role, is_active, email_verified, api_token, created_at
             ) VALUES (
-                :company_name, :email, :password, :phone, :country, :language,
+                :company_name, :email, :password_hash, :phone, :country, :language,
                 :timezone, :role, :is_active, :email_verified, :api_token, :created_at
             )";
 
