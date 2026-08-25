@@ -90,9 +90,20 @@ body {
     color: var(--dark-gray);
     background-color: var(--light-gray);
     line-height: 1.6;
+    min-height: 100vh;
+}
+
+/* الاتجاه يتبع dir الحقيقي على <html> بدل فرض RTL دايمًا:
+   كان body يفرض direction:rtl حتى على الصفحات LTR (إنجليزي/فرنسي/ألماني)
+   فكانت كل اللوحة تترتب يمين. الافتراضي RTL محفوظ للصفحات اللي مالهاش dir. */
+html:not([dir="ltr"]) body {
     direction: rtl;
     text-align: right;
-    min-height: 100vh;
+}
+
+html[dir="ltr"] body {
+    direction: ltr;
+    text-align: left;
 }
 
 /* ============================================
@@ -357,7 +368,7 @@ a:hover {
 .table th,
 .table td {
     padding: var(--spacing-md);
-    text-align: right;
+    text-align: inherit;
     border-bottom: 1px solid #e9ecef;
 }
 
@@ -624,3 +635,16 @@ a:hover {
 html, body { max-width: 100%; overflow-x: hidden; }
 img, video, svg, canvas, iframe { max-width: 100%; height: auto; }
 pre, code { white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; }
+
+/* ===== Keyboard focus visibility (a11y) ===== */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid var(--primary-color, #0077be);
+    outline-offset: 2px;
+    border-radius: 4px;
+}

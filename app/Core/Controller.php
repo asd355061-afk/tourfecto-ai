@@ -417,6 +417,7 @@ abstract class Controller
         $enabledMap = $featureCheck !== null ? $featureCheck->getEnabledMap((int) $this->user['id']) : [];
 
         $html = '';
+        $groupIndex = 0;
         foreach ($groups as $groupTitle => $items) {
             $groupHtml = '';
             foreach ($items as $key => $item) {
@@ -428,12 +429,20 @@ abstract class Controller
                 }
                 [$label, $icon, $href] = $item;
                 $active = $key === $activeTab ? ' active' : '';
-                $groupHtml .= "<a href=\"{$href}\" class=\"panel-nav-link{$active}\"><span class=\"ic\">{$icon}</span>{$label}</a>";
+                // data-search دي keywords للفلترة السريعة (اسم العنصر + المجموعة)
+                $searchKey = htmlspecialchars($label . ' ' . $groupTitle, ENT_QUOTES, 'UTF-8');
+                $groupHtml .= "<a href=\"{$href}\" class=\"panel-nav-link{$active}\" data-search=\"{$searchKey}\"><span class=\"ic\">{$icon}</span><span class=\"lbl\">{$label}</span></a>";
             }
             if ($groupHtml === '') {
                 continue; // كل عناصر المجموعة دي متعطّلة - منعرضش عنوان مجموعة فاضي
             }
-            $html .= '<div class="panel-nav-group"><div class="panel-nav-group-title">' . htmlspecialchars($groupTitle, ENT_QUOTES, 'UTF-8') . '</div>' . $groupHtml . '</div>';
+            $groupIndex++;
+            $html .= '<div class="panel-nav-group" data-group-idx="' . $groupIndex . '">'
+                . '<div class="panel-nav-group-title" role="button" tabindex="0" aria-expanded="true">'
+                . '<span>' . htmlspecialchars($groupTitle, ENT_QUOTES, 'UTF-8') . '</span>'
+                . '<span class="panel-nav-caret">▾</span>'
+                . '</div>'
+                . '<div class="panel-nav-group-body">' . $groupHtml . '</div></div>';
         }
 
         return $html;
@@ -536,6 +545,9 @@ abstract class Controller
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
     <title>{$pageTitleSafe} | {$appName}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Space+Grotesk:wght@500;600;700&family=Tajawal:wght@400;500;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/favicon-16.png">
     <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
@@ -556,7 +568,10 @@ abstract class Controller
                     <div class="role">{$userEmail}</div>
                 </div>
             </div>
-            <nav class="panel-nav">{$navHtml}</nav>
+            <nav class="panel-nav">
+                <input type="search" class="panel-nav-search" id="panelNavSearch" placeholder="🔍 " autocomplete="off" aria-label="بحث في القائمة">
+                {$navHtml}
+            </nav>
             <div class="panel-sidebar-footer">
                 <a href="/logout">🚪 {$this->tr('nav.logout')}</a>
             </div>

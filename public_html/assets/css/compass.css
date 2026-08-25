@@ -5,8 +5,8 @@
 :root{
   --bg:#05070F; --panel:#101B30; --panel-2:#172741;
   --line:rgba(255,255,255,.09); --text:#F4F6FA; --muted:#8FA0BC;
-  --gold:#E8B564; --gold-glow:rgba(232,181,100,.45);
-  --teal:#42D6C6; --teal-glow:rgba(66,214,198,.4);
+  --gold:#EFB05E; --gold-glow:rgba(239,176,94,.45);
+  --teal:#4ECDC4; --teal-glow:rgba(78,205,196,.4);
   --coral:#FF7A63; --coral-glow:rgba(255,122,99,.4);
   --violet:#8B7CF6;
   --sapphire:#5B8DEF; --sapphire-glow:rgba(91,141,239,.4);
@@ -161,6 +161,8 @@ body.compass{margin:0;background:
 /* ===== Scroll reveal ===== */
 .compass .reveal{opacity:0;transform:translateY(28px);transition:opacity .7s ease, transform .7s ease;}
 .compass .reveal.in{opacity:1;transform:translateY(0);}
+/* fallback: لو الـ JS متحمّلش أو اتأخر، المحتوى يفضل ظاهر بدل ما يفضل مخفي */
+html:not(.js-ready) .compass .reveal{opacity:1;transform:none;}
 
 /* ===== Section head ===== */
 .compass .section-head{text-align:center;padding:90px 0 50px;}
@@ -291,8 +293,8 @@ body.compass{margin:0;background:
 .compass .world-tour{padding-top:6px;padding-bottom:6px;}
 .compass .tour-stage{position:relative;height:180px;border-radius:20px;overflow:hidden;margin:8px 0 30px;
   background:
-    radial-gradient(circle at 18% 32%, rgba(66,214,198,.14) 0 2px, transparent 3px) 0 0/48px 48px,
-    radial-gradient(circle at 62% 68%, rgba(232,181,100,.12) 0 2px, transparent 3px) 10px 14px/58px 58px,
+    radial-gradient(circle at 18% 32%, rgba(78,205,196,.14) 0 2px, transparent 3px) 0 0/48px 48px,
+    radial-gradient(circle at 62% 68%, rgba(239,176,94,.12) 0 2px, transparent 3px) 10px 14px/58px 58px,
     linear-gradient(160deg, var(--panel-2), var(--panel));
   border:1px solid var(--line);}
 @media(max-width:760px){.compass .tour-stage{height:140px;}}
@@ -314,7 +316,24 @@ body.compass{margin:0;background:
 .compass .lm-track span{display:inline-flex;align-items:center;gap:8px;flex-shrink:0;}
 .compass .lm-track span b{color:var(--text);font-weight:600;}
 @media (prefers-reduced-motion: reduce){
+  .compass *,.compass *::before,.compass *::after{
+    animation-duration:.001s !important;animation-iteration-count:1 !important;
+    transition-duration:.001s !important;scroll-behavior:auto !important;
+  }
   .compass .lm-1,.compass .lm-2,.compass .plane-emoji,.compass .boat-emoji,.compass .ticker{animation:none !important;}
+}
+
+/* ===== Keyboard focus visibility (a11y) ===== */
+.compass a:focus-visible,
+.compass button:focus-visible,
+.compass input:focus-visible,
+.compass select:focus-visible,
+.compass textarea:focus-visible,
+.compass summary:focus-visible,
+.compass [tabindex]:focus-visible {
+    outline: 2px solid var(--gold, #EFB05E);
+    outline-offset: 2px;
+    border-radius: 4px;
 }
 
 /* ============================================

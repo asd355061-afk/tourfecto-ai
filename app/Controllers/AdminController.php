@@ -2941,18 +2941,22 @@ JS;
         $styleCssUrl = asset_v('/assets/css/style.css');
         $panelCssUrl = asset_v('/assets/css/panel.css');
         $panelJsUrl = asset_v('/assets/js/panel.js');
+        // اللغة والاتجاه الديناميكي بدل hardcode عربي (كان lang="ar" dir="rtl"
+        // حتى لو الأدمن بيستخدم الإنجليزي/الفرنسي/الألماني فتترجم كل الصفحة RTL).
+        $adminLang = current_lang();
+        $adminDir = current_dir();
 
         return <<<HTML
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="{$adminLang}" dir="{$adminDir}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{$pageTitle} | {$this->tr('admin.page_title')} | {$appName}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Space+Grotesk:wght@500;600;700&family=Tajawal:wght@400;500;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{$styleCssUrl}">
-    <link rel="stylesheet" href="/assets/css/admin.css">
     <link rel="stylesheet" href="{$panelCssUrl}">
 </head>
 <body>

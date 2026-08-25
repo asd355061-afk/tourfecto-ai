@@ -131,12 +131,32 @@
 }
 
 .panel-nav { flex: 1; padding: 14px 12px; }
+.panel-nav-search {
+    width: 100%; padding: 8px 12px; margin-bottom: 12px;
+    border-radius: 10px; border: 1px solid var(--panel-border);
+    background: var(--panel-card-bg); color: var(--panel-text);
+    font-size: 12.5px; font-family: inherit; outline: none;
+}
+.panel-nav-search:focus { border-color: var(--panel-accent); }
+.panel-nav-search::placeholder { color: var(--panel-text-muted); opacity: .8; }
 .panel-nav-group { margin-bottom: 18px; }
 .panel-nav-group-title {
     font-size: 11px; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.6px; color: rgba(170,180,212,0.55);
     padding: 0 10px 6px;
+    display: flex; align-items: center; justify-content: space-between; gap: 6px;
+    cursor: pointer; user-select: none; border-radius: 6px;
 }
+.panel-nav-group-title:hover { color: var(--panel-sidebar-text); }
+.panel-nav-group-title:focus-visible { outline: 2px solid var(--panel-accent); outline-offset: 2px; }
+.panel-nav-caret {
+    font-size: 10px; color: inherit; transition: transform .2s ease;
+    transform: rotate(0deg); flex-shrink: 0; opacity: .7;
+}
+.panel-nav-group.collapsed .panel-nav-caret { transform: rotate(-90deg); }
+.panel-nav-group.collapsed .panel-nav-group-body { display: none; }
+.panel-nav-group.collapsed { margin-bottom: 10px; }
+.panel-nav-group.hidden-group { display: none; }
 .panel-nav-link {
     display: flex; align-items: center; gap: 12px;
     padding: 10px 12px; border-radius: 10px;
@@ -357,7 +377,7 @@
 .p-table-scroll { overflow-x: auto; }
 table.p-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 table.p-table th {
-    text-align: right; padding: 10px 14px; color: var(--panel-text-muted);
+    text-align: start; padding: 10px 14px; color: var(--panel-text-muted);
     font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px;
     border-bottom: 1px solid var(--panel-border); white-space: nowrap;
 }
@@ -530,15 +550,25 @@ table.p-table tbody tr:last-child td { border-bottom: none; }
 }
 .panel-shell.sidebar-open .panel-overlay-bg { display: block; }
 
-/* ============ p-tabs (فلاتر شبيهة بالتابس - صفحة Reputation Overview) ============ */
-.p-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
-.p-tab {
+/* ============ Unified tabs (p-tabs/ch-tabs/ri-tabs) ============
+   نظام تابات واحد لكل اللوحة: الـ pill style اللي مستخدم في أغلب
+   الصفحات. كل أنظمة التابات القديمة (ch-tab/ri-tab) بتشترك في نفس
+   القاعدة دي. */
+.p-tabs,
+.ch-tabs,
+.ri-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.p-tab,
+.ch-tab,
+.ri-tab {
     cursor: pointer; border: 1px solid var(--panel-border); background: var(--panel-card-bg);
     color: var(--panel-text-muted); font-size: 12.5px; font-weight: 600; padding: 6px 14px;
     border-radius: 20px; transition: var(--transition-fast);
+    display: inline-flex; align-items: center; gap: 6px;
+    white-space: nowrap;
 }
-.p-tab:hover { border-color: var(--panel-accent); color: var(--panel-text); }
-.p-tab.active { background: var(--panel-accent); border-color: var(--panel-accent); color: #fff; }
+.p-tab svg, .ch-tab svg, .ri-tab svg { width: 14px; height: 14px; flex-shrink: 0; }
+.p-tab:hover, .ch-tab:hover, .ri-tab:hover { border-color: var(--panel-accent); color: var(--panel-text); }
+.p-tab.active, .ch-tab.active, .ri-tab.active { background: var(--panel-accent); border-color: var(--panel-accent); color: #fff; }
 
 /* ============ Language switcher (topbar) ============ */
 .panel-langsel { position: relative; }
@@ -619,6 +649,12 @@ pre, code { white-space: pre-wrap; word-break: break-word; overflow-wrap: break-
 .panel-content, .panel-topbar, .p-card, .p-modal, .p-grid { max-width: 100%; }
 .p-kv .v, table.p-table td, table.p-table th { word-break: break-word; }
 
+/* احترام تفضيل تقليل الحركة: بيوقف tilt/عدّادات/وميض للـ stat tiles
+   والـ skeletons بدل ما يفضلوا متحركين لكل المستخدمين. */
+@media (prefers-reduced-motion: reduce) {
+    .panel-shell * { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; scroll-behavior: auto !important; }
+}
+
 @media (max-width: 640px) {
     .panel-content { padding: 16px 12px 40px; }
     .p-card { padding: 16px; }
@@ -679,20 +715,45 @@ pre, code { white-space: pre-wrap; word-break: break-word; overflow-wrap: break-
 }
 .field-error:empty { display: none; }
 
-.p-badge {
+/* ============ Unified badge system ============
+   كل أنواع الشارات في اللوحة (p-badge, ri-risk-badge, aiz/kw-badge,
+   wo-cat-badge, em-seg-badge) بتتقاسم نفس القاعدة والـ variants الدلالية.
+   ألوان الحالات من توكينات التصميم مش ألوان hardcoded. */
+.p-badge,
+.ri-risk-badge,
+.aiz-badge,
+.kw-badge,
+.wo-cat-badge,
+.em-seg-badge {
     display: inline-block;
     padding: 3px 10px;
     border-radius: 999px;
     font-size: 12px;
     font-weight: 600;
-    text-transform: capitalize;
     background: var(--panel-text-muted, #8996AC);
     color: #fff;
 }
-.p-badge.status-active { background: var(--panel-success-light); color: var(--panel-success); }
-.p-badge.status-pending { background: var(--panel-warning-light); color: var(--panel-warning); }
+.p-badge { text-transform: capitalize; }
+.p-badge.status-active,
+.p-badge.green,
+.ri-risk-badge.low { background: var(--panel-success-light); color: var(--panel-success); }
+.p-badge.status-pending,
+.p-badge.gold,
+.ri-risk-badge.medium { background: var(--panel-warning-light); color: var(--panel-warning); }
 .p-badge.status-suspended,
-.p-badge.status-cancelled { background: var(--panel-danger-light); color: var(--panel-danger); }
+.p-badge.status-cancelled,
+.p-badge.danger,
+.ri-risk-badge.high { background: var(--panel-danger-light); color: var(--panel-danger); }
+.aiz-badge,
+.kw-badge,
+.wo-cat-badge,
+.em-seg-badge { background: var(--panel-accent-light); color: var(--panel-accent); }
+.p-badge.info,
+.em-seg-badge.info { background: var(--panel-info-light); color: var(--panel-info); }
+.p-badge-dot {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--panel-accent); vertical-align: middle; margin-inline-start: 4px;
+}
 
 /* ============ Business Center (Phase 23) ============ */
 .bc-ring {
@@ -716,3 +777,19 @@ pre, code { white-space: pre-wrap; word-break: break-word; overflow-wrap: break-
 .bc-cat-score { width: 34px; text-align: end; font-size: 11px; color: var(--panel-text-muted, #8996AC); }
 .p-alert { border-radius: 10px; padding: 12px 14px; font-size: 12.5px; background: var(--panel-success-light, #E7F6EF); color: var(--panel-success, #1B8A5A); }
 .p-alert code { background: rgba(0,0,0,.06); padding: 2px 6px; border-radius: 6px; font-size: 11.5px; word-break: break-all; }
+
+/* ===== Keyboard focus visibility (a11y) =====
+   الـ focus ring بيظهر بس للملاحة بالكيبورد (Tab)، مش بالماوس.
+   العناصر التفاعلية لازم تبقى ظاهرة للمستخدمين اللي بيعتمدوا على
+   الكيبورد - كان فيه outline:none في 6 أماكن من غير بديل. */
+.panel-shell a:focus-visible,
+.panel-shell button:focus-visible,
+.panel-shell input:focus-visible,
+.panel-shell select:focus-visible,
+.panel-shell textarea:focus-visible,
+.panel-shell [tabindex]:focus-visible,
+.panel-shell summary:focus-visible {
+    outline: 2px solid var(--panel-accent, #EFB05E);
+    outline-offset: 2px;
+    border-radius: 4px;
+}

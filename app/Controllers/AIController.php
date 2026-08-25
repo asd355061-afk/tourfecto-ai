@@ -445,7 +445,6 @@ class AIController extends Controller
         $body = <<<HTML
         <style>
             .aiz-badges{display:flex;gap:8px;margin:-4px 0 16px;flex-wrap:wrap;}
-            .aiz-badge{font-size:11px;font-weight:800;letter-spacing:.03em;padding:4px 11px;border-radius:20px;background:var(--panel-accent-light);color:var(--panel-accent);border:1px solid rgba(239,176,94,.25);}
             .aiz-competitor-row{display:flex;align-items:center;gap:10px;margin-bottom:4px;}
             .aiz-competitor-num{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--panel-card-bg-2);border:1px solid var(--panel-border);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--panel-text-muted);}
             .aiz-competitor-row input{flex:1;}
@@ -1245,7 +1244,6 @@ JS;
             .kw-report-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
             .kw-report-list{margin:0;padding-inline-start:18px;font-size:12.5px;line-height:1.8;color:var(--panel-text);}
             .kw-badges{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
-            .kw-badge{font-size:11px;font-weight:800;letter-spacing:.03em;padding:4px 11px;border-radius:20px;background:var(--panel-accent-light);color:var(--panel-accent);border:1px solid rgba(239,176,94,.25);}
         </style>
 
         <div class="p-card">

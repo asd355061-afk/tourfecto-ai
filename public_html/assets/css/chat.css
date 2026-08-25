@@ -795,33 +795,8 @@
 /* ============================================================
    16. Tabs (تبويبات متوافقة مع Compass)
    ============================================================ */
-.ch-tabs {
-    display: flex;
-    gap: 4px;
-    background: var(--panel-card-bg-2);
-    padding: 4px;
-    border-radius: 12px;
-    border: 1px solid var(--panel-border);
-    width: fit-content;
-    max-width: 100%;
-    overflow-x: auto;
-}
-.ch-tab {
-    padding: 7px 16px;
-    border-radius: 9px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--panel-text-muted);
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all .16s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-}
-.ch-tab svg { width: 14px; height: 14px; }
-.ch-tab:hover { color: var(--panel-text); }
-.ch-tab.active { background: var(--panel-card-bg); color: var(--panel-accent); box-shadow: var(--panel-shadow); }
+/* tabs موحّدة: ch-tab بتستخدم نظام التابات الموحد في panel.css
+   (.p-tabs/.p-tab) - نفس الشكل والـ variants */
 
 /* ============================================================
    17. Split layout for conversation
