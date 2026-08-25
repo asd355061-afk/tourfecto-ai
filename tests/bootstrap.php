@@ -252,6 +252,7 @@ function applyTestMigrations(): void
 
     $migrations = [
         '2026_08_08_000009_create_crm_products_and_deal_items_tables.sql',
+        '2026_08_25_000001_add_website_binding_to_crm_products.sql',
         '2026_08_21_000001_create_booking_engine_tables.sql',
         '2026_08_12_000047_create_payment_transactions_table.sql',
         '2026_08_21_000002_add_booking_payment_link.sql',

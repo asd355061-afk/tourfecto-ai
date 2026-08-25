@@ -4,7 +4,7 @@
 class CrmProduct extends Model
 {
     protected $table = 'crm_products';
-    protected $fillable = ['user_id', 'name', 'description', 'sku', 'price', 'currency', 'is_active'];
+    protected $fillable = ['user_id', 'website_id', 'tour_slug', 'name', 'description', 'sku', 'price', 'currency', 'is_active'];
 
     /** منتجات الحساب (اختيار بالحالة) */
     public function forUser(int $userId, bool $onlyActive = false): array

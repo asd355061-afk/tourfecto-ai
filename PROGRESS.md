@@ -1,80 +1,80 @@
-# PROGRESS — تبسيط واجهة Auto SEO (مرحلة 1 من خطة "نتائج أحسن من
-الخبراء + واجهة سهلة للعميل")
+# PROGRESS — حجز مباشر من صفحات الموقع المولّد (Website Builder → Booking Engine + Stripe)
 
-**التاريخ:** 2026-08-21
-**الفرع:** `feat/auto-seo-simple-ux` (فرع جديد من `main`، مفيش فرع
-سابق بنفس الاسم أو شغل قديم عليه).
+**التاريخ:** 2026-08-25
+**الفرع:** `feat/email-marketing-platform` (متابعة فوق آخر commit `c79f160`)
+**الحالة:** مكتملة — 351/351 اختبار ناجحة
 
 ## السياق
-بعد فحص خدمة SEO بالكامل (audit engine + auto-execution + content
-engine + strategy agent)، طلب المستخدم يبقى فيه (1) نتائج أحسن من
-الخبراء و(2) واجهة سهلة للعميل. اتفقنا نبدأ بالواجهة الأول (مرحلة 1)
-لأنها أرخص وأسرع تفتح قيمة موجودة بالفعل في الـ backend.
+صفحات تفاصيل الرحلات/الغرف العامة للمواقع المولّدة (`showTourDetail`/
+`showRoomDetail`) كانت تعرض زرار واتساب بس. طلب المستخدم: ربط كل رحلة/
+غرفة في الموقع بصف حقيقي في `crm_products` عبر `website_id + tour_slug`،
+وعرض نموذج حجز مباشر بيفتح في Booking Engine (`source='website'`) مع دفع
+Stripe Checkout لو مفعّل، وصفحة تأكيد تعرض كود الحجز — مع الحفاظ على
+زرار واتساب كخيار بديل.
 
-## المشكلة اللي اتصلحت
-صفحة `/auto-seo` (تبويب "الربط والتنفيذ") كانت واجهة تقنية بحتة:
-embed_token وapi_key معروضين كـ raw values، JSON-LD كخيار في select،
-CNAME/DNS في نفس مستوى الأهمية زي زرار "ربط الموقع"، وأوضاع Auto-Pilot
-بمصطلحات إنجليزية تقنية (conservative/balanced/aggressive). ده مناسب
-لمطور، مش لصاحب مطعم أو متجر.
+## ما اتقال من git قبل الكود
+فحص الفروع remote أولاً: لا يوجد فرع بعنوان قريب من المهمة، و`origin/
+chore/clean-stripe-booking` (StripeCheckoutService + webhook) و`origin/
+feat/booking-availability-engine` (BookingEngine) موجودان كـ merges في
+الفرع الحالي. لا شغل سابق على ربط الجولات بـ crm_products — بدأنا من
+الصفر فوق `c79f160`.
 
-## التعديل
-### Backend (`app/Controllers/AutoSeoController.php`)
-- `report()`: أضفنا `website` (main_url/is_connected/auto_pilot_mode)
-  و`top_issues` (أهم 3 مشاكل مفتوحة من آخر audit، من `wo_audit_findings`
-  الموجودة بالفعل - مفيش جدول جديد).
-- `topIssues()` (method جديدة خاصة): بترجع أول 3 findings بحالة != pass
-  مرتبة حسب الخطورة، للعرض في كارت "ملخص الأداء".
-- مفيش تغيير في منطق التنفيذ الفعلي (`connect`/`apply`/`mode`) - إضافة
-  بيانات للعرض بس.
+## التعديلات
+1. **Migration** `database/migrations/2026_08_25_000001_add_website_binding_to_crm_products.sql`:
+   عمودان nullable (`website_id` FK → `generated_websites(id)` ON DELETE
+   SET NULL، `tour_slug`) + فهرس مركب `idx_crm_products_website_tour`.
+   مطبّق على `tourfecto_test` محليًا + مضاف لـ `applyTestMigrations` في
+   `tests/bootstrap.php`. ملاحظة: `tourfecto_db` المحلية القديمة معندهاش
+   جدول `crm_products` أصلًا — غير مطبّق عليها.
+2. **`app/Models/CrmProduct.php`**: `website_id` + `tour_slug` في fillable.
+3. **`app/Controllers/WebsiteBuilderController.php`**:
+   - `syncTourToProduct()` (upsert بـ website_id+tour_slug، استخراج
+     السعر/العملة من نص حر، SKU `WS{id}-{slug}`، reactivate عند re-sync)
+     متنداه من `addTour`/`updateTour`، و`syncAllSiteItems()` من `publish`
+     (تغطية المواقع المولّدة قبل هذه المرحلة)، و`deactivateLinkedProduct()`
+     من `deleteTour` (is_active=0 حمايةً لسجل الحجوزات).
+   - `showTourDetail`/`showRoomDetail`: استعلام المنتج المرتبط + حقن
+     `siteBookingFormHtml()` (نموذج تاريخ/بالغين/أطفال/اسم/هاتف/إيميل
+     بيعت بـ fetch) جوه صندوق الحجز، مع بقاء زرار واتساب.
+   - `bookSiteTour()`/`bookSiteRoom()` → `bookSiteItem()` (shared):
+     findViewableWebsite + فحص عنصر + validate (تاريخ مستقبلي/اسم) +
+     إنشاء توفر افتراضي (سعة 50) لو مفيش `inventory` + `BookingEngine::
+     createBooking()` بـ `source='website'` + Stripe checkout لو مفعّل +
+     fallback آمن (رد مع `whatsapp_fallback` + log) في أي فشل. يرجع JSON
+     للـ fetch وredirect للصفحات العادية.
+   - `showBookingConfirmation()`: صفحة تأكيد عامة بكود الحجز + الحالة +
+     واتساب، مع تحقق إن الحجز لصاحب نفس الموقع (منع كشف حجوزات غيرك).
+4. **`app/routes/web.php`**: `POST /sites/{slug}/tours/{tourSlug}/book`،
+   `POST /sites/{slug}/rooms/{roomSlug}/book`،
+   `GET /sites/{slug}/booking/{reference}` (بلا AuthMiddleware).
+5. **`public_html/assets/css/generated-site.css`**: أنماط النموذج +
+   رسائل النجاح/الخطأ + الفاصل + صندوق التأكيد (متوافقة مع الثيم الداكن).
+6. **كلاس جديد؟** لا — كل الكلاسات المستخدمة (`BookingEngine`,
+   `StripeCheckoutService`, `Booking`, `InventoryService`, `GeneratedWebsite`)
+   موجودة فعلًا في `composer autoload_classmap` — مفيش تسجيل إضافي.
 
-### Frontend (نفس الملف - HTML/CSS/JS المُضمّنة)
-- **كارت "ملخص الأداء"** جديد أعلى الصفحة: درجة SEO دائرية ملوّنة
-  (أخضر/برتقالي/أحمر) + حالة الاتصال كـ pill + أهم 3 مشاكل بلغة بسيطة.
-  بيتحمّل تلقائيًا (`loadSummary()`) عند اختيار الموقع، مش بزرار يدوي.
-- **تبويب "الربط والتنفيذ"** بقى 3 خطوات مرقّمة بلغة بيزنس:
-  1. اربط موقعك (WordPress/Shopify/HTML/API)
-  2. اختار سرعة التحسين - كروت "🐢 آمن وبطيء / ⚖️ متوازن (موصى به) /
-     🚀 سريع وجريء" بدل select تقني، بتتحفظ فورًا عند الاختيار (مفيش
-     زرار "حفظ" منفصل)
-  3. ابدأ التحسين التلقائي (نفس زرار "تطبيق الإصلاحات" القديم بس
-     بلغة أوضح)
-  - بعد الربط الأول، بيتفعّل الوضع "متوازن" الموصى به تلقائيًا (مفيش
-    خطوة إضافية للعميل).
-- **`<details>` "إعدادات متقدمة (للمطورين)"** قابل للطي بيجمع: CNAME
-  الفني، معاينة قبل التطبيق، التقرير التفصيلي، وسجل التغييرات - نفس
-  الوظائف القديمة بالظبط، بس مش أول حاجة العميل العادي يشوفها.
-- تبويب "تجارب SEO A/B" اتسمّى "اختبار الأفكار (A/B)" (تسمية أوضح
-  لغير التقنيين).
-- مفيش أي API endpoint اتشال أو تغيّر توقيعه - كل الـ JS functions
-  القديمة (`aseoConnect`, `aseoApply`, `aseoSetMode`, إلخ) شغالة زي ما
-  هي، بس بواجهة مختلفة فوقها.
+## الاختبارات
+`tests/Integration/WebsiteBookingIntegrationTest.php` (7 اختبارات /
+38 assert):
+- sync يخلق صف مرتبط لكل رحلة بالسعر والعملة الصح.
+- إعادة sync (3 مرات) من غير تكرار.
+- تحديث الصف القائم عند تغيير السعر/الاسم.
+- حجز من الموقع: ينجح رغم عدم تسجيل توفر (بيعمل افتراضي)، و`source=
+  'website'`، وproduct_id مرتبط بـ website+tour_slug، وعداد inventory.
+- رفض تاريخ ماضي (422) بدون استثناءات.
+- fallback لما مفيش منتج مرتبط (`whatsapp_fallback`).
+- validate حقول ناقصة.
 
-## الفحص
-- **JS**: استخرجت كود الـ JS المُضمّن وشغّلت `node --check` عليه -
-  نجح من غير أخطاء syntax.
-- **PHP**: تعذّر تشغيل `php -l` أو `composer lint` في الـ sandbox
-  (نفس مشكلة apt/mirror 404 من المرة اللي فاتت - جربت تثبيت PHP من
-  مصدرين مختلفين ومفيش حد نجح). راجعت التعديلات يدويًا:
-  - توازن `<div>`/`</div>` و`<details>`/`</details>` اتأكد منه
-    برمجيًا (77=77, 2=2).
-  - الإضافات في `report()`/`topIssues()` PHP سليمة نحويًا (مراجعة
-    يدوية دقيقة) ومتسقة مع أسلوب باقي الملف (prepared statements،
-    نفس نمط `$this->db->query`).
-- **لسه محتاج تشغيل فعلي:** `composer lint` و`phpunit` كاملين على
-  بيئة فيها PHP حقيقي قبل الدمج، ومراجعة بصرية للواجهة في المتصفح
-  (الـ CSS متسقة مع باقي متغيرات `--panel-*` الموجودة في الملف، لكن
-  مفيش screenshot فعلي اتاخد).
+تم التحقق يدويًا عبر HTTP (server 8080): صفحة التفاصيل تعرض النموذج،
+POST الحجز يرجع `booking_reference`، صفحة التأكيد ترجع 200 بكود الحجز،
+والـ fallback شغال للعناصر غير المرتبطة.
 
-## اللي لسه من الخطة الأكبر (مؤجل عن قصد)
-- مرحلة 2: تقرير شهري تلقائي بلغة بيزنس + عرض uplift الزيارات
-  الحقيقي من GA4/GSC.
-- مرحلة 3: cross-client learning لنتائج A/B tests عبر كل العملاء
-  (تغيير معماري أعمق، محتاج جدول جديد).
-- Setup Wizard بالكشف التلقائي لنوع المنصة (WordPress/Shopify) من
-  رابط الموقع - دلوقتي العميل لسه بيختار النوع يدويًا من select.
+## نتائج
+`OK (351 tests, 13797 assertions)` — فوق 337/13721 قبل التعديل.
 
-## الحالة
-✅ التعديل جاهز على `feat/auto-seo-simple-ux`، اتعمله push. الخطوة
-الجاية: مراجعة بصرية في المتصفح + `composer lint`/`phpunit` على بيئة
-فيها PHP، بعدين فتح PR للدمج مع `main`.
+## ملاحظات للتالي
+- Stripe غير مفعّل في `.env` → مسار الدفع مش متغطى باختبار تكامل فعلي
+  (لازم STRIPE_API_KEY/STRIPE_WEBHOOK_SECRET)؛ المنطق نفسه موثّق في
+  StripeCheckoutService ومُختبَر سابقًا في StripeCheckoutBookingIntegrationTest.
+- عند ربط شركة Stripe لاحقًا، الـ success_url بيشاور تلقائيًا على صفحة
+  تأكيد الحجز لأنها بتتبني من booking_reference وقت إنشاء الجلسة.
