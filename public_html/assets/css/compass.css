@@ -161,6 +161,8 @@ body.compass{margin:0;background:
 /* ===== Scroll reveal ===== */
 .compass .reveal{opacity:0;transform:translateY(28px);transition:opacity .7s ease, transform .7s ease;}
 .compass .reveal.in{opacity:1;transform:translateY(0);}
+/* fallback: لو الـ JS متحمّلش أو اتأخر، المحتوى يفضل ظاهر بدل ما يفضل مخفي */
+html:not(.js-ready) .compass .reveal{opacity:1;transform:none;}
 
 /* ===== Section head ===== */
 .compass .section-head{text-align:center;padding:90px 0 50px;}
@@ -314,7 +316,24 @@ body.compass{margin:0;background:
 .compass .lm-track span{display:inline-flex;align-items:center;gap:8px;flex-shrink:0;}
 .compass .lm-track span b{color:var(--text);font-weight:600;}
 @media (prefers-reduced-motion: reduce){
+  .compass *,.compass *::before,.compass *::after{
+    animation-duration:.001s !important;animation-iteration-count:1 !important;
+    transition-duration:.001s !important;scroll-behavior:auto !important;
+  }
   .compass .lm-1,.compass .lm-2,.compass .plane-emoji,.compass .boat-emoji,.compass .ticker{animation:none !important;}
+}
+
+/* ===== Keyboard focus visibility (a11y) ===== */
+.compass a:focus-visible,
+.compass button:focus-visible,
+.compass input:focus-visible,
+.compass select:focus-visible,
+.compass textarea:focus-visible,
+.compass summary:focus-visible,
+.compass [tabindex]:focus-visible {
+    outline: 2px solid var(--gold, #E8B564);
+    outline-offset: 2px;
+    border-radius: 4px;
 }
 
 /* ============================================

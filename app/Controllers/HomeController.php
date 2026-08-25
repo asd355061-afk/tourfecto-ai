@@ -121,6 +121,7 @@ XML;
     <link rel="stylesheet" href="/assets/css/compass.css">
 </head>
 <body class="compass">
+<script>document.documentElement.classList.add('js-ready')</script>
 <div class="stars"></div>
 
 <div class="wrap">
