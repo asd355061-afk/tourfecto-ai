@@ -14,7 +14,7 @@
 INSERT INTO `users` (
     `company_name`,
     `email`,
-    `password`,
+    `password_hash`,
     `phone`,
     `country`,
     `language`,
@@ -29,7 +29,7 @@ INSERT INTO `users` (
 ) VALUES (
     'Tourfecto Admin',
     'admin@tourfecto.com',
-    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', -- password: Admin@123
+    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', -- password: password
     '+966500000001',
     'SA',
     'ar',
@@ -47,7 +47,7 @@ INSERT INTO `users` (
 INSERT INTO `users` (
     `company_name`,
     `email`,
-    `password`,
+    `password_hash`,
     `phone`,
     `country`,
     `language`,
@@ -78,7 +78,7 @@ INSERT INTO `users` (
 INSERT INTO `users` (
     `company_name`,
     `email`,
-    `password`,
+    `password_hash`,
     `phone`,
     `country`,
     `language`,
@@ -109,7 +109,7 @@ INSERT INTO `users` (
 INSERT INTO `users` (
     `company_name`,
     `email`,
-    `password`,
+    `password_hash`,
     `phone`,
     `country`,
     `language`,
@@ -140,7 +140,7 @@ INSERT INTO `users` (
 INSERT INTO `users` (
     `company_name`,
     `email`,
-    `password`,
+    `password_hash`,
     `phone`,
     `country`,
     `language`,
@@ -175,7 +175,7 @@ INSERT INTO `users` (
 INSERT INTO `users` (
     `company_name`,
     `email`,
-    `password`,
+    `password_hash`,
     `phone`,
     `country`,
     `language`,
@@ -202,7 +202,7 @@ INSERT INTO `users` (
 INSERT INTO `users` (
     `company_name`,
     `email`,
-    `password`,
+    `password_hash`,
     `phone`,
     `country`,
     `language`,
@@ -266,12 +266,12 @@ UPDATE `users` SET `last_login` = NOW() WHERE `id` <= 5;
 -- 6. ملاحظات
 -- ============================================
 -- كلمات المرور الافتراضية:
--- Admin@123 (لجميع المستخدمين)
+-- password (لجميع المستخدمين)
 -- 
 -- المستخدمون المتاحون للتسجيل:
--- admin@tourfecto.com / Admin@123
--- system@tourfecto.com / Admin@123
--- info@arabic-travel.com / Admin@123
--- info@egypt-travel.com / Admin@123
--- info@europe-travel.com / Admin@123
+-- admin@tourfecto.com / password
+-- system@tourfecto.com / password
+-- info@arabic-travel.com / password
+-- info@egypt-travel.com / password
+-- info@europe-travel.com / password
 -- ============================================

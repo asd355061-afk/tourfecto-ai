@@ -443,6 +443,14 @@ class ChatController extends Controller
                 return $this->error('Failed to send message', 500);
             }
 
+            // تصحيح (2026-08-25): كان بيتحقق من الاشتراك بس بدون استهلاك
+            // الرصيد - يعني حد رسائل الشات المعروض في الباقات (100/500/2000)
+            // مكنش بيتفرض خالص. دلوقتي بنستهلك رصيدًا بعد نجاح الإرسال،
+            // مع الرجوع للمحفظة لو الاستخدام "ادفع حسب الاستخدام".
+            $creditsCheck = $this->subscription->checkChatCredits((int) $this->user['id'], 1);
+            $viaWallet = $creditsCheck['source'] === 'wallet';
+            $this->subscription->consumeChatCredits((int) $this->user['id'], 1, $viaWallet);
+
             // حفظ الرسالة الصادرة
             $encryption = new Encryption();
             $encryptedPhone = $encryption->encryptCustomerData($phoneNumber, $phoneNumber);

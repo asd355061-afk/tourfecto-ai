@@ -311,6 +311,47 @@ class SubscriptionValidator
     }
 
     /**
+     * التحقق من توفر رصيد الردود على المراجعات
+     * @param int $userId
+     * @param int $requiredCredits
+     * @return array
+     */
+    public function checkReviewCredits(int $userId, int $requiredCredits = 1): array
+    {
+        $subscription = $this->validateSubscription($userId);
+
+        if ($subscription['valid'] && $subscription['review_credits_remaining'] >= $requiredCredits) {
+            return [
+                'available' => true,
+                'message' => 'Sufficient review credits available.',
+                'remaining' => $subscription['review_credits_remaining'],
+                'required' => $requiredCredits,
+                'source' => 'subscription',
+            ];
+        }
+
+        $walletCheck = (new WalletService())->canAffordUsage($userId, 'review_reply');
+        if ($walletCheck['can_afford']) {
+            return [
+                'available' => true,
+                'message' => 'Payable from wallet balance.',
+                'remaining' => 0,
+                'required' => $requiredCredits,
+                'source' => 'wallet',
+                'wallet_price' => $walletCheck['price'],
+            ];
+        }
+
+        return [
+            'available' => false,
+            'message' => 'No active subscription and insufficient wallet balance.',
+            'remaining' => $subscription['valid'] ? $subscription['review_credits_remaining'] : 0,
+            'required' => $requiredCredits,
+            'wallet_shortfall' => $walletCheck['shortfall'] ?? null,
+        ];
+    }
+
+    /**
      * استهلاك رصيد الشات
      * @param int $userId
      * @param int $creditsUsed
@@ -355,6 +396,50 @@ class SubscriptionValidator
     }
 
     /**
+     * استهلاك رصيد الردود على المراجعات
+     * @param int $userId
+     * @param int $creditsUsed
+     * @param bool $viaWallet - لو true، بيتخصم ثمنه من المحفظة
+     * @return bool
+     */
+    public function consumeReviewCredits(int $userId, int $creditsUsed = 1, bool $viaWallet = false): bool
+    {
+        try {
+            if ($viaWallet) {
+                return (new WalletService())->chargeForUsage($userId, 'review_reply', 'رد مراجعة');
+            }
+
+            $sql = "UPDATE subscriptions 
+                    SET usage_review_reply_count = usage_review_reply_count + :credits_used,
+                        updated_at = NOW()
+                    WHERE user_id = :user_id 
+                    AND status = 'active' 
+                    AND current_period_end > NOW()
+                    ORDER BY id DESC LIMIT 1";
+
+            $result = $this->db->query($sql, [
+                ':credits_used' => $creditsUsed,
+                ':user_id' => $userId
+            ]);
+
+            if ($result > 0) {
+                $this->usageTracker->logUsage($userId, 'review', $creditsUsed);
+                return true;
+            }
+
+            return false;
+
+        } catch (Exception $e) {
+            Logger::error('Consume Review Credits Error', [
+                'user_id' => $userId,
+                'credits' => $creditsUsed,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    /**
      * استهلاك رصيد تحليل المنافسين
      * @param int $userId
      * @param bool $viaWallet - لو true، بيتخصم ثمنه من المحفظة
@@ -371,13 +456,29 @@ class SubscriptionValidator
                 return $charged;
             }
 
-            // ملحوظة: مفيش عمود مخصص لتتبع استهلاك تحليل المنافسين في
-            // الجدول الحقيقي (زي usage_ai_analysis_count للتحليل العادي)،
-            // فمينفعش نحدّث عمود مش موجود. بنسجّل الاستخدام في UsageTracker
-            // بس (اللي بيدي تتبع تقريبي)، والحد نفسه (competitor_analysis
-            // في features_json) مش بيتفرض فعليًا لحد ما نضيف عمود مخصص.
-            $this->usageTracker->logUsage($userId, 'competitor_analysis', 1);
-            return true;
+            // تصحيح (2026-08-25): الكود القديم كان بيسجّل الاستخدام في
+            // UsageTracker بس ويرجع true دايمًا - يعني حد "تحليل المنافسين"
+            // المعروض في الباقات (5/20/100) مكنش بيتفرض خالص. دلوقتي بنخصم
+            // من العمود الفعلي competitor_analysis_used اللي موجود في جدول
+            // subscriptions، فالحد بيشتغل فعلًا زي حد الـ AI تمامًا.
+            $sql = "UPDATE subscriptions 
+                    SET competitor_analysis_used = competitor_analysis_used + 1,
+                        updated_at = NOW()
+                    WHERE user_id = :user_id 
+                    AND status = 'active' 
+                    AND current_period_end > NOW()
+                    ORDER BY id DESC LIMIT 1";
+
+            $result = $this->db->query($sql, [
+                ':user_id' => $userId
+            ]);
+
+            if ($result > 0) {
+                $this->usageTracker->logUsage($userId, 'competitor_analysis', 1);
+                return true;
+            }
+
+            return false;
         } catch (Exception $e) {
             Logger::error('Consume Competitor Analysis Credit Error', [
                 'user_id' => $userId,

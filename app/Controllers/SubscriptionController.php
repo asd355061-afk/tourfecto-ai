@@ -1023,7 +1023,10 @@ HTML;
         </div>
 HTML;
         $body = $billingToggleHtml . '<div class="p-grid cols-3">' . $cardsHtml . '</div>';
-        if (!support_whatsapp_number()) {
+        // تحذير المالك (إعداد داخلي) - يظهر للأدمن بس، مش للزوار العاديين
+        // أو العملاء، عشان يبقى الموقع نظيف أمام الجمهور.
+        $isAdminUser = $isAuth && in_array($this->user['role'] ?? '', ['super_admin', 'admin'], true);
+        if (!support_whatsapp_number() && $isAdminUser) {
             $body = '<div class="alert alert-warning" style="margin-bottom:16px;">⚠️ رقم واتساب صاحب المنصة مش متظبط بعد (من لوحة الأدمن أو .env) - زراير "اشترك" مش هتشتغل لحد ما يتظبط.</div>' . $body;
         }
 

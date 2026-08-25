@@ -326,46 +326,46 @@ abstract class Controller
 
         $groups = [
             t('sidebar.group.assistant') => [
-                'ai_assistant' => [t('sidebar.ai_assistant'), '✨', '/ai-assistant'],
-                'website_builder' => [t('sidebar.website_builder'), '🏗️', '/website-builder'],
+                'ai_assistant' => [t('sidebar.ai_assistant'), 'sparkles', '/ai-assistant'],
+                'website_builder' => [t('sidebar.website_builder'), 'layout', '/website-builder'],
             ],
             t('sidebar.group.main') => [
-                'overview' => [t('sidebar.overview'), '📊', '/dashboard'],
-                'executive' => [t('sidebar.executive'), '🧭', '/dashboard/executive'],
-                'growth' => [t('sidebar.growth'), '🚀', '/dashboard/growth'],
-                'analytics' => [t('sidebar.analytics'), '📈', '/dashboard/analytics'],
-                'activity' => [t('sidebar.activity'), '🕓', '/dashboard/activity'],
+                'overview' => [t('sidebar.overview'), 'bar-chart-2', '/dashboard'],
+                'executive' => [t('sidebar.executive'), 'compass', '/dashboard/executive'],
+                'growth' => [t('sidebar.growth'), 'trending-up', '/dashboard/growth'],
+                'analytics' => [t('sidebar.analytics'), 'activity', '/dashboard/analytics'],
+                'activity' => [t('sidebar.activity'), 'clock', '/dashboard/activity'],
             ],
             t('sidebar.group.business_intelligence') => [
-                'business_center' => [t('sidebar.business_center'), '🏢', '/business-center'],
-                'revenue' => [t('sidebar.revenue'), '💰', '/revenue'],
-                'revenue_intelligence' => [t('sidebar.revenue_intelligence'), '🧠', '/revenue/intelligence'],
-                'website_optimizer' => [t('sidebar.website_optimizer'), '🛠️', '/website-optimizer'],
-                'auto_seo' => [t('sidebar.auto_seo'), 'SEO', '/auto-seo'],
-                'seo_content' => [t('sidebar.seo_content'), '✍️', '/seo-content'],
-                'competitor_monitoring' => [t('sidebar.competitor_monitoring'), '🕵️', '/competitor-monitoring'],
-                'competitor_intelligence' => [t('sidebar.competitor_intelligence'), '🕵️‍♂️', '/competitor-intelligence'],
+                'business_center' => [t('sidebar.business_center'), 'briefcase', '/business-center'],
+                'revenue' => [t('sidebar.revenue'), 'dollar', '/revenue'],
+                'revenue_intelligence' => [t('sidebar.revenue_intelligence'), 'brain', '/revenue/intelligence'],
+                'website_optimizer' => [t('sidebar.website_optimizer'), 'tools', '/website-optimizer'],
+                'auto_seo' => [t('sidebar.auto_seo'), 'search', '/auto-seo'],
+                'seo_content' => [t('sidebar.seo_content'), 'edit', '/seo-content'],
+                'competitor_monitoring' => [t('sidebar.competitor_monitoring'), 'eye', '/competitor-monitoring'],
+                'competitor_intelligence' => [t('sidebar.competitor_intelligence'), 'users', '/competitor-intelligence'],
             ],
             // تصحيح تنظيمي: كانت مجموعة "التسويق" فيها 9 عناصر مكدّسة سوا
             // (تحليل SEO، تقارير، مقالات، منافسين، كلمات مفتاحية، سوشيال،
             // إعلانات، مساعد تسويقي، استوديو إبداعي) - إحساس فعلي بالفوضى.
             // اتقسّمت هنا لمجموعتين منطقيتين: محتوى AI تحليلي، وتوزيع/نشر.
             t('sidebar.group.ai_content') => [
-                'ai_analyze' => [t('sidebar.seo_analysis'), '🤖', '/ai/analyze'],
-                'ai_reports' => [t('sidebar.ai_reports'), '🗂️', '/ai/reports'],
-                'ai_articles' => [t('sidebar.ai_articles'), '✍️', '/ai/articles'],
-                'ai_competitors' => [t('sidebar.ai_competitors'), '🏁', '/ai/competitors'],
-                'ai_keywords' => [t('sidebar.ai_keywords'), '🔑', '/ai/keywords'],
+                'ai_analyze' => [t('sidebar.seo_analysis'), 'bot', '/ai/analyze'],
+                'ai_reports' => [t('sidebar.ai_reports'), 'folder', '/ai/reports'],
+                'ai_articles' => [t('sidebar.ai_articles'), 'edit', '/ai/articles'],
+                'ai_competitors' => [t('sidebar.ai_competitors'), 'flag', '/ai/competitors'],
+                'ai_keywords' => [t('sidebar.ai_keywords'), 'key', '/ai/keywords'],
             ],
             t('sidebar.group.distribution') => [
-                'social' => [t('sidebar.social'), '📱', '/social'],
-                'ads' => [t('sidebar.ads'), '📣', '/ads'],
-                'email_marketing' => [t('sidebar.email_marketing'), '📬', '/email-marketing'],
-                'marketing_assistant' => [t('sidebar.marketing_assistant'), '💡', '/marketing-assistant'],
-                'creative_studio' => [t('sidebar.creative_studio'), '🎨', '/creative-studio'],
+                'social' => [t('sidebar.social'), 'smartphone', '/social'],
+                'ads' => [t('sidebar.ads'), 'megaphone', '/ads'],
+                'email_marketing' => [t('sidebar.email_marketing'), 'mail', '/email-marketing'],
+                'marketing_assistant' => [t('sidebar.marketing_assistant'), 'lightbulb', '/marketing-assistant'],
+                'creative_studio' => [t('sidebar.creative_studio'), 'palette', '/creative-studio'],
             ],
             t('sidebar.group.customers') => [
-                'crm' => [t('sidebar.crm'), '🧾', '/crm'],
+                'crm' => [t('sidebar.crm'), 'file-text', '/crm'],
             ],
             // ============================================================
             // AI Chat Platform (2026-08-16) - مجموعة مستقلة كاملة لموديول
@@ -376,41 +376,41 @@ abstract class Controller
             // الكاملة، وكل صفحة بتستخدم مفتاحها النشط المنفصل في الـSidebar.
             // ============================================================
             t('sidebar.group.ai_chat') => [
-                'ai_chat_inbox' => [t('sidebar.ai_chat_inbox'), '💬', '/chat'],
-                'ai_chat_analytics' => [t('sidebar.ai_chat_analytics'), '📊', '/chat/analytics'],
-                'ai_chat_knowledge' => [t('sidebar.ai_chat_knowledge'), '📚', '/chat/knowledge-base'],
-                'ai_chat_learning' => [t('sidebar.ai_chat_learning'), '🧠', '/chat/learning'],
-                'ai_chat_leads' => [t('sidebar.ai_chat_leads'), '🎯', '/chat/leads'],
-                'ai_chat_followup' => [t('sidebar.ai_chat_followup'), '⏰', '/chat/followup-settings'],
+                'ai_chat_inbox' => [t('sidebar.ai_chat_inbox'), 'message', '/chat'],
+                'ai_chat_analytics' => [t('sidebar.ai_chat_analytics'), 'bar-chart', '/chat/analytics'],
+                'ai_chat_knowledge' => [t('sidebar.ai_chat_knowledge'), 'book', '/chat/knowledge-base'],
+                'ai_chat_learning' => [t('sidebar.ai_chat_learning'), 'brain', '/chat/learning'],
+                'ai_chat_leads' => [t('sidebar.ai_chat_leads'), 'target', '/chat/leads'],
+                'ai_chat_followup' => [t('sidebar.ai_chat_followup'), 'alarm', '/chat/followup-settings'],
             ],
             // تصحيح تنظيمي: صفحات السمعة الثلاثة (المراجعات، نظرة عامة،
             // إحصائيات) + محتوى Google Business كانوا متفرّقين وسط مجموعة
             // "العملاء" من غير ما يبان إنهم مرتبطين ببعض - دلوقتي في مجموعة
             // واحدة واضحة اسمها "السمعة" عشان تبان علاقتهم ببعض فورًا.
             t('sidebar.group.reputation') => [
-                'reputation' => [t('sidebar.reputation'), '⭐', '/reputation/reviews'],
-                'reputation_overview' => [t('sidebar.reputation_overview'), '📊', '/reputation/overview'],
-                'reputation_stats' => [t('sidebar.reputation_stats'), '📈', '/reputation/stats'],
-                'reputation_intelligence' => [t('sidebar.reputation_intelligence'), '🧠', '/reputation/intelligence'],
-                'gbp_content' => [t('sidebar.gbp_content'), '📍', '/gbp-content'],
-                'review_requests' => [t('sidebar.review_requests'), '📨', '/review-requests'],
+                'reputation' => [t('sidebar.reputation'), 'star', '/reputation/reviews'],
+                'reputation_overview' => [t('sidebar.reputation_overview'), 'bar-chart', '/reputation/overview'],
+                'reputation_stats' => [t('sidebar.reputation_stats'), 'trending-up', '/reputation/stats'],
+                'reputation_intelligence' => [t('sidebar.reputation_intelligence'), 'brain', '/reputation/intelligence'],
+                'gbp_content' => [t('sidebar.gbp_content'), 'map-pin', '/gbp-content'],
+                'review_requests' => [t('sidebar.review_requests'), 'send', '/review-requests'],
             ],
             t('sidebar.group.agency') => [
-                'agency' => [t('sidebar.agency'), '🏢', '/agency'],
+                'agency' => [t('sidebar.agency'), 'building', '/agency'],
             ],
             // تصحيح تنظيمي: "المواقع" و"التكاملات" كانوا في مجموعة
             // "العملاء" رغم إنهم إعدادات أساسية للحساب مش عن العملاء -
             // نقلناهم هنا مع الاشتراك والملف الشخصي، أماكنهم المنطقية.
             t('sidebar.group.account') => [
-                '_websites' => [t('sidebar.websites'), '🌐', '/websites'],
-                '_integrations' => [t('sidebar.integrations'), '🔗', '/integrations'],
-                '_subscription' => [t('sidebar.subscription'), '💳', '/subscription'],
-                '_profile' => [t('sidebar.profile'), '👤', '/profile/settings'],
+                '_websites' => [t('sidebar.websites'), 'globe', '/websites'],
+                '_integrations' => [t('sidebar.integrations'), 'link', '/integrations'],
+                '_subscription' => [t('sidebar.subscription'), 'credit-card', '/subscription'],
+                '_profile' => [t('sidebar.profile'), 'user', '/profile/settings'],
             ],
         ];
 
         if ($isAdmin) {
-            $groups[t('sidebar.group.account')]['_admin'] = [t('sidebar.admin'), '🛠️', '/admin'];
+            $groups[t('sidebar.group.account')]['_admin'] = [t('sidebar.admin'), 'settings', '/admin'];
         }
 
         $featureCheck = class_exists('FeatureFlagService') && !empty($this->user['id']) ? new FeatureFlagService() : null;
@@ -431,7 +431,8 @@ abstract class Controller
                 $active = $key === $activeTab ? ' active' : '';
                 // data-search دي keywords للفلترة السريعة (اسم العنصر + المجموعة)
                 $searchKey = htmlspecialchars($label . ' ' . $groupTitle, ENT_QUOTES, 'UTF-8');
-                $groupHtml .= "<a href=\"{$href}\" class=\"panel-nav-link{$active}\" data-search=\"{$searchKey}\"><span class=\"ic\">{$icon}</span><span class=\"lbl\">{$label}</span></a>";
+                $iconHtml = icon_svg($icon);
+                $groupHtml .= "<a href=\"{$href}\" class=\"panel-nav-link{$active}\" data-search=\"{$searchKey}\"><span class=\"ic\">{$iconHtml}</span><span class=\"lbl\">{$label}</span></a>";
             }
             if ($groupHtml === '') {
                 continue; // كل عناصر المجموعة دي متعطّلة - منعرضش عنوان مجموعة فاضي
@@ -530,8 +531,19 @@ abstract class Controller
         // رابط تسويق البريد في الشريط العلوي (مبني قبل الـ heredoc لأن
         // صيغة {if} مش بتتفسّر جواه - نفس درس asset_v).
         $emailMarketingLinkHtml = $emailMarketingHeader
-            ? '<a href="/email-marketing" class="icon-btn" title="' . $this->tr('sidebar.email_marketing') . '">📬</a>'
+            ? '<a href="/email-marketing" class="icon-btn" title="' . $this->tr('sidebar.email_marketing') . '">' . icon_svg('mail') . '</a>'
             : '';
+        // نفس درس asset_v: استدعاءات icon_svg() جوه الـ heredoc مبيتفسّرش
+        // من PHP (الصياغة {$var} بتشتغل لمتغيرات بس، مش لاستدعاءات دوال)
+        // - لازم نحسب الـ SVG في متغيرات الأول وبعدين نستخدمها.
+        $iconLogout = icon_svg('log-out');
+        $iconMenu = icon_svg('menu');
+        $iconDollar = icon_svg('dollar', 15);
+        $iconZap = icon_svg('zap', 15);
+        $iconBell = icon_svg('bell');
+        $iconGlobe = icon_svg('globe');
+        $iconSparkles = icon_svg('sparkles');
+        $iconUser = icon_svg('user');
 
         return <<<HTML
 <!DOCTYPE html>
@@ -569,17 +581,17 @@ abstract class Controller
                 </div>
             </div>
             <nav class="panel-nav">
-                <input type="search" class="panel-nav-search" id="panelNavSearch" placeholder="🔍 " autocomplete="off" aria-label="بحث في القائمة">
+                <input type="search" class="panel-nav-search" id="panelNavSearch" placeholder="بحث في القائمة" autocomplete="off" aria-label="بحث في القائمة">
                 {$navHtml}
             </nav>
             <div class="panel-sidebar-footer">
-                <a href="/logout">🚪 {$this->tr('nav.logout')}</a>
+                <a href="/logout">{$iconLogout} {$this->tr('nav.logout')}</a>
             </div>
         </aside>
 
         <div class="panel-main">
             <header class="panel-topbar">
-                <button class="panel-menu-toggle" id="panelMenuToggle">☰</button>
+                <button class="panel-menu-toggle" id="panelMenuToggle">{$iconMenu}</button>
                 <div>
                     <h1>{$pageTitleSafe}</h1>
                     <div class="subtitle">{$pageSubtitleSafe}</div>
@@ -588,26 +600,26 @@ abstract class Controller
                 <div class="panel-topbar-actions">
                     <select id="panelWebsiteSelect" class="panel-website-select" style="display:none;" title="{$this->tr('website_context.tooltip')}"></select>
                     <a href="/subscription" id="panelWalletWrap" class="panel-credits" style="display:none;" title="{$this->tr('wallet.tooltip')}">
-                        <span>💰</span>
+                        <span>{$iconDollar}</span>
                         <span id="panelWalletText"></span>
                     </a>
                     <a href="/subscription" id="panelCreditsWrap" class="panel-credits" style="display:none;" title="{$this->tr('credits.tooltip')}">
-                        <span id="panelCreditsIcon">🤖</span>
+                        <span id="panelCreditsIcon">{$iconZap}</span>
                         <span id="panelCreditsText"></span>
                     </a>
                     <div class="panel-notif" id="panelNotifWrap">
                         <button class="icon-btn" id="panelNotifBtn" title="الإشعارات" style="position:relative;">
-                            🔔<span id="panelNotifBadge" class="panel-notif-badge" style="display:none;">0</span>
+                            {$iconBell}<span id="panelNotifBadge" class="panel-notif-badge" style="display:none;">0</span>
                         </button>
                         <div class="panel-notif-menu" id="panelNotifMenu" style="display:none;"></div>
                     </div>
                     <details class="panel-langsel">
-                        <summary class="icon-btn" title="{$this->tr('lang.switch')}">🌐</summary>
+                        <summary class="icon-btn" title="{$this->tr('lang.switch')}">{$iconGlobe}</summary>
                         <div class="panel-langsel-menu">{$langMenu}</div>
                     </details>
-                    <a href="/ai/analyze" class="icon-btn" title="{$this->tr('dashboard.action.new_seo_analysis')}">✨</a>
+                    <a href="/ai/analyze" class="icon-btn" title="{$this->tr('dashboard.action.new_seo_analysis')}">{$iconSparkles}</a>
                     {$emailMarketingLinkHtml}
-                    <a href="/profile/settings" class="icon-btn" title="{$this->tr('sidebar.profile')}">👤</a>
+                    <a href="/profile/settings" class="icon-btn" title="{$this->tr('sidebar.profile')}">{$iconUser}</a>
                 </div>
             </header>
 

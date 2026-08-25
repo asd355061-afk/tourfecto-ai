@@ -17,12 +17,16 @@ ALTER TABLE `users`
     ADD COLUMN IF NOT EXISTS `job_title` VARCHAR(120) DEFAULT NULL COMMENT 'المسمى الوظيفي' AFTER `company_name`,
     ADD COLUMN IF NOT EXISTS `bio` VARCHAR(500) DEFAULT NULL COMMENT 'نبذة مختصرة' AFTER `job_title`;
 
--- 3) reviews: إعادة تسمية الأعمدة إلى السكيما الجديدة المستخدمة في الكود
+-- 3) reviews: إضافة أسماء الأعمدة الحديثة المستخدمة في الكود الحالي
+--    (source_platform / external_review_id / sentiment / ai_generated_reply).
+--    ملاحظة: الـ schema.sql الحديثة بتولدها مباشرة؛ هنا بنضمن إنها موجودة
+--    حتى لو اتحمّلت سكيما قديمة. نستخدم ADD COLUMN IF NOT EXISTS عشان
+--    متوافقة مع MariaDB (CHANGE COLUMN IF EXISTS صيغة MySQL 8.0.29+).
 ALTER TABLE `reviews`
-    CHANGE COLUMN IF EXISTS `platform` `source_platform` ENUM('tripadvisor','google_business','booking','expedia','trustpilot','other') NOT NULL COMMENT 'المنصة المصدر للمراجعة',
-    CHANGE COLUMN IF EXISTS `platform_review_id` `external_review_id` VARCHAR(255) DEFAULT NULL COMMENT 'المعرف الخارجي للمراجعة لدى المنصة',
-    CHANGE COLUMN IF EXISTS `sentiment_label` `sentiment` ENUM('positive','neutral','negative','mixed') DEFAULT NULL COMMENT 'تصنيف المشاعر',
-    CHANGE COLUMN IF EXISTS `auto_reply_generated` `ai_generated_reply` TEXT COMMENT 'الرد المولّد بالذكاء الاصطناعي';
+    ADD COLUMN IF NOT EXISTS `source_platform` ENUM('tripadvisor','google_business','booking','expedia','trustpilot','other') NOT NULL DEFAULT 'tripadvisor' COMMENT 'المنصة المصدر للمراجعة' AFTER `id`,
+    ADD COLUMN IF NOT EXISTS `external_review_id` VARCHAR(255) DEFAULT NULL COMMENT 'المعرف الخارجي للمراجعة لدى المنصة' AFTER `source_platform`,
+    ADD COLUMN IF NOT EXISTS `sentiment` ENUM('positive','neutral','negative') DEFAULT NULL COMMENT 'تصنيف المشاعر' AFTER `sentiment_score`,
+    ADD COLUMN IF NOT EXISTS `ai_generated_reply` TEXT DEFAULT NULL COMMENT 'الرد المولّد بالذكاء الاصطناعي' AFTER `reply_sent_at`;
 
 -- 4) reviews: أعمدة إضافية تعتمد عليها الكود (reply_status / keywords_injected / webhook_payload)
 ALTER TABLE `reviews`
@@ -132,3 +136,55 @@ ALTER TABLE `websites`
 ALTER TABLE `websites`
     ADD UNIQUE KEY IF NOT EXISTS `uniq_embed_token` (`embed_token`),
     ADD INDEX IF NOT EXISTS `idx_is_connected` (`is_connected`);
+
+-- 12) notifications: جدول إشعارات المستخدمين (بيقراه الداشبورد والهيدر)
+CREATE TABLE IF NOT EXISTS `notifications` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `user_id` INT(11) NOT NULL,
+    `type` VARCHAR(50) NOT NULL COMMENT 'article_published, post_failed, subscription_expiring, review_received...',
+    `title` VARCHAR(255) NOT NULL,
+    `body` TEXT DEFAULT NULL,
+    `link` VARCHAR(500) DEFAULT NULL COMMENT 'رابط داخلي عند الضغط على الإشعار',
+    `read_at` TIMESTAMP NULL DEFAULT NULL,
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    INDEX `idx_user_unread` (`user_id`, `read_at`),
+    INDEX `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='إشعارات المستخدمين';
+
+-- 13) ad_campaigns: جدول الحملات الإعلانية (الكود بيستعلم منه بـ
+--     deleted_at IS NULL) - ناقص محليًا لأنه من الميجريشنز اللي لسه
+--     على السيرفر بس. CREATE TABLE IF NOT EXISTS + ADD COLUMN عشان
+--     idempotent حتى لو اتطبق جزء منه قبل كده.
+CREATE TABLE IF NOT EXISTS `ad_campaigns` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `user_id` INT(11) NOT NULL,
+    `website_id` INT(11) DEFAULT NULL,
+    `platform_connection_id` INT(11) DEFAULT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `objective` VARCHAR(100) DEFAULT NULL,
+    `daily_budget` DECIMAL(10,2) DEFAULT NULL,
+    `currency` VARCHAR(3) DEFAULT 'USD',
+    `status` ENUM('draft','active','paused','completed') NOT NULL DEFAULT 'draft',
+    `external_campaign_id` VARCHAR(255) DEFAULT NULL,
+    `impressions` BIGINT UNSIGNED DEFAULT 0,
+    `clicks` BIGINT UNSIGNED DEFAULT 0,
+    `spend` DECIMAL(12,2) DEFAULT 0.00,
+    `started_at` TIMESTAMP NULL DEFAULT NULL,
+    `ended_at` TIMESTAMP NULL DEFAULT NULL,
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `deleted_at` TIMESTAMP NULL DEFAULT NULL COMMENT 'Soft delete',
+    PRIMARY KEY (`id`),
+    INDEX `idx_user_id` (`user_id`),
+    INDEX `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='حملات إعلانية';
+ALTER TABLE `ad_campaigns`
+    ADD COLUMN IF NOT EXISTS `deleted_at` TIMESTAMP NULL DEFAULT NULL COMMENT 'Soft delete' AFTER `updated_at`;
+
+-- 14) users.role: ملف الميجريشنز اللي على السيرفر (PENDING) عدّل الـ ENUM
+--     وحذف قيمة 'user' (اللي الـ fixtures والكود القديم بيستخدموها). نعيد
+--     التوسيع الكامل بالقيم دي + قيم الـ White-Label عشان الاتنين يشتغلوا.
+ALTER TABLE `users`
+    MODIFY COLUMN `role` ENUM('super_admin','admin','manager','agent','user','agency_owner','client') NOT NULL DEFAULT 'user'
+    COMMENT 'دور المستخدم';

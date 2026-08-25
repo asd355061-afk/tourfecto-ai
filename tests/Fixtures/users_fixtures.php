@@ -16,7 +16,7 @@ return [
         [
             'company_name' => 'Tourfecto Admin',
             'email' => 'admin@tourfecto.com',
-            'password' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+            'password_hash' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
             'phone' => '+966500000001',
             'country' => 'SA',
             'language' => 'ar',
@@ -30,7 +30,7 @@ return [
         [
             'company_name' => 'Tourfecto System',
             'email' => 'system@tourfecto.com',
-            'password' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+            'password_hash' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
             'phone' => '+966500000002',
             'country' => 'SA',
             'language' => 'ar',
@@ -44,7 +44,7 @@ return [
         [
             'company_name' => 'العربي للسياحة',
             'email' => 'info@arabic-travel.com',
-            'password' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+            'password_hash' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
             'phone' => '+966500000003',
             'country' => 'SA',
             'language' => 'ar',
@@ -58,7 +58,7 @@ return [
         [
             'company_name' => 'مصر للسياحة',
             'email' => 'info@egypt-travel.com',
-            'password' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+            'password_hash' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
             'phone' => '+201000000001',
             'country' => 'EG',
             'language' => 'ar',
@@ -72,7 +72,7 @@ return [
         [
             'company_name' => 'European Travel Group',
             'email' => 'info@europe-travel.com',
-            'password' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+            'password_hash' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
             'phone' => '+442000000001',
             'country' => 'GB',
             'language' => 'en',
@@ -86,7 +86,7 @@ return [
         [
             'company_name' => 'شركة غير مفعلة',
             'email' => 'inactive@test.com',
-            'password' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+            'password_hash' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
             'phone' => '+966500000004',
             'country' => 'SA',
             'language' => 'ar',
@@ -100,7 +100,7 @@ return [
         [
             'company_name' => 'شركة غير موثقة',
             'email' => 'unverified@test.com',
-            'password' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+            'password_hash' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
             'phone' => '+966500000005',
             'country' => 'SA',
             'language' => 'ar',
@@ -120,7 +120,7 @@ return [
         [
             'company_name' => 'Test User 1',
             'email' => 'test1@example.com',
-            'password' => password_hash('Test@123', PASSWORD_ARGON2ID),
+            'password_hash' => password_hash('Test@123', PASSWORD_ARGON2ID),
             'phone' => '+966500000010',
             'country' => 'SA',
             'language' => 'ar',
@@ -132,7 +132,7 @@ return [
         [
             'company_name' => 'Test User 2',
             'email' => 'test2@example.com',
-            'password' => password_hash('Test@123', PASSWORD_ARGON2ID),
+            'password_hash' => password_hash('Test@123', PASSWORD_ARGON2ID),
             'phone' => '+966500000011',
             'country' => 'SA',
             'language' => 'en',
@@ -144,7 +144,7 @@ return [
         [
             'company_name' => 'Test User 3',
             'email' => 'test3@example.com',
-            'password' => password_hash('Test@123', PASSWORD_ARGON2ID),
+            'password_hash' => password_hash('Test@123', PASSWORD_ARGON2ID),
             'phone' => '+966500000012',
             'country' => 'SA',
             'language' => 'ar',

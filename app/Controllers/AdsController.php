@@ -328,7 +328,7 @@ HTML;
                     <td>
                         <a href="/ads/campaigns/${c.id}" class="p-btn outline xs" style="text-decoration:none;">📋 التفاصيل</a>
                         <button class="p-btn outline xs" onclick="generateCopies(${c.id})">توليد ✨</button>
-                        <button class="p-btn outline xs" onclick="openCampaignTools(${c.id}, '${esc(c.name).replace(/'/g, "\\'")}')">🛠 أدوات</button>
+                        <button class="p-btn outline xs" data-campaign-id="${c.id}" data-campaign-name="${esc(c.name)}" onclick="openCampaignTools(this)">🛠 أدوات</button>
                         <div id="copies-${c.id}" style="margin-top:6px;"></div>
                     </td>
                 </tr>
@@ -707,9 +707,9 @@ HTML;
 
     let currentToolsCampaignId = null;
 
-    window.openCampaignTools = function (campaignId, campaignName) {
-        currentToolsCampaignId = campaignId;
-        document.getElementById('toolsCampaignName').textContent = campaignName;
+    window.openCampaignTools = function (btn) {
+        currentToolsCampaignId = btn.getAttribute('data-campaign-id') || currentToolsCampaignId;
+        document.getElementById('toolsCampaignName').textContent = btn.getAttribute('data-campaign-name') || '';
         document.getElementById('kwResults').innerHTML = '';
         document.getElementById('lpResults').innerHTML = '';
         document.getElementById('utmResults').innerHTML = '';

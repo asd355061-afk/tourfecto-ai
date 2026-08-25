@@ -1,4 +1,38 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## حجز مباشر من صفحات الموقع المولّد (Website Builder → Booking Engine + Stripe) — 2026-08-25
+
+ربط جولات/غرف مواقع الـ Website Builder (المخزنة كـ JSON في
+`generated_websites.content_json`) بصفوف حقيقية في `crm_products` عبر
+`website_id + tour_slug`، بحيث صفحات تفاصيل الرحلات/الغرف العامة تعرض
+نموذج حجز مباشر يبني حجزًا في Booking Engine (`source='website'`) ويدفع
+عبر Stripe Checkout لو مفعّل.
+
+**الربط (sync):** migration جديد `2026_08_25_000001` يضيف `website_id`
+(nullable + FK إلى `generated_websites` بـ ON DELETE SET NULL) و`tour_slug`
++ فهرس مركب. `syncTourToProduct()` upsert آمن (البحث بالـ
+`website_id+tour_slug` — تحديث من غير تكرار) بيتنادى عند إضافة/تعديل عنصر،
+وعند النشر (`publish`) لمزامنة كل عناصر الموقع. حذف عنصر بيعطّل المنتج
+المرتبط (`is_active=0`) بدل حذفه حمايةً لسجل الحجوزات. استخراج السعر
+والعملة تلقائيًا من النص الحر ("350$"/"€120"/"1500 جنيه").
+
+**الحجز:** endpoint عام `POST /sites/{slug}/tours/{tourSlug}/book` (+
+`/rooms/{roomSlug}/book` للفنادق) بلا AuthMiddleware بنمط `submitLead` —
+validate (تاريخ مستقبلي + اسم)، إنشاء توفر افتراضي لو مفيش `inventory`
+مسجّل لليوم، `BookingEngine::createBooking()` بـ `source='website'`،
+ثم `StripeCheckoutService::createCheckoutSession` لو مفعّل (redirect/
+checkout_url)، وإلا تأكيد بلا دفع إلكتروني. Fallback آمن في أي فشل
+(منتج غير مرتبط، Stripe معطل، خطأ حجز): رسالة واضحة + خيار واتساب +
+log تحذير — الصفحة عمرها ما بتتكسر.
+
+**صفحة تأكيد:** `GET /sites/{slug}/booking/{reference}` تعرض كود الحجز
++ الحالة (مع تحقق إن الحجز لصاحب نفس الموقع) + زرار واتساب — تُستخدم
+كـ `success_url` لجلسة Stripe.
+
+**الاختبارات:** `WebsiteBookingIntegrationTest` (7 اختبارات) — upsert
+من غير تكرار، تحديث الصف القائم، إنشاء حجز من الموقع بـ product_id
+صحيح و`source='website'` + عداد توفر، fallback عند غياب المنتج، رفض
+تاريخ ماضي. الإجمالي 351/351 ناجحة.
+
 ## تبسيط واجهة Auto SEO للعميل غير التقني — 2026-08-21
 
 إعادة تصميم صفحة `/auto-seo` (تبويب "الربط والتنفيذ") من واجهة تقنية

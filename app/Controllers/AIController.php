@@ -1633,8 +1633,8 @@ JS;
      * POST /api/ai/keywords/enrich  { website_id, keyword_ids?: [int] }
      * Phase 6 - Keyword Intelligence: بيحسب لكل كلمة متابَعة نية البحث
      * (intent)، النية التجارية، درجة الصعوبة، درجة الفرصة، والصفحة
-     * المستهدفة المقترحة - عن طريق AIOrchestrator مباشرة (task
-     * 'keyword_classification' - DeepSeek أولًا حسب استراتيجية توزيع الـAI
+     * المستهدفة المقترحة - عن طريق GeminiClient مباشرة (task
+     * 'keyword_classification' - Gemini أولًا حسب استراتيجية توزيع الـAI
      * من Phase 3، لأنها بالظبط نوع المهمة دي: تصنيف بيانات بكمية كبيرة).
      * من غير keyword_ids: بياخد أول 20 كلمة لسه ماتعملهاش Enrichment لنفس
      * الموقع (batch محدود عشان الـprompt يفضل معقول وسريع).
@@ -1685,13 +1685,17 @@ JS;
 
         $prompt = $this->buildKeywordIntelligencePrompt($keywordList, $businessType, $country);
 
-        if (!class_exists('AIOrchestrator')) {
+        // تصحيح (2026-08-25): الكود القديم كان بيكلم كلاس AIOrchestrator
+        // المش موجود في المشروع أصلًا - فالـ enrichKeywords كان بيرجع 500
+        // دايمًا. استبدلناه بـ GeminiClient الفعلي (المستخدم في كل حتة تانية
+        // في AIController و TourfectoAIEngine) بنفس طريقة الاستدعاء.
+        if (!class_exists('GeminiClient')) {
             return $this->error('خدمة الذكاء الاصطناعي غير متاحة حاليًا', 500);
         }
-        $orchestrator = new AIOrchestrator();
+        $orchestrator = new GeminiClient();
         $aiResponse = $orchestrator->generateContent($prompt, [
-            'task' => 'keyword_classification',
-            'user_id' => (int) $this->user['id'],
+            'temperature' => 0.3,
+            'maxOutputTokens' => 4096,
         ]);
 
         if (!$aiResponse['success']) {

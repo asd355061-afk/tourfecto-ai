@@ -83,10 +83,10 @@ class FixtureLoader
 
         foreach ($users as $user) {
             $sql = "INSERT INTO users (
-                company_name, email, password, phone, country, language, 
+                company_name, email, password_hash, phone, country, language, 
                 timezone, role, is_active, email_verified, api_token, created_at
             ) VALUES (
-                :company_name, :email, :password, :phone, :country, :language,
+                :company_name, :email, :password_hash, :phone, :country, :language,
                 :timezone, :role, :is_active, :email_verified, :api_token, :created_at
             )";
 
@@ -239,14 +239,14 @@ class FixtureLoader
 
         foreach ($reviews as $review) {
             $sql = "INSERT INTO reviews (
-                website_id, user_id, platform, platform_review_id, reviewer_name,
-                review_text, rating, review_date, sentiment_label, sentiment_score,
-                sentiment_confidence, auto_reply_generated, reply_sent, is_processed,
+                website_id, user_id, source_platform, external_review_id, reviewer_name,
+                review_text, rating, review_date, sentiment, sentiment_score,
+                sentiment_confidence, ai_generated_reply, reply_sent, is_processed,
                 created_at
             ) VALUES (
-                :website_id, :user_id, :platform, :platform_review_id, :reviewer_name,
-                :review_text, :rating, :review_date, :sentiment_label, :sentiment_score,
-                :sentiment_confidence, :auto_reply_generated, :reply_sent, :is_processed,
+                :website_id, :user_id, :source_platform, :external_review_id, :reviewer_name,
+                :review_text, :rating, :review_date, :sentiment, :sentiment_score,
+                :sentiment_confidence, :ai_generated_reply, :reply_sent, :is_processed,
                 :created_at
             )";
 
@@ -266,16 +266,16 @@ class FixtureLoader
             [
                 'website_id' => 1,
                 'user_id' => 1,
-                'platform' => 'tripadvisor',
-                'platform_review_id' => 'ta_' . uniqid(),
+                'source_platform' => 'tripadvisor',
+                'external_review_id' => 'ta_' . uniqid(),
                 'reviewer_name' => 'Ahmed Ali',
                 'review_text' => 'خدمة رائعة وفريق عمل محترف. أنصح الجميع بتجربة هذه المنصة.',
                 'rating' => 5,
                 'review_date' => date('Y-m-d H:i:s', strtotime('-2 days')),
-                'sentiment_label' => 'positive',
+                'sentiment' => 'positive',
                 'sentiment_score' => 0.92,
                 'sentiment_confidence' => 0.95,
-                'auto_reply_generated' => 'شكراً جزيلاً لك على تقييمك الإيجابي!',
+                'ai_generated_reply' => 'شكراً جزيلاً لك على تقييمك الإيجابي!',
                 'reply_sent' => 1,
                 'is_processed' => 1,
                 'created_at' => date('Y-m-d H:i:s', strtotime('-2 days'))
@@ -283,16 +283,16 @@ class FixtureLoader
             [
                 'website_id' => 1,
                 'user_id' => 1,
-                'platform' => 'google_business',
-                'platform_review_id' => 'gb_' . uniqid(),
+                'source_platform' => 'google_business',
+                'external_review_id' => 'gb_' . uniqid(),
                 'reviewer_name' => 'Mohammed Khalid',
                 'review_text' => 'خدمة جيدة ولكن تحتاج إلى تحسين في سرعة الاستجابة.',
                 'rating' => 3,
                 'review_date' => date('Y-m-d H:i:s', strtotime('-1 day')),
-                'sentiment_label' => 'neutral',
+                'sentiment' => 'neutral',
                 'sentiment_score' => 0.50,
                 'sentiment_confidence' => 0.80,
-                'auto_reply_generated' => null,
+                'ai_generated_reply' => null,
                 'reply_sent' => 0,
                 'is_processed' => 1,
                 'created_at' => date('Y-m-d H:i:s', strtotime('-1 day'))
@@ -300,16 +300,16 @@ class FixtureLoader
             [
                 'website_id' => 2,
                 'user_id' => 3,
-                'platform' => 'tripadvisor',
-                'platform_review_id' => 'ta_' . uniqid(),
+                'source_platform' => 'tripadvisor',
+                'external_review_id' => 'ta_' . uniqid(),
                 'reviewer_name' => 'Sara Ahmed',
                 'review_text' => 'تجربة سيئة جداً. لم أحصل على الخدمة المطلوبة.',
                 'rating' => 1,
                 'review_date' => date('Y-m-d H:i:s', strtotime('-3 days')),
-                'sentiment_label' => 'negative',
+                'sentiment' => 'negative',
                 'sentiment_score' => 0.15,
                 'sentiment_confidence' => 0.90,
-                'auto_reply_generated' => 'نأسف جداً لتجربتك غير المرضية. سنتواصل معك لحل المشكلة.',
+                'ai_generated_reply' => 'نأسف جداً لتجربتك غير المرضية. سنتواصل معك لحل المشكلة.',
                 'reply_sent' => 0,
                 'is_processed' => 1,
                 'created_at' => date('Y-m-d H:i:s', strtotime('-3 days'))

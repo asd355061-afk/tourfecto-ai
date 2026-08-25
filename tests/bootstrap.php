@@ -252,6 +252,7 @@ function applyTestMigrations(): void
 
     $migrations = [
         '2026_08_08_000009_create_crm_products_and_deal_items_tables.sql',
+        '2026_08_25_000001_add_website_binding_to_crm_products.sql',
         '2026_08_21_000001_create_booking_engine_tables.sql',
         '2026_08_12_000047_create_payment_transactions_table.sql',
         '2026_08_21_000002_add_booking_payment_link.sql',
@@ -266,6 +267,37 @@ function applyTestMigrations(): void
         '2026_07_22_000022_create_plan_pricing_display_table.sql',
         '2026_07_13_000001_create_jobs_table.sql',
     ];
+
+    // إصلاح انحرافات السكيما المحلية: schema.sql القديمة بتحتوي أسماء
+    // أعمدة قديمة (platform/sentiment_label/auto_reply_generated...) بينما
+    // الكود الحالي بيستخدم source_platform/sentiment/ai_generated_reply...
+    // والجداول الحديثة (notifications, subscription_plans...) مش موجودة
+    // فيها. الملف idempotent (IF EXISTS/IF NOT EXISTS) - نتأكد إنه بيتطبق
+    // دايماً بعد تحميل السكيما عشان الاختبارات والسيرفر الحي يتوافقوا.
+    $divergenceFix = TOURFECTO_ROOT . '/database/fix_local_schema_divergences.sql';
+    if (file_exists($divergenceFix)) {
+        $sql = file_get_contents($divergenceFix);
+        $queries = explode(';', $sql);
+        foreach ($queries as $query) {
+            // إزالة أسطر التعليقات (--) من بداية القطعة: القطعة الواحدة
+            // ممكن تبدأ بتعليق وبعدها SQL حقيقي (مثل قسم websites اللي
+            // فيه توثيق قبل ALTER). تجاهلها كلها كان بيسقط الـ ALTER
+            // بالكامل لأن الشرط القديم كان يشترط ان القطعة كلها تعليق.
+            $query = preg_replace('/^--.*?$/m', '', $query);
+            $query = trim($query);
+            if (empty($query)) {
+                continue;
+            }
+            // كل query بـ try/catch مستقلة: فشل واحدة (مثلاً عمود مش موجود
+            // لسه) مينفعش يوقف باقي الإصلاحات اللي بعده.
+            try {
+                $db->query($query);
+            } catch (Exception $e) {
+                echo "⚠️ Divergence fix step skipped: " . $e->getMessage() . "\n";
+            }
+        }
+        echo "✅ Local schema divergence fix applied\n";
+    }
 
     $migrationsDir = TOURFECTO_ROOT . '/database/migrations';
 
@@ -323,7 +355,7 @@ function createTestUser(array $overrides = []): int
     $defaults = [
         'company_name' => 'Test Company',
         'email' => 'test_' . uniqid() . '@example.com',
-        'password' => password_hash('Test@123', PASSWORD_ARGON2ID),
+        'password_hash' => password_hash('Test@123', PASSWORD_ARGON2ID),
         'phone' => '+966500000001',
         'country' => 'SA',
         'language' => 'ar',
@@ -336,10 +368,10 @@ function createTestUser(array $overrides = []): int
     $data = array_merge($defaults, $overrides);
 
     $sql = "INSERT INTO users (
-        company_name, email, password, phone, country, language,
+        company_name, email, password_hash, phone, country, language,
         timezone, role, is_active, email_verified
     ) VALUES (
-        :company_name, :email, :password, :phone, :country, :language,
+        :company_name, :email, :password_hash, :phone, :country, :language,
         :timezone, :role, :is_active, :email_verified
     )";
 

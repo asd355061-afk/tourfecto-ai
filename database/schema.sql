@@ -303,8 +303,8 @@ CREATE TABLE `reviews` (
     `id` INT(11) NOT NULL AUTO_INCREMENT COMMENT 'المعرف الفريد للمراجعة',
     `website_id` INT(11) NOT NULL COMMENT 'معرف الموقع',
     `user_id` INT(11) NOT NULL COMMENT 'معرف المستخدم',
-    `platform` ENUM('tripadvisor', 'google_business', 'booking', 'expedia', 'trustpilot', 'other') NOT NULL COMMENT 'المنصة',
-    `platform_review_id` VARCHAR(255) DEFAULT NULL COMMENT 'معرف المراجعة في المنصة',
+    `source_platform` ENUM('tripadvisor', 'google_business', 'booking', 'expedia', 'trustpilot', 'other') NOT NULL COMMENT 'المنصة المصدر للمراجعة',
+    `external_review_id` VARCHAR(255) DEFAULT NULL COMMENT 'المعرف الخارجي للمراجعة لدى المنصة',
     
     -- بيانات المراجع
     `reviewer_name` VARCHAR(255) DEFAULT NULL COMMENT 'اسم المراجع',
@@ -317,11 +317,11 @@ CREATE TABLE `reviews` (
     
     -- تحليل المشاعر
     `sentiment_score` DECIMAL(3, 2) DEFAULT NULL COMMENT 'درجة المشاعر',
-    `sentiment_label` ENUM('positive', 'neutral', 'negative') DEFAULT NULL COMMENT 'نوع المشاعر',
+    `sentiment` ENUM('positive', 'neutral', 'negative') DEFAULT NULL COMMENT 'تصنيف المشاعر',
     `sentiment_confidence` DECIMAL(3, 2) DEFAULT NULL COMMENT 'ثقة التحليل',
     
     -- الرد الآلي
-    `auto_reply_generated` TEXT DEFAULT NULL COMMENT 'الرد المولد آلياً',
+    `ai_generated_reply` TEXT DEFAULT NULL COMMENT 'الرد المولد بالذكاء الاصطناعي',
     `auto_reply_language` VARCHAR(10) DEFAULT 'en' COMMENT 'لغة الرد',
     `reply_sent` TINYINT(1) DEFAULT 0 COMMENT 'حالة إرسال الرد',
     `reply_sent_at` TIMESTAMP NULL DEFAULT NULL COMMENT 'تاريخ إرسال الرد',
@@ -346,14 +346,14 @@ CREATE TABLE `reviews` (
     FOREIGN KEY (`reply_approved_by`) REFERENCES `users`(`id`) ON DELETE SET NULL,
     INDEX `idx_website_id` (`website_id`),
     INDEX `idx_user_id` (`user_id`),
-    INDEX `idx_platform` (`platform`),
-    INDEX `idx_sentiment` (`sentiment_label`),
+    INDEX `idx_source_platform` (`source_platform`),
+    INDEX `idx_sentiment` (`sentiment`),
     INDEX `idx_rating` (`rating`),
     INDEX `idx_created_at` (`created_at`),
     INDEX `idx_is_processed` (`is_processed`),
     INDEX `idx_review_date` (`review_date`),
     INDEX `idx_reply_sent` (`reply_sent`),
-    UNIQUE KEY `unique_platform_review` (`platform`, `platform_review_id`)
+    UNIQUE KEY `unique_platform_review` (`source_platform`, `external_review_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='جدول المراجعات';
 
 -- ============================================

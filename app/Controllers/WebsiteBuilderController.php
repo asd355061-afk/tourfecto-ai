@@ -533,6 +533,8 @@ JS;
         $website->setAttribute('content_json', json_encode($content, JSON_UNESCAPED_UNICODE));
         $website->save();
 
+        $this->syncTourToProduct($website, $item);
+
         return $this->success(['tour' => $item, 'items_key' => $itemsKey], 'تمت الإضافة', 201);
     }
 
@@ -583,6 +585,13 @@ JS;
         $website->setAttribute('content_json', json_encode($content, JSON_UNESCAPED_UNICODE));
         $website->save();
 
+        foreach ($content[$itemsKey] ?? [] as $it) {
+            if (($it['slug'] ?? '') === $itemSlug) {
+                $this->syncTourToProduct($website, $it);
+                break;
+            }
+        }
+
         return $this->success([], 'تم التحديث');
     }
 
@@ -606,6 +615,8 @@ JS;
         $website->setAttribute('content_json', json_encode($content, JSON_UNESCAPED_UNICODE));
         $website->save();
 
+        $this->deactivateLinkedProduct($website, $itemSlug);
+
         return $this->success([], 'تم الحذف');
     }
 
@@ -624,6 +635,9 @@ JS;
         $website->setAttribute('status', 'published');
         $website->setAttribute('last_published_at', date('Y-m-d H:i:s'));
         $website->save();
+
+        $this->syncAllSiteItems($website);
+
         return $this->success([], 'تم النشر');
     }
 
@@ -1035,6 +1049,16 @@ HTML;
         $bookingMessage = rawurlencode('أهلاً، عايز أحجز في "' . ($tour['name'] ?? '') . '" - ابعتلي التفاصيل من فضلك.');
         $whatsappLink = $whatsappNumber ? "https://wa.me/{$whatsappNumber}?text={$bookingMessage}" : '#';
 
+        // نموذج الحجز المباشر بيظهر بس لو العنصر مرتبط بمنتج حقيقي (crm_products)
+        $bookingFormHtml = '';
+        $productLinked = $this->db->query(
+            'SELECT id FROM crm_products WHERE website_id = ? AND tour_slug = ? AND is_active = 1 LIMIT 1',
+            [(int) $website->getAttribute('id'), $tourSlug]
+        );
+        if (!empty($productLinked)) {
+            $bookingFormHtml = $this->siteBookingFormHtml($slug, $tourSlug, 'tour');
+        }
+
         $highlightsHtml = '';
         foreach (($tour['highlights'] ?? []) as $h) {
             $highlightsHtml .= '<li>✔ ' . $esc($h) . '</li>';
@@ -1110,8 +1134,10 @@ HTML;
 
         <div class="ws-booking-box">
             <h3>عايز تحجز؟</h3>
-            <p>ابعتلنا طلب الحجز وهنرد عليك بأسرع وقت</p>
-            <a href="{$whatsappLink}" target="_blank" class="ws-btn">📲 اطلب حجز عبر واتساب</a>
+            <p>اختر التاريخ واكتب بياناتك وهنأكد الحجز مباشرة</p>
+            {$bookingFormHtml}
+            <div class="ws-booking-wa-divider">أو تواصل مباشرة معنا</div>
+            <a href="{$whatsappLink}" target="_blank" class="ws-btn ws-btn-wa">📲 احجز عبر واتساب</a>
         </div>
     </section>
 
@@ -1157,6 +1183,16 @@ HTML;
         $whatsappNumber = preg_replace('/[^0-9]/', '', $contact['whatsapp'] ?? '');
         $bookingMessage = rawurlencode('أهلاً، عايز أحجز في "' . ($room['name'] ?? '') . '" - ابعتلي التفاصيل من فضلك.');
         $whatsappLink = $whatsappNumber ? "https://wa.me/{$whatsappNumber}?text={$bookingMessage}" : '#';
+
+        // نموذج الحجز المباشر بيظهر بس لو الغرفة مرتبطة بمنتج حقيقي (crm_products)
+        $bookingFormHtml = '';
+        $productLinked = $this->db->query(
+            'SELECT id FROM crm_products WHERE website_id = ? AND tour_slug = ? AND is_active = 1 LIMIT 1',
+            [(int) $website->getAttribute('id'), $roomSlug]
+        );
+        if (!empty($productLinked)) {
+            $bookingFormHtml = $this->siteBookingFormHtml($slug, $roomSlug, 'room');
+        }
 
         $highlightsHtml = '';
         foreach (($room['highlights'] ?? []) as $h) {
@@ -1218,8 +1254,10 @@ HTML;
 
         <div class="ws-booking-box">
             <h3>عايز تحجز؟</h3>
-            <p>ابعتلنا طلب الحجز وهنرد عليك بأسرع وقت</p>
-            <a href="{$whatsappLink}" target="_blank" class="ws-btn">📲 اطلب حجز عبر واتساب</a>
+            <p>اختر التاريخ واكتب بياناتك وهنأكد الحجز مباشرة</p>
+            {$bookingFormHtml}
+            <div class="ws-booking-wa-divider">أو تواصل مباشرة معنا</div>
+            <a href="{$whatsappLink}" target="_blank" class="ws-btn ws-btn-wa">📲 احجز عبر واتساب</a>
         </div>
     </section>
 
@@ -1228,6 +1266,400 @@ HTML;
 </html>
 HTML;
         exit;
+    }
+
+    /**
+     * مزامنة عنصر واحد (رحلة/غرفة) من الموقع المولّد إلى crm_products.
+     * Upsert آمن: البحث الأولي بـ (website_id + tour_slug) - لو موجود
+     * نحدّث بياناته، وإلا ننشئ صفًا جديدًا (من غير تكرار في أي حالة).
+     * أي خطأ هنا مش بيكسّر الطلب الأصلي (متستناش - الـ sync ثانوي).
+     */
+    private function syncTourToProduct(GeneratedWebsite $website, array $item): void
+    {
+        try {
+            $slug = (string) ($item['slug'] ?? '');
+            if ($slug === '') {
+                return;
+            }
+            $userId = (int) $website->getAttribute('user_id');
+            $websiteId = (int) $website->getAttribute('id');
+            if (!$userId || !$websiteId) {
+                return;
+            }
+
+            [$price, $currency] = $this->parseItemPrice((string) ($item['price'] ?? ''));
+            $name = (string) ($item['name'] ?? $slug);
+            $description = (string) ($item['short_description'] ?? '');
+            $sku = 'WS' . $websiteId . '-' . $slug;
+            $db = $this->db;
+
+            $existing = $db->query(
+                'SELECT id FROM crm_products WHERE website_id = ? AND tour_slug = ? LIMIT 1',
+                [$websiteId, $slug]
+            );
+
+            if (!empty($existing)) {
+                $db->query(
+                    'UPDATE crm_products
+                     SET name = ?, description = ?, sku = ?, price = ?, currency = ?, is_active = 1
+                     WHERE id = ?',
+                    [$name, $description, $sku, $price, $currency, $existing[0]['id']]
+                );
+            } else {
+                $db->query(
+                    'INSERT INTO crm_products
+                        (user_id, website_id, tour_slug, name, description, sku, price, currency, is_active)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)',
+                    [$userId, $websiteId, $slug, $name, $description, $sku, $price, $currency]
+                );
+            }
+        } catch (Exception $e) {
+            Logger::warning('syncTourToProduct failed', ['website_id' => (int) $website->getAttribute('id'), 'error' => $e->getMessage()]);
+        }
+    }
+
+    /** مزامنة كل عناصر الموقع (رحلات أو غرف حسب المجال) - تُستخدم عند النشر */
+    private function syncAllSiteItems(GeneratedWebsite $website): void
+    {
+        $c = $website->getContent();
+        $itemsKey = ($c['industry'] ?? 'tours') === 'hotel' ? 'rooms' : 'tours';
+        foreach (($c[$itemsKey] ?? []) as $item) {
+            $this->syncTourToProduct($website, $item);
+        }
+    }
+
+    /** تعطيل المنتج المرتبط عند حذف العنصر من الموقع (مش حذف - حماية سجل الحجوزات) */
+    private function deactivateLinkedProduct(GeneratedWebsite $website, string $itemSlug): void
+    {
+        try {
+            if ($itemSlug === '') {
+                return;
+            }
+            $this->db->query(
+                'UPDATE crm_products SET is_active = 0 WHERE website_id = ? AND tour_slug = ?',
+                [(int) $website->getAttribute('id'), $itemSlug]
+            );
+        } catch (Exception $e) {
+            Logger::warning('deactivateLinkedProduct failed', ['website_id' => (int) $website->getAttribute('id'), 'error' => $e->getMessage()]);
+        }
+    }
+
+    /** استخراج رقم السعر + العملة من نص حر زي "350$" / "€120" / "1500 جنيه" */
+    private function parseItemPrice(string $priceText): array
+    {
+        $priceText = trim((string) $priceText);
+        $currency = 'USD';
+        if (preg_match('/جنيه|ج\.م|EGP/i', $priceText)) {
+            $currency = 'EGP';
+        } elseif (strpos($priceText, '€') !== false || stripos($priceText, 'euro') !== false) {
+            $currency = 'EUR';
+        } elseif (strpos($priceText, '£') !== false || stripos($priceText, 'gbp') !== false) {
+            $currency = 'GBP';
+        }
+        if (preg_match('/(\d+[.,]?\d*)/', $priceText, $m)) {
+            return [(float) str_replace(',', '', $m[1]), $currency];
+        }
+        return [0.0, $currency];
+    }
+
+    /** هل الطلب عايز JSON (fetch) ولا صفحة/redirect عادية؟ */
+    private function wantsJson(): bool
+    {
+        $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
+        return strpos($accept, 'application/json') !== false;
+    }
+
+    private const WEBSITE_BOOKING_DEFAULT_CAPACITY = 50;
+
+    /**
+     * POST /sites/{slug}/tours/{tourSlug}/book - حجز مباشر من صفحة الرحلة
+     * (زائر بدون تسجيل دخول). بيبني حجز عبر BookingEngine::createBooking
+     * بـ source='website' وproduct_id المرتبط بـ (website_id+tour_slug).
+     */
+    public function bookSiteTour(array $params = []): array
+    {
+        return $this->bookSiteItem($params, 'tour');
+    }
+
+    /** POST /sites/{slug}/rooms/{roomSlug}/book - نفس المنطق لغرف الفندق */
+    public function bookSiteRoom(array $params = []): array
+    {
+        return $this->bookSiteItem($params, 'room');
+    }
+
+    /**
+     * منطق الحجز المشترك للرحلات والغرف.
+     *
+     * Fallback آمن: أي فشل (مفيش منتج مرتبط، Stripe مش مفعّل، خطأ حجز)
+     * مش بيكسّر الصفحة - بيرجع برسالة واضحة + خيار واتساب.
+     */
+    private function bookSiteItem(array $params, string $itemType): array
+    {
+        $slug = (string) ($params['slug'] ?? '');
+        $itemSlug = (string) ($params[$itemType === 'room' ? 'roomSlug' : 'tourSlug'] ?? '');
+        $website = $this->findViewableWebsite($slug);
+        if (!$website) {
+            return $this->error('الموقع مش موجود أو لسه مش منشور', 404);
+        }
+
+        $c = $website->getContent();
+        $itemsKey = $itemType === 'room' ? 'rooms' : 'tours';
+        $item = null;
+        foreach (($c[$itemsKey] ?? []) as $it) {
+            if (($it['slug'] ?? '') === $itemSlug) {
+                $item = $it;
+                break;
+            }
+        }
+        if (!$item) {
+            return $this->error('العنصر مش موجود', 404);
+        }
+
+        if (!$this->validate(['start_date' => 'required', 'customer_name' => 'required'])) {
+            return $this->error('اكتب تاريخ الحجز واسمك من فضلك', 422);
+        }
+        $startDate = (string) $this->get('start_date');
+        if (strtotime($startDate) === false || strtotime($startDate) < strtotime(date('Y-m-d'))) {
+            return $this->error('تاريخ الحجز لازم يكون تاريخ صحيح في المستقبل', 422);
+        }
+        $adults = max(1, (int) $this->get('adults_count', 1));
+        $children = max(0, (int) $this->get('children_count', 0));
+
+        $websiteId = (int) $website->getAttribute('id');
+        $userId = (int) $website->getAttribute('user_id');
+
+        // 1) المنتج المرتبط بالعنصر داخل الموقع ده
+        $productRow = $this->db->query(
+            'SELECT id FROM crm_products WHERE website_id = ? AND tour_slug = ? AND is_active = 1 LIMIT 1',
+            [$websiteId, $itemSlug]
+        );
+        if (empty($productRow)) {
+            Logger::warning('Website booking attempt without linked product', ['website_id' => $websiteId, 'slug' => $itemSlug]);
+            return $this->error('هذا العنصر غير متاح للحجز المباشر حاليًا - تواصل عبر واتساب', 422, ['whatsapp_fallback' => true]);
+        }
+        $productId = (int) $productRow[0]['id'];
+
+        // 2) لو مفيش توفر مسجّل لليوم ده: نفتح سعة افتراضية (غير مُدارة)
+        //    بدل رفض الحجز - صاحب الموقع لسه مدخلش توفر فعلي.
+        try {
+            $inventory = new InventoryService();
+            $avail = $inventory->checkAvailability($productId, $startDate);
+            if (!$avail['available'] && ($avail['reason'] ?? '') === 'no_inventory_set') {
+                $inventory->setDay($userId, $productId, $startDate, self::WEBSITE_BOOKING_DEFAULT_CAPACITY);
+            }
+        } catch (Exception $e) {
+            Logger::warning('Website booking inventory init failed', ['product_id' => $productId, 'error' => $e->getMessage()]);
+        }
+
+        // 3) إنشاء الحجز عبر Booking Engine (source='website')
+        try {
+            $booking = (new BookingEngine())->createBooking($userId, [
+                'product_id' => $productId,
+                'start_date' => $startDate,
+                'customer_name' => (string) $this->get('customer_name'),
+                'customer_phone' => (string) $this->get('customer_phone', '') ?: null,
+                'customer_email' => (string) $this->get('customer_email', '') ?: null,
+                'adults_count' => $adults,
+                'children_count' => $children,
+                'source' => 'website',
+                'notes' => 'حجز مباشر من ' . ($itemType === 'room' ? 'صفحة الغرفة' : 'صفحة الرحلة') . ': /sites/' . $slug . '/' . $itemsKey . '/' . $itemSlug,
+            ]);
+        } catch (Exception $e) {
+            Logger::warning('Website booking failed', ['website_id' => $websiteId, 'product_id' => $productId, 'error' => $e->getMessage()]);
+            return $this->error('ما قدرناش نأكد الحجز للتاريخ ده حاليًا - جرب تاريخ تاني أو تواصل عبر واتساب', 422, ['whatsapp_fallback' => true]);
+        }
+
+        $bookingId = (int) $booking['id'];
+        $reference = (string) $booking['booking_reference'];
+        $base = defined('APP_URL') ? rtrim(APP_URL, '/') : '';
+        $successUrl = $base . '/sites/' . rawurlencode($slug) . '/booking/' . rawurlencode($reference);
+        $cancelUrl = $base . '/sites/' . rawurlencode($slug) . '/' . ($itemType === 'room' ? 'rooms' : 'tours') . '/' . rawurlencode($itemSlug);
+
+        // 4) دفع Stripe لو مفعّل، وإلا تأكيد بلا دفع إلكتروني (واتساب للتواصل)
+        try {
+            if ((new StripeCheckoutService())->isConfigured()) {
+                $session = (new StripeCheckoutService())->createCheckoutSession($userId, $bookingId, $successUrl, $cancelUrl);
+                if ($this->wantsJson()) {
+                    return $this->success(['booking_reference' => $reference, 'checkout_url' => $session['checkout_url']], 'جاري تحويلك لصفحة الدفع الآمنة...');
+                }
+                header('Location: ' . $session['checkout_url']);
+                exit;
+            }
+        } catch (Exception $e) {
+            Logger::warning('Stripe checkout failed for website booking', ['booking_id' => $bookingId, 'error' => $e->getMessage()]);
+        }
+
+        if ($this->wantsJson()) {
+            return $this->success(
+                ['booking_reference' => $reference, 'checkout_url' => null, 'whatsapp_fallback' => true],
+                'تم استلام طلب حجزك - كود الحجز: ' . $reference,
+                201
+            );
+        }
+        header('Location: ' . $successUrl);
+        exit;
+    }
+
+    /** GET /sites/{slug}/booking/{reference} - صفحة تأكيد الحجز للزائر */
+    public function showBookingConfirmation(array $params = []): array
+    {
+        $slug = (string) ($params['slug'] ?? '');
+        $reference = (string) ($params['reference'] ?? '');
+        $website = $this->findViewableWebsite($slug);
+        if (!$website) {
+            header('HTTP/1.1 404 Not Found');
+            echo '<h1 style="text-align:center;font-family:sans-serif;margin-top:100px;">الموقع ده مش موجود أو لسه مش منشور</h1>';
+            exit;
+        }
+
+        $booking = (new Booking())->findByReference($reference);
+        if (!$booking
+            || (int) $booking->getAttribute('user_id') !== (int) $website->getAttribute('user_id')) {
+            header('HTTP/1.1 404 Not Found');
+            echo '<h1 style="text-align:center;font-family:sans-serif;margin-top:100px;">الحجز ده مش موجود</h1>';
+            exit;
+        }
+
+        $c = $website->getContent();
+        $esc = fn ($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
+        [$lang, $dir] = $this->siteLangAttrs($c);
+
+        $contact = $c['contact'] ?? [];
+        $whatsappNumber = preg_replace('/[^0-9]/', '', $contact['whatsapp'] ?? '');
+        $bookingMessage = rawurlencode('أهلاً، بخصوص حجزي رقم "' . $reference . '" - محتاج مساعدة من فضلك.');
+        $whatsappLink = $whatsappNumber ? "https://wa.me/{$whatsappNumber}?text={$bookingMessage}" : '#';
+
+        $statusLabel = [
+            'pending' => 'قيد الانتظار - هنأكد الحجز معاك خلال وقت قصير',
+            'confirmed' => 'مؤكد - الحجز اتعمل بنجاح',
+            'cancelled' => 'ملغي',
+            'completed' => 'مكتمل',
+            'no_show' => 'لم يتم الحضور',
+        ][(string) $booking->getAttribute('status')] ?? 'قيد المراجعة';
+
+        $statusClass = in_array((string) $booking->getAttribute('status'), ['confirmed', 'completed'], true)
+            ? 'ws-ok' : 'ws-pending';
+
+        $businessName = $esc($c['business_name'] ?? '');
+        $head = $this->siteHeadHtml("تأكيد الحجز | {$businessName}", 'gold');
+
+        header('Content-Type: text/html; charset=utf-8');
+        echo <<<HTML
+<!DOCTYPE html>
+<html lang="{$lang}" dir="{$dir}">
+<head>
+{$head}
+</head>
+<body>
+    <nav class="ws-nav">
+        <div class="ws-nav-inner">
+            <a href="/sites/{$slug}" class="ws-logo" style="text-decoration:none;">🌍 {$businessName}</a>
+            <div class="ws-nav-links">
+                <a href="/sites/{$slug}">الرئيسية</a>
+                <a href="{$whatsappLink}" target="_blank" class="ws-nav-cta">تواصل معنا</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="ws-hero ws-hero-sm">
+        <h1>استلمنا طلب حجزك</h1>
+        <p>احتفظ بكود الحجز ده للمراجعة أو الاستفسار</p>
+    </header>
+
+    <section class="ws-section" style="max-width:560px;">
+        <div class="ws-booking-box">
+            <div class="ws-booking-confirm {$statusClass}">
+                <strong>كود الحجز: {$esc($reference)}</strong>
+                <p>{$esc($statusLabel)}</p>
+            </div>
+            <p style="margin:14px 0;">لو عندك أي استفسار عن الحجز، ابعتلنا رسالة على واتساب مباشرة.</p>
+            <a href="{$whatsappLink}" target="_blank" class="ws-btn">📲 تواصل عبر واتساب</a>
+            <p style="margin-top:12px;"><a href="/sites/{$slug}" style="color:var(--ws-accent);">الرجوع للموقع ←</a></p>
+        </div>
+    </section>
+
+    <footer class="ws-footer">© {$businessName} - صُمم بواسطة Tourfecto</footer>
+</body>
+</html>
+HTML;
+        exit;
+    }
+
+    /**
+     * نموذج الحجز المباشر المعروض في صفحة تفصيل الرحلة/الغرفة.
+     * بيبعت بـ fetch لـ POST /sites/{slug}/{tours|rooms}/{itemSlug}/book
+     * ويحوّل الزائر لصفحة Stripe أو يعرض كود الحجز.
+     */
+    private function siteBookingFormHtml(string $slug, string $itemSlug, string $itemType): string
+    {
+        $esc = fn ($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
+        $action = '/sites/' . rawurlencode($slug) . '/' . ($itemType === 'room' ? 'rooms' : 'tours') . '/' . rawurlencode($itemSlug) . '/book';
+        $today = date('Y-m-d');
+
+        return <<<HTML
+<form id="wsBookingForm" class="ws-booking-form" data-action="{$esc($action)}" data-slug="{$esc($slug)}">
+    <label class="ws-bf-label">📅 تاريخ الحجز
+        <input type="date" name="start_date" min="{$today}" required class="ws-bf-input">
+    </label>
+    <div class="ws-booking-cols">
+        <label class="ws-bf-label">👥 بالغين
+            <input type="number" name="adults_count" min="1" value="1" class="ws-bf-input">
+        </label>
+        <label class="ws-bf-label">🧒 أطفال
+            <input type="number" name="children_count" min="0" value="0" class="ws-bf-input">
+        </label>
+    </div>
+    <label class="ws-bf-label">👤 الاسم
+        <input type="text" name="customer_name" required placeholder="اسمك الكامل" class="ws-bf-input">
+    </label>
+    <label class="ws-bf-label">📱 الهاتف
+        <input type="tel" name="customer_phone" placeholder="رقم واتساب/هاتف" class="ws-bf-input">
+    </label>
+    <label class="ws-bf-label">✉️ الإيميل
+        <input type="email" name="customer_email" placeholder="بريدك الإلكتروني" class="ws-bf-input">
+    </label>
+    <button type="submit" class="ws-btn" style="width:100%;">تأكيد الحجز</button>
+    <div id="wsBookingMsg" class="ws-booking-msg" role="status"></div>
+</form>
+<script>
+(function () {
+    var form = document.getElementById('wsBookingForm');
+    if (!form) return;
+    var msg = document.getElementById('wsBookingMsg');
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        msg.className = 'ws-booking-msg';
+        msg.textContent = 'جاري تأكيد الحجز...';
+        var payload = {};
+        new FormData(form).forEach(function (value, key) { payload[key] = value; });
+        fetch(form.getAttribute('data-action'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(payload)
+        }).then(function (res) { return res.json(); }).then(function (res) {
+            if (res.success && res.data && res.data.checkout_url) {
+                window.location.href = res.data.checkout_url;
+                return;
+            }
+            if (res.success) {
+                var text = (res.message || 'تم استلام طلبك');
+                if (res.data && res.data.booking_reference) {
+                    text += ' - كود الحجز: ' + res.data.booking_reference;
+                }
+                msg.className = 'ws-booking-msg ws-ok';
+                msg.textContent = text;
+            } else {
+                msg.className = 'ws-booking-msg ws-pending';
+                msg.textContent = res.error || 'حصل خطأ - جرب تاني أو تواصل عبر واتساب';
+            }
+        }).catch(function () {
+            msg.className = 'ws-booking-msg ws-pending';
+            msg.textContent = 'حصل خطأ في الاتصال - جرب تاني أو تواصل عبر واتساب';
+        });
+    });
+})();
+</script>
+HTML;
     }
 
     private function ownedWebsite(int $id): ?GeneratedWebsite

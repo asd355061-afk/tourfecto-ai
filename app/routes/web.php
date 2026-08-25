@@ -154,6 +154,9 @@ $router->get('/sites/{slug}/tours/{tourSlug}', 'WebsiteBuilderController', 'show
 $router->get('/sites/{slug}/rooms/{roomSlug}', 'WebsiteBuilderController', 'showRoomDetail');
 $router->post('/sites/{slug}/lead', 'WebsiteBuilderController', 'submitLead');
 $router->post('/sites/{slug}/review', 'WebsiteBuilderController', 'submitReview');
+$router->post('/sites/{slug}/tours/{tourSlug}/book', 'WebsiteBuilderController', 'bookSiteTour');
+$router->post('/sites/{slug}/rooms/{roomSlug}/book', 'WebsiteBuilderController', 'bookSiteRoom');
+$router->get('/sites/{slug}/booking/{reference}', 'WebsiteBuilderController', 'showBookingConfirmation');
 
 // ============================================
 // صفحات إدارة السمعة
@@ -192,7 +195,7 @@ $router->group('/google-analytics', function ($router) {
 // ============================================
 // صفحة الربط والتكاملات الموحّدة
 // ============================================
-$router->get('/integrations', 'IntegrationsController', 'index', ['AuthMiddleware']);
+$router->get('/integrations', 'IntegrationsController', 'showIntegrationsPage', ['AuthMiddleware']);
 
 // ============================================
 // صفحات الشات
