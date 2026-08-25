@@ -17,12 +17,16 @@ ALTER TABLE `users`
     ADD COLUMN IF NOT EXISTS `job_title` VARCHAR(120) DEFAULT NULL COMMENT 'المسمى الوظيفي' AFTER `company_name`,
     ADD COLUMN IF NOT EXISTS `bio` VARCHAR(500) DEFAULT NULL COMMENT 'نبذة مختصرة' AFTER `job_title`;
 
--- 3) reviews: إعادة تسمية الأعمدة إلى السكيما الجديدة المستخدمة في الكود
+-- 3) reviews: إضافة أسماء الأعمدة الحديثة المستخدمة في الكود الحالي
+--    (source_platform / external_review_id / sentiment / ai_generated_reply).
+--    ملاحظة: الـ schema.sql الحديثة بتولدها مباشرة؛ هنا بنضمن إنها موجودة
+--    حتى لو اتحمّلت سكيما قديمة. نستخدم ADD COLUMN IF NOT EXISTS عشان
+--    متوافقة مع MariaDB (CHANGE COLUMN IF EXISTS صيغة MySQL 8.0.29+).
 ALTER TABLE `reviews`
-    CHANGE COLUMN IF EXISTS `platform` `source_platform` ENUM('tripadvisor','google_business','booking','expedia','trustpilot','other') NOT NULL COMMENT 'المنصة المصدر للمراجعة',
-    CHANGE COLUMN IF EXISTS `platform_review_id` `external_review_id` VARCHAR(255) DEFAULT NULL COMMENT 'المعرف الخارجي للمراجعة لدى المنصة',
-    CHANGE COLUMN IF EXISTS `sentiment_label` `sentiment` ENUM('positive','neutral','negative','mixed') DEFAULT NULL COMMENT 'تصنيف المشاعر',
-    CHANGE COLUMN IF EXISTS `auto_reply_generated` `ai_generated_reply` TEXT COMMENT 'الرد المولّد بالذكاء الاصطناعي';
+    ADD COLUMN IF NOT EXISTS `source_platform` ENUM('tripadvisor','google_business','booking','expedia','trustpilot','other') NOT NULL DEFAULT 'tripadvisor' COMMENT 'المنصة المصدر للمراجعة' AFTER `id`,
+    ADD COLUMN IF NOT EXISTS `external_review_id` VARCHAR(255) DEFAULT NULL COMMENT 'المعرف الخارجي للمراجعة لدى المنصة' AFTER `source_platform`,
+    ADD COLUMN IF NOT EXISTS `sentiment` ENUM('positive','neutral','negative') DEFAULT NULL COMMENT 'تصنيف المشاعر' AFTER `sentiment_score`,
+    ADD COLUMN IF NOT EXISTS `ai_generated_reply` TEXT DEFAULT NULL COMMENT 'الرد المولّد بالذكاء الاصطناعي' AFTER `reply_sent_at`;
 
 -- 4) reviews: أعمدة إضافية تعتمد عليها الكود (reply_status / keywords_injected / webhook_payload)
 ALTER TABLE `reviews`
@@ -132,3 +136,18 @@ ALTER TABLE `websites`
 ALTER TABLE `websites`
     ADD UNIQUE KEY IF NOT EXISTS `uniq_embed_token` (`embed_token`),
     ADD INDEX IF NOT EXISTS `idx_is_connected` (`is_connected`);
+
+-- 12) notifications: جدول إشعارات المستخدمين (بيقراه الداشبورد والهيدر)
+CREATE TABLE IF NOT EXISTS `notifications` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `user_id` INT(11) NOT NULL,
+    `type` VARCHAR(50) NOT NULL COMMENT 'article_published, post_failed, subscription_expiring, review_received...',
+    `title` VARCHAR(255) NOT NULL,
+    `body` TEXT DEFAULT NULL,
+    `link` VARCHAR(500) DEFAULT NULL COMMENT 'رابط داخلي عند الضغط على الإشعار',
+    `read_at` TIMESTAMP NULL DEFAULT NULL,
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    INDEX `idx_user_unread` (`user_id`, `read_at`),
+    INDEX `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='إشعارات المستخدمين';

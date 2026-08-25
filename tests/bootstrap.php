@@ -267,6 +267,37 @@ function applyTestMigrations(): void
         '2026_07_13_000001_create_jobs_table.sql',
     ];
 
+    // إصلاح انحرافات السكيما المحلية: schema.sql القديمة بتحتوي أسماء
+    // أعمدة قديمة (platform/sentiment_label/auto_reply_generated...) بينما
+    // الكود الحالي بيستخدم source_platform/sentiment/ai_generated_reply...
+    // والجداول الحديثة (notifications, subscription_plans...) مش موجودة
+    // فيها. الملف idempotent (IF EXISTS/IF NOT EXISTS) - نتأكد إنه بيتطبق
+    // دايماً بعد تحميل السكيما عشان الاختبارات والسيرفر الحي يتوافقوا.
+    $divergenceFix = TOURFECTO_ROOT . '/database/fix_local_schema_divergences.sql';
+    if (file_exists($divergenceFix)) {
+        $sql = file_get_contents($divergenceFix);
+        $queries = explode(';', $sql);
+        foreach ($queries as $query) {
+            // إزالة أسطر التعليقات (--) من بداية القطعة: القطعة الواحدة
+            // ممكن تبدأ بتعليق وبعدها SQL حقيقي (مثل قسم websites اللي
+            // فيه توثيق قبل ALTER). تجاهلها كلها كان بيسقط الـ ALTER
+            // بالكامل لأن الشرط القديم كان يشترط ان القطعة كلها تعليق.
+            $query = preg_replace('/^--.*?$/m', '', $query);
+            $query = trim($query);
+            if (empty($query)) {
+                continue;
+            }
+            // كل query بـ try/catch مستقلة: فشل واحدة (مثلاً عمود مش موجود
+            // لسه) مينفعش يوقف باقي الإصلاحات اللي بعده.
+            try {
+                $db->query($query);
+            } catch (Exception $e) {
+                echo "⚠️ Divergence fix step skipped: " . $e->getMessage() . "\n";
+            }
+        }
+        echo "✅ Local schema divergence fix applied\n";
+    }
+
     $migrationsDir = TOURFECTO_ROOT . '/database/migrations';
 
     foreach ($migrations as $file) {
