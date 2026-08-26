@@ -2650,6 +2650,15 @@ class EmailMarketingController extends Controller
         $token = (string) ($params['unsubscribe_token'] ?? '');
         $this->trackingService->unsubscribe($token);
 
+        // RFC 8058 one-click: عملاء البريد (Gmail/Yahoo) يرسلون POST
+        // ويتوقعون استجابة 2xx بسيطة بجسم قصير - لا صفحة HTML كاملة.
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            http_response_code(200);
+            header('Content-Type: text/plain; charset=UTF-8');
+            echo '1';
+            exit;
+        }
+
         http_response_code(200);
         header('Content-Type: text/html; charset=UTF-8');
         echo '<!DOCTYPE html><html lang="ar"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">'

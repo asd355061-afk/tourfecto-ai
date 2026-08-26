@@ -1,4 +1,25 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## هيدرز List-Unsubscribe لرسائل الحملات (توافق Gmail/Yahoo — RFC 8058) — 2026-08-25
+
+إضافة هيدرزي `List-Unsubscribe` و`List-Unsubscribe-Post:
+List-Unsubscribe=One-Click` إلى كل رسالة حملة إرسال (وقائمة "إرسال
+اختبار") للالتزام بمتطلبات Gmail/Yahoo (فبراير 2024) التي ترفض/تصنّف
+Spam أي إيميل تسويقي بدونهما.
+
+**الهيدرز:** `List-Unsubscribe` تحتوي `mailto:unsubscribe@<دومين المرسل>
+?subject=unsubscribe` + رابط إلغاء الاشتراك الموجود (نفس الـ
+unsubscribe_token اللي في جسم الإيميل) للـ one-click. الدومين مشتق من
+بريد المرسل الفعلي لإعدادات SMTP الخاصة بالمستخدم. `Mailer::send()` دعم
+هيدرز إضافية (مع تنقية CR/LF حمايةً من header injection)، و`resolveProvider`
+تعرض دومين المرسل.
+
+**One-click:** route جديدة `POST /api/email-marketing/unsubscribe/{token}`
+(بنمط GET الموجودة) — عملاء البريد يرسلون POST وبيتلقوا استجابة 2xx
+بسيطة بدل صفحة HTML.
+
+**اختبار:** `tests/Unit/EmailMarketingListUnsubscribeTest.php` (3
+اختبارات) يتأكد من وجود الهيدرز بالقيم الصحيحة + الحماية من الحقن.
+
 ## حجز مباشر من صفحات الموقع المولّد (Website Builder → Booking Engine + Stripe) — 2026-08-25
 
 ربط جولات/غرف مواقع الـ Website Builder (المخزنة كـ JSON في
