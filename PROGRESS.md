@@ -97,8 +97,34 @@
   عبر الوكالات → 404).
 - التحقق: **401/14043 OK**، lint 725 ملف، PHPStan 0، pint pass.
 
+## البند 5 (مكتمل): اختبار الرحلة الكاملة للحجز (Documentation / Discovery)
+اختبار توثيقي/اكتشافي واحد شامل `tests/Integration/FullBookingJourneyIntegrationTest.php`
+يعيد بناء الرحلة الكاملة (موقع عام → حجز pending → دفع Stripe/Paymob → confirmed
+→ CrmDeal won → عمولة الوكالة → فحص الإشعار → فشل دفع → إلغاء)، بدون أي استدعاء
+فعلي لـ Stripe/Rest (webhooks تُنفَّذ على الـ services مباشرة بتوقيع صحيح). أي خطوة
+فاشلة كانت ستوثَّق كفجوة — النتيجة: كل الـ 4 سيناريوهات خضراء (59 assertion).
+
+### نتيجة اختبار الرحلة الكاملة (الخطوات العشر)
+
+| الخطوة | الوصف | النتيجة |
+|--------|-------|---------|
+| 1 | حجز من الصفحة العامة (زائر غير مسجّل) → pending + source='website' + product_id صحيح + total = سعر الرحلة | ✅ نجحت |
+| 2 | ربط تلقائي للـ CrmDeal المفتوحة لنفس العميل (crm_deals.booking_id) | ✅ نجحت |
+| 3 | معاملة دفع pending (محاكاة محلية لجلسة Stripe/Paymob) | ✅ نجحت |
+| 4 | Webhook نجاح Stripe (completed) → confirmed + succeeded + idempotent | ✅ نجحت |
+| 5 | الصفقة المربوطة بتتقفل won تلقائيًا (closed_at يُسجَّل) | ✅ نجحت |
+| 6 | عمولة الوكالة تُسجَّل تلقائيًا = total × commission_rate (pending) | ✅ نجحت |
+| 7 | إيميل تأكيد الحجز | ⚠️ **فجوة موثقة**: لا يوجد أي منطق إرسال إشعار تأكيد حجز في الكود (لا Stripe/Paymob/BookingEngine/BookingController)؛ الاختبار يثبّت أن `email_transactional_logs` تبقى فارغة للزائر |
+| 8 | الرحلة نفسها عبر Paymob (webhook success=true) → confirmed + won + عمولة | ✅ نجحت |
+| 9 | Webhook فشل (Stripe expired) → الحجز pending + المعاملة failed + لا عمولة + لا deal won خاطئة | ✅ نجحت |
+| 10 | إلغاء بعد التأكيد (cancelBooking) | ⚠️ **فجوة موثقة**: السلوك الحالي — الحجز يتحول cancelled لكن الـ deal تبقى won (لا revert) والعمولة تبقى pending (لا معالجة لإلغاء الحجوزات المدفوعة) |
+
+التحقق: **409/14161 OK** (كانت 405 — أضيفت 4 حالات جديدة)، lint 726 ملف، PHPStan 0، pint pass.
+
 ## لسه ناقص (البنود الجاية بالترتيب)
 - (لا بنود متبقية في خطة White-Label الأساسية)
+- الفجوات الموثقة أعلاه (الخطوتان 7 و10) متاحة كبنود مستقبلية: إشعار تأكيد الحجز،
+  ومعالجة الإلغاء بعد الدفع (revert deal + تعليق/إلغاء العمولة).
 
 ## قرارات
 - بوابة افتراضية = Stripe لو مفعّل (لا تغيير في السلوك القائم)؛ Paymob
