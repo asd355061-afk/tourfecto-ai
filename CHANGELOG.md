@@ -1,4 +1,29 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## فحص فروع CRM/الأعمال الستة المتأخرة — لا دمج (كلها متجاوبة) — 2026-08-26
+
+مراجعة يدوية كاملة لكل فرع مقابل أحدث `main` (لا merge أعمى)، واحد
+واحد، قبل أي دمج. **النتيجة: الفروع الستة متجاوبة بالكامل — محتواها
+موجود على `main` بشكل مساوٍ أو أحدث، فلم يُدمج أي كود قديم فوق الكود
+الأحدث.**
+
+| الفرع | محتواه على main |
+|---|---|
+| `feat/crm-phase12` | `8d9e10b` (PR #7) — إصلاح الـ conflict markers موجود؛ صفر محتوى فريد |
+| `feat/crm-phase15` | `4647fcf` (PR #19) |
+| `feat/crm-module-sync` | `1eaeae4` (مطابق) — `StripeWebhookService` = استيعاب Revenue Intelligence، منفصل عن `StripeCheckoutService` |
+| `feat/business-control-center` | `85f77e9` (PR #5) + `abac213` (PR #22) + لاحقات |
+| `feat/ads-professional-module-merge` | `f7d9650` (PR #11) + لاحقات |
+| `feat/billing-payment-module-merge` | `441e3d8` (PR #21، مطابق) — `BillingRules` مطابق |
+
+**منهجية الفحص:** لكل فرع: مطابقة عنوان/محتوى كومِت الميزة مع history
+main، فحص `git diff -w main <branch>` (الاتجاهين)، تعداد الملفات
+الفريدة (صفر بعد استبعاد بقايا بنية main القديمة)، والتأكد من عدم وجود
+علامات `<<<<<<<` حقيقية (الملف الوحيد المطابق إيجابي كاذب — فاصل تعليق).
+تحقق من عدم مساس أي فرع بـ `booking_id` الجديد في `crm_deals`.
+
+التحقق المحلي: lint 723 ملف OK، PHPStan 0 أخطاء، pint pass، والاختبارات
+خضراء. التفاصيل الكاملة في `PROGRESS.md`.
+
 ## بوابة Paymob (Accept) كبوابة دفع ثانية جنب Stripe للحجوزات — 2026-08-26
 
 إضافة `PaymobGateway` (`app/Services/Payment/PaymobGateway.php`) بنفس
