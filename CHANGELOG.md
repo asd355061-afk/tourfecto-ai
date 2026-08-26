@@ -1,4 +1,38 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## White-Label: عمولات الوكيل + تقرير الأداء + ربط البراندنج باللوحة — 2026-08-26
+
+استكمال البند 4 من خطة White-Label فوق الموديولات الشغالة (لا إعادة بناء).
+
+**عمولات الوكيل من الحجوزات المؤكدة:**
+- migration `2026_08_26_000002_agency_commissions.sql`: تُنشئ جداول
+  الوكالات الأساسية idempotent (كانت في `_PENDING_TO_RUN_ON_SERVER.sql`
+  المنتهي فقط — لضمان قابلية بناء قاعدة اختبار جديدة/نشر جديد)، وتضيف
+  عمود `agency_clients.commission_rate` (`ADD COLUMN IF NOT EXISTS`,
+  DECIMAL(5,2) افتراضي 10.00، قابل للتعديل لكل عميل)، وتنشئ جدول
+  `agency_commissions` (booking_id فريد = عمولة واحدة لكل حجز كحد أقصى).
+- hook في `BookingEngine::confirmBooking()` و`confirmBookingFromPayment()`:
+  عند تأكيد حجز لعميل وكالة نشط (عبر `agency_clients`) يُسجَّل تلقائيًا
+  عمولة `pending` = `total_amount × commission_rate`، بلا رسوم بوابة/استرجاع
+  (نفس أساس `payment_transactions.amount`). Idempotent عبر `ON DUPLICATE KEY`.
+- `AgencyController`: `listCommissions` + `markCommissionPaid` (يدوي فقط —
+  لا دفع تلقائي) + `performanceReport` (عملاء نشطون، حجوزات مؤكدة، إيراد،
+  عمولات pending/paid) — بفلترة صارمة على `agency_id` المملوك للمستخدم.
+- routes جديدة في `app/routes/api.php`.
+
+**ربط AgencyBranding بواجهة اللوحة (كان غير مستخدم نهائيًا):**
+- `current_user_agency_branding()` في `app/Helpers/i18n.php`: تحدد وكالة
+  المستخدم الحالي (عميل نشط أو مالك) وتجلب براندنجها (static cache).
+- `site_brand_html()` / `site_favicon_html()`: يفضلان لوجو/فافيكون الوكالة
+  المخصص إن وجدا (يغطيان كل صفحات الموقع).
+- `renderPanelPage()`: حقن `--primary-color`/`--panel-accent`/
+  `--secondary-color` من البراندنج + `custom_css`، وفافيكون مخصص للوكالة.
+
+**التحقق:** اختبارات `tests/Integration/AgencyCommissionIntegrationTest.php`
+(11/47): احتساب العمولة (يدوي/مدفوع، نسبة مخصصة/افتراضية)، لا عمولة بدون
+وكالة أو لعميل معلّق، idempotency، تغيير النسبة يطبق للحجوزات الجديدة،
+وعزل صارم (وكيل لا يقرأ ولا يعلّم عمولات وكيل آخر → 404). الإجمالي:
+**401/14043 OK**، lint 725، PHPStan 0، pint pass.
+
 ## فحص فروع CRM/الأعمال الستة المتأخرة — لا دمج (كلها متجاوبة) — 2026-08-26
 
 مراجعة يدوية كاملة لكل فرع مقابل أحدث `main` (لا merge أعمى)، واحد

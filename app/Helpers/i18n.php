@@ -209,6 +209,17 @@ if (!function_exists('language_switcher_links')) {
     function site_brand_html(bool $withEmoji = true): string
     {
         $name = htmlspecialchars(site_name(), ENT_QUOTES, 'UTF-8');
+
+        // تخصيص الوكالات (White-Label): لو المستخدم الحالي عميل/مالك
+        // وكالة وعندها لوجو مخصّص، نستخدمه بدل لوجو النظام العام.
+        if (function_exists('current_user_agency_branding')) {
+            $agencyBranding = current_user_agency_branding();
+            if ($agencyBranding && !empty($agencyBranding['logo_path'])) {
+                $logoUrl = htmlspecialchars($agencyBranding['logo_path'], ENT_QUOTES, 'UTF-8');
+                return "<img src=\"{$logoUrl}\" alt=\"{$name}\" style=\"height:32px;width:auto;vertical-align:middle;\">";
+            }
+        }
+
         if (!class_exists('SystemSettingsService')) {
             return $withEmoji ? "🌍 {$name}" : $name;
         }
@@ -237,6 +248,15 @@ if (!function_exists('language_switcher_links')) {
             . '    <link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/favicon-16.png">' . "\n"
             . '    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">';
 
+        // تخصيص الوكالات (White-Label): لو الوكالة عندها أيقونة مخصّصة نستخدمها
+        if (function_exists('current_user_agency_branding')) {
+            $agencyBranding = current_user_agency_branding();
+            if ($agencyBranding && !empty($agencyBranding['favicon_path'])) {
+                $esc = htmlspecialchars($agencyBranding['favicon_path'], ENT_QUOTES, 'UTF-8');
+                return "<link rel=\"icon\" href=\"{$esc}\">\n    <link rel=\"apple-touch-icon\" href=\"{$esc}\">";
+            }
+        }
+
         if (!class_exists('SystemSettingsService')) {
             return $default;
         }
@@ -251,5 +271,66 @@ if (!function_exists('language_switcher_links')) {
             // تجاهل - نرجع للأيقونة الافتراضية
         }
         return $default;
+    }
+
+    /**
+     * تخصيص الوكالة (White-Label): بيرجّع سجل agency_branding الخاص
+     * بوكالة المستخدم الحالي - بيكتشفها من agency_clients لو المستخدم
+     * عميل نشط لوكالة، أو من agencies لو هو مالك الوكالة (نفس نمط
+     * Controller::loadAuthenticatedUser: $_SESSION['user'] أو
+     * $_SERVER['auth_user']). بيرجّع null لو مفيش وكالة/براندنج، وبيخزن
+     * في static كاش جوه نفس الطلب (كل صفحات الموقع بتستخدمه مرة واحدة).
+     * @return array|null
+     */
+    function current_user_agency_branding(): ?array
+    {
+        static $cached = false;
+        if ($cached !== false) {
+            return $cached;
+        }
+        $cached = null;
+
+        $user = $_SESSION['user'] ?? ($_SERVER['auth_user'] ?? null);
+        if (!is_array($user) || empty($user['id'])) {
+            return $cached;
+        }
+        if (!class_exists('Database') || !class_exists('AgencyClient') || !class_exists('AgencyBranding')) {
+            return $cached;
+        }
+        try {
+            $db = Database::getInstance();
+            $uid = (int) $user['id'];
+
+            // وكالة المستخدم: عميل نشط (الوكالة اللي بيعمل بيها) أو مالك وكالة.
+            $rows = $db->query(
+                "SELECT a.id AS agency_id
+                 FROM agencies a
+                 JOIN agency_clients ac ON ac.agency_id = a.id
+                 WHERE ac.client_user_id = ? AND ac.status = 'active'
+                 UNION
+                 SELECT a2.id AS agency_id
+                 FROM agencies a2
+                 WHERE a2.owner_user_id = ?
+                 ORDER BY agency_id DESC
+                 LIMIT 1",
+                [$uid, $uid]
+            );
+            if (empty($rows)) {
+                return $cached;
+            }
+
+            $branding = $db->query(
+                'SELECT agency_id, logo_path, favicon_path, primary_color, secondary_color, custom_css, support_email
+                 FROM agency_branding
+                 WHERE agency_id = ? LIMIT 1',
+                [(int) $rows[0]['agency_id']]
+            );
+            if (!empty($branding)) {
+                $cached = $branding[0];
+            }
+        } catch (Exception $e) {
+            $cached = null;
+        }
+        return $cached;
     }
 }

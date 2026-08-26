@@ -583,6 +583,9 @@ $router->post('/api/agency/create', 'AgencyController', 'create', ['AuthMiddlewa
 $router->get('/api/agency/{id}/clients', 'AgencyController', 'listClients', ['AuthMiddleware']);
 $router->post('/api/agency/{id}/clients', 'AgencyController', 'addClient', ['AuthMiddleware']);
 $router->delete('/api/agency/{id}/clients/{clientId}', 'AgencyController', 'removeClient', ['AuthMiddleware']);
+$router->get('/api/agency/{id}/commissions', 'AgencyController', 'listCommissions', ['AuthMiddleware']);
+$router->post('/api/agency/commissions/{id}/paid', 'AgencyController', 'markCommissionPaid', ['AuthMiddleware']);
+$router->get('/api/agency/{id}/performance', 'AgencyController', 'performanceReport', ['AuthMiddleware']);
 
 // إدارة الإعلانات
 $router->get('/api/ads/campaigns', 'AdsController', 'list', ['AuthMiddleware']);

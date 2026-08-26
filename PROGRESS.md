@@ -2,7 +2,7 @@
 
 **التاريخ:** 2026-08-26
 **الفرع:** `main` (بعد دمج `feat/email-marketing-platform`)
-**الحالة:** البنود 1-3 مكتملة — Paymob وربط CRM بالحجز وفحص الفروع الستة (كلها متجاوبة، لا دمج)
+**الحالة:** البنود 1-4 مكتملة — Paymob، ربط CRM بالحجز، فحص الفروع الستة (لا دمج)، White-Label (عمولات + تقرير + براندنج)
 
 ## الخطوة 1 (مكتملة): دمج feat/email-marketing-platform في main
 - fetch + فحص diff يدوي: الفرق الوحيد المتبقي كان `d572eb4`
@@ -70,10 +70,35 @@
 قرار: عدم الدمج لأي فرع من الستة (دمج كود قديم فوق main الأحدث والأفضل
 يضر فقط). يُقترح حذف الفروع الستة من remote والمحلي.
 
+## البند 4 (مكتمل): White-Label — عمولات الوكيل + تقرير الأداء + ربط البراندنج
+- migration `2026_08_26_000002_agency_commissions.sql` (idempotent):
+  يعيد إنشاء جداول الوكالات الأساسية (agencies/agency_branding/
+  agency_domains/agency_clients/agency_email_templates — كانت فقط في
+  `_PENDING_TO_RUN_ON_SERVER.sql` المنتهي، فبقت قابلة للبناء على قاعدة
+  اختبار جديدة/نشر جديد)، يضيف `agency_clients.commission_rate`
+  (ADD COLUMN IF NOT EXISTS، افتراضي 10.00، قابل للتعديل لكل عميل)،
+  وينشئ `agency_commissions` (booking_id فريد + FK لـ bookings).
+- `BookingEngine`: hook بعد التأكيد (confirmBooking + confirmBookingFromPayment)
+  يسجل عمولة pending = total_amount × commission_rate لعملاء الوكالة
+  النشطين فقط؛ idempotent عبر ON DUPLICATE KEY. أساس المبلغ = total_amount
+  (نفس payment_transactions.amount عند الدفع — لا رسوم بوابة/استرجاع في السكيما).
+- `AgencyController` (3 طرق جديدة + routes): `listCommissions`,
+  `markCommissionPaid` (يدوي فقط)، `performanceReport` (عملاء نشطون،
+  حجوزات مؤكدة، إيراد، عمولات pending/paid) — كلها بعزل صارم عبر
+  `ownedAgency()` (وكيل لا يرى ولا يعلّم بيانات وكيل آخر → 404).
+- ربط AgencyBranding باللوحة (كان غير مستخدم): `current_user_agency_branding()`
+  في i18n.php (عميل نشط أو مالك + static cache)؛ `site_brand_html()`/
+  `site_favicon_html()` يفضلان أصول الوكالة المخصصة؛ `renderPanelPage()`
+  يحقن ألوان البراندنج كـ CSS variables + custom_css + فافيكون مخصص.
+- اختبارات: `tests/Integration/AgencyCommissionIntegrationTest.php`
+  (11 حالات / 47 assertion): احتساب العمولة (يدوي/مدفوع، نسبة مخصصة 15%/
+  افتراضية 10%)، صفر عمولة بدون وكالة أو لعميل معلّق، idempotency، تغيير
+  النسبة يطبق على الحجوزات الجديدة، وعزل صارم (تقرير/قوائم/تعليم مدفوع
+  عبر الوكالات → 404).
+- التحقق: **401/14043 OK**، lint 725 ملف، PHPStan 0، pint pass.
+
 ## لسه ناقص (البنود الجاية بالترتيب)
-- البند 4: White-Label/Agency — عمولة الوكيل من حجوزات عملائه +
-  تقرير أداء بسيط فوق AgencyController/AgencyBranding/AgencyDomain
-  الموجودة.
+- (لا بنود متبقية في خطة White-Label الأساسية)
 
 ## قرارات
 - بوابة افتراضية = Stripe لو مفعّل (لا تغيير في السلوك القائم)؛ Paymob

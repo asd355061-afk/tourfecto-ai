@@ -294,4 +294,149 @@ JS;
             return $this->error('تعذر الإزالة', 500);
         }
     }
+
+    /** GET /api/agency/{id}/commissions - عمولات الوكالة (عزل صارم: وكالة المستخدم الحالي فقط) */
+    public function listCommissions(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        $agency = $this->ownedAgency((int) ($params['id'] ?? 0));
+        if (!$agency) {
+            return $this->error('الوكالة غير موجودة', 404);
+        }
+
+        try {
+            $rows = $this->db->query(
+                'SELECT c.id, c.booking_id, c.commission_amount, c.status, c.created_at,
+                        b.booking_reference, b.customer_name, b.total_amount, b.currency,
+                        u.company_name AS client_name
+                 FROM agency_commissions c
+                 JOIN bookings b ON b.id = c.booking_id
+                 JOIN users u ON u.id = b.user_id
+                 WHERE c.agency_id = ?
+                 ORDER BY c.created_at DESC
+                 LIMIT 200',
+                [(int) $agency->getAttribute('id')]
+            );
+            return $this->success(['commissions' => $rows]);
+        } catch (Exception $e) {
+            Logger::error('listCommissions Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر جلب العمولات', 500);
+        }
+    }
+
+    /** POST /api/agency/commissions/{id}/paid - تعليم العمولة كمدفوعة يدويًا (الوكيل/الأدمن) */
+    public function markCommissionPaid(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        $commissionId = (int) ($params['id'] ?? 0);
+        if ($commissionId <= 0) {
+            return $this->error('رقم العمولة غير صحيح', 422);
+        }
+
+        try {
+            $commission = (new AgencyCommission())->find($commissionId);
+            if (!$commission) {
+                return $this->error('العمولة غير موجودة', 404);
+            }
+
+            // عزل صارم: العمولة لازم تتبع وكالة يملكها المستخدم الحالي
+            // (تتجاهل الوكالات التانية تمامًا وكأنها غير موجودة)
+            $agency = $this->ownedAgency((int) $commission->getAttribute('agency_id'));
+            if (!$agency) {
+                return $this->error('العمولة غير موجودة', 404);
+            }
+
+            if ($commission->getAttribute('status') === 'paid') {
+                return $this->success(['commission' => $commission->toArray()], 'هذه العمولة مدفوعة بالفعل');
+            }
+
+            $commission->setAttribute('status', 'paid');
+            $commission->save();
+            ActivityLog::record('white_label', 'agency.commission_paid', [
+                'agency_id' => (int) $agency->getAttribute('id'),
+                'subject_type' => 'agency_commissions', 'subject_id' => $commissionId,
+            ]);
+            return $this->success(['commission' => $commission->toArray()], 'تم تعليم العمولة كمدفوعة');
+        } catch (Exception $e) {
+            Logger::error('markCommissionPaid Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر تحديث العمولة', 500);
+        }
+    }
+
+    /** GET /api/agency/{id}/performance - تقرير أداء الوكالة (عزل صارم ببيانات وكالته بس) */
+    public function performanceReport(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        $agency = $this->ownedAgency((int) ($params['id'] ?? 0));
+        if (!$agency) {
+            return $this->error('الوكالة غير موجودة', 404);
+        }
+        $agencyId = (int) $agency->getAttribute('id');
+
+        try {
+            // 1) العملاء النشطون
+            $clients = (new AgencyClient())->where(['agency_id' => $agencyId, 'status' => 'active']);
+            $activeClientsCount = count($clients);
+            $clientUserIds = array_map(fn ($c) => (int) $c->getAttribute('client_user_id'), $clients);
+
+            // 2) الحجوزات المؤكدة + إيرادها - مقتصرة على عملاء وكالته حصرًا
+            $confirmedCount = 0;
+            $totalRevenue = 0.0;
+            if (!empty($clientUserIds)) {
+                $placeholders = implode(',', array_fill(0, count($clientUserIds), '?'));
+                $agg = $this->db->query(
+                    "SELECT COUNT(*) AS cnt, COALESCE(SUM(total_amount), 0) AS revenue
+                     FROM bookings
+                     WHERE status = 'confirmed' AND user_id IN ({$placeholders})",
+                    $clientUserIds
+                );
+                if (!empty($agg)) {
+                    $confirmedCount = (int) $agg[0]['cnt'];
+                    $totalRevenue = (float) $agg[0]['revenue'];
+                }
+            }
+
+            // 3) العمولات pending/paid - كلها لوكالة دي (عزل مضمون بـ agency_id)
+            $commissions = $this->db->query(
+                'SELECT status, COALESCE(SUM(commission_amount), 0) AS total, COUNT(*) AS cnt
+                 FROM agency_commissions
+                 WHERE agency_id = ?
+                 GROUP BY status',
+                [$agencyId]
+            );
+            $commissionTotals = ['pending' => 0.0, 'paid' => 0.0];
+            $commissionCounts = ['pending' => 0, 'paid' => 0];
+            foreach ($commissions as $c) {
+                if (isset($commissionTotals[$c['status']])) {
+                    $commissionTotals[$c['status']] = (float) $c['total'];
+                    $commissionCounts[$c['status']] = (int) $c['cnt'];
+                }
+            }
+
+            return $this->success([
+                'agency' => ['id' => $agencyId, 'name' => $agency->getAttribute('name')],
+                'active_clients_count' => $activeClientsCount,
+                'confirmed_bookings_count' => $confirmedCount,
+                'total_revenue' => round($totalRevenue, 2),
+                'commissions' => [
+                    'pending_total' => round($commissionTotals['pending'], 2),
+                    'paid_total' => round($commissionTotals['paid'], 2),
+                    'pending_count' => $commissionCounts['pending'],
+                    'paid_count' => $commissionCounts['paid'],
+                ],
+            ]);
+        } catch (Exception $e) {
+            Logger::error('performanceReport Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر توليد تقرير الأداء', 500);
+        }
+    }
 }

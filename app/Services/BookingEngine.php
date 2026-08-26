@@ -119,9 +119,11 @@ class BookingEngine
     {
         $confirmed = $this->changeStatus($userId, $bookingId, 'confirmed', 'تأكيد الحجز');
         if ($confirmed) {
-            // ارفع الصفقة المربوطة بالحجز لـ won (إن كانت open)
+            // هوك ما بعد التأكيد: ارفع الصفقة المربوطة بالحجز لـ won
+            // (إن كانت open) + سجّل عمولة الوكالة للحجز لو صاحبه عميل وكالة.
             $this->db->transaction(function (Database $db) use ($bookingId) {
                 $this->markLinkedDealWon($db, $bookingId);
+                $this->recordAgencyCommission($db, $bookingId);
             });
         }
         return $confirmed;
@@ -160,6 +162,8 @@ class BookingEngine
 
             // ارفع الصفقة المربوطة بالحجز لـ won (إن كانت open)
             $this->markLinkedDealWon($db, $bookingId);
+            // سجّل عمولة الوكالة للحجز لو صاحبه عميل وكالة (نفس الـ transaction)
+            $this->recordAgencyCommission($db, $bookingId);
 
             return true;
         });
@@ -297,6 +301,49 @@ class BookingEngine
         $db->query(
             "UPDATE crm_deals SET status = 'won', closed_at = COALESCE(closed_at, NOW()) WHERE id = ? AND status = 'open'",
             [$rows[0]['id']]
+        );
+    }
+
+    /**
+     * حساب وتسجيل عمولة الوكالة تلقائيًا عند تأكيد حجز لعميل يتبع
+     * وكالة (عبر agency_clients). العمولة = total_amount × commission_rate
+     * (نسبة العميل في agency_clients) / 100، بحالة pending.
+     *
+     * القاعدة المستخدمة هي total_amount لأنها نفس القيمة اللي بتتسجّل
+     * كـ amount في payment_transactions عند الدفع (Stripe/Paymob) - أي
+     * رسوم بوابة بقت خارج المعاملة أصلاً، فمفيش مبلغ مُحصَّل مختلف.
+     *
+     * Idempotent: booking_id فريد في agency_commissions، والتكرار
+     * بيعمل update للمبلغ مش إدراج مكرر. العملاء غير التابعين لوكالة
+     * (أو وكالة علاقتها مش active) بيتجاهلوا بصمت.
+     */
+    private function recordAgencyCommission(Database $db, int $bookingId): void
+    {
+        $rows = $db->query(
+            "SELECT b.user_id, b.total_amount,
+                    ac.id AS agency_client_id, ac.agency_id, ac.commission_rate
+             FROM bookings b
+             JOIN agency_clients ac ON ac.client_user_id = b.user_id AND ac.status = 'active'
+             WHERE b.id = ? AND b.status = 'confirmed'
+             LIMIT 1",
+            [$bookingId]
+        );
+        if (empty($rows)) {
+            return;
+        }
+        $row = $rows[0];
+
+        $rate = (float) ($row['commission_rate'] ?? 10.00);
+        $amount = round(((float) $row['total_amount']) * $rate / 100, 2);
+        if ($amount <= 0) {
+            return;
+        }
+
+        $db->query(
+            "INSERT INTO agency_commissions (agency_id, agency_client_id, booking_id, commission_amount, status)
+             VALUES (?, ?, ?, ?, 'pending')
+             ON DUPLICATE KEY UPDATE commission_amount = VALUES(commission_amount)",
+            [(int) $row['agency_id'], (int) $row['agency_client_id'], $bookingId, $amount]
         );
     }
 }

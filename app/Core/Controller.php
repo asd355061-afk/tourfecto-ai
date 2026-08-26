@@ -524,6 +524,32 @@ abstract class Controller
         }
         // نفس باغ asset_v بالظبط - site_brand_html() لازم يتحسب في متغير
         $brandHtml = site_brand_html();
+        // تخصيص الوكالات (White-Label): حقن ألوان براندنج الوكالة كـ CSS
+        // variables على :root (بتورّث على --primary-color في style.css و
+        // --panel-accent في panel.css فبتلوّن كل عناصر اللوحة) + أي
+        // custom_css مخزّن للوكالة. واي فافيكون مخصّص للوكالة.
+        $brandingCss = '';
+        $faviconHtml = site_favicon_html();
+        if (function_exists('current_user_agency_branding')) {
+            $agencyBranding = current_user_agency_branding();
+            if ($agencyBranding) {
+                $cssVars = '';
+                if (!empty($agencyBranding['primary_color'])) {
+                    $primary = htmlspecialchars($agencyBranding['primary_color'], ENT_QUOTES, 'UTF-8');
+                    $cssVars .= "--primary-color:{$primary};--panel-accent:{$primary};";
+                }
+                if (!empty($agencyBranding['secondary_color'])) {
+                    $secondary = htmlspecialchars($agencyBranding['secondary_color'], ENT_QUOTES, 'UTF-8');
+                    $cssVars .= "--secondary-color:{$secondary};";
+                }
+                if ($cssVars !== '') {
+                    $brandingCss = '<style>:root{' . $cssVars . '}</style>';
+                }
+                if (!empty($agencyBranding['custom_css'])) {
+                    $brandingCss .= "\n<style>" . $agencyBranding['custom_css'] . '</style>';
+                }
+            }
+        }
         // Snippets خدمات الطرف الثالث اللي بتشتغل في المتصفح (Hotjar/
         // Contentsquare، Mixpanel، OneSignal، Calendly) - بتتحقن بس للمفعّل
         // منها. متحسبة في متغير قبل الـ heredoc (نفس درس asset_v).
@@ -560,12 +586,10 @@ abstract class Controller
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Space+Grotesk:wght@500;600;700&family=Tajawal:wght@400;500;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/favicon-16.png">
-    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+    {$faviconHtml}
     <link rel="stylesheet" href="{$styleCssUrl}">
     <link rel="stylesheet" href="{$panelCssUrl}">
-{$thirdPartyHead}{$chatAssetsHead}</head>
+{$brandingCss}{$thirdPartyHead}{$chatAssetsHead}</head>
 <body>
     <div class="panel-shell">
         <div class="panel-overlay-bg"></div>
