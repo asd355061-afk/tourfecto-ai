@@ -116,11 +116,23 @@ final class IntegrationsCenterIntegrationTest extends TestCase
         $settings->set('integration_test_probe_key', 'db_value_xyz');
 
         // كلاس تجريبي صغير بيورّث BaseIntegrationService ويستخدم conf()
-        $probe = new class extends BaseIntegrationService {
-            public function key(): string { return 'probe'; }
-            public function isConfigured(): bool { return true; }
-            public function request(string $action, array $params = [], array $context = []): array { return ['success' => true]; }
-            public function read(string $const, string $env): string { return $this->conf($const, $env); }
+        $probe = new class () extends BaseIntegrationService {
+            public function key(): string
+            {
+                return 'probe';
+            }
+            public function isConfigured(): bool
+            {
+                return true;
+            }
+            public function request(string $action, array $params = [], array $context = []): array
+            {
+                return ['success' => true];
+            }
+            public function read(string $const, string $env): string
+            {
+                return $this->conf($const, $env);
+            }
         };
 
         $this->assertSame('db_value_xyz', $probe->read('', 'TEST_PROBE_KEY'));
