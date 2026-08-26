@@ -1334,6 +1334,8 @@ $router->post('/api/bookings/{id}/cancel', 'BookingController', 'cancel', ['Auth
 $router->post('/api/bookings/{id}/checkout', 'BookingController', 'checkout', ['AuthMiddleware']);
 // Webhook دفع Stripe للحجوزات - بدون Auth (التحقق بالتوقيع داخل الـ service)
 $router->post('/api/webhook/booking/stripe', 'BookingController', 'stripeWebhook');
+// Paymob gateway (جنب Stripe - نفس النقطة القابلة للاستبدال في BookingController)
+$router->post('/api/webhook/booking/paymob', 'BookingController', 'paymobWebhook');
 // Webhook Stripe موحّد لشحن المحفظة وتأكيد الحجوزات - بدون Auth (التوقيع HMAC)
 $router->post('/api/webhook/stripe', 'WebhookController', 'walletStripeWebhook');
 $router->get('/api/inventory/{productId}/calendar', 'BookingController', 'calendar', ['AuthMiddleware']);

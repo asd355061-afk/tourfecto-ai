@@ -130,9 +130,12 @@ class BookingController extends Controller
         $bookingId = (int) ($params['id'] ?? 0);
         $successUrl = (string) $this->get('success_url', '');
         $cancelUrl = (string) $this->get('cancel_url', '');
+        $gateway = (string) $this->get('gateway', '');
 
         try {
-            $result = (new StripeCheckoutService())->createCheckoutSession($userId, $bookingId, $successUrl, $cancelUrl);
+            $gatewayService = $this->resolvePaymentGateway($gateway);
+            $result = $gatewayService->createCheckoutSession($userId, $bookingId, $successUrl, $cancelUrl);
+            $result['gateway'] = $gatewayService->key();
 
             return $this->success($result, 'تم إنشاء رابط الدفع');
         } catch (Exception $e) {
@@ -155,6 +158,52 @@ class BookingController extends Controller
             http_response_code($code);
             return $this->error($e->getMessage(), $code);
         }
+    }
+
+    /** POST /api/webhook/booking/paymob - بدون Auth (التوثيق بـ hmac query param) */
+    public function paymobWebhook(array $params = []): array
+    {
+        $payload = file_get_contents('php://input') ?: '';
+        $hmac = (string) ($params['hmac'] ?? '');
+
+        try {
+            $result = (new PaymobGateway())->handleWebhook($payload, $hmac);
+
+            return $this->success(['handled' => $result['handled'], 'event' => $result['event']]);
+        } catch (Exception $e) {
+            $code = $e->getCode() === 401 ? 401 : 500;
+            http_response_code($code);
+            return $this->error($e->getMessage(), $code);
+        }
+    }
+
+    /**
+     * اختيار بوابة الدفع للـ checkout - Stripe و Paymob قابلين للتبديل
+     * من نفس النقطة. `$requested` لو واضح (stripe|paymob) بيستخدمها
+     * جبرًا؛ غير كده بيختار أول بوابة مفعّلة بترتيب Stripe ثم Paymob.
+     *
+     * @return StripeCheckoutService|PaymobGateway
+     */
+    private function resolvePaymentGateway(string $requested = ''): object
+    {
+        $stripe = new StripeCheckoutService();
+        $paymob = new PaymobGateway();
+        $requested = strtolower(trim($requested));
+
+        if ($requested === 'paymob') {
+            if ($paymob->isConfigured()) {
+                return $paymob;
+            }
+            throw new Exception('بوابة الدفع Paymob غير مُفعّلة');
+        }
+        if ($requested === 'stripe') {
+            if ($stripe->isConfigured()) {
+                return $stripe;
+            }
+            throw new Exception('بوابة الدفع Stripe غير مُفعّلة');
+        }
+
+        return $stripe->isConfigured() ? $stripe : $paymob;
     }
 
     /** GET /api/bookings/dashboard */

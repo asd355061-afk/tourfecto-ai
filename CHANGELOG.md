@@ -1,4 +1,33 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## بوابة Paymob (Accept) كبوابة دفع ثانية جنب Stripe للحجوزات — 2026-08-26
+
+إضافة `PaymobGateway` (`app/Services/Payment/PaymobGateway.php`) بنفس
+توقيعات `StripeCheckoutService` بالحرف (`isConfigured` /
+`createCheckoutSession` / `verifyWebhookSignature` / `handleWebhook`)
+عشان الاتنين قابلين للاستبدال من نفس نقطة الاستدعاء في
+`BookingController::checkout()`.
+
+**الاختيار:** `checkout` بيدعم `?gateway=paymob|stripe`؛ من غير قيمة
+بيفضل Stripe لو مفعّل (ما نتغيرش السلوك الحالي) وإلا Paymob.
+`BookingController::resolvePaymentGateway()` بتعمل الاختيار.
+
+**التدفق:** `createCheckoutSession` → معاملة pending في
+`payment_transactions` (gateway='paymob') → `auth/tokens` → `orders` →
+`payment_keys` → رابط iframe (بدون SDK، REST مباشر). Webhook
+`transaction.response` بيتحقق من توقيع HMAC (خوارزمية Paymob الرسمية)
+ويأكد الحجز عبر `BookingEngine::confirmBookingFromPayment()` ويمرر
+المعاملة succeeded — idempotent. Route جديدة
+`POST /api/webhook/booking/paymob`.
+
+**إعداد:** مفاتيح جديدة في `.env.example`:
+`PAYMOB_API_KEY` / `PAYMOB_INTEGRATION_ID` / `PAYMOB_IFRAME_ID` /
+`PAYMOB_HMAC_SECRET`.
+
+**اختبار:** `tests/Integration/PaymobBookingIntegrationTest.php` (4
+اختبارات / 28 assertion) — checkout بدون مفاتيح يرفض، webhook ناجح
+يأكد الحجز + succeeded + idempotent، توقيع غلط = 401، فشل دفع = الحجز
+يظل pending.
+
 ## هيدرز List-Unsubscribe لرسائل الحملات (توافق Gmail/Yahoo — RFC 8058) — 2026-08-25
 
 إضافة هيدرزي `List-Unsubscribe` و`List-Unsubscribe-Post:
