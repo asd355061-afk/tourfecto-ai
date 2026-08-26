@@ -256,6 +256,7 @@ function applyTestMigrations(): void
         '2026_08_21_000001_create_booking_engine_tables.sql',
         '2026_08_12_000047_create_payment_transactions_table.sql',
         '2026_08_21_000002_add_booking_payment_link.sql',
+        '2026_08_26_000001_add_booking_id_to_crm_deals.sql',
         '2026_08_21_000010_create_email_marketing_tables.sql',
         '2026_08_21_000011_email_marketing_contacts.sql',
         '2026_08_22_000012_email_marketing_template_studio.sql',

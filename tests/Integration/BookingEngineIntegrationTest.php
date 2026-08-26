@@ -26,6 +26,8 @@ final class BookingEngineIntegrationTest extends TestCase
     private static bool $dbChecked = false;
     private static int $testUserId = 0;
     private static int $testProductId = 0;
+    private static int $testStageId = 0;
+    private static int $testContactId = 0;
 
     private function db(): ?PDO
     {
@@ -97,6 +99,17 @@ final class BookingEngineIntegrationTest extends TestCase
                      ON DUPLICATE KEY UPDATE user_id = user_id");
         self::$testProductId = 999001;
 
+        $pdo->exec("INSERT INTO crm_pipeline_stages (id, agency_id, name, slug, sort_order, win_probability)
+                     VALUES (999001, NULL, 'Test Stage', 'test-stage-booking', 1, 50)
+                     ON DUPLICATE KEY UPDATE slug = slug");
+        self::$testStageId = 999001;
+
+        $pdo->exec("INSERT INTO crm_contacts (id, user_id, name, email, phone)
+                     VALUES (999001, 999001, 'Test Contact', 'customer-booking@tourfecto.test', '+15550009999')
+                     ON DUPLICATE KEY UPDATE email = email, phone = phone");
+        self::$testContactId = 999001;
+
+        $pdo->exec("DELETE FROM crm_deals WHERE owner_user_id = 999001");
         $pdo->exec("DELETE FROM booking_status_history WHERE booking_id IN (SELECT id FROM bookings WHERE user_id = 999001)");
         $pdo->exec("DELETE FROM bookings WHERE user_id = 999001");
         $pdo->exec("DELETE FROM inventory WHERE product_id = 999001");
@@ -111,6 +124,9 @@ final class BookingEngineIntegrationTest extends TestCase
         $pdo->exec("DELETE FROM booking_status_history WHERE booking_id IN (SELECT id FROM bookings WHERE user_id = 999001)");
         $pdo->exec("DELETE FROM bookings WHERE user_id = 999001");
         $pdo->exec("DELETE FROM inventory WHERE product_id = 999001");
+        $pdo->exec("DELETE FROM crm_deals WHERE owner_user_id = 999001");
+        $pdo->exec("DELETE FROM crm_contacts WHERE id = 999001");
+        $pdo->exec("DELETE FROM crm_pipeline_stages WHERE id = 999001");
     }
 
     public function testBookingSucceedsWhenCapacityAvailable(): void
@@ -190,5 +206,154 @@ final class BookingEngineIntegrationTest extends TestCase
         $this->expectException(Exception::class);
         $this->expectExceptionMessage('لا يمكن تقليل السعة');
         $inventory->setDay(self::$testUserId, self::$testProductId, '2026-12-04', 0);
+    }
+
+    private function insertOpenDeal(int $id, string $status = 'open'): void
+    {
+        self::$pdo->exec("INSERT INTO crm_deals (id, owner_user_id, contact_id, stage_id, title, value, currency, status)
+                          VALUES ({$id}, 999001, 999001, 999001, 'Deal {$id}', 150.00, 'USD', '{$status}')
+                          ON DUPLICATE KEY UPDATE status = '{$status}'");
+    }
+
+    public function testBookingLinksOpenDealForSameCustomerByEmail(): void
+    {
+        $inventory = new InventoryService();
+        $inventory->setDay(self::$testUserId, self::$testProductId, '2026-12-10', 5);
+        $this->insertOpenDeal(999001);
+
+        $engine = new BookingEngine();
+        $result = $engine->createBooking(self::$testUserId, [
+            'product_id' => self::$testProductId,
+            'start_date' => '2026-12-10',
+            'customer_name' => 'Test Customer',
+            'customer_email' => 'customer-booking@tourfecto.test',
+            'adults_count' => 1,
+        ]);
+
+        $deal = self::$pdo->query('SELECT booking_id FROM crm_deals WHERE id = 999001')->fetch();
+        $this->assertSame((int) $result['id'], (int) $deal['booking_id']);
+    }
+
+    public function testBookingLinksOpenDealByPhoneOrContactId(): void
+    {
+        $inventory = new InventoryService();
+        $inventory->setDay(self::$testUserId, self::$testProductId, '2026-12-11', 5);
+        $this->insertOpenDeal(999001);
+
+        $engine = new BookingEngine();
+        $resultByPhone = $engine->createBooking(self::$testUserId, [
+            'product_id' => self::$testProductId,
+            'start_date' => '2026-12-11',
+            'customer_name' => 'Test Customer',
+            'customer_phone' => '+15550009999',
+            'adults_count' => 1,
+        ]);
+        $deal = self::$pdo->query('SELECT booking_id FROM crm_deals WHERE id = 999001')->fetch();
+        $this->assertSame((int) $resultByPhone['id'], (int) $deal['booking_id']);
+    }
+
+    public function testConfirmBookingMarksLinkedDealWon(): void
+    {
+        $inventory = new InventoryService();
+        $inventory->setDay(self::$testUserId, self::$testProductId, '2026-12-12', 5);
+        $this->insertOpenDeal(999001);
+
+        $engine = new BookingEngine();
+        $result = $engine->createBooking(self::$testUserId, [
+            'product_id' => self::$testProductId,
+            'start_date' => '2026-12-12',
+            'customer_name' => 'Test Customer',
+            'customer_email' => 'customer-booking@tourfecto.test',
+            'adults_count' => 1,
+        ]);
+
+        $this->assertTrue($engine->confirmBooking(self::$testUserId, (int) $result['id']));
+
+        $deal = self::$pdo->query('SELECT status, closed_at FROM crm_deals WHERE id = 999001')->fetch();
+        $this->assertSame('won', $deal['status']);
+        $this->assertNotNull($deal['closed_at']);
+    }
+
+    public function testConfirmBookingFromPaymentMarksLinkedDealWon(): void
+    {
+        $inventory = new InventoryService();
+        $inventory->setDay(self::$testUserId, self::$testProductId, '2026-12-13', 5);
+        $this->insertOpenDeal(999001);
+
+        $engine = new BookingEngine();
+        $result = $engine->createBooking(self::$testUserId, [
+            'product_id' => self::$testProductId,
+            'start_date' => '2026-12-13',
+            'customer_name' => 'Test Customer',
+            'customer_email' => 'customer-booking@tourfecto.test',
+            'adults_count' => 1,
+        ]);
+
+        $this->assertTrue($engine->confirmBookingFromPayment((int) $result['id']));
+
+        $deal = self::$pdo->query('SELECT status, closed_at FROM crm_deals WHERE id = 999001')->fetch();
+        $this->assertSame('won', $deal['status']);
+        $this->assertNotNull($deal['closed_at']);
+    }
+
+    public function testBookingDoesNotLinkDealOfAnotherCustomer(): void
+    {
+        $inventory = new InventoryService();
+        $inventory->setDay(self::$testUserId, self::$testProductId, '2026-12-14', 5);
+        $this->insertOpenDeal(999001);
+
+        $engine = new BookingEngine();
+        $result = $engine->createBooking(self::$testUserId, [
+            'product_id' => self::$testProductId,
+            'start_date' => '2026-12-14',
+            'customer_name' => 'Another Customer',
+            'customer_email' => 'someone-else@tourfecto.test',
+            'customer_phone' => '+15550001111',
+            'adults_count' => 1,
+        ]);
+
+        $deal = self::$pdo->query('SELECT booking_id FROM crm_deals WHERE id = 999001')->fetch();
+        $this->assertNull($deal['booking_id']);
+        $this->assertSame('open', self::$pdo->query('SELECT status FROM crm_deals WHERE id = 999001')->fetch()['status']);
+    }
+
+    public function testBookingDoesNotLinkWonOrLostDeal(): void
+    {
+        $inventory = new InventoryService();
+        $inventory->setDay(self::$testUserId, self::$testProductId, '2026-12-15', 5);
+        $this->insertOpenDeal(999001, 'won');
+
+        $engine = new BookingEngine();
+        $engine->createBooking(self::$testUserId, [
+            'product_id' => self::$testProductId,
+            'start_date' => '2026-12-15',
+            'customer_name' => 'Test Customer',
+            'customer_email' => 'customer-booking@tourfecto.test',
+            'adults_count' => 1,
+        ]);
+
+        $deal = self::$pdo->query('SELECT booking_id FROM crm_deals WHERE id = 999001')->fetch();
+        $this->assertNull($deal['booking_id']);
+    }
+
+    public function testDealWithoutBookingStaysOpenAfterConfirmingOtherBooking(): void
+    {
+        $inventory = new InventoryService();
+        $inventory->setDay(self::$testUserId, self::$testProductId, '2026-12-16', 5);
+        $this->insertOpenDeal(999001);
+
+        $engine = new BookingEngine();
+        $result = $engine->createBooking(self::$testUserId, [
+            'product_id' => self::$testProductId,
+            'start_date' => '2026-12-16',
+            'customer_name' => 'Another Customer',
+            'customer_email' => 'someone-else@tourfecto.test',
+            'adults_count' => 1,
+        ]);
+
+        $this->assertTrue($engine->confirmBooking(self::$testUserId, (int) $result['id']));
+
+        $deal = self::$pdo->query('SELECT status FROM crm_deals WHERE id = 999001')->fetch();
+        $this->assertSame('open', $deal['status']);
     }
 }

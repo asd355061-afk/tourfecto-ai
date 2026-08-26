@@ -102,6 +102,10 @@ class BookingEngine
                 [$bookingId, 'pending', $userId, 'إنشاء حجز جديد']
             );
 
+            // 5) اربط الحجز بأول صفقة open لنفس الحساب لنفس العميل (إن وجدت).
+            //    لا ينشئ صفقة جديدة - الربط بيخلّي تأكيد الحجز يرفع الصفقة لـ won.
+            $this->linkOpenDealToBooking($db, $userId, $bookingId, $data);
+
             return [
                 'id' => $bookingId,
                 'booking_reference' => $reference,
@@ -113,7 +117,14 @@ class BookingEngine
 
     public function confirmBooking(int $userId, int $bookingId): bool
     {
-        return $this->changeStatus($userId, $bookingId, 'confirmed', 'تأكيد الحجز');
+        $confirmed = $this->changeStatus($userId, $bookingId, 'confirmed', 'تأكيد الحجز');
+        if ($confirmed) {
+            // ارفع الصفقة المربوطة بالحجز لـ won (إن كانت open)
+            $this->db->transaction(function (Database $db) use ($bookingId) {
+                $this->markLinkedDealWon($db, $bookingId);
+            });
+        }
+        return $confirmed;
     }
 
     /**
@@ -146,6 +157,9 @@ class BookingEngine
                  VALUES (?, ?, ?, ?, ?)',
                 [$bookingId, $fromStatus, 'confirmed', null, 'تأكيد تلقائي بعد نجاح الدفع']
             );
+
+            // ارفع الصفقة المربوطة بالحجز لـ won (إن كانت open)
+            $this->markLinkedDealWon($db, $bookingId);
 
             return true;
         });
@@ -214,5 +228,75 @@ class BookingEngine
     private function generateReference(): string
     {
         return 'BK-' . strtoupper(bin2hex(random_bytes(4)));
+    }
+
+    /**
+     * ربط الحجز بأول صفقة open لنفس الحساب ينتمي لها نفس العميل
+     * (عبر customer_id / الإيميل / الهاتف). الربط بيمكّن تأكيد الحجز
+     * من ترقية الصفقة لـ won. لا ينشئ صفقات جديدة ولا يعدّل غير
+     * الصفقات اللي لسه booking_id بتاعها NULL.
+     */
+    private function linkOpenDealToBooking(Database $db, int $userId, int $bookingId, array $data): void
+    {
+        $contactId = $data['customer_id'] ?? null;
+        $email = (string) ($data['customer_email'] ?? '');
+        $phone = (string) ($data['customer_phone'] ?? '');
+
+        if ($contactId === null && $email === '' && $phone === '') {
+            return;
+        }
+
+        $sql = "SELECT d.id
+                FROM crm_deals d
+                LEFT JOIN crm_contacts c ON c.id = d.contact_id
+                WHERE d.owner_user_id = ? AND d.status = 'open' AND d.booking_id IS NULL";
+        $params = [$userId];
+
+        $conds = [];
+        if ($contactId !== null) {
+            $conds[] = 'd.contact_id = ?';
+            $params[] = (int) $contactId;
+        }
+        if ($email !== '') {
+            $conds[] = 'c.email = ?';
+            $params[] = $email;
+        }
+        if ($phone !== '') {
+            $conds[] = 'c.phone = ?';
+            $params[] = $phone;
+        }
+        if (empty($conds)) {
+            return;
+        }
+
+        $sql .= ' AND (' . implode(' OR ', $conds) . ') ORDER BY d.created_at ASC LIMIT 1';
+        $rows = $db->query($sql, $params);
+        if (empty($rows)) {
+            return;
+        }
+
+        $db->query('UPDATE crm_deals SET booking_id = ? WHERE id = ? AND status = ?', [
+            $bookingId, $rows[0]['id'], 'open',
+        ]);
+    }
+
+    /**
+     * ترقية الصفقة المربوطة بالحجز لـ won عند تأكيد الحجز (يدوي أو
+     * بعد الدفع). Idempotent: صفقات won/lost والإلغاءات مش بتتأثر.
+     */
+    private function markLinkedDealWon(Database $db, int $bookingId): void
+    {
+        $rows = $db->query(
+            "SELECT id FROM crm_deals WHERE booking_id = ? AND status = 'open' LIMIT 1",
+            [$bookingId]
+        );
+        if (empty($rows)) {
+            return;
+        }
+
+        $db->query(
+            "UPDATE crm_deals SET status = 'won', closed_at = COALESCE(closed_at, NOW()) WHERE id = ? AND status = 'open'",
+            [$rows[0]['id']]
+        );
     }
 }
