@@ -735,6 +735,17 @@ $router->post('/api/ads/alerts/run', 'AdsController', 'runAlertsNow', ['AuthMidd
 $router->post('/api/ads/alerts/read-all', 'AdsController', 'markAllAlertsRead', ['AuthMiddleware']);
 $router->post('/api/ads/alerts/{id}/dismiss', 'AdsController', 'dismissAlert', ['AuthMiddleware']);
 
+// ---- Creative Assets (بند 1) - أصول إعلانية (نص/صورة/فيديو) + تنويعات A/B/C
+$router->get('/api/ads/creatives', 'AdCreativeController', 'list', ['AuthMiddleware']);
+$router->get('/api/ads/creatives/{id}', 'AdCreativeController', 'get', ['AuthMiddleware']);
+$router->post('/api/ads/creatives', 'AdCreativeController', 'create', ['AuthMiddleware']);
+$router->patch('/api/ads/creatives/{id}', 'AdCreativeController', 'update', ['AuthMiddleware']);
+$router->post('/api/ads/creatives/{id}/status', 'AdCreativeController', 'setStatus', ['AuthMiddleware']);
+$router->delete('/api/ads/creatives/{id}', 'AdCreativeController', 'delete', ['AuthMiddleware']);
+$router->post('/api/ads/creatives/{id}/variants', 'AdCreativeController', 'addVariant', ['AuthMiddleware']);
+$router->patch('/api/ads/creative-variants/{id}', 'AdCreativeController', 'updateVariant', ['AuthMiddleware']);
+$router->post('/api/ads/creative-variants/{id}/performance', 'AdCreativeController', 'recordPerformance', ['AuthMiddleware']);
+
 $router->post('/api/ads/copilot/ask', 'AdsController', 'askCopilot', ['AuthMiddleware']);
 
 $router->post('/api/ads/campaigns/{id}/keywords/generate', 'AdsController', 'generateKeywords', ['AuthMiddleware']);

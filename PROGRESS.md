@@ -1,3 +1,27 @@
+# PROGRESS — الخطوة 4: Ads (5) + CRM (1) + AI Chat (2)
+
+**التاريخ:** 2026-08-28
+**الفرع:** `main`
+**الحالة:** 8 بنود جديدة بالتتابع — كل بند migration+model+service+controller+routes+Lang+tests+checks+commit منفصل
+
+## البند 1 (مكتمل): الأصول الإعلانية (Creative Assets) — Ads
+- **المشكلة:** كانت إدارة المحتوى الإبداعي مقتصرة على `ad_copies` (نص فقط،
+  على مستوى الحملة) بلا أصل إعلاني فعلي ولا تنويعات ولا أداء لكل تنويع.
+- migration `2026_08_28_000003_create_ad_creative_assets.sql` (idempotent,
+  جداول جديدة فقط): `ad_creatives` (user_id/campaign_id/name/creative_type
+  text|image|video/headline/primary_text/media_url/status) +
+  `ad_creative_variants` (user_id/creative_id/variant_label/محتوى +
+  impressions/clicks/spend/conversions/revenue/is_control) — أعمدة الأداء خام،
+  وCTR/CPC/CPA/ROAS تُحسب عند القراءة (مفيش أرقام مختلقة).
+- `AdCreativeService`: CRUD مملوك + أرشفة منطقية (تحافظ على السجلات) +
+  تسمية تلقائية للتنويعات A/B/C + `recordPerformance()` (أرقام فعلية فقط،
+  رفض أي قيمة غير رقمية) + `bestVariant()` بحد أدنى من الانطباعات.
+- `AdCreativeController`: 9 نقاط API جديدة كلها AuthMiddleware، عزل التينانت
+  عبر `resolveAdsAccess()` (نفس منهجية AdsController) مع فحص ملكية في الـ Service.
+- Lang: 37 مفتاح `ads.creatives.*` في en/ar.
+- اختبارات `tests/Integration/AdCreativeIntegrationTest.php` (7/29).
+- التحقق: **485/14657 OK**، lint 741، PHPStan 0. commit + push على `main`.
+
 # PROGRESS — الخطوة 3: Outreach Discovery + Ads Attribution (CAPI)
 
 **التاريخ:** 2026-08-28

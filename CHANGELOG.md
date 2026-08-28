@@ -1,4 +1,42 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## إدارة الأصول الإعلانية (بند 1: Creative Assets) — 2026-08-28
+
+نقطة بداية سلسلة بنود التطوير التنافسية الجديدة على `main` (Ads ×5 / CRM ×1 /
+AI Chat ×2): إدارة أصول الإعلانات (نص/صورة/فيديو) على مستوى الإعلان بدل
+الاقتصار على نصوص `ad_copies` على مستوى الحملة، مع تنويعات A/B/C وأداء حقيقي
+لكل تنويع.
+
+**الميزات الجديدة (`AdCreativeService` + `AdCreativeController`):**
+- **أصول إعلانية** (`ad_creatives`): `name` + `creative_type`
+  (`text`/`image`/`video`) + `headline`/`primary_text`/`media_url` + حالة
+  `active`/`paused`/`archived`. إنشاء/تحديث/تغيير حالة/أرشفة منطقية (تحافظ
+  على السجلات والأداء — لا حذف من DB).
+- **تنويعات** (`ad_creative_variants`): تسمية تلقائية A ثم B ثم C... مع
+  إمكانية تسمية يدوية، علامة `is_control`، وتحديث محتوى كل تنويع.
+- **أداء حقيقي فقط**: `recordPerformance()` يقبل أرقام فعلية فقط (ظهور/نقرات/
+  إنفاق/تحويلات/إيرادات) من المزامنة/الإدخال — أي قيمة غير رقمية تُرفض، ولا
+  يوجد أي رقم مُختلق أو تقديري. CTR/CPC/CPA/ROAS تُحسب عند القراءة من
+  البيانات الخام.
+- `bestVariant()`: أفضل تنويع أداءً (CTR) بكفاية حد أدنى من الانطباعات.
+- **عزل تينانت صارم**: كل جدول بعمود `user_id`، وكل وصول يمر بفحص ملكية
+  داخل الـ Service + حلّ `owner_id` عبر `AdPermissionService` في الـ Controller
+  (نفس منهجية `AdsController::resolveAdsAccess`).
+- **API (كلها AuthMiddleware):** `GET/POST /api/ads/creatives`،
+  `GET/PATCH/DELETE /api/ads/creatives/{id}`،
+  `POST /api/ads/creatives/{id}/status`،
+  `POST /api/ads/creatives/{id}/variants`،
+  `PATCH /api/ads/creative-variants/{id}`،
+  `POST /api/ads/creative-variants/{id}/performance`.
+- **Lang:** 37 مفتاح `ads.creatives.*` جديد في `app/Lang/en.php` + `ar.php`.
+- Migration `2026_08_28_000003_create_ad_creative_assets.sql` (idempotent,
+  جداول جديدة فقط — non-destructive) + تسجيله في `tests/bootstrap.php`.
+
+**اختبارات:** `tests/Integration/AdCreativeIntegrationTest.php` (7/29): إنشاء
+بأنواع مختلفة، رفض نوع/اسم غير صالحين، الإنشاء على حملة أجنبية، تسمية
+التنويعات التلقائية A/B، عزل التينانت (لا رؤية ولا تعديل لمستخدم آخر)، حساب
+CTR/CPC/CPA/ROAS، `bestVariant`، والأرشفة المنطقية.
+التحقق: **485/14657 OK**، lint 741، PHPStan 0. commit منفصل + push على `main`.
+
 ## إيميل تأكيد الحجز غير المتزامن (بند 2: Booking Confirmation Email) — 2026-08-28
 
 إغلاق الفجوة التوثيقية المتبقية (الخطوة 7 في اختبار الرحلة الكاملة) على `main`:
