@@ -283,6 +283,7 @@ function applyTestMigrations(): void
         '2026_08_28_000004_create_ad_ab_tests.sql',
         '2026_08_28_000005_add_variant_performance_date.sql',
         '2026_08_28_000006_add_rule_alert_creative_types.sql',
+        '2026_08_28_000007_create_ad_recommendations.sql',
     ];
 
     // إصلاح انحرافات السكيما المحلية: schema.sql القديمة بتحتوي أسماء

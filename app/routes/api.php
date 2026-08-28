@@ -770,6 +770,12 @@ $router->get('/api/ads/reports/creatives/{id}', 'AdVariantReportController', 'cr
 $router->get('/api/ads/reports/campaigns/{id}', 'AdVariantReportController', 'campaignBreakdown', ['AuthMiddleware']);
 $router->get('/api/ads/reports/variants/{id}', 'AdVariantReportController', 'variantBreakdown', ['AuthMiddleware']);
 
+// ---- Ad Next-Best-Action (بند 5) - توصيات من ترند إحصائي حقيقي
+$router->get('/api/ads/recommendations', 'AdNextBestActionController', 'recommend', ['AuthMiddleware']);
+$router->get('/api/ads/recommendations/history', 'AdNextBestActionController', 'history', ['AuthMiddleware']);
+$router->post('/api/ads/recommendations/{id}/applied', 'AdNextBestActionController', 'apply', ['AuthMiddleware']);
+$router->post('/api/ads/recommendations/{id}/dismiss', 'AdNextBestActionController', 'dismiss', ['AuthMiddleware']);
+
 $router->post('/api/ads/copilot/ask', 'AdsController', 'askCopilot', ['AuthMiddleware']);
 
 $router->post('/api/ads/campaigns/{id}/keywords/generate', 'AdsController', 'generateKeywords', ['AuthMiddleware']);
