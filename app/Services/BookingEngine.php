@@ -148,6 +148,9 @@ class BookingEngine
 
             // CAPI: حدث تحويل غير متزامن لو الحجز اتعمل عليه إسناد إعلاني
             $this->dispatchConversionEventIfAttributed($this->db, $bookingId);
+
+            // إيميل تأكيد الحجز: Job غير متزامن للعميل (لا يوقف التأكيد أبدًا)
+            $this->dispatchBookingConfirmationEmail($this->db, $bookingId);
         }
         return $confirmed;
     }
@@ -190,6 +193,10 @@ class BookingEngine
             // CAPI: حدث تحويل غير متزامن لو الحجز اتعمل عليه إسناد إعلاني
             // (INSERT جوه نفس الـ transaction - لو التأكيد اتراجع، الحدث مش بيتبعت)
             $this->dispatchConversionEventIfAttributed($db, $bookingId);
+
+            // إيميل تأكيد الحجز: Job غير متزامن جوه نفس الـ transaction —
+            // لو التأكيد اتراجع (rollback) مفيش إيميل يتجدول.
+            $this->dispatchBookingConfirmationEmail($db, $bookingId);
 
             return true;
         });
@@ -457,6 +464,40 @@ class BookingEngine
         } catch (Throwable $e) {
             if (class_exists('Logger')) {
                 Logger::warning('CAPI conversion dispatch failed', ['booking_id' => $bookingId, 'error' => $e->getMessage()]);
+            }
+        }
+    }
+
+    /**
+     * جدولة إيميل تأكيد الحجز كـ Job غير متزامن (SendBookingConfirmationJob)
+     * على طابور 'email'. الإيميل ثانوي والتأكيد أساسي: بيجدول فقط للحجز
+     * confirmed وله customer_email صالح، وأي فشل (طابور غير متاح/خطأ)
+     * بيتسجّل ويتجاهل بصمت — لا يوقف تدفق التأكيد أبدًا.
+     */
+    private function dispatchBookingConfirmationEmail(Database $db, int $bookingId): void
+    {
+        try {
+            $rows = $db->query(
+                "SELECT id FROM bookings
+                 WHERE id = ? AND status = 'confirmed'
+                   AND customer_email IS NOT NULL AND customer_email != ''
+                 LIMIT 1",
+                [$bookingId]
+            );
+            if (empty($rows)) {
+                return;
+            }
+            if (!class_exists('QueueManager') || !class_exists('Container')) {
+                return;
+            }
+
+            $queue = Container::getInstance()->make(QueueManager::class);
+            if ($queue->isReady()) {
+                $queue->push('SendBookingConfirmationJob', ['booking_id' => $bookingId], 'email', 0);
+            }
+        } catch (Throwable $e) {
+            if (class_exists('Logger')) {
+                Logger::warning('Booking confirmation email dispatch failed', ['booking_id' => $bookingId, 'error' => $e->getMessage()]);
             }
         }
     }

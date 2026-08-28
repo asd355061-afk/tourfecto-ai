@@ -112,7 +112,7 @@ final class FullBookingJourneyIntegrationTest extends TestCase
 
             foreach (['users', 'agencies', 'agency_clients', 'agency_commissions',
                       'generated_websites', 'crm_products', 'crm_contacts', 'crm_deals',
-                      'bookings', 'payment_transactions'] as $table) {
+                      'bookings', 'payment_transactions', 'jobs'] as $table) {
                 $found = $conn->query("SHOW TABLES LIKE '{$table}'")->fetchAll();
                 if (empty($found)) {
                     return null;
@@ -408,19 +408,22 @@ final class FullBookingJourneyIntegrationTest extends TestCase
         $this->assertEquals(12.00, (float) $comm['commission_amount'], 'الخطوة 6: 100 × 12% = 12');
         $this->assertSame('pending', $comm['status'], 'الخطوة 6: العمولة بتبدأ pending');
 
-        // الخطوة 7 [فجوة موثقة]: مفيش إيميل تأكيد حجز بيتسجّل في السجل الترانزاكشنالي
-        $hasEmailLogs = self::$pdo->query("SHOW TABLES LIKE 'email_transactional_logs'")->fetchAll();
-        if (!empty($hasEmailLogs)) {
-            $emailCount = (int) self::$pdo->query(
-                "SELECT COUNT(*) FROM email_transactional_logs WHERE to_email = "
-                . self::$pdo->quote(self::VISITOR_EMAIL)
-            )->fetchColumn();
-            $this->assertSame(
-                0,
-                $emailCount,
-                'الخطوة 7 [فجوة موثقة]: مفيش أي إيميل تأكيد اتبعت للزائر — منطق الإشعار غير موجود أصلًا'
-            );
-        }
+        // الخطوة 7 [مُصلحة]: إيميل تأكيد الحجز بيتجدول كـ Job غير متزامن
+        // (SendBookingConfirmationJob) على طابور 'email' للعميل.
+        $job = self::$pdo->query(
+            "SELECT * FROM jobs
+             WHERE job_class = 'SendBookingConfirmationJob'
+             ORDER BY id DESC LIMIT 1"
+        )->fetch();
+        $this->assertNotEmpty($job, 'الخطوة 7: Job إيميل التأكيد اتجدول فعلًا');
+        $this->assertSame('email', $job['queue'], 'الخطوة 7: على طابور email');
+        $jobPayload = json_decode((string) ($job['payload'] ?? '[]'), true);
+        $this->assertSame($bookingId, (int) ($jobPayload['booking_id'] ?? 0), 'الخطوة 7: مرتبط بنفس الحجز');
+        $this->assertSame(
+            'pending',
+            $job['status'],
+            'الخطوة 7: المهمة مستحقة التنفيذ (pending) — الإرسال غير متزامن'
+        );
     }
 
     /**

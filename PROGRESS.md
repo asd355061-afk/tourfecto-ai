@@ -161,7 +161,7 @@
 | 4 | Webhook نجاح Stripe (completed) → confirmed + succeeded + idempotent | ✅ نجحت |
 | 5 | الصفقة المربوطة بتتقفل won تلقائيًا (closed_at يُسجَّل) | ✅ نجحت |
 | 6 | عمولة الوكالة تُسجَّل تلقائيًا = total × commission_rate (pending) | ✅ نجحت |
-| 7 | إيميل تأكيد الحجز | ⚠️ **فجوة موثقة**: لا يوجد أي منطق إرسال إشعار تأكيد حجز في الكود (لا Stripe/Paymob/BookingEngine/BookingController)؛ الاختبار يثبّت أن `email_transactional_logs` تبقى فارغة للزائر |
+| 7 | إيميل تأكيد الحجز | ✅ **مُصلحة** (بند Booking Confirmation Email): `SendBookingConfirmationJob` يتجدول تلقائيًا على طابور `email` من نقطتي التأكيد (يدوي + بعد الدفع)، ويبعت للعميل رقم الحجز/الرحلة/التاريخ/المبلغ — الاختبار يثبت الجدولة فعلًا |
 | 8 | الرحلة نفسها عبر Paymob (webhook success=true) → confirmed + won + عمولة | ✅ نجحت |
 | 9 | Webhook فشل (Stripe expired) → الحجز pending + المعاملة failed + لا عمولة + لا deal won خاطئة | ✅ نجحت |
 | 10 | إلغاء بعد التأكيد (cancelBooking) | ✅ **مُصلحة** (بند Voided Commission): الحجز يتحول cancelled، وعمولة الـ pending تُلغى تلقائيًا (`voided`) داخل نفس الـ transaction؛ الـ `paid` لا تُعكس أبدًا (تنبيه لصاحب الوكالة)، والـ deal المربوطة تبقى `won` — `crm_deals` لا تُلمس عمدًا (قرار بشري موثق بالأسفل) |
@@ -172,8 +172,9 @@
 المبيعات ويعكس قرار إغلاق اتخذ فعلًا، بينما العمولة مبلغ مالي تالٍ للتصفية.
 الاسترداد/الرجع للصفقات قرار بشري/يدوي عند الحاجة (موثق في `CHANGELOG.md`).
 
-التحقق (بعد بند Voided Commission): **463/14445 OK** (كانت 457/14413 — أضيف
-`BookingCancellationCommissionTest` بـ 3 حالات + تحديث الخطوة 10)، lint 734 ملف، PHPStan 0.
+التحقق (بعد بندي Voided Commission + Booking Confirmation Email): **471/14499 OK**
+(كانت 457/14413 — أُضيف `BookingCancellationCommissionTest` بـ 3 حالات و
+`SendBookingConfirmationJobTest` بـ 4 حالات + تحديث الخطوتين 7 و10)، lint 736 ملف، PHPStan 0.
 
 ## قرارات
 - بوابة افتراضية = Stripe لو مفعّل (لا تغيير في السلوك القائم)؛ Paymob

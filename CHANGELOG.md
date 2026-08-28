@@ -1,4 +1,31 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## إيميل تأكيد الحجز غير المتزامن (بند 2: Booking Confirmation Email) — 2026-08-28
+
+إغلاق الفجوة التوثيقية المتبقية (الخطوة 7 في اختبار الرحلة الكاملة) على `main`:
+تأكيد الحجز (يدوي أو بعد نجاح الدفع) لم يكن يرسل أي إشعار للعميل. الآن:
+
+**Job غير متزامن (`app/Jobs/SendBookingConfirmationJob.php`):**
+- يُجدول من نقطتي التأكيد في `BookingEngine` (بعد `confirmBooking` وبجوه
+  transaction `confirmBookingFromPayment`) على طابور `email` عبر
+  `QueueManager::push` — نفس نمط `SendAdConversionJob` + `dispatchBookingConfirmationEmail`
+  (أي فشل في الجدولة يُسجَّل ولا يكسر تدفق التأكيد أبدًا).
+- يُرسل للعميل (`bookings.customer_email`) محتوى: رقم الحجز، اسم الرحلة،
+  تاريخ البداية، المبلغ المدفوع، اسم الشركة.
+- يعتمد على كلاس `Mailer` الأساسي (نفس قاعدة شغل List-Unsubscribe — هيدرز
+  صحيحة UTF-8 ومنع header injection) مع factory `makeMailer()` قابلة
+  للاستبدال في الاختبارات (منع أي SMTP حقيقي).
+- أمان: يعمل فقط على حجز `confirmed` بإيميل صالح؛ غياب الإيميل يفشل الـ Job
+  بأمان (retry ثم failed) ولا يمس التأكيد؛ المحتوى مبني من بيانات الحجز مع
+  تهريب كل القيم عبر `htmlspecialchars`؛ Mailer غير مضبوط → تخطٍ بسجل warning.
+
+**اختبارات (PHPUnit 10.5):**
+- `tests/Integration/SendBookingConfirmationJobTest.php` (جديد): إيميل موجود
+  (RecordingMailer fake يلتقط المحتوى)، إيميل غائب (فشل آمن)، Mailer غير
+  مضبوط (تخطٍ بدون throw)، وتهريب الإدخال في `buildConfirmationHtml`.
+- `FullBookingJourneyIntegrationTest`: الخطوة 7 اتحدثت من "الصندوق الترانزاكشنالي
+  فاضي (فجوة)" إلى إثبات أن `SendBookingConfirmationJob` اتجدول فعلًا على طابور
+  `email` لنفس الحجز.
+
 ## إلغاء الحجز يعالج عمولة الوكالة (بند 1: Voided Commission) — 2026-08-28
 
 إغلاق فجوة توثيقية (الخطوة 10 في اختبار الرحلة الكاملة) على `main`:
