@@ -1,8 +1,36 @@
-# PROGRESS — الخطوة 2: Paymob / ربط CRM / دمج فروع CRM / White-Label
+# PROGRESS — الخطوة 3: Outreach Discovery + Ads Attribution (CAPI)
 
-**التاريخ:** 2026-08-26
-**الفرع:** `main` (بعد دمج `feat/email-marketing-platform`)
-**الحالة:** البنود 1-4 مكتملة — Paymob، ربط CRM بالحجز، فحص الفروع الستة (لا دمج)، White-Label (عمولات + تقرير + براندنج)
+**التاريخ:** 2026-08-28
+**الفرع:** `main`
+**الحالة:** البند 1 (Outreach Discovery) مكتمل ومُدفوع — البند 2 (Ads Attribution/CAPI) قيد التنفيذ
+
+## البند 1 (مكتمل): اكتشاف تلقائي لمرشّحين الـ Backlink
+- `ProspectDiscoverySourceInterface` (عقد المصادر) +
+  `CompetitorBacklinkDiscoverySource` (المصدر الافتراضي): مرشّحين من
+  `competitors.competitor_domain` + `ci_snapshots` (بيانات عامة معلنة فقط).
+- **أمان صارم:** لا استخراج WHOIS/إيميلات خاصة؛ `contact_email`/`contact_name`
+  = NULL دائمًا للمرشحين المكتشفين؛ الرسالة تُسجَّل draft وتحتاج موافقة
+  صريحة (`approveEmail`) قبل أي إرسال — لا إرسال تلقائي.
+- `ProspectDiscoveryService::discoverForWebsite()`: منع التكرار (نفس الموقع/
+  `link_acquired`/الدومين الذاتي)، `relevance_score` (0-100) من بيانات متاحة،
+  حفظ `status='prospect'` + توليد مسودة تلقائية.
+- **قرار صادق:** لا توجد بيانات referring-domains حقيقية في CompetitorIntelligence،
+  فالمصدر يشتقّ المرشحين من المنافسين المتتبعين ويوثّق ذلك في الكود (بدل اختلاق أرقام).
+- `POST /api/outreach/discover` + rate limit `discovery_run` (10/ساعة) عبر
+  `CiRateLimiter` القائم.
+- `public_html/index.php`: تحميل الملفات الجديدة يدويًا (نمط السيرفر بلا
+  composer dump-autoload). `tests/bootstrap.php`: إضافة migrations
+  CI/Outreach/Ads (idempotent) إلى `applyTestMigrations()`.
+- اختبارات `tests/Integration/OutreachDiscoveryIntegrationTest.php` (10/59).
+- التحقق: **429/14297 OK**، lint 730، PHPStan 0. commit + push على `main`.
+
+## البند 2 (قيد التنفيذ): ربط الإعلانات بالحجز + CAPI
+- (لم يُبدأ التنفيذ بعد — التالي: عمود `attributed_utm_link_id`، كعكة/جلسة
+  30 يوم من `/r/{code}`، تحديث `source`، حاسبة ROAS، `MetaAdsAPI::sendConversionEvent`
+  + Enhanced Conversions، `SendAdConversionJob`، اختبارات، ثم commit منفصل + push.)
+
+## الخطوة 2 (مكتملة): Paymob / ربط CRM / دمج فروع CRM / White-Label
+
 
 ## الخطوة 1 (مكتملة): دمج feat/email-marketing-platform في main
 - fetch + فحص diff يدوي: الفرق الوحيد المتبقي كان `d572eb4`

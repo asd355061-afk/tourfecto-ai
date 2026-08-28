@@ -268,6 +268,14 @@ function applyTestMigrations(): void
         '2026_08_12_000049_create_tax_rules_table.sql',
         '2026_07_22_000022_create_plan_pricing_display_table.sql',
         '2026_07_13_000001_create_jobs_table.sql',
+        // Outreach / Competitor Intelligence / Ads attribution tables
+        // (كلها idempotent - CREATE TABLE IF NOT EXISTS). مطلوبة لاختبارات
+        // Outreach Discovery و Ads Attribution.
+        '2026_08_08_000042_create_competitor_intelligence_tables.sql',
+        '2026_08_08_000048_outreach_agent.sql',
+        '2026_08_14_000048_create_ci_rate_limits.sql',
+        '2026_08_15_000070_create_missing_base_tables.sql',
+        '2026_08_15_000050_add_ads_autopilot_and_tracking_tables.sql',
     ];
 
     // إصلاح انحرافات السكيما المحلية: schema.sql القديمة بتحتوي أسماء

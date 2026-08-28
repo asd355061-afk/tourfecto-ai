@@ -1272,6 +1272,7 @@ $router->post('/api/ai/tour-page/apply', 'AIController', 'applyTourPage', ['Auth
 $router->get('/api/outreach/prospects', 'OutreachController', 'listProspects', ['AuthMiddleware']);
 $router->post('/api/outreach/prospects', 'OutreachController', 'addProspect', ['AuthMiddleware']);
 $router->post('/api/outreach/prospects/{id}/status', 'OutreachController', 'updateProspectStatus', ['AuthMiddleware']);
+$router->post('/api/outreach/discover', 'OutreachController', 'discover', ['AuthMiddleware']);
 $router->post('/api/outreach/emails/generate', 'OutreachController', 'generateEmail', ['AuthMiddleware']);
 $router->get('/api/outreach/emails', 'OutreachController', 'listEmails', ['AuthMiddleware']);
 $router->post('/api/outreach/emails/{id}/edit', 'OutreachController', 'editEmail', ['AuthMiddleware']);

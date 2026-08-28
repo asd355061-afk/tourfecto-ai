@@ -1,4 +1,39 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## Outreach Discovery + Ads Attribution CAPI (بند 1: Outreach Discovery) — 2026-08-28
+
+تنفيذ البند 1 من خطة "Outreach Discovery + Ads Attribution CAPI" على `main`
+فوق الموديولات الشغالة (لا إعادة بناء).
+
+**اكتشاف تلقائي لمرشّحين الـ Backlink (Outreach Agent — Phase 10):**
+- `ProspectDiscoverySourceInterface` + `CompetitorBacklinkDiscoverySource`:
+  المصدر الافتراضي يشتقّ المرشّحين من المنافسين المتتبعين فعلًا
+  (`competitors.competitor_domain` + آخر لقطة ناجحة من `ci_snapshots`)
+  — **بيانات عامة معلنة فقط، بدون أي استخراج بيانات تواصل شخصية
+  (WHOIS/إيميلات خاصة)**. ملاحظة صادقة في الكود: لا توجد بيانات
+  referring-domains حقيقية تُجمع بعد، فالمصدر يستخدم أقرب بيانات متاحة
+  ووثّق ذلك صراحةً.
+- `ProspectDiscoveryService::discoverForWebsite()`: يجمع المرشحين من كل
+  المصادر، يحسب `relevance_score` (0-100 من بيانات متاحة فعلًا: قوة
+  الموقع + وجود لقطة + تشابه المجال)، يمنع التكرار (موجود لنفس الموقع /
+  `link_acquired` / دومين الموقع نفسه)، يحفظ المرشحين الجدد فقط بـ
+  `status='prospect'` مع `contact_email`/`contact_name` = NULL دائمًا،
+  ويولّد مسودة (`draft`) لكل مرشح جديد عبر `OutreachEmailGenerator`
+  (نفس تدفق `approveEmail` — **أي إرسال فعلي يبقى محتاج موافقة صريحة**).
+- `POST /api/outreach/discover` في `OutreachController` + route جديدة،
+  بـ rate limit `discovery_run` (10/ساعة لكل مستخدم) عبر `CiRateLimiter`
+  القائم، مع عزل الموقع المملوك (`ownsWebsite`).
+- `public_html/index.php`: تحميل يدوي للملفات الجديدة (السيرفر بلا
+  composer dump-autoload) وفق النمط المتبع.
+- `tests/bootstrap.php`: إضافة migrations Outreach/CI/Ads (idempotent) إلى
+  `applyTestMigrations()` حتى تبني قاعدة اختبار جديدة كامل الجداول المطلوبة.
+- اختبارات `tests/Integration/OutreachDiscoveryIntegrationTest.php` (10/59):
+  اكتشاف بدون بيانات شخصية + relevance_score في النطاق، idempotency،
+  استبعاد الدومين الذاتي و`link_acquired`، insufficient_data بلا منافسين،
+  عزل الملكية، 401 بدون مصادقة، سيناريو ناجح للـ endpoint (fake generator
+  لمنع أي استدعاء AI فعلي)، وrate limit.
+
+**التحقق:** **429/14297 OK** (كل الاختبارات خضراء)، lint 730، PHPStan 0.
+
 ## White-Label: عمولات الوكيل + تقرير الأداء + ربط البراندنج باللوحة — 2026-08-26
 
 استكمال البند 4 من خطة White-Label فوق الموديولات الشغالة (لا إعادة بناء).

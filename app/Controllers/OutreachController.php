@@ -18,12 +18,54 @@ class OutreachController extends Controller
 {
     private $subscription;
     private $emailGenerator;
+    private $discoveryService;
 
     public function __construct()
     {
         parent::__construct();
         $this->subscription = new SubscriptionValidator();
         $this->emailGenerator = new OutreachEmailGenerator();
+        $this->discoveryService = new ProspectDiscoveryService(
+            new CompetitorBacklinkDiscoverySource(),
+            $this->emailGenerator
+        );
+    }
+
+    /**
+     * POST /api/outreach/discover  { website_id }
+     * اكتشاف تلقائي لمرشّحين للـ Backlink من بيانات المنافسين المتتبعين
+     * (بيانات عامة معلنة فقط - بدون أي استخراج بيانات تواصل شخصية)،
+     * مع توليد مسودة رسالة لكل مرشح جديد. أي إرسال فعلي بيظل محتاج
+     * موافقة صريحة (approveEmail) - الاكتشاف/الصياغة تلقائيين، الإرسال لأ.
+     * Rate limit: 10 اكتشافات في الساعة لكل مستخدم (CiRateLimiter).
+     */
+    public function discover(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        $websiteId = (int) $this->get('website_id');
+        if (!$websiteId) {
+            return $this->error('website_id مطلوب', 422);
+        }
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('الموقع غير موجود', 404);
+        }
+
+        $limit = CiRateLimiter::hit('discovery_run', 'user:' . (int) $this->user['id']);
+        if (!$limit['allowed']) {
+            $minutes = (int) ceil($limit['retry_after'] / 60);
+            return $this->error('وصلت للحد الأقصى للاكتشاف (10/ساعة) - جرب تاني بعد ' . $minutes . ' دقيقة', 429);
+        }
+
+        $result = $this->discoveryService->discoverForWebsite((int) $this->user['id'], $websiteId);
+
+        if (!$result['available']) {
+            return $this->success($result, 'مفيش بيانات كافية للاكتشاف حاليًا - أضف منافسين متتبعين الأول', 200);
+        }
+
+        return $this->success($result, 'تم الاكتشاف - المرشحون الجدد محفوظون ومسوداتهم جاهزة للمراجعة والموافقة قبل أي إرسال');
     }
 
     /** GET /api/outreach/prospects?website_id=X */
