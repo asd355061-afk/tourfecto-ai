@@ -1,4 +1,33 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## إلغاء الحجز يعالج عمولة الوكالة (بند 1: Voided Commission) — 2026-08-28
+
+إغلاق فجوة توثيقية (الخطوة 10 في اختبار الرحلة الكاملة) على `main`:
+إلغاء حجز مؤكد كان يسيب عمولة الوكالة `pending` للأبد. الآن:
+
+**معالجة العمولة داخل نفس transaction الإلغاء (`BookingEngine::cancelBooking`):**
+- `pending` → `voided`: الحجز أُلغي قبل دفع العمولة فتُسقط المستحقات تلقائيًا
+  (قيمة ENUM جديدة تُحفظ بدل الحذف لإبقاء السجل المالي كاملًا).
+- `paid` → تبقى كما هي (لا تُعكس تلقائيًا أبدًا — أي استرداد قرار بشري/يدوي)
+  + تنبيه لصاحب الوكالة عبر `Notification::notify` (type جديد
+  `commission_paid_on_cancelled_booking` تحت فئة `system` في خريطة
+  `TYPE_CATEGORY_MAP`) + سجل `Logger::warning`.
+- لا عمولة → بلا أثر جانبي.
+- `crm_deals` **لا تُلمس** عمدًا: الـ deal اللي اتقفلت `won` بتفضل `won`
+  (قرار بشري موثق في PROGRESS.md — التصفية تكون على العمولة فقط).
+
+**Schema:**
+- migration `2026_08_28_000002_add_voided_commission_status.sql` (idempotent):
+  `agency_commissions.status` → `ENUM('pending','paid','voided')` (يُحفظ
+  التحديث والمؤشر الموجود).
+
+**اختبارات (PHPUnit 10.5، MariaDB 10.11):**
+- `tests/Integration/BookingCancellationCommissionTest.php` (جديد): مصفوفة
+  الحالات — pending→voided، paid تبقى + إشعار لصاحب الوكالة، لا عمولة →
+  بلا أثر جانبي.
+- `FullBookingJourneyIntegrationTest`: الخطوة 10 اتحدثت من documentation
+  test للسلوك القديم إلى إثبات السلوك المُصلح (عمولة `voided` والـ deal
+  فضلت `won`).
+
 ## ربط الحجوزات بالإعلانات + CAPI (بند 2: Ads Attribution) — 2026-08-28
 
 إتمام البند 2 من خطة "Outreach Discovery + Ads Attribution CAPI" على `main`

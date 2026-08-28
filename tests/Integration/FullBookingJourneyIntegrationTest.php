@@ -16,13 +16,14 @@
  *      والمعاملة succeeded (idempotent).
  *   5) الصفقة المربوطة بتتقفل won تلقائيًا (markLinkedDealWon).
  *   6) عمولة الوكالة بتتسجّل تلقائيًا = total_amount × commission_rate (pending).
- *   7) [فجوة موثقة] مفيش إيميل تأكيد حجز بيتسجّل/بيتبعت (مفيش منطق إشعار في الكود) —
- *      الاختبار بيثبّت إن صندوق الإيميلات الترانزاكشنالية فاضي للحجز.
+ *   7) إيميل تأكيد الحجز بيتجدول كـ Job غير متزامن (SendBookingConfirmationJob)
+ *      على طابور 'email' — الاختبار بيثبت إن الجدولة بتتم فعلًا.
  *   8) نفس الرحلة عبر Paymob (webhook success=true) → نفس النتائج (4-6).
  *   9) Webhook فشل (Stripe expired) → الحجز لسه pending، المعاملة failed،
  *      مفيش عمولة ومفيش deal اتقفلت won بالغلط.
- *  10) [فجوة موثقة] إلغاء بعد التأكيد → cancelBooking مش بيرجّع الـ deal لـ open
- *      ومش بيلغي عمولة pending؛ السلوك الحالي بيتثبّت هنا كـ documentation test.
+ *  10) [مُصلحة] إلغاء بعد التأكيد → cancelBooking بيلغي عمولة الـ pending
+ *      تلقائيًا (voided)، والـ deal اللي اتقفلت won بتفضل won (crm_deals لا
+ *      تُلمس عمدًا — قرار بشري موثق في PROGRESS.md).
  *
  * ملاحظة: ده اختبار توثيقي/اكتشافي. أي خطوة فاشلة = فجوة حقيقية بتتوثّق في
  * PROGRESS.md تحت "نتيجة اختبار الرحلة الكاملة" — مش بتتصلّح هنا (عدا فجوات
@@ -537,12 +538,12 @@ final class FullBookingJourneyIntegrationTest extends TestCase
     }
 
     /**
-     * الخطوة 10 [فجوة موثقة]: إلغاء بعد التأكيد.
-     * السلوك الحالي: cancelBooking بيرجّع الحجز cancelled لكن مش بيرجّع الـ deal
-     * لـ open ومش بيلغي العمولة الـ pending — بيتثبّت كـ documentation test،
-     * والفجوة هتتوصف في PROGRESS.md.
+     * الخطوة 10 [مُصلحة]: إلغاء بعد التأكيد.
+     * السلوك الجديد: cancelBooking بيرجّع الحجز cancelled وبيلغي عمولة
+     * الـ pending تلقائيًا (voided). الـ deal اللي اتقفلت won مش بتترجع
+     * لـ open — قرار بشري موثق (العمولة هي اللي بتتصفى، مش تاريخ الصفقة).
      */
-    public function testCancelAfterConfirmKeepsDealWonAndCommissionPending(): void
+    public function testCancelAfterConfirmVoidsCommissionAndKeepsDealWon(): void
     {
         $pdo = self::$pdo;
 
@@ -558,6 +559,11 @@ final class FullBookingJourneyIntegrationTest extends TestCase
         $afterConfirm = $pdo->query('SELECT status FROM bookings WHERE id = ' . $bookingId)->fetch();
         $this->assertSame('confirmed', $afterConfirm['status']);
 
+        // العمولة اتسجلت pending بعد التأكيد
+        $comm = $pdo->query('SELECT status FROM agency_commissions WHERE booking_id = ' . $bookingId)->fetch();
+        $this->assertNotEmpty($comm);
+        $this->assertSame('pending', $comm['status']);
+
         // الإلغاء بعد التأكيد
         $cancelled = (new BookingEngine())->cancelBooking(self::COMPANY_USER, $bookingId, 'الزائر ألغى بعد الدفع');
         $this->assertTrue($cancelled, 'الخطوة 10: الإلغاء بينفّذ');
@@ -565,21 +571,21 @@ final class FullBookingJourneyIntegrationTest extends TestCase
         $bookingAfter = $pdo->query('SELECT status FROM bookings WHERE id = ' . $bookingId)->fetch();
         $this->assertSame('cancelled', $bookingAfter['status']);
 
-        // [وثيقة السلوك الحالي] الـ deal فضلت won
+        // [مُصلحة] الـ deal فضلت won (crm_deals لا تُلمس — قرار بشري موثق)
         $deal = $pdo->query('SELECT status FROM crm_deals WHERE id = 999518')->fetch();
         $this->assertSame(
             'won',
             $deal['status'],
-            'الخطوة 10 [فجوة موثقة]: الإلغاء مش بيرجّع الـ deal لـ open (مفيش منطق revert)'
+            'الخطوة 10: الـ deal المربوطة بالحجز الملغي فضلت won (crm_deals لا تُلمس)'
         );
 
-        // [وثيقة السلوك الحالي] العمولة فضلت pending رغم الإلغاء
-        $comm = $pdo->query('SELECT status FROM agency_commissions WHERE booking_id = ' . $bookingId)->fetch();
-        $this->assertNotEmpty($comm);
+        // [مُصلحة] عمولة الـ pending اتلغت تلقائيًا (voided)
+        $commAfter = $pdo->query('SELECT status FROM agency_commissions WHERE booking_id = ' . $bookingId)->fetch();
+        $this->assertNotEmpty($commAfter);
         $this->assertSame(
-            'pending',
-            $comm['status'],
-            'الخطوة 10 [فجوة موثقة]: عمولة حجز ملغي فضلت pending (مفيش معالجة للإلغاء)'
+            'voided',
+            $commAfter['status'],
+            'الخطوة 10: عمولة حجز ملغي بقت voided تلقائيًا'
         );
     }
 }

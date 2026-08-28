@@ -227,8 +227,65 @@ class BookingEngine
                 [$bookingId, $booking['status'], 'cancelled', $userId, $reason ?: 'إلغاء بواسطة الحساب']
             );
 
+            // عمولة الوكالة المرتبطة بالحجز (لو موجودة): pending تُلغى
+            // تلقائيًا (voided)، وpaid تُترك كما هي مع تنبيه الأدمن.
+            $this->handleCommissionOnCancel($db, $bookingId);
+
             return true;
         });
+    }
+
+    /**
+     * معالجة عمولة الوكالة عند إلغاء حجز مؤكد (داخل نفس الـ transaction):
+     *   - pending → voided: الحجز اتلغى قبل دفع العمولة، فالمستحقات تُسقَط.
+     *   - paid    → تبقى كما هي + تنبيه (Notification + Logger) للأدمن
+     *               (صاحب الوكالة): العمولة المدفوعة لا تُعكس تلقائيًا أبدًا —
+     *               أي استرداد قرار بشري/يدوي.
+     *   - مفيش عمولة → بلا أثر جانبي.
+     * crm_deals لا تُلمس هنا عمدًا: قرار بشري موثق في PROGRESS.md.
+     */
+    private function handleCommissionOnCancel(Database $db, int $bookingId): void
+    {
+        $rows = $db->query(
+            "SELECT c.id, c.status, a.owner_user_id AS agency_owner_user_id
+             FROM agency_commissions c
+             LEFT JOIN agencies a ON a.id = c.agency_id
+             WHERE c.booking_id = ? LIMIT 1 FOR UPDATE",
+            [$bookingId]
+        );
+        if (empty($rows)) {
+            return;
+        }
+        $commission = $rows[0];
+
+        if ($commission['status'] === 'pending') {
+            $db->query(
+                "UPDATE agency_commissions SET status = 'voided', updated_at = NOW()
+                 WHERE id = ? AND status = 'pending'",
+                [(int) $commission['id']]
+            );
+            return;
+        }
+
+        if ($commission['status'] === 'paid') {
+            $ownerUserId = (int) ($commission['agency_owner_user_id'] ?? 0);
+            $message = 'حجز ملغي وعمولته مدفوعة بالفعل — يلزم استرداد يدوي إن لزم.';
+            if ($ownerUserId > 0 && class_exists('Notification')) {
+                Notification::notify(
+                    $ownerUserId,
+                    'commission_paid_on_cancelled_booking',
+                    'عمولة مدفوعة على حجز ملغي',
+                    $message,
+                    ''
+                );
+            }
+            if (class_exists('Logger')) {
+                Logger::warning(
+                    'Booking cancelled but agency commission already paid',
+                    ['booking_id' => $bookingId, 'commission_id' => (int) $commission['id']]
+                );
+            }
+        }
     }
 
     private function changeStatus(int $userId, int $bookingId, string $toStatus, string $reason): bool

@@ -28,6 +28,7 @@ class Notification extends Model
         'admin_broadcast' => 'system',
         'wallet_deposit_approved' => 'system',
         'subscription_activated' => 'system',
+        'commission_paid_on_cancelled_booking' => 'system',
     ];
 
     /** الفئات كلها متاحة افتراضيًا (true) لو المستخدم لسه معندوش تفضيل محفوظ */
