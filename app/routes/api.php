@@ -1229,6 +1229,8 @@ $router->put('/api/ai-chat/websites/{id}/followup-settings', 'AiFollowupSettings
 // Phase 4: AI Analytics Dashboard + AI Reply Suggestions للموظف.
 // ============================================
 $router->get('/api/ai-chat/websites/{id}/analytics', 'AiAnalyticsController', 'index', ['AuthMiddleware']);
+// سطح صحة/حالة إضافي (بند 8): معدل الحل + جودة استدعاء الـAI
+$router->get('/api/ai-chat/websites/{id}/resolution-rate', 'AiResolutionRateController', 'index', ['AuthMiddleware']);
 $router->get('/api/ai-chat/websites/{id}/conversations', 'ChatInboxController', 'index', ['AuthMiddleware']);
 $router->get('/api/ai-chat/websites/{id}/conversations/{conversationId}', 'ChatInboxController', 'show', ['AuthMiddleware']);
 $router->put('/api/ai-chat/websites/{id}/conversations/{conversationId}', 'ChatInboxController', 'update', ['AuthMiddleware']);
