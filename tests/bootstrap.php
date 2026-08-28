@@ -276,11 +276,13 @@ function applyTestMigrations(): void
         '2026_08_14_000048_create_ci_rate_limits.sql',
         '2026_08_15_000070_create_missing_base_tables.sql',
         '2026_08_15_000050_add_ads_autopilot_and_tracking_tables.sql',
+        '2026_08_15_000060_add_ads_alerts.sql',
         '2026_08_28_000001_add_booking_ad_attribution.sql',
         '2026_08_28_000002_add_voided_commission_status.sql',
         '2026_08_28_000003_create_ad_creative_assets.sql',
         '2026_08_28_000004_create_ad_ab_tests.sql',
         '2026_08_28_000005_add_variant_performance_date.sql',
+        '2026_08_28_000006_add_rule_alert_creative_types.sql',
     ];
 
     // إصلاح انحرافات السكيما المحلية: schema.sql القديمة بتحتوي أسماء

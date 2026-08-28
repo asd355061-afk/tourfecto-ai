@@ -1,4 +1,37 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## تنبيهات القواعد على مستوى الأصل/التنويع/التجربة (بند 4: Rule-triggered Alerts) — 2026-08-28
+
+توسعة سلسلة بنود التطوير التنافسية على `main`: قواعد إنذار جديدة فوق
+`AdAlertService` القائم (الذي كان يغطي 5 قواعد على مستوى الحملة من
+`ad_performance_reports`) — الآن 4 قواعد إضافية على مستوى الأصل الإعلاني/
+التنويع/التجربة من بيانات حقيقية (البنود 1-2)، بنفس آلية persist + notify.
+
+**الميزات الجديدة (مضافة إلى `AdAlertService`):**
+- **`creative_underperforming`** (نطاق creative): أفضل تنويع CTR أدنى من % من
+  CTR الحملة (نافذة حقيقية من المزامنة + أداء التنويعات).
+- **`creative_stale`** (creative): أصل بلا أداء مُسجّل منذ N يوم والحملة نشطة
+  (عبر `recorded_on`) — أصل بلا تنويعات لا يُعدّ قديمًا.
+- **`variant_wasted_spend`** (variant): تنويع بإنفاق ≥ حد وبلا تحويلات.
+- **`ab_test_inconclusive`** (ab_test): تجربة جارية منذ N يوم+ بلا دلالة
+  إحصائية (`has_enough_data=false` من `AdAbTestService::statistics`).
+- كل قاعدة تولّد تنبيهًا واحدًا لكل حملة/يوم (يذكر أسوأ حالة + عدد المخالفات)
+  احترامًا لـ UNIQUE(user, campaign, rule, date) — ويُسجَّل `ad_alerts` +
+  `Notification::notify` مثل القواعد القديمة.
+- **التكامل مع النقاط القائمة**: `GET/POST /api/ads/alerts/rules` +
+  `POST /api/ads/alerts/run` تعمل مع الأنواع الجديدة تلقائيًا (لا تعديل
+  لـ AdsController).
+- **`AdRuleAlertController::ruleCatalog()`**: `GET /api/ads/alerts/rule-types`
+  يعرض القواعد التسع (القديمة + الجديدة) مع النطاق والحد الافتراضي والوحدة —
+  للواجهة دون hardcoding.
+- **Lang:** 18 مفتاح `ads.alerts.rule.*` جديد في `app/Lang/en.php` + `ar.php`.
+- **Bug-fix غير مدمر**: تصحيح return type لـ `evaluateRule`/
+  `evaluateAdvancedRule` من `?array` إلى `array|string|null` (الرمز السابق
+  كان يعيد سلسلة `'insufficient_data'` مع توقيع `?array` → TypeError كامنًا).
+- migration `2026_08_28_000006_add_rule_alert_creative_types.sql` (idempotent):
+  توسعة ENUM `rule_type` في `ad_alert_rules` + `ad_alerts` بالقواعد الجديدة.
+- اختبارات `tests/Integration/AdRuleAlertIntegrationTest.php` (8/42) تغطي
+  الحفظ/التقييم لكل قاعدة جديدة/التعطيل/الكتالوج/عزل التينانت.
+
 ## تقارير مستوى الإعلان/الـ variant (بند 3: Ad/Variant Reports) — 2026-08-28
 
 توسعة سلسلة بنود التطوير التنافسية على `main`: تقارير بجوار

@@ -734,6 +734,7 @@ $router->get('/api/ads/alerts', 'AdsController', 'listAlerts', ['AuthMiddleware'
 $router->post('/api/ads/alerts/run', 'AdsController', 'runAlertsNow', ['AuthMiddleware']);
 $router->post('/api/ads/alerts/read-all', 'AdsController', 'markAllAlertsRead', ['AuthMiddleware']);
 $router->post('/api/ads/alerts/{id}/dismiss', 'AdsController', 'dismissAlert', ['AuthMiddleware']);
+$router->get('/api/ads/alerts/rule-types', 'AdRuleAlertController', 'ruleTypes', ['AuthMiddleware']);
 
 // ---- Creative Assets (بند 1) - أصول إعلانية (نص/صورة/فيديو) + تنويعات A/B/C
 $router->get('/api/ads/creatives', 'AdCreativeController', 'list', ['AuthMiddleware']);

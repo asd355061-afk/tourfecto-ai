@@ -50,7 +50,11 @@ class AdAlertService
             throw new InvalidArgumentException('صيغة القواعد غير صحيحة');
         }
 
-        $known = ['budget_exhausted', 'cpc_spike', 'ctr_drop', 'landing_page_down', 'budget_pacing'];
+        $known = [
+            'budget_exhausted', 'cpc_spike', 'ctr_drop', 'landing_page_down', 'budget_pacing',
+            // بند 4: قواعد مستوى الأصل الإعلاني/التنويع/التجربة
+            'creative_underperforming', 'creative_stale', 'variant_wasted_spend', 'ab_test_inconclusive',
+        ];
         foreach ($incoming as $type => $cfg) {
             if (!in_array($type, $known, true)) {
                 continue;
@@ -112,6 +116,27 @@ class AdAlertService
                     $this->notifyUser($alert);
                 }
             }
+
+            // بند 4: قواعد مستوى الأصل الإعلاني/التنويع/التجربة (فوق القواعد
+            // القائمة) - تقييم من بيانات حقيقية فقط (ad_creative_variants /
+            // ad_ab_tests) مع نفس آلية persist + notify.
+            $advanced = ['creative_underperforming', 'creative_stale', 'variant_wasted_spend', 'ab_test_inconclusive'];
+            foreach ($advanced as $advancedType) {
+                if (!isset($rules[$advancedType]) || !$rules[$advancedType]['is_enabled']) {
+                    continue;
+                }
+                $alert = $this->evaluateAdvancedRule($userId, $campaignId, $campaignName, $advancedType, $rules[$advancedType]['threshold_value']);
+                if ($alert === 'insufficient_data') {
+                    $summary['insufficient_data']++;
+                    continue;
+                }
+                if ($alert !== null) {
+                    $summary['generated']++;
+                    $summary['alerts'][] = $alert;
+                    $this->persistAlert($alert);
+                    $this->notifyUser($alert);
+                }
+            }
             $summary['evaluated']++;
         }
 
@@ -122,7 +147,7 @@ class AdAlertService
      * يقيّم قاعدة واحدة لحملة. بيرجّع null (مفيش مخالفة)، أو صف تنبيه،
      * أو سلسلة 'insufficient_data' (مفيش بيانات أداء فعلية كافية).
      */
-    private function evaluateRule(int $userId, int $campaignId, string $campaignName, string $ruleType, ?float $threshold): ?array
+    private function evaluateRule(int $userId, int $campaignId, string $campaignName, string $ruleType, ?float $threshold): array|string|null
     {
         // بيانات اليوم (للإنفاق ومعدل الصرف) - حقيقية من المزامنة
         $todayRows = $this->db->query(
@@ -262,8 +287,217 @@ class AdAlertService
     }
 
     // ================================================================
-    // مساعدون
+    // بند 4: قواعد مستوى الأصل الإعلاني/التنويع/التجربة
     // ================================================================
+
+    /**
+     * يقيّم قاعدة متقدمة واحدة لحملة (على مستوى الأصل/التنويع/التجربة).
+     * بيرجّع null (مفيش مخالفة)، أو صف تنبيه واحد للحملة (أخطر حالة مع
+     * عدد السياقات المخالفة)، أو 'insufficient_data'.
+     */
+    private function evaluateAdvancedRule(int $userId, int $campaignId, string $campaignName, string $ruleType, ?float $threshold): array|string|null
+    {
+        $creatives = array_values(array_filter(
+            (new AdCreative())->where(['user_id' => $userId, 'campaign_id' => $campaignId]),
+            fn ($cr) => $cr->getAttribute('status') !== 'archived'
+        ));
+
+        switch ($ruleType) {
+            case 'creative_underperforming': {
+                $campaignCtr = $this->avgCtr($campaignId, 7, 0);
+                if ($campaignCtr === null || $campaignCtr <= 0) {
+                    return 'insufficient_data';
+                }
+                $thresholdPct = $threshold !== null ? $threshold : 50.0;
+                $worst = null;
+                $violations = 0;
+                foreach ($creatives as $cr) {
+                    $bestCtr = $this->creativeBestVariantCtr($userId, (int) $cr->getAttribute('id'), 7);
+                    if ($bestCtr === null) {
+                        continue;
+                    }
+                    $ratio = $campaignCtr > 0 ? ($bestCtr / $campaignCtr) * 100 : 0.0;
+                    if ($ratio < $thresholdPct) {
+                        $violations++;
+                        if ($worst === null || $bestCtr < $worst['ctr']) {
+                            $worst = [
+                                'creative_id' => (int) $cr->getAttribute('id'),
+                                'creative_name' => (string) $cr->getAttribute('name'),
+                                'ctr' => $bestCtr,
+                            ];
+                        }
+                    }
+                }
+                if ($violations === 0) {
+                    return null;
+                }
+                return [
+                    'user_id' => $userId, 'campaign_id' => $campaignId, 'rule_type' => $ruleType,
+                    'severity' => 'warning',
+                    'title' => 'أصل إعلاني دون مستوى الأداء',
+                    'body' => sprintf(
+                        'حملة "%s": أفضل تنويع لأصل "%s" (CTR %.2f%%) أقل من %d%% من نسبة نقر الحملة (%.2f%%) - %d أصل مخالف.',
+                        $campaignName,
+                        $worst['creative_name'],
+                        $worst['ctr'],
+                        round($thresholdPct),
+                        $campaignCtr,
+                        $violations
+                    ),
+                    'alert_date' => date('Y-m-d'),
+                ];
+            }
+
+            case 'creative_stale': {
+                $days = (int) ($threshold !== null ? $threshold : 7);
+                $stale = 0;
+                $oldestName = null;
+                foreach ($creatives as $cr) {
+                    if (!$this->creativeHasRecentData($userId, (int) $cr->getAttribute('id'), $days)) {
+                        $stale++;
+                        if ($oldestName === null) {
+                            $oldestName = (string) $cr->getAttribute('name');
+                        }
+                    }
+                }
+                if ($stale === 0) {
+                    return null;
+                }
+                return [
+                    'user_id' => $userId, 'campaign_id' => $campaignId, 'rule_type' => $ruleType,
+                    'severity' => 'info',
+                    'title' => 'أصل إعلاني بلا بيانات أداء حديثة',
+                    'body' => sprintf(
+                        'حملة "%s": أصل "%s" (و%d أصله آخر) بلا أداء مُسجّل منذ %d يوم - راجع المزامنة أو الأداء.',
+                        $campaignName,
+                        $oldestName,
+                        max(0, $stale - 1),
+                        $days
+                    ),
+                    'alert_date' => date('Y-m-d'),
+                ];
+            }
+
+            case 'variant_wasted_spend': {
+                $minSpend = (float) ($threshold !== null ? $threshold : 50.0);
+                $worst = null;
+                $wasted = 0;
+                $totalWastedSpend = 0.0;
+                foreach ($creatives as $cr) {
+                    $crId = (int) $cr->getAttribute('id');
+                    $variants = (new AdCreativeVariant())->where(['user_id' => $userId, 'creative_id' => $crId]);
+                    foreach ($variants as $v) {
+                        $spend = (float) ($v->getAttribute('spend') ?? 0);
+                        $conversions = (float) ($v->getAttribute('conversions') ?? 0);
+                        if ($spend >= $minSpend && $conversions <= 0) {
+                            $wasted++;
+                            $totalWastedSpend += $spend;
+                            if ($worst === null || $spend > $worst['spend']) {
+                                $worst = [
+                                    'variant_label' => $v->getAttribute('variant_label'),
+                                    'spend' => $spend,
+                                ];
+                            }
+                        }
+                    }
+                }
+                if ($wasted === 0) {
+                    return null;
+                }
+                return [
+                    'user_id' => $userId, 'campaign_id' => $campaignId, 'rule_type' => $ruleType,
+                    'severity' => 'warning',
+                    'title' => 'إنفاق بلا تحويلات',
+                    'body' => sprintf(
+                        'حملة "%s": %d تنويع بتصرف %.2f إجمالًا بلا أي تحويل - أسوأهم تنويع "%s" (%.2f).',
+                        $campaignName,
+                        $wasted,
+                        $totalWastedSpend,
+                        $worst['variant_label'] ?? '#',
+                        $worst['spend']
+                    ),
+                    'alert_date' => date('Y-m-d'),
+                ];
+            }
+
+            case 'ab_test_inconclusive': {
+                $days = (int) ($threshold !== null ? $threshold : 14);
+                $tests = array_values(array_filter(
+                    (new AdAbTest())->where(['user_id' => $userId, 'campaign_id' => $campaignId]),
+                    fn ($t) => $t->getAttribute('status') === 'running'
+                ));
+                $inconclusive = 0;
+                $firstTestName = null;
+                foreach ($tests as $test) {
+                    $startedAt = $test->getAttribute('started_at');
+                    if ($startedAt === null || $startedAt > date('Y-m-d H:i:s', strtotime("-{$days} days"))) {
+                        continue;
+                    }
+                    $stats = (new AdAbTestService())->statistics($userId, (int) $test->getAttribute('id'));
+                    if (!empty($stats['arms']) && !$stats['has_enough_data']) {
+                        $inconclusive++;
+                        if ($firstTestName === null) {
+                            $firstTestName = (string) $test->getAttribute('name');
+                        }
+                    }
+                }
+                if ($inconclusive === 0) {
+                    return null;
+                }
+                return [
+                    'user_id' => $userId, 'campaign_id' => $campaignId, 'rule_type' => $ruleType,
+                    'severity' => 'info',
+                    'title' => 'تجربة A/B بلا نتيجة بعد فترة كافية',
+                    'body' => sprintf(
+                        'حملة "%s": تجربة "%s" (%d تجارب) جارية منذ %d يوم+ بلا بيانات كافية للدلالة الإحصائية - افحص حجم الحركة أو أوقفها.',
+                        $campaignName,
+                        $firstTestName,
+                        $inconclusive,
+                        $days
+                    ),
+                    'alert_date' => date('Y-m-d'),
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * أفضل CTR بين تنويعات الأصل خلال نافذة (أيام) من recorded_on - بيانات
+     * أداء خام حقيقية. null لو مفيش تنويعات أو مفيش انطباعات.
+     */
+    private function creativeBestVariantCtr(int $userId, int $creativeId, int $days): ?float
+    {
+        $rows = $this->db->query(
+            "SELECT MAX(IF(v.impressions > 0, (v.clicks / v.impressions) * 100, 0)) AS best_ctr
+             FROM ad_creative_variants v
+             WHERE v.user_id = ? AND v.creative_id = ?
+               AND v.recorded_on >= DATE_SUB(CURDATE(), INTERVAL ? DAY)",
+            [$userId, $creativeId, $days]
+        );
+        if (!isset($rows[0]['best_ctr']) || $rows[0]['best_ctr'] === null) {
+            return null;
+        }
+        $best = (float) $rows[0]['best_ctr'];
+        return $best > 0 ? $best : null;
+    }
+
+    /** هل للأصل أي تنويع بأداء مُسجّل خلال آخر (أيام) يوم؟ */
+    private function creativeHasRecentData(int $userId, int $creativeId, int $days): bool
+    {
+        $count = (new AdCreativeVariant())->where(['user_id' => $userId, 'creative_id' => $creativeId], [], 1);
+        if (empty($count)) {
+            return true; // الأصل بلا تنويعات أصلًا - مش "قديم" بل لا يقاس
+        }
+        $rows = $this->db->query(
+            "SELECT COUNT(*) AS c FROM ad_creative_variants
+             WHERE user_id = ? AND creative_id = ?
+               AND recorded_on >= DATE_SUB(CURDATE(), INTERVAL ? DAY)",
+            [$userId, $creativeId, $days]
+        );
+        return (int) ($rows[0]['c'] ?? 0) > 0;
+    }
 
     /**
      * متوسط تكلفة النقرة (أو null لو مفيش بيانات) على نافذة زمنية.

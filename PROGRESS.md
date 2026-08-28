@@ -4,6 +4,29 @@
 **الفرع:** `main`
 **الحالة:** 8 بنود جديدة بالتتابع — كل بند migration+model+service+controller+routes+Lang+tests+checks+commit منفصل
 
+## البند 4 (مكتمل): تنبيهات القواعد على مستوى الأصل/التنويع/التجربة (Rule-triggered Alerts) — Ads
+- **المشكلة:** AdAlertService القائم كان يغطي 5 قواعد على مستوى الحملة فقط
+  (ad_performance_reports) بلا استفادة من بيانات الأصول/التنويعات/التجارب
+  (البنود 1-2).
+- migration `2026_08_28_000006_add_rule_alert_creative_types.sql` (idempotent):
+  توسعة ENUM `rule_type` في ad_alert_rules + ad_alerts لـ 4 أنواع جديدة.
+- `AdAlertService` (إضافة فوق القائم + نفس persist/notify): 4 قواعد جديدة —
+  `creative_underperforming` (أفضل تنويع أقل من % من CTR الحملة) و
+  `creative_stale` (بلا أداء مُسجّل منذ N يوم عبر recorded_on) و
+  `variant_wasted_spend` (إنفاق ≥ حد بلا تحويلات) و
+  `ab_test_inconclusive` (تجربة جارية منذ N يوم بلا دلالة إحصائية) —
+  تنبيه واحد/حملة/يوم احترامًا لـ UNIQUE مع ذكر أسوأ حالة وعدد المخالفات.
+- التكامل مع `GET/POST /api/ads/alerts/rules` + `POST /api/ads/alerts/run`
+  القائمة (لا تعديل لـ AdsController). جديد: `AdRuleAlertController` →
+  `GET /api/ads/alerts/rule-types` (كتالوج القواعد التسع).
+- Bug-fix غير مدمر: return type `?array` → `array|string|null` لـ
+  evaluateRule/evaluateAdvancedRule (كان TypeError كامنًا عند insufficient_data).
+- Lang: 18 مفتاح `ads.alerts.rule.*` في en/ar.
+- tests/bootstrap: إضافة `2026_08_15_000060_add_ads_alerts.sql` (كانت الجداول
+  غير موجودة في DB الاختبار).
+- اختبارات `tests/Integration/AdRuleAlertIntegrationTest.php` (8/42).
+- التحقق: **535/15229 OK**، lint 751، PHPStan 0. commit + push على `main`.
+
 ## البند 3 (مكتمل): تقارير مستوى الإعلان/الـ variant (Ad/Variant Reports) — Ads
 - **المشكلة:** AdReportService كان يغطي مستوى الحملة فقط (ad_performance_reports)
   بلا تفصيل على مستوى الأصل/التنويع (من بند 1) ولا نافذة زمنية لأداء التنويعات.
