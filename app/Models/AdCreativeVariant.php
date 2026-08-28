@@ -13,6 +13,6 @@ class AdCreativeVariant extends Model
     protected $fillable = [
         'user_id', 'creative_id', 'variant_label', 'headline',
         'primary_text', 'media_url', 'impressions', 'clicks', 'spend',
-        'conversions', 'revenue', 'is_control',
+        'conversions', 'revenue', 'is_control', 'recorded_on',
     ];
 }

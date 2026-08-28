@@ -1,4 +1,38 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## تقارير مستوى الإعلان/الـ variant (بند 3: Ad/Variant Reports) — 2026-08-28
+
+توسعة سلسلة بنود التطوير التنافسية على `main`: تقارير بجوار
+`AdReportService` القائم (الذي يغطي مستوى الحملة من `ad_performance_reports`)
+تتدرج من الحملة ← الأصل الإعلاني ← التنويع، من بيانات حقيقية — لا اختراع أرقام.
+
+**الميزات الجديدة (`AdVariantReportService` + `AdVariantReportController`):**
+- **تقرير متعدد المستويات** `generate()`: لكل حملة مقاييسها المزامنة
+  (`ad_performance_reports` داخل الفترة) + أصولها غير المؤرشفة + تنويعات كل
+  أصل (داخل الفترة عبر `recorded_on`) مع مقاييس محسوبة عند القراءة فقط
+  (CTR/CPC/CPA/ROAS) + `share_of_creative_clicks` لكل تنويع.
+- **نافذة زمنية حقيقية**: migration `2026_08_28_000005_add_variant_performance_date.sql`
+  يضيف `ad_creative_variants.recorded_on` (DATE، backfill بتاريخ الإنشاء
+  للصفوف القديمة) + index؛ `recordPerformance()` في بند 1 يقبل `recorded_on`
+  اختياريًا (YY-MM-DD صالح وإلا رفض) ويحفظ تاريخ اليوم افتراضيًا. أي تنويع
+  بلا `recorded_on` لا يدخل تقرير الفترة (لا يمكن إسناده زمنيًا) — يُوثَّق.
+- **تفصيلات**: `creativeBreakdown()` / `variantBreakdown()` (مع سياق الأصل
+  والحملة) / `campaignBreakdown()` / `variantSummary()` (ملخص شامل + أفضل تنويع).
+- `bestVariant()`: أعلى CTR مع حد أدنى من الانطباعات داخل فترة، مع اسم
+  الأصل/الحملة في النتيجة.
+- **صدق البيانات**: المقام صفر ⇒ null (لا أرقام مختلقة)؛ ملخص `has_data`
+  يعكس وجود حملات فعلًا.
+- **عزل تينانت صارم**: `user_id` في كل جدول + فحص ملكية في الـ Service +
+  `resolveAdsAccess()` في الـ Controller (منهجية AdsController).
+- **API (كلها AuthMiddleware):** `GET /api/ads/reports/variants?period=`،
+  `GET /api/ads/reports/variants/summary`،
+  `GET /api/ads/reports/best-variant`،
+  `GET /api/ads/reports/creatives/{id}`،
+  `GET /api/ads/reports/campaigns/{id}`،
+  `GET /api/ads/reports/variants/{id}`.
+- **Lang:** 20 مفتاح `ads.variant_reports.*` جديد في `app/Lang/en.php` + `ar.php`.
+- اختبارات `tests/Integration/AdVariantReportIntegrationTest.php` (7/41) تغطي
+  التسلسل الهرمي/نافذة الفترة/مقام صفر/التفصيلات/حد الانطباعات/عزل التينانت.
+
 ## تجارب A/B الإعلانية (بند 2: Ad A/B Testing) — 2026-08-28
 
 توسعة سلسلة بنود التطوير التنافسية على `main`: تجارب A/B على مستوى تنويعات

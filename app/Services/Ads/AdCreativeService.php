@@ -241,6 +241,19 @@ class AdCreativeService
             }
         }
         $variant->fill($numeric);
+
+        // بند 3: تاريخ الأداء (recorded_on) اختياري - لو اتحط، لازم يكون
+        // تاريخ صالح YYYY-MM-DD؛ وإلا بياخد تاريخ اليوم. بيدي تقارير
+        // الفترة (weekly/monthly) نافذة زمنية حقيقية لبيانات التنويعات.
+        if (isset($metrics['recorded_on']) && $metrics['recorded_on'] !== '') {
+            $recordedOn = (string) $metrics['recorded_on'];
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $recordedOn)) {
+                throw new InvalidArgumentException('recorded_on يجب أن يكون تاريخ YYYY-MM-DD صالح');
+            }
+            $variant->setAttribute('recorded_on', $recordedOn);
+        } elseif ($variant->getAttribute('recorded_on') === null) {
+            $variant->setAttribute('recorded_on', date('Y-m-d'));
+        }
         $variant->save();
 
         ActivityLog::record('ads', 'creative.performance_updated', [

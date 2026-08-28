@@ -4,6 +4,25 @@
 **الفرع:** `main`
 **الحالة:** 8 بنود جديدة بالتتابع — كل بند migration+model+service+controller+routes+Lang+tests+checks+commit منفصل
 
+## البند 3 (مكتمل): تقارير مستوى الإعلان/الـ variant (Ad/Variant Reports) — Ads
+- **المشكلة:** AdReportService كان يغطي مستوى الحملة فقط (ad_performance_reports)
+  بلا تفصيل على مستوى الأصل/التنويع (من بند 1) ولا نافذة زمنية لأداء التنويعات.
+- migration `2026_08_28_000005_add_variant_performance_date.sql` (idempotent):
+  `ad_creative_variants.recorded_on` DATE (NULL) + backfill بتاريخ الإنشاء +
+  index (user_id, recorded_on) — نافذة زمنية حقيقية لتقارير الفترة.
+- `AdVariantReportService`: `generate()` (حملات ← أصول ← تنويعات داخل الفترة،
+  مقاييس محسوبة عند القراءة فقط + share_of_creative_clicks) +
+  `creativeBreakdown()`/`variantBreakdown()`/`campaignBreakdown()`/`variantSummary()`
+  + `bestVariant()` (أعلى CTR مع حد أدنى من الانطباعات + سياق الأصل/الحملة).
+- تحديث بند 1 (additive): `AdCreativeService::recordPerformance()` يقبل
+  `recorded_on` اختياريًا (YYYY-MM-DD وإلا رفض) وافتراضيًا تاريخ اليوم؛
+  `AdCreativeVariant::$fillable` أُضيف `recorded_on`.
+- `AdVariantReportController`: 6 نقاط API جديدة (كلها AuthMiddleware، المسارات
+  الثابتة قبل الديناميكية)، عزل التينانت عبر `resolveAdsAccess()` + فحص ملكية.
+- Lang: 20 مفتاح `ads.variant_reports.*` في en/ar.
+- اختبارات `tests/Integration/AdVariantReportIntegrationTest.php` (7/41).
+- التحقق: **519/15173 OK**، lint 749، PHPStan 0. commit + push على `main`.
+
 ## البند 2 (مكتمل): تجارب A/B الإعلانية (Ad A/B Testing) — Ads
 - **المشكلة:** تنويعات الأصول (بند 1) كانت أذرعًا بلا تجربة: لا توزيع حركة
   نسبي ولا حكم إحصائي على الفرق في الأداء.

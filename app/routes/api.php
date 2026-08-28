@@ -760,6 +760,15 @@ $router->get('/api/ads/ab-tests/{id}/statistics', 'AdAbTestController', 'statist
 $router->get('/api/ads/ab-tests/{id}/predict-winner', 'AdAbTestController', 'predictWinner', ['AuthMiddleware']);
 $router->get('/api/ads/ab-tests/pick-variant', 'AdAbTestController', 'pickVariantForTraffic', ['AuthMiddleware']);
 
+// ---- Ad/Variant Reports (بند 3) - تقارير مستوى الإعلان/الـ variant
+// المسارات الثابتة قبل المسارات الديناميكية عشان التطابق الصحيح
+$router->get('/api/ads/reports/variants', 'AdVariantReportController', 'report', ['AuthMiddleware']);
+$router->get('/api/ads/reports/variants/summary', 'AdVariantReportController', 'summary', ['AuthMiddleware']);
+$router->get('/api/ads/reports/best-variant', 'AdVariantReportController', 'bestVariant', ['AuthMiddleware']);
+$router->get('/api/ads/reports/creatives/{id}', 'AdVariantReportController', 'creativeBreakdown', ['AuthMiddleware']);
+$router->get('/api/ads/reports/campaigns/{id}', 'AdVariantReportController', 'campaignBreakdown', ['AuthMiddleware']);
+$router->get('/api/ads/reports/variants/{id}', 'AdVariantReportController', 'variantBreakdown', ['AuthMiddleware']);
+
 $router->post('/api/ads/copilot/ask', 'AdsController', 'askCopilot', ['AuthMiddleware']);
 
 $router->post('/api/ads/campaigns/{id}/keywords/generate', 'AdsController', 'generateKeywords', ['AuthMiddleware']);

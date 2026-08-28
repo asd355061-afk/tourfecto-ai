@@ -280,6 +280,7 @@ function applyTestMigrations(): void
         '2026_08_28_000002_add_voided_commission_status.sql',
         '2026_08_28_000003_create_ad_creative_assets.sql',
         '2026_08_28_000004_create_ad_ab_tests.sql',
+        '2026_08_28_000005_add_variant_performance_date.sql',
     ];
 
     // إصلاح انحرافات السكيما المحلية: schema.sql القديمة بتحتوي أسماء
