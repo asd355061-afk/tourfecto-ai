@@ -1,4 +1,70 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## معدل الحل الإحصائي للـ AI Chat (بند 8: AI Resolution Rate) — 2026-08-28
+
+بند ختامي في سلسلة البنود التنافسية على `main`: خدمة `AiResolutionRateService`
+تعرض "حالة/صحة" إحصائية Additive فوق بيانات موجودة فعلًا بلا اختراع أرقام:
+معدل الحل من حالات `ai_conversations` + موثوقية الاستدعاء من `ai_usage_logs`.
+
+**الميزات:**
+- **معدل الحل**: المحادثات المنتهية (`resolved`/`closed`) التي حُسمت بالكامل
+  عبر الـAI (بلا `handoff_at`) ÷ إجمالي المنتهية؛ المفتوحة (`open`/`pending`)
+  لا تدخل في المقام وتُعرض `still_open`.
+- **جودة الاستدعاء**: نسبة `success` من `ai_usage_logs` (مع `failed`/
+  `fallback_used`) — إشارة استقرار المزود.
+- **لا بيانات → `null` صراحةً**: لا معدل حل ولا نسبة نجاح بلا عينة، مع
+  `resolution_confidence` = `low` (high ≥30 / moderate ≥10) — لا أرقام مختلقة.
+- **عزل الموقع**: كل استعلام مفلتر بـ `website_id` — موقع لا يقرأ من موقع آخر.
+- **API**: `GET /api/ai-chat/websites/{id}/resolution-rate` بعد analytics
+  (AuthMiddleware + ملكية عبر `authorizedWebsite`).
+- **Lang**: 15 مفتاح `chat.resolution_rate.*` في `en.php` + `ar.php`.
+- اختبارات `tests/Integration/AiResolutionRateIntegrationTest.php` (5/10،
+  18 assertion) تغطي: معدل الحل من المنتهية فقط، جودة الاستدعاء، صراحة
+  `null` بلا بيانات، عزل تينانت، وثقة high مع عينة أكبر.
+- أُصلحت مشكلة حساسية ترتيب التنفيذ في السبولة الكاملة: `cleanup()` يحذف
+  `ai_usage_logs`/`ai_conversations` بـ `user_id` مباشرةً (لا عبر ربط الموقع)
+  لأن `FixtureLoader` يصفّر `AUTO_INCREMENT` لمواقع ويعيد استعمال المعرّفات
+  عبر العمليات بينما لا يمسح جدولي الـ AI.
+
+## التقييم الإحصائي الشفاف فوق القيادات المتدرجة (بند 6: Statistical AI Lead Scoring) — 2026-08-28
+
+بند جديد في سلسلة البنود التنافسية على `main`: خدمة
+`CrmStatisticalLeadScoringService` — طبقة Additive بحتة فوق قيادة الـ
+rule-based القائمة، تقدّم احتمالية تحويل مبنية على Wilson Score 95%، بلا
+لمس `score`/`priority`/`score_reason` الأصلية.
+
+**الميزات:**
+- **Wilson Score 95%**: احتمال التحويل من قرارات نهائية فعلية في سجل الحساب
+  (`converted`/`disqualified` أو deal `won`/`lost`) — لا أوزان مختلقة.
+- **`MIN_SAMPLE=10`**: أقل من العينة → `conv_probability` = `null` +
+  `score_confidence` = `low` صراحةً.
+- **Additive**: `score/priority/score_reason` القائمة تبقى كما هي — القيم
+  الجديدة في أعمدة مستقلة `conv_probability`/`score_confidence`/
+  `score_signals_json` (migration idempotent `2026_08_28_000008`).
+- **عزل تينانت**: رفض 403 إذا اختلف `crm_contacts.user_id`، و404 إذا لم يوجد.
+- **API**: `GET /api/crm/leads/scoring/stats` (ثابت، يُسجَّل قبل الديناميكي
+  `GET /api/crm/leads/{id}/scoring`).
+- **Lang**: 19 مفتاح `crm.scoring.*` في `en.php` + `ar.php`.
+- اختبارات `tests/Integration/CrmStatisticalLeadScoringIntegrationTest.php`
+  (6/12، 76 assertion): عدم كفاية العينة، تكفّيها، عزل تينانت، والحفاظ على
+  القيم الأصلية.
+- التحقق: **563/15483 OK**، lint 758، PHPStan 0. commit `e118f96` + push.
+
+## طبقة إعادة ترتيب الصلة في قاعدة المعرفة (بند 7: KB Re-ranking) — 2026-08-28
+
+بند من سلسلة البنود التنافسية على `main`: تغطية اختبارية مخصصة
+`KnowledgeBaseRerankIntegrationTest` لطبقة إعادة الترتيب القائمة في
+`KnowledgeBaseService` (مُنجزة أصلًا في `4d29f5e`) — سدّ فجوة التغطية
+بلا إعادة بناء التنفيذ.
+
+**يغطي الاختبار:**
+- **ترتيب الصلة**: العنوان ×2.0 + المحتوى ×1.0 في `rerankForQuery`.
+- **اقتطاع التوكنز**: `buildContextForPrompt(customerMessage, maxEntries)`
+  تُسقط المدخلات الأبعد للحد من طول الـ context.
+- **اللغة العربية**: عدم تطابق كلمات عربية يتجنّب تطابقًا خاطئًا.
+- **أرضية score 0.05**: يبقى المحتوى موجودًا بلا اختفاء.
+- **`brand_voice`**: يُستبعد من الـ Context المدمج.
+- التحقق: **573/15511 OK**، lint 759، PHPStan 0. commit `26022be` + push.
+
 ## توصيات "الخطوة التالية" الإحصائية لكل حملة (بند 5: Next-Best-Action Recommendations) — 2026-08-28
 
 بند جديد في سلسلة البنود التنافسية على `main`: خدمة `AdNextBestActionService`

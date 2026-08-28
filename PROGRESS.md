@@ -4,6 +4,46 @@
 **الفرع:** `main`
 **الحالة:** 8 بنود جديدة بالتتابع — كل بند migration+model+service+controller+routes+Lang+tests+checks+commit منفصل
 
+## البند 8 (مكتمل): معدل الحل الإحصائي للـ AI Chat (AI Resolution Rate)
+- `AiResolutionRateService`: معدل الحل = المحادثات المنتهية (`resolved`/
+  `closed`) المحسومة بالكامل عبر الـAI (بلا `handoff_at`) ÷ الإجمالي
+  المنتهي؛ المفتوحة (`open`/`pending`) تُعرض `still_open` ولا تدخل المقام؛
+  جودة الاستدعاء من `ai_usage_logs` (نسبة success مع failed/fallback_used).
+- لا بيانات → `resolution_rate_percent`/`success_rate_percent` = `null`
+  صراحةً + ثقة `low` (high ≥30 / moderate ≥10) — لا اختراع أرقام.
+- `AiResolutionRateController` + route `GET /api/ai-chat/websites/{id}/resolution-rate`
+  (بعد analytics، عبر `authorizedWebsite`) + 15 مفتاح `chat.resolution_rate.*`.
+- اختبارات `AiResolutionRateIntegrationTest` (5/10، 18 assertion).
+- **إصلاح حساسية الترتيب في السبولة الكاملة**: `cleanup()` تحذف جداول الـAI
+  بـ `user_id` مباشرةً (لا عبر ربط الموقع) — `FixtureLoader` يصفّر
+  `AUTO_INCREMENT` للمواقع فيعيد استعمال المعرّف بينما لا يمسح
+  `ai_usage_logs`/`ai_conversations`.
+- التحقق: **583/15567 OK**، lint 762، PHPStan 0. commit `8c17b49` + push.
+
+## البند 7 (مكتمل): طبقة إعادة ترتيب الصلة في قاعدة المعرفة (KB Re-ranking)
+- التغطية الناقصة: `KnowledgeBaseRerankIntegrationTest` (5/10، 28 assertion)
+  لطبقة `rerankForQuery`/`tokenize`/`countOverlap`/`buildContextForPrompt`
+  القائمة في `KnowledgeBaseService` (مُنجزة أصلًا في `4d29f5e`).
+- يغطي: ترتيب الصلة (عنوان ×2.0 + محتوى ×1.0)، اقتطاع التوكنز
+  (maxEntries)، اللغة العربية، أرضية score 0.05، واستبعاد `brand_voice`.
+- أُصلحت 4 حالات فشل أولية (تعادل ترتيب Titles + عدم تطابق كلمات عربية)
+  بتعديل رسالة/محتوى الاختبار.
+- التحقق: **573/15511 OK**، lint 759، PHPStan 0. commit `26022be` + push.
+
+## البند 6 (مكتمل): التقييم الإحصائي الشفاف فوق القيادات المتدرجة (Statistical AI Lead Scoring)
+- migration `2026_08_28_000008_add_stat_lead_scoring.sql` (idempotent):
+  `crm_leads` + `conv_probability` DECIMAL(5,4) + `score_confidence`
+  ENUM(low|moderate|high) + `score_signals_json` JSON.
+- `CrmStatisticalLeadScoringService`: Wilson Score 95% على القرارات النهائية
+  الفعلية (`converted`/`disqualified` أو deal `won`/`lost`) من سجل الحساب
+  نفسه؛ `MIN_SAMPLE=10` → `null` + ثقة `low`؛ لا يلمس `score/priority/
+  score_reason` القائمة (تحقق اختباري أن score يبقى 0).
+- `CrmLeadScoringStatController` + routes (ثابت قبل ديناميكي) + `CrmLead`
+  fillable + 19 مفتاح `crm.scoring.*`؛ عزل تينانت: 403 إن اختلف
+  `crm_contacts.user_id`، 404 إن لم يوجد.
+- اختبارات `CrmStatisticalLeadScoringIntegrationTest` (6/12، 76 assertion).
+- التحقق: **563/15483 OK**، lint 758، PHPStan 0. commit `e118f96` + push.
+
 ## البند 5 (مكتمل): توصيات "الخطوة التالية" الإحصائية لكل حملة (Next-Best-Action) — Ads
 - migration `2026_08_28_000007_create_ad_recommendations.sql`: `ad_recommendations`
   (action ENUM increase_budget|decrease_budget|pause_campaign|rotate_creative|
