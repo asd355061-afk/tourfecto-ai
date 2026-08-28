@@ -14,6 +14,7 @@ class CrmLead extends Model
     protected $fillable = [
         'contact_id', 'owner_user_id', 'source', 'interest', 'value', 'currency',
         'status', 'priority', 'score', 'score_reason', 'next_follow_up_at', 'last_engagement_at',
+        'conv_probability', 'score_confidence', 'score_signals_json',
     ];
 
     /** كل الـLeads الخاصة بحساب معيّن (Tenant) عبر جهة الاتصال المالكة */

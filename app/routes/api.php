@@ -1030,6 +1030,11 @@ $router->get('/api/crm/segments/{id}/run', 'CrmApiController', 'runSegment', ['A
 // موديول AI CRM - المرحلة 2 (AI Lead Scoring / Next Best Action /
 // Forecasting / AI Sales Assistant / AI Summary) - بند 8/9/10/25/27
 // ============================================================
+// الطبقة الإحصائية على تقييم الـLeads (بند 6) - المسار الثابت يُسجَّل
+// قبل أي مسار ديناميكي يبدأ بـ /api/crm/leads/{id}
+$router->get('/api/crm/leads/scoring/stats', 'CrmLeadScoringStatController', 'stats', ['AuthMiddleware']);
+$router->post('/api/crm/leads/{id}/scoring', 'CrmLeadScoringStatController', 'scoreLead', ['AuthMiddleware']);
+$router->get('/api/crm/leads/{id}/scoring', 'CrmLeadScoringStatController', 'getScoring', ['AuthMiddleware']);
 $router->post('/api/crm/leads/{id}/score', 'CrmApiController', 'scoreLead', ['AuthMiddleware']);
 $router->get('/api/crm/leads/{id}/next-best-action', 'CrmApiController', 'leadNextBestAction', ['AuthMiddleware']);
 $router->get('/api/crm/deals/{id}/next-best-action', 'CrmApiController', 'dealNextBestAction', ['AuthMiddleware']);
