@@ -4,6 +4,25 @@
 **الفرع:** `main`
 **الحالة:** 8 بنود جديدة بالتتابع — كل بند migration+model+service+controller+routes+Lang+tests+checks+commit منفصل
 
+## البند 5 (مكتمل): توصيات "الخطوة التالية" الإحصائية لكل حملة (Next-Best-Action) — Ads
+- migration `2026_08_28_000007_create_ad_recommendations.sql`: `ad_recommendations`
+  (action ENUM increase_budget|decrease_budget|pause_campaign|rotate_creative|
+  start_ab_test|review_targeting|wait، basis statistical|rule، confidence
+  low|moderate|high، signals JSON، status pending|applied|dismissed،
+  UNIQUE(user, campaign, recommendation_date)).
+- `AdNextBestActionService` (357 سطرًا): `linearSlope()` أقل المربعات على آخر
+  14 يوم من ad_performance_reports (MIN_DATA_DAYS=5 → `wait` صريح) +
+  قواعد increase (صرف ≥95% + ROAS ≥1 + ميل إنفاق تصاعدي) / decrease
+  (ROAS <0.5) / rotate (ميل CTR < -0.1 + CTR حديث <1%) / review_targeting
+  (صرف ≤30%) / start_ab_test (أصل بأكثر من تنويع بلا تجربة جارية) — مع
+  `basis` و `confidence` و `signals` JSON (إشارات فقط لا توصيات كحقيقة).
+- `AdNextBestActionController` (4 routes عبر resolveAdsAccess) + Model
+  `AdRecommendation` + 22 مفتاح `ads.recommendations.*` (en/ar).
+- اختبارات `tests/Integration/AdNextBestActionIntegrationTest.php`
+  (8/16، 68 assertion): كل قاعدة + dedupe اليومي + applied/dismiss +
+  عزل تينانت + صحة linearSlope.
+- التحقق: **551/15361 OK**، lint 755، PHPStan 0. commit `d86e433` + push.
+
 ## البند 4 (مكتمل): تنبيهات القواعد على مستوى الأصل/التنويع/التجربة (Rule-triggered Alerts) — Ads
 - **المشكلة:** AdAlertService القائم كان يغطي 5 قواعد على مستوى الحملة فقط
   (ad_performance_reports) بلا استفادة من بيانات الأصول/التنويعات/التجارب

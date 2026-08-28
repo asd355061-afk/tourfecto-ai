@@ -1,4 +1,33 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## توصيات "الخطوة التالية" الإحصائية لكل حملة (بند 5: Next-Best-Action Recommendations) — 2026-08-28
+
+بند جديد في سلسلة البنود التنافسية على `main`: خدمة `AdNextBestActionService`
+توصي بإجراء واحد واضح لكل حملة إعلانية نشطة انطلاقًا من ترند إحصائي حقيقي
+(أقل المربعات — Least Squares) على بيانات `ad_performance_reports` المزامنة،
+لا أرقام مختلقة: `increase_budget` / `decrease_budget` / `pause_campaign` /
+`rotate_creative` / `start_ab_test` / `review_targeting` / `wait`.
+
+**الميزات:**
+- **`linearSlope()`**: انحدار خطي بأقل المربعات على آخر 14 يوم مزامنة
+  (`MIN_DATA_DAYS=5`؛ أقل من ذلك → `wait` صريح بلا تخمين).
+- **قواعد التوصية** (تُقيَّم بالترتيب): صرف كامل الميزانية (≥95%) مع
+  ROAS ≥ 1 وميل إنفاق تصاعدي → `increase_budget`؛ ROAS < 0.5 →
+  `decrease_budget`؛ ميل CTR < -0.1 مع CTR حديث < 1% → `rotate_creative`؛
+  ميزانية لا تُصرف (≤30%) → `review_targeting`؛ أصل بأكثر من تنويع وبلا
+  تجربة جارية → `start_ab_test`.
+- **`basis`**: `statistical` / `rule` و **`confidence`**: من عدد أيام
+  البيانات — كل `signals` تُخزَّن JSON (إشارات فقط) ولا تُعرض كحقيقة.
+- **Audit trail**: `ad_recommendations` يُحفظ مرة لكل حملة/يوم (UNIQUE +
+  dedupe) مع `status` = `pending`/`applied`/`dismissed` — لا تنفيذ تلقائي.
+- **API**: `GET /api/ads/recommendations` + `/history` +
+  `POST /{id}/applied` + `/dismiss` (AuthMiddleware + ملكية عبر
+  `resolveAdsAccess`).
+- **Lang**: 22 مفتاح `ads.recommendations.*` في `en.php` + `ar.php`.
+- migration `2026_08_28_000007_create_ad_recommendations.sql`.
+- اختبارات `tests/Integration/AdNextBestActionIntegrationTest.php`
+  (8/16، 68 assertion) تغطي كل قاعدة + dedupe + دورة حياة + عزل تينانت
+  + `linearSlope` إحصائيًا.
+
 ## تنبيهات القواعد على مستوى الأصل/التنويع/التجربة (بند 4: Rule-triggered Alerts) — 2026-08-28
 
 توسعة سلسلة بنود التطوير التنافسية على `main`: قواعد إنذار جديدة فوق
