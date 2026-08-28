@@ -365,6 +365,74 @@ class GoogleAdsAPI
         return ['success' => true, 'results' => $result['data']['results'] ?? []];
     }
 
+    /**
+     * Google Enhanced Conversions (Offline Conversion Upload) - حدث تحويل
+     * خارجي بعد تأكيد حجز اتئسناد لرابط UTM تابع لحملة Google Ads. بيستخدم
+     * uploadClickConversions مع userIdentifiers مجهولة الهوية (SHA-256) -
+     * دي بالظبط "Enhanced Conversions" اللي بتسمح بقياس التحويلات من غير
+     * ما تبعت أي بيانات شخصية خام.
+     *
+     * @param string $customerId رقم حساب Google Ads (customers/{id})
+     * @param string $conversionAction resource name لإجراء التحويل
+     *                                 (customers/{id}/conversionActions/{id})
+     * @param array $conversion ['event_id'=>string, 'value'=>float, 'currency'=>string,
+     *                            'email_hash'=>?string, 'phone_hash'=>?string]
+     * @return array ['success'=>bool, 'data'=>array, 'error'=>?]
+     */
+    public function sendEnhancedConversion(string $customerId, string $conversionAction, array $conversion): array
+    {
+        $customerId = preg_replace('/[^0-9]/', '', $customerId);
+        $conversionAction = preg_replace('/[^0-9\/a-zA-Z]/', '', $conversionAction);
+
+        if ($customerId === '' || $conversionAction === '') {
+            return ['success' => false, 'error' => 'رقم حساب Google Ads وإجراء التحويل مطلوبين'];
+        }
+
+        $emailHash = isset($conversion['email_hash']) && is_string($conversion['email_hash']) ? (string) $conversion['email_hash'] : null;
+        $phoneHash = isset($conversion['phone_hash']) && is_string($conversion['phone_hash']) ? (string) $conversion['phone_hash'] : null;
+
+        if ($emailHash === null && $phoneHash === null) {
+            return ['success' => false, 'error' => 'مفيش أي معرّف مستخدم مجهول الهوية لإرسال الحدث'];
+        }
+
+        $identifiers = [];
+        if ($emailHash !== null) {
+            $identifiers[] = ['hashedEmail' => $emailHash];
+        }
+        if ($phoneHash !== null) {
+            $identifiers[] = ['hashedPhoneNumber' => $phoneHash];
+        }
+
+        // Google محتاج conversionDateTime بصيغة ISO 8601 مع offset زمني
+        $conversionDateTime = (new DateTimeImmutable('now'))->format('c');
+
+        $conversionRow = [
+            'conversionAction' => $conversionAction,
+            'conversionDateTime' => $conversionDateTime,
+            'conversionValue' => round((float) ($conversion['value'] ?? 0), 2),
+            'currencyCode' => (string) ($conversion['currency'] ?? 'USD'),
+            'userIdentifiers' => $identifiers,
+        ];
+
+        $result = $this->httpPost("/customers/{$customerId}/googleAds:uploadClickConversions", [
+            'conversions' => [$conversionRow],
+            'partialFailure' => true,
+        ]);
+
+        if (!$result['success']) {
+            return $result;
+        }
+
+        $results = $result['data']['results'] ?? [];
+        if (empty($results)) {
+            $errors = $result['data']['partialConversionErrors'] ?? [];
+            $message = $errors[0]['message'] ?? 'فشل رفع التحويل (partialFailure)';
+            return ['success' => false, 'error' => $message];
+        }
+
+        return ['success' => true, 'data' => $results[0] ?? $result['data']];
+    }
+
     private function httpGet(string $path): array
     {
         return $this->request('GET', $path, null);
@@ -375,7 +443,7 @@ class GoogleAdsAPI
         return $this->request('POST', $path, $body);
     }
 
-    private function request(string $method, string $path, ?array $body): array
+    protected function request(string $method, string $path, ?array $body): array
     {
         if (!$this->isDeveloperTokenConfigured()) {
             return ['success' => false, 'error' => 'GOOGLE_ADS_DEVELOPER_TOKEN غير مضبوط في إعدادات النظام'];

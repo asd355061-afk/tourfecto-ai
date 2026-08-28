@@ -1,4 +1,71 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## ربط الحجوزات بالإعلانات + CAPI (بند 2: Ads Attribution) — 2026-08-28
+
+إتمام البند 2 من خطة "Outreach Discovery + Ads Attribution CAPI" على `main`
+فوق البند 1 والموديولات الشغالة (لا إعادة بناء، لا مسح).
+
+**إسناد الحجوزات لروابط UTM الإعلانية (نافذة 30 يوم):**
+- migration `2026_08_28_000001_add_booking_ad_attribution.sql` (idempotent):
+  عمود `bookings.attributed_utm_link_id` (INT NULL + index) مع FK
+  `fk_bookings_attributed_utm_link` → `ad_utm_links(id) ON DELETE SET NULL`
+  (قيود FK محمية بـ information_schema لأنه لا يوجد `ADD CONSTRAINT IF
+  NOT EXISTS` في MariaDB).
+- إصلاح جذري في migration `2026_08_15_000050_add_ads_autopilot_and_tracking_tables.sql`:
+  كانت تكسر التطبيق على قاعدة نظيفة (ALTER تشير لعمود `external_budget_resource`
+  غير الموجود أصلاً + أعمدة/فهرس/FK غير idempotent) → كل `ADD COLUMN`
+  صارت `ADD COLUMN IF NOT EXISTS`، وأضيف العمود `external_budget_resource`
+  المفقود نفسه، وفهرس/FK `ad_optimization_logs` محميّان بـ information_schema.
+  النتيجة: الجداول `ad_utm_links`/`ad_autopilot_*`/`ad_market_research`/
+  `ad_competitor_insights` أصبحت تُنشأ فعلًا على أي قاعدة، والملف قابل
+  لإعادة التشغيل (idempotent) — تثبّت الاختبارات على كل run.
+- `AdTrackingService::resolveAndTrackClick()`: بترجع `{destination,
+  utm_link_id, platform}` (platform من اتصال المنصة عبر الحملة) بدل string،
+  و`storeAttribution()`/`readAttribution()`/`clearAttribution()`:
+  كوكي `tf_utm_attribution` (30 يوم، HttpOnly، SameSite=Lax، نسبة/آمنة حسب
+  HTTPS) + جلسة لو شغالة، بتخزّن معرّف الرابط والمنصة **فقط** (لا أي بيانات
+  شخصية — Privacy by Design). `redirectUtmClick` يخزّن الإسناد قبل التحويل.
+- `WebsiteBuilderController::bookSiteItem()`: يقرأ الإسناد من الكوكي ويمرّره
+  للحجز مع `source='ad:meta'`/`'ad:google'` (حسب المنصة) بدل `website` —
+  بدون إسناد يظل `website` كما كان.
+- `BookingEngine::createBooking()`: يتحقق أن `attributed_utm_link_id` يخص
+  حملة مملوكة لنفس الحساب (منع تلاعب الإسناد عبر طلب معدّل — أي إسناد خارجي
+  يُتجاهل بصمت)، ثم يثبّته على صف الحجز.
+
+**Conversions API (CAPI) — غير متزامن، SHA-256 فقط:**
+- `BookingEngine::confirmBooking()` و`confirmBookingFromPayment()`: بعد
+  التأكيد، لو الحجز له `attributed_utm_link_id` يُدفع `SendAdConversionJob`
+  في طابور DB (`QueueManager::push`, queue `ads`) — الحجوزات من غير إسناد
+  لا تُنشئ أي حدث، وأي فشل في الدفع لا يكسر تدفق التأكيد أبدًا.
+- `app/Jobs/SendAdConversionJob.php` (implements `QueueJobInterface`): يقرأ
+  الحجز المؤكد المئسند فقط، يحوّل `customer_email`/`customer_phone` لـ
+  SHA-256 عبر `AdPiiHasher` الجديد (تطبيع الإيميل lowercase+trim، الهاتف
+  أرقام فقط)، ثم يرسل للمنصة الصحيحة:
+  - `MetaAdsAPI::sendConversionEvent()`: `Purchase` عبر Meta CAPI
+    (`{pixel}/events`) مع `user_data.em/ph` hashed + `event_id` فريد =
+    `booking_reference` (de-dup) — بلا أي PII خام.
+  - `GoogleAdsAPI::sendEnhancedConversion()`: Enhanced Conversions عبر
+    `uploadClickConversions` مع `userIdentifiers.hashedEmail/hashedPhoneNumber`.
+- الأسرار (Pixel ID / Google customer+conversion action / tokens) من إعدادات
+  النظام (`meta_capi_pixel_id`, `google_ads_customer_id`,
+  `google_ads_conversion_action`) أو `.env` (`META_CAPI_PIXEL_ID`,
+  `META_CAPI_ACCESS_TOKEN`, `GOOGLE_ADS_*`) — مفيش hardcode، وأضيفت
+  placeholders لـ `.env.example`. توكن المنصة المخزّن (المشفّر) يُستخدم
+  كـ fallback تلقائي.
+
+**ROAS حقيقي من الحجوزات المئسندة:**
+- `AdReportService::calculateRoas()`: مجموع `total_amount` لحجوزات
+  confirmed/completed مرتبطة بحملة عبر `attributed_utm_link_id → ad_utm_links`
+  مقسومًا على `ad_campaigns.spend` — قياس فعلي للعائد بالفلوس الحقيقية
+  (مكمل لـ ROAS التقارير من أداء المنصة).
+
+**التحقق:** اختبارات `tests/Integration/BookingAdAttributionCapiIntegrationTest.php`
+(14/58): تدفق الكوكي + صلاحية/انتهاء نافذة 30 يوم، إسناد الحجز + source
+الصحيح، تجاهل الإسناد الأجنبي، لا كسر بدون إسناد، dispatch عند تأكيد يدوي/
+بعد الدفع فقط للحجوزات المئسندة، ROAS يخص confirmed/completed فقط، SHA-256
+للإيميل/الهاتف بلا PII خام، حمولة Meta CAPI (fake post)، تنفيذ الـ job
+بفيك API (fake MetaAdsAPI) بلا أي شبكة، والـ skip للحجوزات بلا PII أو غير
+مؤكدة. الإجمالي: **457/14413 OK**، lint 733، PHPStan 0.
+
 ## Outreach Discovery + Ads Attribution CAPI (بند 1: Outreach Discovery) — 2026-08-28
 
 تنفيذ البند 1 من خطة "Outreach Discovery + Ads Attribution CAPI" على `main`

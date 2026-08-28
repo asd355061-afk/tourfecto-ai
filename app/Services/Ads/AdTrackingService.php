@@ -97,17 +97,122 @@ class AdTrackingService
 
     /**
      * يبحث عن الرابط بالكود، يسلّم النقرة (زيادة العداد)، ويرجّع وجهة
-     * التحويل النهائية. بيرجّع null لو الكود مش موجود (404).
+     * التحويل النهائية مع بيانات الإسناد (معرّف الرابط والمنصة) اللازمة
+     * لتسجيل إسناد الحجز لاحقًا (نافذة 30 يوم). بيرجّع null لو الكود مش موجود.
+     *
+     * @return array{destination:string, utm_link_id:int, platform:string}|null
      */
-    public function resolveAndTrackClick(string $code): ?string
+    public function resolveAndTrackClick(string $code): ?array
     {
-        $rows = $this->db->query("SELECT id, destination_url FROM ad_utm_links WHERE code = ? LIMIT 1", [$code]);
+        $rows = $this->db->query(
+            "SELECT u.id AS utm_link_id, u.destination_url, COALESCE(pc.platform, '') AS platform
+             FROM ad_utm_links u
+             LEFT JOIN ad_campaigns c ON c.id = u.campaign_id
+             LEFT JOIN platform_connections pc ON pc.id = c.platform_connection_id
+             WHERE u.code = ? LIMIT 1",
+            [$code]
+        );
         if (empty($rows)) {
             return null;
         }
 
-        $this->db->exec("UPDATE ad_utm_links SET clicks = clicks + 1 WHERE id = ?", [(int) $rows[0]['id']]);
+        $this->db->exec("UPDATE ad_utm_links SET clicks = clicks + 1 WHERE id = ?", [(int) $rows[0]['utm_link_id']]);
 
-        return (string) $rows[0]['destination_url'];
+        return [
+            'destination' => (string) $rows[0]['destination_url'],
+            'utm_link_id' => (int) $rows[0]['utm_link_id'],
+            'platform' => (string) ($rows[0]['platform'] ?? ''),
+        ];
+    }
+
+    /**
+     * اسم كوكي الإسناد (نافذة 30 يوم). الكوكي بيخزّن معرّف رابط UTM ومنصته
+     * مش أي بيانات شخصية للزائر - مبني على الـ Privacy by Design.
+     */
+    public const ATTRIBUTION_COOKIE = 'tf_utm_attribution';
+
+    /** مدة نافذة الإسناد بالثواني (30 يوم) */
+    public const ATTRIBUTION_WINDOW = 2592000;
+
+    /**
+     * يخزّن إسناد النقرة في كوكي (ويفضّل في الجلسة لو شغالة) قبل تحويل
+     * الزائر لصفحة الهبوط - عشان أي حجز يتم خلال نافذة 30 يوم يتنسب
+     * للرابط الإعلاني اللي جاب الزائر.
+     */
+    public function storeAttribution(int $utmLinkId, string $platform): void
+    {
+        $payload = json_encode([
+            'utm_link_id' => $utmLinkId,
+            'platform' => $platform,
+            'ts' => time(),
+        ]);
+
+        if (!headers_sent()) {
+            setcookie(self::ATTRIBUTION_COOKIE, $payload, [
+                'expires' => time() + self::ATTRIBUTION_WINDOW,
+                'path' => '/',
+                'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
+        }
+
+        // نفس-الطلب: بحاكي القيمة كأنها رجعت من المتصفح عشان أي قراءة في نفس
+        // الـ request تشوفها (في الحقيقة الكوكي بيرجع في الطلب اللي بعده).
+        $_COOKIE[self::ATTRIBUTION_COOKIE] = $payload;
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $_SESSION[self::ATTRIBUTION_COOKIE] = $payload;
+        }
+    }
+
+    /**
+     * يقرأ الإسناد الحالي من الكوكي أو الجلسة. بيرجّع null لو مفيش إسناد
+     * أو انتهت نافذة الـ 30 يوم.
+     *
+     * @return array{utm_link_id:int, platform:string}|null
+     */
+    public function readAttribution(): ?array
+    {
+        $raw = $_COOKIE[self::ATTRIBUTION_COOKIE] ?? null;
+        if ($raw === null && session_status() === PHP_SESSION_ACTIVE) {
+            $raw = $_SESSION[self::ATTRIBUTION_COOKIE] ?? null;
+        }
+        if (!is_string($raw) || $raw === '') {
+            return null;
+        }
+
+        $data = json_decode($raw, true);
+        if (!is_array($data) || !isset($data['utm_link_id'])) {
+            return null;
+        }
+
+        $ts = (int) ($data['ts'] ?? 0);
+        if ($ts > 0 && (time() - $ts) > self::ATTRIBUTION_WINDOW) {
+            $this->clearAttribution();
+            return null;
+        }
+
+        return [
+            'utm_link_id' => (int) $data['utm_link_id'],
+            'platform' => (string) ($data['platform'] ?? ''),
+        ];
+    }
+
+    /** يمسح كوكي/جلسة الإسناد بعد استخدامها (مثلاً بعد تسجيل الحجز). */
+    public function clearAttribution(): void
+    {
+        if (isset($_COOKIE[self::ATTRIBUTION_COOKIE])) {
+            unset($_COOKIE[self::ATTRIBUTION_COOKIE]);
+        }
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            unset($_SESSION[self::ATTRIBUTION_COOKIE]);
+        }
+        if (!headers_sent()) {
+            setcookie(self::ATTRIBUTION_COOKIE, '', [
+                'expires' => time() - 3600,
+                'path' => '/',
+            ]);
+        }
     }
 }

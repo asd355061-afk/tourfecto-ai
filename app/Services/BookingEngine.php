@@ -76,24 +76,44 @@ class BookingEngine
             $children = max(0, (int) ($data['children_count'] ?? 0));
             $totalAmount = $data['total_amount'] ?? ($unitPrice * $adults);
 
+            // 4) إسناد إعلاني اختياري (من كوكي /r/{code} لمدة 30 يوم). لازم يكون
+            //    رابط UTM لحملة مملوكة للحساب نفسه - أي إسناد خارجي يُتجاهل
+            //    بصمت (منع تلاعب الإسناد عبر طلب حجز معدّل).
+            $attributedUtmLinkId = (isset($data['attributed_utm_link_id']) && (int) $data['attributed_utm_link_id'] > 0)
+                ? (int) $data['attributed_utm_link_id']
+                : null;
+            if ($attributedUtmLinkId !== null) {
+                $link = $db->query(
+                    'SELECT u.id FROM ad_utm_links u
+                     JOIN ad_campaigns c ON c.id = u.campaign_id
+                     WHERE u.id = ? AND c.user_id = ? LIMIT 1',
+                    [$attributedUtmLinkId, $userId]
+                );
+                if (empty($link)) {
+                    $attributedUtmLinkId = null;
+                }
+            }
+
             $reference = $this->generateReference();
 
             $bookingId = $db->query(
                 'INSERT INTO bookings
                     (booking_reference, user_id, product_id, customer_id, customer_name,
                      customer_phone, customer_email, start_date, start_time,
-                     adults_count, children_count, total_amount, currency, status, source, notes)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                     adults_count, children_count, total_amount, currency, status, source,
+                     attributed_utm_link_id, notes)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [
                     $reference, $userId, $productId, $data['customer_id'] ?? null,
                     $data['customer_name'] ?? '', $data['customer_phone'] ?? null,
                     $data['customer_email'] ?? null, $startDate, $data['start_time'] ?? null,
                     $adults, $children, $totalAmount, $data['currency'] ?? $product['currency'],
-                    'pending', $data['source'] ?? 'direct', $data['notes'] ?? null,
+                    'pending', $data['source'] ?? 'direct',
+                    $attributedUtmLinkId, $data['notes'] ?? null,
                 ]
             );
 
-            // 4) حدّث عداد الحجوزات في نفس الـ transaction (الصف لسه مقفول لينا)
+            // 5) حدّث عداد الحجوزات في نفس الـ transaction (الصف لسه مقفول لينا)
             $db->query('UPDATE inventory SET booked_count = booked_count + 1 WHERE id = ?', [$inv['id']]);
 
             $db->query(
@@ -102,7 +122,7 @@ class BookingEngine
                 [$bookingId, 'pending', $userId, 'إنشاء حجز جديد']
             );
 
-            // 5) اربط الحجز بأول صفقة open لنفس الحساب لنفس العميل (إن وجدت).
+            // 6) اربط الحجز بأول صفقة open لنفس الحساب لنفس العميل (إن وجدت).
             //    لا ينشئ صفقة جديدة - الربط بيخلّي تأكيد الحجز يرفع الصفقة لـ won.
             $this->linkOpenDealToBooking($db, $userId, $bookingId, $data);
 
@@ -125,6 +145,9 @@ class BookingEngine
                 $this->markLinkedDealWon($db, $bookingId);
                 $this->recordAgencyCommission($db, $bookingId);
             });
+
+            // CAPI: حدث تحويل غير متزامن لو الحجز اتعمل عليه إسناد إعلاني
+            $this->dispatchConversionEventIfAttributed($this->db, $bookingId);
         }
         return $confirmed;
     }
@@ -164,6 +187,9 @@ class BookingEngine
             $this->markLinkedDealWon($db, $bookingId);
             // سجّل عمولة الوكالة للحجز لو صاحبه عميل وكالة (نفس الـ transaction)
             $this->recordAgencyCommission($db, $bookingId);
+            // CAPI: حدث تحويل غير متزامن لو الحجز اتعمل عليه إسناد إعلاني
+            // (INSERT جوه نفس الـ transaction - لو التأكيد اتراجع، الحدث مش بيتبعت)
+            $this->dispatchConversionEventIfAttributed($db, $bookingId);
 
             return true;
         });
@@ -345,5 +371,36 @@ class BookingEngine
              ON DUPLICATE KEY UPDATE commission_amount = VALUES(commission_amount)",
             [(int) $row['agency_id'], (int) $row['agency_client_id'], $bookingId, $amount]
         );
+    }
+
+    /**
+     * إرسال حدث تحويل CAPI غير متزامن (عبر طابور DB) لما حجز تم إسناده
+     * لرابط UTM إعلاني (attributed_utm_link_id). لا يوقف تدفق التأكيد أبدًا:
+     * أي فشل (طابور غير متاح/خطأ) بيتسجّل ويتجاهل بصمت. الحجوزات من غير
+     * إسناد مابتدخلش هنا أصلًا.
+     */
+    private function dispatchConversionEventIfAttributed(Database $db, int $bookingId): void
+    {
+        try {
+            $rows = $db->query(
+                'SELECT id FROM bookings WHERE id = ? AND attributed_utm_link_id IS NOT NULL LIMIT 1',
+                [$bookingId]
+            );
+            if (empty($rows)) {
+                return;
+            }
+            if (!class_exists('QueueManager') || !class_exists('Container')) {
+                return;
+            }
+
+            $queue = Container::getInstance()->make(QueueManager::class);
+            if ($queue->isReady()) {
+                $queue->push('SendAdConversionJob', ['booking_id' => $bookingId], 'ads', 0);
+            }
+        } catch (Throwable $e) {
+            if (class_exists('Logger')) {
+                Logger::warning('CAPI conversion dispatch failed', ['booking_id' => $bookingId, 'error' => $e->getMessage()]);
+            }
+        }
     }
 }

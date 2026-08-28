@@ -1451,9 +1451,28 @@ HTML;
             Logger::warning('Website booking inventory init failed', ['product_id' => $productId, 'error' => $e->getMessage()]);
         }
 
-        // 3) إنشاء الحجز عبر Booking Engine (source='website')
+        // 3) إنشاء الحجز عبر Booking Engine (source='website'، أو source
+        //    إعلاني + إسناد UTM لو الزائر جه من كليك إعلان خلال نافذة 30 يوم)
+        $bookingSource = 'website';
+        $attribution = null;
         try {
-            $booking = (new BookingEngine())->createBooking($userId, [
+            if (class_exists('AdTrackingService')) {
+                $attribution = (new AdTrackingService())->readAttribution();
+            }
+        } catch (Exception $e) {
+            Logger::warning('Booking attribution read failed', ['website_id' => $websiteId, 'error' => $e->getMessage()]);
+        }
+
+        if ($attribution !== null) {
+            $bookingSource = match ($attribution['platform']) {
+                'meta_ads' => 'ad:meta',
+                'google_ads' => 'ad:google',
+                default => 'ad',
+            };
+        }
+
+        try {
+            $bookingData = [
                 'product_id' => $productId,
                 'start_date' => $startDate,
                 'customer_name' => (string) $this->get('customer_name'),
@@ -1461,9 +1480,20 @@ HTML;
                 'customer_email' => (string) $this->get('customer_email', '') ?: null,
                 'adults_count' => $adults,
                 'children_count' => $children,
-                'source' => 'website',
+                'source' => $bookingSource,
                 'notes' => 'حجز مباشر من ' . ($itemType === 'room' ? 'صفحة الغرفة' : 'صفحة الرحلة') . ': /sites/' . $slug . '/' . $itemsKey . '/' . $itemSlug,
-            ]);
+            ];
+            if ($attribution !== null) {
+                $bookingData['attributed_utm_link_id'] = $attribution['utm_link_id'];
+            }
+
+            $booking = (new BookingEngine())->createBooking($userId, $bookingData);
+
+            // الإسناد اتحول لحجز - بنمسح الكوكي عشان الحجز الجاي مايتنسبش لنفس
+            // الرابط القديم (نافذة الإسناد بتتبدأ من جديد من أول كليك إعلان جديد).
+            if ($attribution !== null && class_exists('AdTrackingService')) {
+                (new AdTrackingService())->clearAttribution();
+            }
         } catch (Exception $e) {
             Logger::warning('Website booking failed', ['website_id' => $websiteId, 'product_id' => $productId, 'error' => $e->getMessage()]);
             return $this->error('ما قدرناش نأكد الحجز للتاريخ ده حاليًا - جرب تاريخ تاني أو تواصل عبر واتساب', 422, ['whatsapp_fallback' => true]);

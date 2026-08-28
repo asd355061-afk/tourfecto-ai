@@ -2,7 +2,7 @@
 
 **التاريخ:** 2026-08-28
 **الفرع:** `main`
-**الحالة:** البند 1 (Outreach Discovery) مكتمل ومُدفوع — البند 2 (Ads Attribution/CAPI) قيد التنفيذ
+**الحالة:** البند 1 (Outreach Discovery) مكتمل ومُدفوع — البند 2 (Ads Attribution/CAPI) مكتمل ومُدفوع
 
 ## البند 1 (مكتمل): اكتشاف تلقائي لمرشّحين الـ Backlink
 - `ProspectDiscoverySourceInterface` (عقد المصادر) +
@@ -24,10 +24,29 @@
 - اختبارات `tests/Integration/OutreachDiscoveryIntegrationTest.php` (10/59).
 - التحقق: **429/14297 OK**، lint 730، PHPStan 0. commit + push على `main`.
 
-## البند 2 (قيد التنفيذ): ربط الإعلانات بالحجز + CAPI
-- (لم يُبدأ التنفيذ بعد — التالي: عمود `attributed_utm_link_id`، كعكة/جلسة
-  30 يوم من `/r/{code}`، تحديث `source`، حاسبة ROAS، `MetaAdsAPI::sendConversionEvent`
-  + Enhanced Conversions، `SendAdConversionJob`، اختبارات، ثم commit منفصل + push.)
+## البند 2 (مكتمل): ربط الإعلانات بالحجز + CAPI
+- migration `2026_08_28_000001_add_booking_ad_attribution.sql`: عمود
+  `bookings.attributed_utm_link_id` + FK → `ad_utm_links(id) ON DELETE SET NULL`
+  (idempotent). **إصلاح جذري** لـ `2026_08_15_000050` (كانت تكسر قاعدة نظيفة:
+  ALTER يشير لعمود غير موجود + عدم idempotency) — الجداول
+  `ad_utm_links`/`ad_autopilot_*`/`ad_market_research`/`ad_competitor_insights`
+  أصبحت تُنشأ فعلًا والملف قابل لإعادة التشغيل.
+- إسناد 30 يوم: `AdTrackingService` (resolveAndTrackClick ترجع utm_link_id +
+  platform؛ كوكي `tf_utm_attribution` HttpOnly SameSite=Lax؛ store/read/clear)،
+  `redirectUtmClick` يخزّن قبل التحويل.
+- `bookSiteItem`: يقرأ الإسناد ويمرّره للحجز مع `source='ad:meta'`/`'ad:google'`
+  (بدون إسناد: `website` كما كان). `BookingEngine::createBooking`: يتحقق أن
+  الإسناد يخص حملة الحساب نفسه (منع التلاعب) ويثبّته.
+- CAPI: `confirmBooking`/`confirmBookingFromPayment` يدفعان `SendAdConversionJob`
+  (طابور `ads`) للحجوزات المئسندة فقط؛ الـ job يحوّل PII لـ SHA-256
+  (`AdPiiHasher`) ويرسل `MetaAdsAPI::sendConversionEvent` (Meta CAPI, event_id=
+  booking_reference) أو `GoogleAdsAPI::sendEnhancedConversion`
+  (uploadClickConversions) — بلا أي PII خام، أسرار من إعدادات النظام/.env
+  (placeholders في `.env.example`).
+- `AdReportService::calculateRoas()`: ROAS من حجوزات confirmed/completed
+  المئسندة لكل حملة ÷ `ad_campaigns.spend`.
+- اختبارات `tests/Integration/BookingAdAttributionCapiIntegrationTest.php` (14/58).
+- التحقق: **457/14413 OK**، lint 733، PHPStan 0. commit منفصل + push على `main`.
 
 ## الخطوة 2 (مكتملة): Paymob / ربط CRM / دمج فروع CRM / White-Label
 

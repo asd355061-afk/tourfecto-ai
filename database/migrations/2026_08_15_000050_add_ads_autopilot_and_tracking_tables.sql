@@ -14,12 +14,13 @@
 -- 1) ad_campaigns: أعمدة جديدة للحملات الاحترافية
 -- ------------------------------------------------------------
 ALTER TABLE `ad_campaigns`
-    ADD COLUMN `published_at` TIMESTAMP NULL DEFAULT NULL COMMENT 'وقت النشر الفعلي على المنصة' AFTER `status`,
-    ADD COLUMN `target_countries_json` JSON DEFAULT NULL COMMENT 'أكواد الدول المستهدفة (iso2) - مطلوبة كـGuardrail للـAutopilot' AFTER `target_audience_brief`,
-    ADD COLUMN `landing_page_url` VARCHAR(500) DEFAULT NULL AFTER `target_countries_json`,
-    ADD COLUMN `landing_page_last_analysis` LONGTEXT DEFAULT NULL COMMENT 'نتيجة تحليل صفحة الهبوط (JSON) من LandingPageAnalysisService' AFTER `landing_page_url`,
-    ADD COLUMN `landing_page_analyzed_at` TIMESTAMP NULL DEFAULT NULL AFTER `landing_page_last_analysis`,
-    ADD COLUMN `external_budget_resource_name` VARCHAR(255) DEFAULT NULL COMMENT 'Google Ads Campaign Budget resource name - مطلوب للـAutopilot لتعديل الميزانية بعد النشر' AFTER `external_budget_resource`;
+    ADD COLUMN IF NOT EXISTS `published_at` TIMESTAMP NULL DEFAULT NULL COMMENT 'وقت النشر الفعلي على المنصة' AFTER `status`,
+    ADD COLUMN IF NOT EXISTS `target_countries_json` JSON DEFAULT NULL COMMENT 'أكواد الدول المستهدفة (iso2) - مطلوبة كـGuardrail للـAutopilot' AFTER `target_audience_brief`,
+    ADD COLUMN IF NOT EXISTS `landing_page_url` VARCHAR(500) DEFAULT NULL AFTER `target_countries_json`,
+    ADD COLUMN IF NOT EXISTS `landing_page_last_analysis` LONGTEXT DEFAULT NULL COMMENT 'نتيجة تحليل صفحة الهبوط (JSON) من LandingPageAnalysisService' AFTER `landing_page_url`,
+    ADD COLUMN IF NOT EXISTS `landing_page_analyzed_at` TIMESTAMP NULL DEFAULT NULL AFTER `landing_page_last_analysis`,
+    ADD COLUMN IF NOT EXISTS `external_budget_resource` VARCHAR(255) DEFAULT NULL COMMENT 'Google Ads Campaign Budget resource name (القيمة الخام من GoogleAdsAPI)' AFTER `landing_page_analyzed_at`,
+    ADD COLUMN IF NOT EXISTS `external_budget_resource_name` VARCHAR(255) DEFAULT NULL COMMENT 'Google Ads Campaign Budget resource name - مطلوب للـAutopilot لتعديل الميزانية بعد النشر' AFTER `external_budget_resource`;
 
 -- الحالة 'removed' مطلوبة لإلغاء حملة منشورة على المنصة (cancelCampaign)
 ALTER TABLE `ad_campaigns`
@@ -29,16 +30,40 @@ ALTER TABLE `ad_campaigns`
 -- 2) ad_optimization_logs: توسعة لقابلية الـRollback + ملكية السجل
 -- ------------------------------------------------------------
 ALTER TABLE `ad_optimization_logs`
-    ADD COLUMN `user_id` INT(11) DEFAULT NULL COMMENT 'صاحب قرار التحسين (مطلوب لسرد سجل المستخدم والتحقق من ملكية Rollback)' AFTER `campaign_id`,
-    ADD COLUMN `mode` ENUM('manual','approval','autopilot','rollback') NOT NULL DEFAULT 'manual' AFTER `action_type`,
-    ADD COLUMN `before_value` VARCHAR(100) DEFAULT NULL COMMENT 'القيمة قبل التغيير (ميزانية أو حالة)' AFTER `description`,
-    ADD COLUMN `after_value` VARCHAR(100) DEFAULT NULL COMMENT 'القيمة بعد التغيير' AFTER `before_value`,
-    ADD COLUMN `can_rollback` TINYINT(1) NOT NULL DEFAULT 0 AFTER `applied_automatically`,
-    ADD COLUMN `external_result` VARCHAR(500) DEFAULT NULL COMMENT 'نتيجة التنفيذ على المنصة الفعلية' AFTER `can_rollback`,
-    ADD COLUMN `rolled_back_at` TIMESTAMP NULL DEFAULT NULL AFTER `external_result`,
-    ADD COLUMN `rollback_of_log_id` INT(11) DEFAULT NULL COMMENT 'لو صف Rollback - بيشير لصف السجل الأصلي اللي اترجع عنه' AFTER `rolled_back_at`,
-    ADD INDEX `idx_user_id` (`user_id`),
-    ADD FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL;
+    ADD COLUMN IF NOT EXISTS `user_id` INT(11) DEFAULT NULL COMMENT 'صاحب قرار التحسين (مطلوب لسرد سجل المستخدم والتحقق من ملكية Rollback)' AFTER `campaign_id`,
+    ADD COLUMN IF NOT EXISTS `mode` ENUM('manual','approval','autopilot','rollback') NOT NULL DEFAULT 'manual' AFTER `action_type`,
+    ADD COLUMN IF NOT EXISTS `before_value` VARCHAR(100) DEFAULT NULL COMMENT 'القيمة قبل التغيير (ميزانية أو حالة)' AFTER `description`,
+    ADD COLUMN IF NOT EXISTS `after_value` VARCHAR(100) DEFAULT NULL COMMENT 'القيمة بعد التغيير' AFTER `before_value`,
+    ADD COLUMN IF NOT EXISTS `can_rollback` TINYINT(1) NOT NULL DEFAULT 0 AFTER `applied_automatically`,
+    ADD COLUMN IF NOT EXISTS `external_result` VARCHAR(500) DEFAULT NULL COMMENT 'نتيجة التنفيذ على المنصة الفعلية' AFTER `can_rollback`,
+    ADD COLUMN IF NOT EXISTS `rolled_back_at` TIMESTAMP NULL DEFAULT NULL AFTER `external_result`,
+    ADD COLUMN IF NOT EXISTS `rollback_of_log_id` INT(11) DEFAULT NULL COMMENT 'لو صف Rollback - بيشير لصف السجل الأصلي اللي اترجع عنه' AFTER `rolled_back_at`;
+
+-- الفهرس والـFK محميان بـinformation_schema (لا يوجد ADD INDEX/CONSTRAINT IF NOT EXISTS في MariaDB)
+SET @idx_exists := (
+    SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ad_optimization_logs'
+      AND INDEX_NAME = 'idx_user_id'
+);
+SET @idx_sql := IF(@idx_exists = 0,
+    'ALTER TABLE `ad_optimization_logs` ADD INDEX `idx_user_id` (`user_id`)',
+    'SELECT 1');
+PREPARE idx_stmt FROM @idx_sql;
+EXECUTE idx_stmt;
+DEALLOCATE PREPARE idx_stmt;
+
+SET @fk_log_user_exists := (
+    SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+    WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'ad_optimization_logs'
+      AND CONSTRAINT_NAME = 'fk_optimization_log_user' AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+);
+SET @fk_log_user_sql := IF(@fk_log_user_exists = 0,
+    'ALTER TABLE `ad_optimization_logs` ADD CONSTRAINT `fk_optimization_log_user`
+     FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL',
+    'SELECT 1');
+PREPARE fk_log_user_stmt FROM @fk_log_user_sql;
+EXECUTE fk_log_user_stmt;
+DEALLOCATE PREPARE fk_log_user_stmt;
 
 -- 'resume_campaign' (إيقاف/استئناف يدوي) و 'rollback' مطلوبان من الموديول
 ALTER TABLE `ad_optimization_logs`

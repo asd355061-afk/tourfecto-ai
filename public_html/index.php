@@ -55,6 +55,8 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/SocialMedia/MetaSocialAPI.php',
     APP_PATH . '/Services/Ads/MetaAdsAPI.php',
     APP_PATH . '/Services/Ads/GoogleAdsAPI.php',
+    APP_PATH . '/Services/Ads/AdPiiHasher.php',
+    APP_PATH . '/Jobs/SendAdConversionJob.php',
     APP_PATH . '/Services/OAuth/MetaOAuthClient.php',
     APP_PATH . '/Models/SubscriptionPlan.php',
     APP_PATH . '/Models/WalletTransaction.php',

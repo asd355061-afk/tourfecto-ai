@@ -279,6 +279,64 @@ class MetaAdsAPI
         }
     }
 
+    /**
+     * Meta Conversions API (CAPI) - حدث تحويل غير متزامن (Purchase) بعد
+     * تأكيد حجز اتئسناد لرابط UTM تابع لحملة Meta. البيانات الشخصية
+     * للعميل بتتبعت مجرد hashes SHA-256 (جاهزة من AdPiiHasher) - أي قيمة
+     * null/فاضية مبتتبعتش خالص. الحدث متربط بالحجز عبر event_id فريد
+     * (booking_reference) عشان Meta تقدر تسقط المكررات مع Pixel.
+     *
+     * @param string $pixelId معرّف الـ Meta Pixel (من إعدادات النظام)
+     * @param array $conversion ['event_id'=>string, 'value'=>float, 'currency'=>string,
+     *                            'email_hash'=>?string, 'phone_hash'=>?string]
+     * @return array ['success'=>bool, 'received'=>bool, 'error'=>?]
+     */
+    public function sendConversionEvent(string $pixelId, array $conversion): array
+    {
+        $eventId = (string) ($conversion['event_id'] ?? '');
+        $emailHash = isset($conversion['email_hash']) && is_string($conversion['email_hash']) ? (string) $conversion['email_hash'] : null;
+        $phoneHash = isset($conversion['phone_hash']) && is_string($conversion['phone_hash']) ? (string) $conversion['phone_hash'] : null;
+
+        if ($emailHash === null && $phoneHash === null) {
+            return ['success' => false, 'error' => 'مفيش أي معرّف مستخدم مجهول الهوية لإرسال الحدث'];
+        }
+
+        $userData = [];
+        if ($emailHash !== null) {
+            $userData['em'] = [$emailHash];
+        }
+        if ($phoneHash !== null) {
+            $userData['ph'] = [$phoneHash];
+        }
+
+        $event = [
+            'event_name' => 'Purchase',
+            'event_time' => time(),
+            'action_source' => 'website',
+            'user_data' => $userData,
+            'custom_data' => [
+                'currency' => (string) ($conversion['currency'] ?? 'USD'),
+                'value' => round((float) ($conversion['value'] ?? 0), 2),
+            ],
+        ];
+        if ($eventId !== '') {
+            $event['event_id'] = $eventId;
+        }
+
+        // data لازم يكون JSON string جوه POST field (وإلا Meta بترفض الطلب)
+        $result = $this->post($pixelId . '/events', ['data' => json_encode([$event], JSON_UNESCAPED_UNICODE)]);
+
+        if (!$result['success']) {
+            return $result;
+        }
+
+        $received = isset($result['data']['events_received'])
+            ? (int) $result['data']['events_received'] > 0
+            : true;
+
+        return ['success' => $received, 'received' => $received];
+    }
+
     /** تحويل اسم CTA العربي المستخدم عندنا لأقرب قيمة معتمدة من Meta */
     private function mapCta(string $cta): string
     {
@@ -317,7 +375,7 @@ class MetaAdsAPI
      * طلب POST عام لـ Graph Marketing API (إنشاء موارد).
      * @return array ['success'=>bool, 'data'=>array, 'error'=>?]
      */
-    private function post(string $path, array $fields = []): array
+    protected function post(string $path, array $fields = []): array
     {
         try {
             $fields['access_token'] = $this->accessToken;
@@ -360,7 +418,7 @@ class MetaAdsAPI
      * طلب GET عام لـ Graph Marketing API.
      * @return array ['success'=>bool, 'data'=>array, 'error'=>?]
      */
-    private function get(string $path, array $query = []): array
+    protected function get(string $path, array $query = []): array
     {
         try {
             $query['access_token'] = $this->accessToken;

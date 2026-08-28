@@ -236,6 +236,60 @@ class AdReportService
         ], $rows);
     }
 
+    /**
+     * ROAS حقيقي من الحجوزات المرتبطة فعليًا (attribution-based): مجموع
+     * total_amount لحجوزات confirmed/completed اتئسبت لحملة (عبر روابط
+     * UTM اللي الزائر كلَك عليها قبل الحجز - attributed_utm_link_id)
+     * مقسوم على إجمالي إنفاق الحملة. بيختلف عن ROAS بتاع
+     * ad_performance_reports اللي بييجي من revenue المنصة نفسها - ده
+     * بيقيس العائد الفعلي بالفلوس اللي الحجوزات جابت.
+     *
+     * @return array<int, array{campaign_id:int, name:string, attributed_bookings:int,
+     *                          attributed_revenue:float, spend:float, roas:?float}>
+     */
+    public function calculateRoas(int $userId): array
+    {
+        $campaigns = array_map(fn ($c) => $c->toArray(), (new AdCampaign())->where(['user_id' => $userId]));
+        if (empty($campaigns)) {
+            return [];
+        }
+        $campaignIds = array_column($campaigns, 'id');
+        $placeholders = implode(',', array_fill(0, count($campaignIds), '?'));
+
+        $rows = $this->db->query(
+            "SELECT u.campaign_id,
+                    COUNT(b.id) AS attributed_bookings,
+                    COALESCE(SUM(b.total_amount), 0) AS attributed_revenue
+             FROM bookings b
+             JOIN ad_utm_links u ON u.id = b.attributed_utm_link_id
+             WHERE b.status IN ('confirmed', 'completed')
+               AND u.campaign_id IN ({$placeholders})
+             GROUP BY u.campaign_id",
+            $campaignIds
+        );
+
+        $names = array_column($campaigns, 'name', 'id');
+        $spends = array_column($campaigns, 'spend', 'id');
+
+        $result = [];
+        foreach ($rows as $r) {
+            $campaignId = (int) $r['campaign_id'];
+            $spend = (float) ($spends[$campaignId] ?? 0);
+            $revenue = round((float) $r['attributed_revenue'], 2);
+            $result[] = [
+                'campaign_id' => $campaignId,
+                'name' => $names[$campaignId] ?? ('#' . $campaignId),
+                'attributed_bookings' => (int) $r['attributed_bookings'],
+                'attributed_revenue' => $revenue,
+                'spend' => round($spend, 2),
+                'roas' => $spend > 0 ? round($revenue / $spend, 2) : null,
+            ];
+        }
+
+        usort($result, fn ($a, $b) => ($b['roas'] ?? -1) <=> ($a['roas'] ?? -1));
+        return $result;
+    }
+
     private function bestCreative(array $campaignIds): ?array
     {
         if (empty($campaignIds)) {

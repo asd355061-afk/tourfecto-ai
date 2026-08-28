@@ -3080,15 +3080,20 @@ JS;
     {
         $code = (string) ($params['code'] ?? '');
         $service = new AdTrackingService();
-        $destination = $service->resolveAndTrackClick($code);
+        $tracked = $service->resolveAndTrackClick($code);
 
-        if (!$destination) {
+        if (!$tracked) {
             http_response_code(404);
             echo 'الرابط غير صالح أو منتهي';
             exit;
         }
 
-        header('Location: ' . $destination, true, 302);
+        // نخزّن إسناد النقرة (رابط UTM + المنصة) لمدة 30 يوم قبل التحويل -
+        // أي حجز قادم من الزائر ده هيتم تنسبه تلقائيًا للرابط الإعلاني
+        // (البيانات المخزنة معرّف الرابط بس، مش أي بيانات شخصية).
+        $service->storeAttribution($tracked['utm_link_id'], $tracked['platform']);
+
+        header('Location: ' . $tracked['destination'], true, 302);
         exit;
     }
 

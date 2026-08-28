@@ -276,6 +276,7 @@ function applyTestMigrations(): void
         '2026_08_14_000048_create_ci_rate_limits.sql',
         '2026_08_15_000070_create_missing_base_tables.sql',
         '2026_08_15_000050_add_ads_autopilot_and_tracking_tables.sql',
+        '2026_08_28_000001_add_booking_ad_attribution.sql',
     ];
 
     // إصلاح انحرافات السكيما المحلية: schema.sql القديمة بتحتوي أسماء
