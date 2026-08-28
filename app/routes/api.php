@@ -746,6 +746,20 @@ $router->post('/api/ads/creatives/{id}/variants', 'AdCreativeController', 'addVa
 $router->patch('/api/ads/creative-variants/{id}', 'AdCreativeController', 'updateVariant', ['AuthMiddleware']);
 $router->post('/api/ads/creative-variants/{id}/performance', 'AdCreativeController', 'recordPerformance', ['AuthMiddleware']);
 
+// ---- Ad A/B Testing (بند 2) - تجارب على تنويعات الأصول الإعلانية
+$router->get('/api/ads/ab-tests', 'AdAbTestController', 'list', ['AuthMiddleware']);
+$router->get('/api/ads/ab-tests/{id}', 'AdAbTestController', 'get', ['AuthMiddleware']);
+$router->post('/api/ads/ab-tests', 'AdAbTestController', 'create', ['AuthMiddleware']);
+$router->post('/api/ads/ab-tests/{id}/start', 'AdAbTestController', 'start', ['AuthMiddleware']);
+$router->post('/api/ads/ab-tests/{id}/complete', 'AdAbTestController', 'complete', ['AuthMiddleware']);
+$router->delete('/api/ads/ab-tests/{id}', 'AdAbTestController', 'delete', ['AuthMiddleware']);
+$router->post('/api/ads/ab-tests/{id}/variants', 'AdAbTestController', 'addVariant', ['AuthMiddleware']);
+$router->patch('/api/ads/ab-test-variants/{id}', 'AdAbTestController', 'updateVariantWeight', ['AuthMiddleware']);
+$router->delete('/api/ads/ab-test-variants/{id}', 'AdAbTestController', 'removeVariant', ['AuthMiddleware']);
+$router->get('/api/ads/ab-tests/{id}/statistics', 'AdAbTestController', 'statistics', ['AuthMiddleware']);
+$router->get('/api/ads/ab-tests/{id}/predict-winner', 'AdAbTestController', 'predictWinner', ['AuthMiddleware']);
+$router->get('/api/ads/ab-tests/pick-variant', 'AdAbTestController', 'pickVariantForTraffic', ['AuthMiddleware']);
+
 $router->post('/api/ads/copilot/ask', 'AdsController', 'askCopilot', ['AuthMiddleware']);
 
 $router->post('/api/ads/campaigns/{id}/keywords/generate', 'AdsController', 'generateKeywords', ['AuthMiddleware']);

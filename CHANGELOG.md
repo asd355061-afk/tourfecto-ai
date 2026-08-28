@@ -1,4 +1,39 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## تجارب A/B الإعلانية (بند 2: Ad A/B Testing) — 2026-08-28
+
+توسعة سلسلة بنود التطوير التنافسية على `main`: تجارب A/B على مستوى تنويعات
+الأصول الإعلانية (من بند 1) مع توزيع حركة نسبي قابل للضبط (50/50...) ودلالة
+إحصائية حقيقية تُحسب من بيانات أداء فعلية — لا اختراع بيانات.
+
+**الميزات الجديدة (`AdAbTestService` + `AdAbTestController`):**
+- **تجارب** (`ad_ab_tests`): تجربة على أصل إعلاني تابع لحملة، حالات
+  `draft`/`running`/`completed`/`archived`، تواريخ بدء/انتهاء، `winning_variant_id`.
+- **أذرع** (`ad_ab_test_variants`): ربط تنويعات الأصول بوزن نسبي `weight_pct`
+  + علامة `is_control`؛ الوزن قابل للتعديل في `draft` فقط.
+- **دورة حياة**: `startTest()` (تحتاج ذراعين على الأقل) → `completeTest()`
+  (يجب أن يكون الفائز ذراعًا) → `archiveTest()` (أرشفة منطقية).
+- **دلالة إحصائية شفافة**: `statistics()` يحسب chi-square (2x2) مع تصحيح
+  Yates بين كل ذراع والتحكم (نفس منهجية `SeoAbTestService::chiSquare2x2`) من
+  الانطباعات/النقرات الخام للتنويعات؛ `reliable=false` لو الخلايا المتوقعة
+  أقل من 5 — يُقال ذلك صراحة.
+- **التنبؤ بالفائز**: `predictWinner()` يعيد صاحب أعلى CTR مع إشارة دلالة
+  إحصائية وسبب واضح (فارق دال / يحتاج بيانات / بيانات غير كافية) — وثيقة
+  إحصائية وليست ML black-box.
+- **توزيع الحركة**: `pickVariantForTraffic()` اختيار موزون عشوائيًا حسب
+  أوزان أذرع التجربة الجارية (لدمجها في خدمة توزيع الحركة الفعلية).
+- **عزل تينانت صارم**: `user_id` في كل جدول + فحص ملكية في الـ Service +
+  `resolveAdsAccess()` في الـ Controller (منهجية AdsController).
+- **API (كلها AuthMiddleware):** `GET/POST /api/ads/ab-tests`،
+  `GET/PATCH?/DELETE /api/ads/ab-tests/{id}` (start/complete)،
+  `POST /api/ads/ab-tests/{id}/variants`،
+  `PATCH/DELETE /api/ads/ab-test-variants/{id}`،
+  `GET /api/ads/ab-tests/{id}/statistics`،
+  `GET /api/ads/ab-tests/{id}/predict-winner`،
+  `GET /api/ads/ab-tests/pick-variant`.
+- **Lang:** 35 مفتاح `ads.ab_tests.*` جديد في `app/Lang/en.php` + `ar.php`.
+- اختبارات `tests/Integration/AdAbTestIntegrationTest.php` (12/70) تغطي الإنشاء/
+  العزل/الأذرع/دورة الحياة/الدلالة الإحصائية/التنبؤ/توزيع الحركة/الأرشفة.
+
 ## إدارة الأصول الإعلانية (بند 1: Creative Assets) — 2026-08-28
 
 نقطة بداية سلسلة بنود التطوير التنافسية الجديدة على `main` (Ads ×5 / CRM ×1 /

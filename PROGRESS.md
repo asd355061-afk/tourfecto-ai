@@ -4,6 +4,25 @@
 **الفرع:** `main`
 **الحالة:** 8 بنود جديدة بالتتابع — كل بند migration+model+service+controller+routes+Lang+tests+checks+commit منفصل
 
+## البند 2 (مكتمل): تجارب A/B الإعلانية (Ad A/B Testing) — Ads
+- **المشكلة:** تنويعات الأصول (بند 1) كانت أذرعًا بلا تجربة: لا توزيع حركة
+  نسبي ولا حكم إحصائي على الفرق في الأداء.
+- migration `2026_08_28_000004_create_ad_ab_tests.sql` (idempotent): `ad_ab_tests`
+  (user_id/campaign_id/creative_id/name/status/winning_variant_id/started_at/
+  ended_at) + `ad_ab_test_variants` (user_id/ab_test_id/creative_variant_id/
+  weight_pct/is_control + UNIQUE(ab_test, creative_variant)).
+- `AdAbTestService`: createTest/listForCampaign/get مع أذرع وأداء +
+  addVariant/updateVariantWeight/removeVariant + startTest (ذراعان على الأقل) +
+  completeTest (فائز داخل الأذرع فقط) + archiveTest + `statistics()` (chi-square
+  2x2 مع تصحيح Yates لكل ذراع مقابل التحكم، `reliable` لو الخلايا المتوقعة ≥5) +
+  `predictWinner()` (أعلى CTR مع دلالة إحصائية وسبب صريح) +
+  `pickVariantForTraffic()` (اختيار موزون عشوائي من أوزان الأذرع الجارية).
+- `AdAbTestController`: 11 نقطة API جديدة كلها AuthMiddleware، عزل التينانت
+  عبر `resolveAdsAccess()` + فحص ملكية في الـ Service.
+- Lang: 35 مفتاح `ads.ab_tests.*` في en/ar.
+- اختبارات `tests/Integration/AdAbTestIntegrationTest.php` (12/70).
+- التحقق: **507/15009 OK**، lint 746، PHPStan 0. commit + push على `main`.
+
 ## البند 1 (مكتمل): الأصول الإعلانية (Creative Assets) — Ads
 - **المشكلة:** كانت إدارة المحتوى الإبداعي مقتصرة على `ad_copies` (نص فقط،
   على مستوى الحملة) بلا أصل إعلاني فعلي ولا تنويعات ولا أداء لكل تنويع.
