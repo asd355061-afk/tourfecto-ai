@@ -19,6 +19,7 @@ return [
     'rr.channel' => 'Channel',
     'rr.channel.email' => 'Email',
     'rr.channel.not_configured' => 'This channel is not configured for this website',
+    'rr.channel.sms' => 'SMS',
     'rr.channel.whatsapp' => 'WhatsApp',
     'rr.col.channel' => 'Channel',
     'rr.details' => 'Details',

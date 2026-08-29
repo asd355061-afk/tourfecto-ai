@@ -81,8 +81,8 @@ class ReviewRequestService
         ?int $crmDealId = null,
         string $destinationPlatform = 'other'
     ): ReviewRequest {
-        if (!in_array($channel, ['whatsapp', 'email'], true)) {
-            throw new Exception('قناة غير مدعومة - المتاح حاليًا: واتساب أو إيميل فقط');
+        if (!in_array($channel, ['whatsapp', 'email', 'sms'], true)) {
+            throw new Exception('قناة غير مدعومة - المتاح حاليًا: واتساب أو إيميل أو SMS');
         }
         if (!in_array($destinationPlatform, ['google_business', 'tripadvisor', 'other'], true)) {
             throw new Exception('وجهة تقييم غير مدعومة');
@@ -91,8 +91,8 @@ class ReviewRequestService
         $guestPhone = $guestPhone !== null ? preg_replace('/[^0-9]/', '', $guestPhone) : null;
         $guestEmail = $guestEmail !== null ? trim($guestEmail) : null;
 
-        if ($channel === 'whatsapp' && empty($guestPhone)) {
-            throw new Exception('رقم واتساب مطلوب لقناة واتساب');
+        if (in_array($channel, ['whatsapp', 'sms'], true) && empty($guestPhone)) {
+            throw new Exception($channel === 'whatsapp' ? 'رقم واتساب مطلوب لقناة واتساب' : 'رقم الهاتف مطلوب لقناة SMS');
         }
         if ($channel === 'email' && empty($guestEmail)) {
             throw new Exception('إيميل الضيف مطلوب لقناة الإيميل');
@@ -102,9 +102,7 @@ class ReviewRequestService
         }
 
         if (!$this->isChannelConfigured($websiteId, $channel)) {
-            throw new Exception($channel === 'whatsapp'
-                ? 'قناة واتساب غير مفعّلة لهذا الموقع - اربط UltraMsg الأول من صفحة التكاملات'
-                : 'قناة الإيميل غير مفعّلة - Mailer غير مهيأ في النظام حاليًا');
+            throw new Exception($this->channelNotConfiguredMessage($channel));
         }
 
         if ($this->isOptedOut($websiteId, $guestPhone, $guestEmail)) {
@@ -253,7 +251,26 @@ class ReviewRequestService
             return !empty($connection);
         }
 
+        if ($channel === 'sms') {
+            // G2: قناة SMS عبر CrmSmsService (Twilio) - إعدادات على مستوى
+            // المنصة (SystemSettingsService). لو التكامل مش مهيأ، تُعتبر
+            // القناة غير مفعّلة بخطأ واضح. غير مختبَر بمفتاح Twilio حقيقي.
+            return class_exists('CrmSmsService') && (new CrmSmsService())->isConfigured();
+        }
+
         return false;
+    }
+
+    /** رسالة "القناة غير مفعّلة" المناسبة لكل قناة (رسالة واضحة بلا Mock) */
+    private function channelNotConfiguredMessage(string $channel): string
+    {
+        if ($channel === 'whatsapp') {
+            return 'قناة واتساب غير مفعّلة لهذا الموقع - اربط UltraMsg الأول من صفحة التكاملات';
+        }
+        if ($channel === 'sms') {
+            return 'قناة SMS غير مفعّلة - أضف بيانات Twilio (Account SID/Auth Token/رقم الإرسال) من إعدادات الأدمن';
+        }
+        return 'قناة الإيميل غير مفعّلة - Mailer غير مهيأ في النظام حاليًا';
     }
 
     /** حالة كل القنوات المتاحة لموقع معيّن - لعرضها في واجهة إنشاء الطلب */
@@ -262,6 +279,7 @@ class ReviewRequestService
         return [
             'whatsapp' => $this->isChannelConfigured($websiteId, 'whatsapp') ? 'connected' : 'not_configured',
             'email' => $this->isChannelConfigured($websiteId, 'email') ? 'connected' : 'not_configured',
+            'sms' => $this->isChannelConfigured($websiteId, 'sms') ? 'connected' : 'not_configured',
         ];
     }
 
@@ -443,6 +461,8 @@ class ReviewRequestService
                 $channel = 'whatsapp';
             } elseif (!empty($guestEmail) && $this->isChannelConfigured($websiteId, 'email')) {
                 $channel = 'email';
+            } elseif (!empty($guestPhone) && $this->isChannelConfigured($websiteId, 'sms')) {
+                $channel = 'sms';
             }
 
             if ($channel === null) {
@@ -454,7 +474,7 @@ class ReviewRequestService
                 $userId,
                 $websiteId,
                 $guestName,
-                $channel === 'whatsapp' ? $guestPhone : null,
+                in_array($channel, ['whatsapp', 'sms'], true) ? $guestPhone : null,
                 date('Y-m-d H:i:s'),
                 $channel,
                 $channel === 'email' ? $guestEmail : null,
@@ -625,15 +645,13 @@ class ReviewRequestService
             throw new Exception('لا يوجد مستلم صالح لقناة ' . $channel);
         }
         if (!$this->isChannelConfigured($websiteId, $channel)) {
-            throw new Exception($channel === 'whatsapp'
-                ? 'قناة واتساب غير مفعّلة لهذا الموقع حاليًا'
-                : 'قناة الإيميل غير مفعّلة حاليًا');
+            throw new Exception($this->channelNotConfiguredMessage($channel));
         }
 
         $settings = $this->getSettings($websiteId);
         $message = $this->renderTemplate($settings['message_template'], (string) $request->getAttribute('guest_name'), (string) $request->getAttribute('review_link'));
 
-        $sent = $this->chatManager->sendMessageForWebsite($websiteId, $recipient, $message, $channel);
+        $sent = $this->sendByChannel($websiteId, $channel, $recipient, $message);
         $request->setAttribute('attempts', (int) $request->getAttribute('attempts') + 1);
 
         if ($sent) {
@@ -641,9 +659,7 @@ class ReviewRequestService
             $request->setAttribute('sent_at', date('Y-m-d H:i:s'));
             $request->setAttribute('error_message', null);
         } else {
-            $request->setAttribute('error_message', $channel === 'whatsapp'
-                ? 'فشلت إعادة المحاولة - تأكد من ربط واتساب للموقع ده'
-                : 'فشلت إعادة المحاولة - تأكد من إعدادات Mailer');
+            $request->setAttribute('error_message', $this->channelSendFailedMessage($channel));
         }
         $request->save();
 
@@ -667,7 +683,7 @@ class ReviewRequestService
         }
 
         $channel = (string) ($data['channel'] ?? $request->getAttribute('channel'));
-        if (!in_array($channel, ['whatsapp', 'email'], true)) {
+        if (!in_array($channel, ['whatsapp', 'email', 'sms'], true)) {
             throw new Exception('قناة غير مدعومة');
         }
 
@@ -677,8 +693,8 @@ class ReviewRequestService
         $guestPhone = $guestPhone !== null ? preg_replace('/[^0-9]/', '', (string) $guestPhone) : null;
         $guestEmail = $guestEmail !== null ? trim((string) $guestEmail) : null;
 
-        if ($channel === 'whatsapp' && empty($guestPhone)) {
-            throw new Exception('رقم واتساب مطلوب لقناة واتساب');
+        if (in_array($channel, ['whatsapp', 'sms'], true) && empty($guestPhone)) {
+            throw new Exception($channel === 'whatsapp' ? 'رقم واتساب مطلوب لقناة واتساب' : 'رقم الهاتف مطلوب لقناة SMS');
         }
         if ($channel === 'email' && empty($guestEmail)) {
             throw new Exception('إيميل الضيف مطلوب لقناة الإيميل');
@@ -687,7 +703,7 @@ class ReviewRequestService
             throw new Exception('صيغة الإيميل غير صحيحة');
         }
         if (!$this->isChannelConfigured($websiteId, $channel)) {
-            throw new Exception($channel === 'whatsapp' ? 'قناة واتساب غير مفعّلة لهذا الموقع' : 'قناة الإيميل غير مفعّلة');
+            throw new Exception($this->channelNotConfiguredMessage($channel));
         }
         if ($this->isOptedOut($websiteId, $guestPhone, $guestEmail)) {
             throw new Exception('هذا الضيف طلب عدم التواصل معه سابقًا (Opt-Out)');
@@ -762,7 +778,7 @@ class ReviewRequestService
             }
 
             $message = $this->renderTemplate($settings['message_template'], $row['guest_name'], $row['review_link']);
-            $sent = $this->chatManager->sendMessageForWebsite((int) $row['website_id'], $recipient, $message, $channel);
+            $sent = $this->sendByChannel((int) $row['website_id'], $channel, $recipient, $message);
             $request->setAttribute('attempts', (int) $row['attempts'] + 1);
 
             if ($sent) {
@@ -771,9 +787,7 @@ class ReviewRequestService
                 $sentCount++;
             } else {
                 $request->setAttribute('status', 'failed');
-                $request->setAttribute('error_message', $channel === 'whatsapp'
-                    ? 'تعذر إرسال الرسالة - تأكد من ربط واتساب للموقع ده'
-                    : 'تعذر إرسال الإيميل - تأكد من إعدادات Mailer');
+                $request->setAttribute('error_message', $this->channelSendFailedMessage($channel));
                 $failedCount++;
             }
             $request->save();
@@ -802,7 +816,7 @@ class ReviewRequestService
             }
 
             $message = $this->renderTemplate($settings['reminder_template'], $row['guest_name'], $row['review_link']);
-            $sent = $this->chatManager->sendMessageForWebsite((int) $row['website_id'], $recipient, $message, $channel);
+            $sent = $this->sendByChannel((int) $row['website_id'], $channel, $recipient, $message);
 
             $request = (new ReviewRequest())->find((int) $row['id']);
             if ($sent) {
@@ -814,6 +828,37 @@ class ReviewRequestService
         }
 
         return ['sent' => $sentCount, 'reminded' => $remindedCount, 'failed' => $failedCount];
+    }
+
+    /**
+     * إرسال رسالة عبر القناة الصحيحة - واتساب/إيميل عبر ChatManager
+     * (الموجود أصلًا)، وSMS عبر CrmSmsService (Twilio) كقناة إضافية (G2).
+     * الرجوع: true فقط عند نجاح فعلي؛ أي فشل (تكامل غير مهيأ/تعذر الاتصال)
+     * يُسجَّل ويرجع false — لا Mock أبدًا.
+     */
+    private function sendByChannel(int $websiteId, string $channel, string $recipient, string $message): bool
+    {
+        if ($channel === 'sms') {
+            if (!class_exists('CrmSmsService')) {
+                return false;
+            }
+            $result = (new CrmSmsService())->sendTextMessage($recipient, $message);
+            return !empty($result['success']);
+        }
+
+        return $this->chatManager->sendMessageForWebsite($websiteId, $recipient, $message, $channel);
+    }
+
+    /** رسالة فشل الإرسال الواضحة لكل قناة (تُحفظ في error_message) */
+    private function channelSendFailedMessage(string $channel): string
+    {
+        if ($channel === 'whatsapp') {
+            return 'تعذر إرسال الرسالة - تأكد من ربط واتساب للموقع ده';
+        }
+        if ($channel === 'sms') {
+            return 'تعذر إرسال SMS - تأكد من إعدادات Twilio في لوحة الأدمن';
+        }
+        return 'تعذر إرسال الإيميل - تأكد من إعدادات Mailer';
     }
 
     /**

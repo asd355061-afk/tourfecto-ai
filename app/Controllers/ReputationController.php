@@ -1574,9 +1574,22 @@ JS;
                     </div>
                 </div>
                 <div class="p-card">
-                    <div class="p-card-head"><h3>📈 اقتراحات تحسين</h3><span class="p-card-sub">مبنية على أكتر الكلمات تكرارًا في المراجعات السلبية</span></div>
+                    <div class="p-card-head"><h3>📈 اقتراحات تحسين</h3><span class="p-card-sub">مبنية على الموضوعات الأكثر تكرارًا في المراجعات السلبية</span></div>
                     <div id="repoImprovements" style="display:flex;flex-direction:column;gap:12px;">
                         <div class="p-loading-row">جارِ التحميل...</div>
+                    </div>
+                </div>
+                <div class="p-card">
+                    <div class="p-card-head"><h3>🏷 أهم الموضوعات المذكورة</h3><span class="p-card-sub">استخراج ديناميكي من نصوص المراجعات (عربي/إنجليزي)</span></div>
+                    <div id="repoTopics" style="display:flex;flex-direction:column;gap:10px;">
+                        <div class="p-loading-row">جارِ التحميل...</div>
+                    </div>
+                </div>
+                <div class="p-card">
+                    <div class="p-card-head"><h3>📤 تصدير البيانات</h3></div>
+                    <div style="display:flex;flex-direction:column;gap:8px;">
+                        <a class="p-btn outline" href="/api/reputation/export-reviews">⬇ تصدير المراجعات CSV</a>
+                        <span class="p-card-sub">تتضمن مؤشرات مختصرة (العدد/المتوسط/المشاعر) أعلى الملف</span>
                     </div>
                 </div>
             </div>
@@ -1700,41 +1713,44 @@ HTML;
             </div>`).join('');
     }
 
-    const TOPIC_KEYWORDS = {
-        'نظافة / Cleanliness': ['clean', 'dirty', 'dust', 'نظاف', 'وسخ', 'نظافة'],
-        'خدمة الموظفين / Staff & service': ['staff', 'service', 'reception', 'rude', 'موظف', 'خدمة', 'استقبال'],
-        'المرافق / Facilities': ['ac', 'wifi', 'elevator', 'broken', 'facility', 'مصعد', 'تكييف', 'واي فاي', 'عطل'],
-        'التسعير / Pricing': ['price', 'charge', 'bill', 'expensive', 'سعر', 'فلوس', 'فاتورة'],
-        'جودة الغرفة / Room quality': ['room', 'bed', 'smell', 'غرفة', 'سرير', 'ريحة'],
-    };
-
     function renderImprovements(list) {
+        // G4: الاقتراحات بقت ديناميكية من السيرفر (ReviewTopicExtractor)
+        // بدل الكلمات المفتاحية الثابتة القديمة في JS.
         const box = document.getElementById('repoImprovements');
-        const negatives = list.filter(r => r.sentiment_label === 'negative');
-        const counts = {};
-        negatives.forEach(r => {
-            const text = (r.review_text || '').toLowerCase();
-            Object.keys(TOPIC_KEYWORDS).forEach(topic => {
-                if (TOPIC_KEYWORDS[topic].some(kw => text.includes(kw))) {
-                    counts[topic] = (counts[topic] || 0) + 1;
-                }
-            });
-        });
-        const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-        if (!sorted.length) {
+        if (!list.length) {
             box.innerHTML = '<div class="p-cell-muted">مفيش أنماط واضحة في المراجعات السلبية الحالية</div>';
             return;
         }
-        box.innerHTML = sorted.map(([topic, count]) => {
-            const priority = count >= 3 ? 'عالي' : count === 2 ? 'متوسط' : 'منخفض';
-            return `
-                <div>
-                    <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-                        <span style="font-weight:600;font-size:12.5px;">${esc(topic)}</span>
-                        <span class="p-cell-muted" style="font-size:10.5px;">أولوية ${priority} · ${count} مراجعة</span>
+        const priorityLabel = { high: 'عالي', medium: 'متوسط', low: 'منخفض' };
+        box.innerHTML = list.map(t => `
+            <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                    <span style="font-weight:600;font-size:12.5px;">${esc(t.label)}</span>
+                    <span class="p-cell-muted" style="font-size:10.5px;">أولوية ${priorityLabel[t.priority] || 'منخفض'} · ${t.count} مراجعة</span>
+                </div>
+            </div>`).join('');
+    }
+
+    function renderTopics(list) {
+        const box = document.getElementById('repoTopics');
+        if (!list.length) {
+            box.innerHTML = '<div class="p-cell-muted">مفيش مراجعات فيها موضوعات واضحة حاليًا</div>';
+            return;
+        }
+        const max = list[0].count || 1;
+        box.innerHTML = list.map(t => `
+            <div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+                    <span style="font-weight:600;">${esc(t.label)}</span>
+                    <span class="p-cell-muted">${t.count} · ${t.avg_rating} ⭐ · ${t.share_percent}%</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <div style="flex:1;height:6px;background:var(--panel-bg,#f0f1f4);border-radius:3px;overflow:hidden;">
+                        <div style="width:${Math.max(4, Math.round((t.count / max) * 100))}%;height:100%;background:#5B9BD5;border-radius:3px;"></div>
                     </div>
-                </div>`;
-        }).join('');
+                    <span class="pill ${t.negative > 0 ? 'red' : 'green'}" style="font-size:10px;">😞 ${t.negative}</span>
+                </div>
+            </div>`).join('');
     }
 
     function renderTrendChart(trend) {
@@ -1766,7 +1782,8 @@ HTML;
         allReviews = res.data.reviews || [];
         renderFeed();
         renderAlerts(allReviews);
-        renderImprovements(allReviews);
+        renderImprovements(res.data.improvements || []);
+        renderTopics(res.data.topics || []);
         renderTrendChart(res.data.trend || []);
     }
 
@@ -1827,14 +1844,150 @@ JS;
                 return $out;
             }, $trendRows);
 
+            // G4 (Topic Extraction): تحليل ديناميكي لموضوعات المراجعات عبر
+            // ReviewTopicExtractor (ثنائي اللغة، بلا LLM) - كان سابقًا كلمات
+            // مفتاحية ثابتة في الواجهة وتقتصر على المراجعات السلبية.
+            $topicExtractor = new ReviewTopicExtractor();
+            $topics = $topicExtractor->extractTopics($reviews);
+            $improvements = $topicExtractor->topTopicsForNegative($reviews);
+
             return $this->success([
                 'kpis' => $kpis,
                 'reviews' => $reviews,
                 'trend' => $trend,
+                'topics' => $topics,
+                'improvements' => $improvements,
             ]);
         } catch (Exception $e) {
             Logger::error('Reputation Overview Data Error', ['message' => $e->getMessage()]);
             return $this->error('تعذر تحميل بيانات النظرة العامة', 500);
+        }
+    }
+
+    /**
+     * GET /api/reputation/export-reviews
+     * تصدير المراجعات + مؤشرات مختصرة (G5) - نفس نمط exportCsv في
+     * ReviewRequestController: فلاتر اختيارية (website_id/platform/
+     * sentiment/min_rating/date_from/date_to/search) مع تحقق الملكية.
+     * لا يُصدَّر بريد/هاتف المراجع (حقول مشفرة) حفاظًا على الخصوصية.
+     */
+    public function exportReviewsCsv(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            http_response_code(401);
+            exit;
+        }
+
+        $websiteId = (int) $this->get('website_id', 0);
+        if ($websiteId > 0) {
+            $website = (new Website())->find($websiteId);
+            if (!$website || (int) $website->getAttribute('user_id') !== (int) $this->user['id']) {
+                http_response_code(403);
+                exit;
+            }
+        }
+
+        try {
+            $sql = "SELECT source_platform AS platform, reviewer_name, review_text, rating,
+                           sentiment, review_date, reply_status, reply_sent_at, created_at
+                    FROM reviews WHERE user_id = ?";
+            $params = [$this->user['id']];
+
+            if ($websiteId > 0) {
+                $sql .= " AND website_id = ?";
+                $params[] = $websiteId;
+            }
+
+            $sentiment = $this->get('sentiment');
+            if ($sentiment) {
+                $sql .= " AND sentiment = ?";
+                $params[] = $sentiment;
+            }
+
+            $platform = $this->get('platform');
+            if ($platform) {
+                $sql .= " AND source_platform = ?";
+                $params[] = $platform;
+            }
+
+            $minRating = $this->get('min_rating');
+            if ($minRating !== null && $minRating !== '') {
+                $sql .= " AND rating >= ?";
+                $params[] = (int) $minRating;
+            }
+
+            $dateFrom = $this->get('date_from');
+            if ($dateFrom) {
+                $sql .= " AND created_at >= ?";
+                $params[] = $dateFrom . ' 00:00:00';
+            }
+
+            $dateTo = $this->get('date_to');
+            if ($dateTo) {
+                $sql .= " AND created_at <= ?";
+                $params[] = $dateTo . ' 23:59:59';
+            }
+
+            $search = trim((string) $this->get('search', ''));
+            if ($search !== '') {
+                $sql .= " AND (review_text LIKE ? OR reviewer_name LIKE ?)";
+                $params[] = '%' . $search . '%';
+                $params[] = '%' . $search . '%';
+            }
+
+            $sql .= " ORDER BY created_at DESC LIMIT 5000";
+            $rows = $this->db->query($sql, $params);
+
+            // مؤشرات مختصرة في أعلى الملف
+            $total = count($rows);
+            $ratingSum = 0;
+            $sentimentCounts = ['positive' => 0, 'neutral' => 0, 'negative' => 0, 'mixed' => 0];
+            foreach ($rows as $r) {
+                $ratingSum += (float) ($r['rating'] ?? 0);
+                $s = (string) ($r['sentiment'] ?? '');
+                if (isset($sentimentCounts[$s])) {
+                    $sentimentCounts[$s]++;
+                }
+            }
+            $avg = $total > 0 ? round($ratingSum / $total, 2) : 0;
+
+            $output = fopen('php://temp', 'r+');
+            fputcsv($output, ['Tourfecto Reputation Export', date('Y-m-d H:i')]);
+            fputcsv($output, ['Total', 'Avg Rating', 'Positive', 'Neutral', 'Negative', 'Mixed']);
+            fputcsv($output, [$total, $avg, $sentimentCounts['positive'], $sentimentCounts['neutral'], $sentimentCounts['negative'], $sentimentCounts['mixed']]);
+            fputcsv($output, []);
+            fputcsv($output, ['#', 'Platform', 'Reviewer', 'Rating', 'Sentiment', 'Review Text', 'Review Date', 'Reply Status', 'Reply Sent At', 'Created At']);
+
+            foreach ($rows as $i => $r) {
+                fputcsv($output, [
+                    $i + 1,
+                    $r['platform'] ?? 'other',
+                    $r['reviewer_name'] ?? '',
+                    $r['rating'] ?? '',
+                    $r['sentiment'] ?? '',
+                    $r['review_text'] ?? '',
+                    $r['review_date'] ?? '',
+                    $r['reply_status'] ?? '',
+                    $r['reply_sent_at'] ?? '',
+                    $r['created_at'] ?? '',
+                ]);
+            }
+
+            rewind($output);
+            $csv = "\xEF\xBB\xBF" . stream_get_contents($output);
+            fclose($output);
+
+            header('Content-Type: text/csv; charset=utf-8');
+            header('Content-Disposition: attachment; filename="tourfecto-reputation-reviews-' . date('Y-m-d') . '.csv"');
+            header('Content-Length: ' . strlen($csv));
+            echo $csv;
+            exit;
+        } catch (Exception $e) {
+            Logger::error('exportReviewsCsv Error', ['message' => $e->getMessage()]);
+            header('Content-Type: text/plain; charset=utf-8');
+            http_response_code(500);
+            echo 'تعذر التصدير';
+            exit;
         }
     }
 

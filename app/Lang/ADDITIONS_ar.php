@@ -19,6 +19,7 @@ return [
     'rr.channel' => 'قناة الإرسال',
     'rr.channel.email' => 'إيميل',
     'rr.channel.not_configured' => 'القناة دي غير مفعّلة لهذا الموقع حاليًا',
+    'rr.channel.sms' => 'SMS',
     'rr.channel.whatsapp' => 'واتساب',
     'rr.col.channel' => 'القناة',
     'rr.details' => 'تفاصيل',

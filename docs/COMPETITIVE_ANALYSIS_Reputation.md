@@ -141,10 +141,9 @@
 | # | الفجوة | المنافسون الذين يقدمونها | الحالة الحالية | الأولوية |
 |---|---|---|---|---|
 | G1 | تعدد مصادر المراجعات خارج جوجل/TripAdvisor (Booking، Expedia، Trustpilot، فيسبوك، OTA أخرى) | Birdeye (100+ مصدر)، Podium، Reputation.com | ✅ Google + 🔶 TripAdvisor (أحدث 5 فقط) فقط؛ بقية المنصات مجرد قيم ENUM بلا كود | عالية |
-| G2 | قنوات استقطاب مراجعات إضافية: SMS + QR code + روابط قصيرة + صفحات هبوط | Podium (SMS جوهر منتجها)، Birdeye، Reputation.com | واتساب وإيميل فقط؛ Twilio موجود في CRM لكن غير مربوط | عالية |
-| G3 | أدوات عرض المراجعات على مواقع العملاء (Rating Widgets / TrustBox / schema.org) | Trustpilot Business (الأقوى)، Birdeye، Reputation.com | غير موجود | عالية |
-| G4 | تحليل موضوعات/عوامل ديناميكي (Topic Extraction) بدل الكلمات المفتاحية الثابتة | Birdeye، Trustpilot Insights، Reputation.com | كلمات مفتاحية ثابتة في واجهة النظرة العامة فقط | عالية |
-| G5 | تصدير المراجعات والتحليلات (CSV/PDF/Excel) | جميع المنافسين | CSV لطلبات المراجعة فقط، لا تصدير للمراجعات نفسها | عالية |
+| G2 | قنوات استقطاب مراجعات إضافية: SMS + QR code + روابط قصيرة + صفحات هبوط | Podium (SMS جوهر منتجها)، Birdeye، Reputation.com | ✅ **مغلقة (2026-08-29)** (جزئيًا) — قناة SMS عبر `CrmSmsService` (Twilio) أُضيفت لكل مسارات طلبات المراجعة (`ReviewRequestService`) مع رسائل عربية واضحة عند عدم التهيئة وفشل الإرسال | عالية |
+| G4 | تحليل موضوعات/عوامل ديناميكي (Topic Extraction) بدل الكلمات المفتاحية الثابتة | Birdeye، Trustpilot Insights، Reputation.com | ✅ **مغلقة (2026-08-29)** — `ReviewTopicExtractor` (Server-Side، ثنائي اللغة، بلا LLM) يستخرج الموضوعات من نصوص المراجعات ويجمعها حسب المشاعر/التقييم ويشتق اقتراحات التحسين، معروضة في النظرة العامة | عالية |
+| G5 | تصدير المراجعات والتحليلات (CSV/PDF/Excel) | جميع المنافسين | ✅ **مغلقة (2026-08-29)** — `exportReviewsCsv` في ReputationController (فلاتر + تحقق ملكية + صف ملخص + حذف معلومات المراجع) مع مسار `GET /api/reputation/export-reviews` | عالية |
 | G6 | ربط TripAdvisor/قنوات لكل عميل بدل مفتاح مشترك واحد (عزل الإعدادات + توسيع النطاق) | Birdeye، Reputation.com (self-service onboarding لكل عميل) | مفتاح API مشترك واحد لكل المنصة | عالية |
 
 ### فجوات متوسطة الأولوية

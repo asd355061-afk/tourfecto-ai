@@ -1074,6 +1074,7 @@ return [
     'rr.channel' => 'Canal',
     'rr.channel.email' => 'E-mail',
     'rr.channel.not_configured' => 'Ce canal n\'est pas configuré pour ce site',
+    'rr.channel.sms' => 'SMS',
     'rr.channel.whatsapp' => 'WhatsApp',
     'rr.col.channel' => 'Canal',
     'rr.details' => 'Détails',

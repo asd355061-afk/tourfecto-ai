@@ -4,7 +4,20 @@
 **الفرع:** `main`
 **الحالة:** 8 بنود جديدة بالتتابع — كل بند migration+model+service+controller+routes+Lang+tests+checks+commit منفصل
 
-## خطة التطوير (الخطوة 4): التطوير الفعلي للموديولات الستة — M1 WebsiteBuilder مكتمل
+## خطة التطوير (الخطوة 4): التطوير الفعلي للموديولات الستة — M1 + M2 مكتملان
+- **M2 (مكتمل):** Reputation — إغلاق G2/G4/G5 من
+  `docs/COMPETITIVE_ANALYSIS_Reputation.md`:
+  - G2 قناة SMS لطلبات المراجعة: `ReviewRequestService` يدعم `'sms'` في كل
+    المسارات + `isChannelConfigured` عبر `CrmSmsService` (Twilio) + `sendByChannel`
+    ترسل SMS فعليًا + رسائل عربية عند عدم التهيئة/فشل الإرسال؛ واجهة الفلتر/النموذج
+    في `ReviewRequestController` + مفتاح `rr.channel.sms` في كل اللغات.
+  - G4 استخراج موضوعات ديناميكي: `ReviewTopicExtractor` (ثنائي اللغة، 10 موضوعات
+    قطاعية، كلمات قوية بأوزان، تجميع مشاعر/متوسط/حصة) يعرض `topics`/`improvements`
+    في النظرة العامة بدل الكلمات الثابتة — بلا LLM.
+  - G5 تصدير المراجعات CSV: `exportReviewsCsv()` (فلاتر + ملكية + صف ملخص +
+    حذف بيانات المراجع) عبر `GET /api/reputation/export-reviews`.
+  - التحقق: lint 764 OK، PHPStan 0، **601/15641 OK** — commit منفصل + push.
+  - ملف الفجوات حُدّث (G2/G4/G5 ✅ مغلقة) + CHANGELOG.md.
 - **M1 (مكتمل):** Website Builder — إغلاق G1/G2/G3/G7 من
   `docs/COMPETITIVE_ANALYSIS_WebsiteBuilder.md`:
   - G2 تطبيق `theme_color` فعليًا: `siteDesignAttrs()` + تمرير `$themeKey`
@@ -19,7 +32,7 @@
     Host ويعيد كتابة المسار لـ `/sites/{slug}` (published فقط، fallback آمن).
   - التحقق: lint 762 OK، PHPStan 0، **583/15567 OK** — commit منفصل + push.
   - ملف الفجوات حُدّث (G1/G2/G3/G7 ✅ مغلقة) + CHANGELOG.md.
-- **M2-M6 (لم تبدأ):** Reputation → RevenueIntelligence → EmailMarketing →
+- **M3-M6 (لم تبدأ):** RevenueIntelligence → EmailMarketing →
   CompetitorIntelligence → SEO/AutoSeo — بنفس النمط الصارم (فتح/تتبع/فهم/
   تنفيذ/فحص/commit لكل موديول قبل الانتقال).
 

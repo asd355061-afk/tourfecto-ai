@@ -72,6 +72,7 @@ class ReviewRequestController extends Controller
                 <option value="">{$this->tr('rr.filter.all_channels')}</option>
                 <option value="whatsapp">{$this->tr('rr.channel.whatsapp')}</option>
                 <option value="email">{$this->tr('rr.channel.email')}</option>
+                <option value="sms">{$this->tr('rr.channel.sms')}</option>
             </select>
             <input type="text" id="rrFilterSearch" class="form-control" style="max-width:220px;" placeholder="{$this->tr('rr.filter.search_placeholder')}">
             <button class="p-btn outline xs" onclick="P.reqPage=1;loadRequests();">{$this->tr('common.search')}</button>
@@ -104,6 +105,7 @@ class ReviewRequestController extends Controller
                     <select id="guestChannel" class="form-control" style="margin-bottom:10px;" onchange="toggleGuestChannelFields()">
                         <option value="whatsapp">{$this->tr('rr.channel.whatsapp')}</option>
                         <option value="email">{$this->tr('rr.channel.email')}</option>
+                        <option value="sms">{$this->tr('rr.channel.sms')}</option>
                     </select>
                     <div id="guestChannelStatusHint" class="p-cell-muted" style="font-size:12px;margin-bottom:10px;"></div>
                     <div id="guestPhoneWrap">
@@ -250,7 +252,9 @@ HTML;
     }
 
     function channelLabel(channel) {
-        return channel === 'email' ? ('✉️ ' + I18N['rr.channel.email']) : ('💬 ' + I18N['rr.channel.whatsapp']);
+        if (channel === 'email') return '✉️ ' + I18N['rr.channel.email'];
+        if (channel === 'sms') return '📱 ' + I18N['rr.channel.sms'];
+        return '💬 ' + I18N['rr.channel.whatsapp'];
     }
 
     async function loadAll() {
@@ -486,7 +490,8 @@ HTML;
 
     window.toggleGuestChannelFields = async function () {
         const channel = document.getElementById('guestChannel').value;
-        document.getElementById('guestPhoneWrap').style.display = channel === 'whatsapp' ? 'block' : 'none';
+        const needsPhone = channel === 'whatsapp' || channel === 'sms';
+        document.getElementById('guestPhoneWrap').style.display = needsPhone ? 'block' : 'none';
         document.getElementById('guestEmailWrap').style.display = channel === 'email' ? 'block' : 'none';
 
         const hint = document.getElementById('guestChannelStatusHint');
@@ -625,7 +630,7 @@ HTML;
         const destination_platform = document.getElementById('guestDestination').value;
         const service_end_date = document.getElementById('serviceEndDate').value;
 
-        if (!guest_name || !service_end_date || (channel === 'whatsapp' && !guest_phone) || (channel === 'email' && !guest_email)) {
+        if (!guest_name || !service_end_date || ((channel === 'whatsapp' || channel === 'sms') && !guest_phone) || (channel === 'email' && !guest_email)) {
             alertBox.textContent = I18N['rr.all_fields_required'];
             alertBox.style.display = 'block';
             return;

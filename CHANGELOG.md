@@ -1,4 +1,31 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## موديول Reputation — قناة SMS + استخراج موضوعات ديناميكي + تصدير المراجعات CSV (M2) — 2026-08-29
+
+تطوير موديول Reputation استنادًا إلى فجوات `docs/COMPETITIVE_ANALYSIS_Reputation.md`
+(G2/G4/G5) — كل التعديلات Additive بلا كسر أي منطق قائم، وبلا تبعيات خارجية جديدة.
+
+**الإصلاحات:**
+- **قناة SMS لطلبات المراجعة (G2):** `ReviewRequestService` يدعم `'sms'` في كل
+  مسارات الإنشاء/التحديث/الإعادة/الـ cron/الربط بصفقات CRM، مع `isChannelConfigured`
+  عبر `CrmSmsService` (Twilio) و`sendByChannel()` ترسل SMS فعليًا فقط عند نجاح
+  الإرسال — ورسائل عربية واضحة عند عدم التهيئة/فشل الإرسال (`channelNotConfiguredMessage`/
+  `channelSendFailedMessage`). واجهة `ReviewRequestController` تعرض SMS في الفلتر
+  والقناة (`channelLabel` 📱) وتطلب رقم الهاتف تلقائيًا لـ whatsapp/sms، مع مفتاح
+  `rr.channel.sms` في كل اللغات (ar/en/de/fr + ADDITIONS).
+- **استخراج موضوعات ديناميكي Server-Side (G4):** `ReviewTopicExtractor` جديد
+  (تصنيف 10 موضوعات ثنائي اللغة عربي/إنجليزي خاص بالقطاع السياحي + كلمات قوية
+  بوزن مضاعف) يستبدل الكلمات المفتاحية الثابتة في واجهة النظرة العامة — `getOverviewData`
+  يرجع `topics` (تجميع حسب المشاعر/متوسط التقييم/حصة الظهور) و`improvements`
+  (أهم الموضوعات في المراجعات السلبية) مع محمّل يدوي في `index.php` ودوال
+  `renderTopics`/`renderImprovements` في الواجهة. بلا أي LLM (يعمل دائمًا وبلا Credits).
+- **تصدير المراجعات CSV (G5):** `ReputationController::exportReviewsCsv()` بفلاتر
+  (website_id/platform/sentiment/min_rating/date_from/date_to/search) وتحقق ملكية
+  الموقع، مع صف ملخص (Total/Avg/Positive/Neutral/Negative/Mixed) وحذف معلومات
+  المراجع (بريد/هاتف) حفاظًا على الخصوصية — عبر مسار `GET /api/reputation/export-reviews`.
+
+**التحقق:** lint 764 OK، PHPStan 0، **601/15641 OK** (منها 9 اختبارات جديدة في
+`tests/Integration/ReputationModuleIntegrationTest.php`)، commit منفصل + push.
+
 ## موديول Website Builder — تطبيق فعلي للتخصيص + تقييمات الزوار + توجيه الدومين المخصص (M1) — 2026-08-29
 
 تطوير موديول Website Builder استنادًا إلى فجوات `docs/COMPETITIVE_ANALYSIS_WebsiteBuilder.md`

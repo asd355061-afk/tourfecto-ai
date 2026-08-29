@@ -76,6 +76,7 @@ $optionalNewClassFiles = [
     APP_PATH . '/Models/ReviewRequestOptOut.php',
     APP_PATH . '/Models/ReviewRequestTemplate.php',
     APP_PATH . '/Services/Reputation/ReviewRequestService.php',
+    APP_PATH . '/Services/Reputation/ReviewTopicExtractor.php',
     APP_PATH . '/Controllers/ReviewRequestController.php',
     APP_PATH . '/Models/SystemSetting.php',
     APP_PATH . '/Services/System/SystemSettingsService.php',

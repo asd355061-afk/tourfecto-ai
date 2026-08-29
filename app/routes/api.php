@@ -168,6 +168,7 @@ $router->post('/api/ai/translate', 'AIController', 'translate', [
 $router->get('/api/reputation/overview-data', 'ReputationController', 'getOverviewData', ['AuthMiddleware']);
 $router->post('/api/reputation/review/{id}/dismiss', 'ReputationController', 'dismissReply', ['AuthMiddleware']);
 $router->get('/api/reputation/reviews', 'ReputationController', 'getReviews', ['AuthMiddleware']);
+$router->get('/api/reputation/export-reviews', 'ReputationController', 'exportReviewsCsv', ['AuthMiddleware']);
 
 $router->post('/api/revenue/records', 'RevenueController', 'createRecord', ['AuthMiddleware']);
 $router->get('/api/revenue/kpis', 'RevenueController', 'getKpis', ['AuthMiddleware']);
