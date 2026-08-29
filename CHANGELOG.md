@@ -1,4 +1,51 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## موديول Competitor Intelligence — تتبع ترتيب الكلمات المفتاحية + Battlecards + تتبع أسعار المنتجات (M5) — 2026-08-29
+
+تطوير موديول Competitor Intelligence استنادًا إلى فجوات `docs/COMPETITIVE_ANALYSIS_CompetitorIntelligence.md`
+(G1/G6/G7) — كل التعديلات Additive بلا كسر أي منطق قائم، وبلا تبعيات خارجية جديدة.
+
+### G1 — تتبع ترتيب الكلمات المفتاحية (SERP Keyword Rankings)
+- ميجريشن `2026_08_29_000003_ci_keyword_rankings_product_prices_battlecards.sql`:
+  3 جداول جديدة `ci_keyword_rankings` / `ci_product_prices` / `ci_battlecards` بكل FK/Index.
+- `CiKeywordRanking` model + `KeywordRankingService`:
+  - `recordRanking()` (تحقق صارم: كلمة مفتاحية، ترتيب 1-100 أو null خارج أول 100).
+  - `listRankings()` (أحدث قياس + `best_position` + `trend`).
+  - `history()` (سلسلة زمنية تصاعدية).
+  - `runScheduledCheck()` يكتب `integration:{source}` عند كل تسجيل.
+- `KeywordRankingSourceInterface` + `NullKeywordRankingSource`: المصدر الافتراضي يفشل بأمان
+  (`available=false` + سبب واضح) عند غياب إعداد أي مزوّد SERP — لا Mock ولا بيانات وهمية.
+- `cron/ci_keyword_rankings.php`: مُجدول يومي يقرأ الكلمات من `competitor_keywords`
+  لمنافسين نشطين (إغلاق فجوة "الجدول المهمل" بدل `cm_google_rankings` القديم).
+- 3 endpoints: `GET/POST /api/ci/keyword-rankings`, `GET .../history`, `POST .../check`
+  مع حد معدل `keyword_rankings_check` (10/30د) في `CiRateLimiter`.
+
+### G6 — Battlecards / إعداد فريق المبيعات
+- `BattlecardService.generate()`: بطاقات معركة **قواعدية بحتة** من بيانات المراقبة الحقيقية
+  (scorecard/insights/أسعار/تغيّرات) — نقاط قوة/ضعف/موقع سعري/إجراءات موصى بها/أدلة.
+- يرفض بـ `insufficient_data` عند غياب بيانات كافية (لا اختلاق)؛ عتبات 60/40 للقوة/الضعف.
+- `latest()` / `listForUser()` + endpoint `GET/POST /api/ci/battlecard`
+  مع حد معدل `battlecard_generate` (10/5د).
+
+### G7 — تتبع سعر كل منتج/SKU بجدولة منتظمة
+- `PriceExtractor::extractAll()` (حتى 20 سعرًا بحد أقصى) + `deriveLabel()` لتسمية سياقية لكل سعر.
+- `ProductPriceTrackerService` مدمج في `MonitoringEngine` → كل دورة مراقبة (كل 30 دقيقة عبر
+  `cron/monitor_competitors.php`) تلتقط أسعار صفحات pricing/products/offers وتحفظ التاريخ في `ci_product_prices`.
+- `listProducts()` (أحدث سعر + أول سعر + عدد القراءات) / `history()` / 3 endpoints مع حد معدل.
+
+### الواجهة
+- 3 تبويبات جديدة في `ciProfileOverlay` (keywords/prices/battlecard) + لوحات + JS كامل
+  (رسم تاريخي بـ Chart.js + `trendPill`/`rankPositionPill`).
+- ~40 مفتاح `ci.profile.*` جديد في `app/Lang/en.php` و`app/Lang/ar.php`.
+- 11 مسارًا جديدًا في `app/routes/api.php` خلف `AuthMiddleware`؛ تسجيل الملفات الجديدة يدويًا
+  في `public_html/index.php` و`cron/bootstrap.php`.
+
+### الفحص
+- `php tools/lint.php`: OK (777 ملفًا بلا أخطاء صياغة).
+- `vendor/bin/phpstan analyse`: No errors.
+- `vendor/bin/phpunit` (كامل): OK — 659 tests / 16049 assertions
+  (منها 30 اختبارًا لـ M5 في `CompetitorIntelligenceModuleIntegrationTest`).
+- كل الـ endpoints المعرضة للمستخدم محمية بمصادقة + عزل تينانت صارم عبر `user_id`.
+
 ## موديول Email Marketing — استهداف الشرائح + تتبع رسائل الأتمتة + درجة التفاعل (M4) — 2026-08-29
 
 تطوير موديول Email Marketing استنادًا إلى فجوات `docs/COMPETITIVE_ANALYSIS_EmailMarketing.md`

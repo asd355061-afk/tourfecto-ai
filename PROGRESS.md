@@ -4,7 +4,27 @@
 **الفرع:** `main`
 **الحالة:** 8 بنود جديدة بالتتابع — كل بند migration+model+service+controller+routes+Lang+tests+checks+commit منفصل
 
-## خطة التطوير (الخطوة 4): التطوير الفعلي للموديولات الستة — M1 + M2 + M3 + M4 مكتملان
+## خطة التطوير (الخطوة 4): التطوير الفعلي للموديولات الستة — M1 + M2 + M3 + M4 + M5 مكتملان
+- **M5 (مكتمل):** Competitor Intelligence — إغلاق G1/G6/G7 من
+  `docs/COMPETITIVE_ANALYSIS_CompetitorIntelligence.md`:
+  - G1 تتبع ترتيب الكلمات المفتاحية: جدول `ci_keyword_rankings` (بُعد زمني،
+    ترتيب null = خارج أول 100) + `KeywordRankingService` (أحدث قياس + `best_position`
+    + `trend` + `history`) + `KeywordRankingSourceInterface`/`NullKeywordRankingSource`
+    يفشلان بأمان عند غياب الإعداد + `cron/ci_keyword_rankings.php` يومي يقرأ
+    `competitor_keywords` الفعلية للمنافسين النشطين (إغلاق الجدول المهمل).
+  - G6 Battlecards: `BattlecardService.generate()` قواعدية بحتة من بيانات المراقبة
+    الحقيقية (scorecard/insights/أسعار/تغيّرات) — نقاط قوة/ضعف/موقع سعري/إجراءات،
+    ورفض `insufficient_data` عند نقص البيانات (لا اختلاق).
+  - G7 تتبع أسعار المنتجات: `PriceExtractor::extractAll` (متعدد الأسعار + تسميات
+    سياقية) مدمج في `MonitoringEngine` → كل دورة مراقبة (30د) تلتقط أسعار صفحات
+    pricing/products/offers وتحفظ التاريخ في `ci_product_prices`.
+  - الواجهة: 3 تبويبات جديدة (keywords/prices/battlecard) + 11 endpoint + حدود
+    معدل `keyword_rankings_check`/`battlecard_generate` + ~40 مفتاح i18n + تسجيل
+    يدوي للملفات الجديدة في `index.php`/`cron/bootstrap.php`.
+  - التحقق: lint 777 OK، PHPStan 0، **659/16049 OK** (منها 30 اختبار M5) —
+    commit `c2e3668` منفصل + push.
+  - ملف الفجوات حُدّث (G1/G6/G7 ✅ مغلقة) + CHANGELOG.md.
+- **M6 (لم تبدأ):** SEO/AutoSeo — بنفس النمط الصارم (فتح/تتبع/فهم/تنفيذ/فحص/commit لكل موديول قبل الانتقال).
 - **M4 (مكتمل):** Email Marketing — إغلاق G2/G3/G9 من
   `docs/COMPETITIVE_ANALYSIS_EmailMarketing.md`:
   - G2 استهداف الشرائح: عمود `segment_id` على `email_campaigns` + `audience()`
@@ -59,8 +79,6 @@
     Host ويعيد كتابة المسار لـ `/sites/{slug}` (published فقط، fallback آمن).
   - التحقق: lint 762 OK، PHPStan 0، **583/15567 OK** — commit منفصل + push.
   - ملف الفجوات حُدّث (G1/G2/G3/G7 ✅ مغلقة) + CHANGELOG.md.
-- **M5-M6 (لم تبدأ):** CompetitorIntelligence → SEO/AutoSeo — بنفس النمط الصارم (فتح/تتبع/فهم/تنفيذ/فحص/commit لكل موديول قبل الانتقال).
-
 ## خطة التطوير (الخطوة 2 مكتملة): التحليل التنافسي لـ 6 موديولات
 - 6 ملفات `docs/COMPETITIVE_ANALYSIS_<Module>.md` (تبعًا لقالب
   `docs/COMPETITIVE_ANALYSIS.md`): مقارنة فيتشرز الكود الفعلي ضد 2-4 منافسين

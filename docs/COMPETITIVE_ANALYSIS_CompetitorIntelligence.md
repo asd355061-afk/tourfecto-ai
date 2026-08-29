@@ -151,7 +151,7 @@ Tourfecto AI ضد أبرز حلول استخبارات المنافسين الع
 
 | # | الفجوة | المنافسون الذين يملكونها | الفجوة الحالية في الموديول |
 |---|---|---|---|
-| G1 | **تتبع ترتيب الكلمات المفتاحية (SERP / Keyword Rankings)** | SEMrush, SpyFu, SimilarWeb | جدول `cm_google_rankings` موجود من legacy لكن بلا أي مصدر بيانات أو Job — بدون قياس مرئية بحثية |
+| G1 | ~~**تتبع ترتيب الكلمات المفتاحية (SERP / Keyword Rankings)**~~ ✅ مُغلق | SEMrush, SpyFu, SimilarWeb | **مُغلق (M5, 2026-08-29)**: جدول `ci_keyword_rankings` جديد ببُعد زمني + `KeywordRankingService` (أحدث قياس/أفضل ترتيب/اتجاه) + مصدر افتراضي `NullKeywordRankingSource` يفشل بأمان عند غياب الإعداد + مُجدول `cron/ci_keyword_rankings.php` يومي يقرأ كلمات `competitor_keywords` الفعلية؛ قياس مرئية بحثية متاح برمجيًا |
 | G2 | **تحليلات الزيارات/الجمهور (Traffic & Audience Insights)** | SimilarWeb, SEMrush | لا يوجد أي مقاس مرور/جمهور؛ `BenchmarkingService` يعرض `not_available` صراحةً بدل تخمين |
 | G3 | **ذكاء الإعلانات (Ad Intelligence / PPC + أرشيف نصوص الإعلانات)** | SpyFu, SEMrush | لا يوجد تتبع حملات/إعلانات منافسين إطلاقًا |
 | G4 | **فجوة الروابط الخلفية (Backlink Gap) ومرجعية الـ SEO** | SEMrush, SpyFu | لا يوجد أي مقاس Backlinks/سلطة للنطاقات |
@@ -161,8 +161,8 @@ Tourfecto AI ضد أبرز حلول استخبارات المنافسين الع
 | # | الفجوة | المنافسون الذين يملكونها | الفجوة الحالية في الموديول |
 |---|---|---|---|
 | G5 | **لقطة بصرية/مقارنة Screenshot** | Kompyte | المراقبة نصية فقط (`normalized_excerpt`) — بلا صور/رندر JS؛ التغييرات البصرية المحضة غير قابلة للكشف |
-| G6 | **Battlecards وإعداد فريق المبيعات (Sales Enablement)** | Kompyte, SEMrush | لا يوجد توليد بطاقات معركة/حجج بيع من بيانات المراقبة |
-| G7 | **تتبع أسعار لكل منتج/SKU بجدولة منتظمة** | Kompyte, Prisync | `PriceExtractor` انتهازي (عند تغيّر الصفحة فقط) ويستخرج سعرًا واحدًا؛ `cm_pricing` القديم إدخال يدوي |
+| G6 | ~~**Battlecards وإعداد فريق المبيعات (Sales Enablement)**~~ ✅ مُغلق | Kompyte, SEMrush | **مُغلق (M5, 2026-08-29)**: `BattlecardService` يولّد بطاقات معركة قواعدية (rules-based) من بيانات المراقبة الحقيقية (scorecards/insights/prices/changes) بلا AI ولا تخمين — يرفض بـ `insufficient_data` عند نقص البيانات؛ نقاط قوة/ضعف/موقع سعري/إجراءات موصى بها + 3 endpoints |
+| G7 | ~~**تتبع أسعار لكل منتج/SKU بجدولة منتظمة**~~ ✅ مُغلق | Kompyte, Prisync | **مُغلق (M5, 2026-08-29)**: `PriceExtractor::extractAll` يستخرج عدة أسعار مع تسميات سياقية (`deriveLabel`)؛ `ProductPriceTrackerService` مدمج في `MonitoringEngine` فيلتقط كل منتج/سعر بكل دورة مراقبة (جدولة منتظمة فعلًا) لحفظ التاريخ في `ci_product_prices`؛ صفحات prices/products/offers |
 | G8 | **استخبارات أخبار/تمويل/توظيف خارجية** | Kompyte | الوحيد المتاح هو Heuristic سلسلة الوظائف عبر Sitemap (`isCareerUrl`)؛ بلا RSS/أخبار/تمويل |
 | G9 | **تتبع تواجد المنافس على شبكات التواصل** | SEMrush (Social Tracker), Kompyte | لا يوجد أي مصدر لوسائل التواصل |
 
