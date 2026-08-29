@@ -251,6 +251,9 @@ $optionalNewClassFiles = [
     // كلاسات جديدة مش في classmap composer (لا SSH)، تتحمّل يدويًا بنفس النمط.
     APP_PATH . '/Services/RevenueIntelligence/RevenueDashboardService.php',
     APP_PATH . '/Services/RevenueIntelligence/StripeWebhookService.php',
+    // G7 (2026-08-29): Quotas/Goals - كلاس جديد مش في classmap composer
+    // (لا SSH)، يتحمّل يدويًا بنفس النمط.
+    APP_PATH . '/Services/RevenueIntelligence/RevenueQuotaService.php',
     APP_PATH . '/Controllers/RevenueIntelligenceController.php',
     APP_PATH . '/Jobs/RecomputeRevenueInsightsJob.php',
     APP_PATH . '/Jobs/SendRevenueDigestJob.php',

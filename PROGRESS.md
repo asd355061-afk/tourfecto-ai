@@ -4,7 +4,22 @@
 **الفرع:** `main`
 **الحالة:** 8 بنود جديدة بالتتابع — كل بند migration+model+service+controller+routes+Lang+tests+checks+commit منفصل
 
-## خطة التطوير (الخطوة 4): التطوير الفعلي للموديولات الستة — M1 + M2 مكتملان
+## خطة التطوير (الخطوة 4): التطوير الفعلي للموديولات الستة — M1 + M2 + M3 مكتملان
+- **M3 (مكتمل):** Revenue Intelligence — إغلاق G2/G6/G7 من
+  `docs/COMPETITIVE_ANALYSIS_RevenueIntelligence.md`:
+  - G7 أهداف/حصص المبيعات: `RevenueQuotaService` (عزل تينانت) يقرأ
+    `crm_sales_goals` + الإنجاز من `rev_revenue_records` + إشارة won منفصلة +
+    تنبؤ من open deals المقررة في الشهر (وزن بالاحتمالية) + الفجوة والحالة
+    (`ahead/on_track/at_risk/behind`)؛ تبويب `quotas` + `GET /api/revenue-intelligence/quotas`.
+  - G2 الإيراد حسب المنتج: ميجريشن يضيف `product_name`/`category` +
+    `getRevenueByProduct()` (تجميع + share_percent + fallback) + حقول النموذج
+    في `RevenueController::createRecord`.
+  - G6 اتساع المعايير: `cron/revai_benchmarks_rebuild.php` ينتج 4 مقاييس
+    (growth + win_rate + avg_deal_value + revenue_monthly_avg) بحدود حسابات
+    ورفض عند قلة البيانات.
+  - إصلاح جذر: ميجريشن الـ Revenue `user_id` BIGINT UNSIGNED → INT(11) (errno 150).
+  - التحقق: lint 766 OK، PHPStan 0، **615/15727 OK** — commit منفصل + push.
+  - ملف الفجوات حُدّث (G2/G6/G7 ✅ مغلقة) + CHANGELOG.md.
 - **M2 (مكتمل):** Reputation — إغلاق G2/G4/G5 من
   `docs/COMPETITIVE_ANALYSIS_Reputation.md`:
   - G2 قناة SMS لطلبات المراجعة: `ReviewRequestService` يدعم `'sms'` في كل
@@ -32,9 +47,7 @@
     Host ويعيد كتابة المسار لـ `/sites/{slug}` (published فقط، fallback آمن).
   - التحقق: lint 762 OK، PHPStan 0، **583/15567 OK** — commit منفصل + push.
   - ملف الفجوات حُدّث (G1/G2/G3/G7 ✅ مغلقة) + CHANGELOG.md.
-- **M3-M6 (لم تبدأ):** RevenueIntelligence → EmailMarketing →
-  CompetitorIntelligence → SEO/AutoSeo — بنفس النمط الصارم (فتح/تتبع/فهم/
-  تنفيذ/فحص/commit لكل موديول قبل الانتقال).
+- **M4-M6 (لم تبدأ):** EmailMarketing → CompetitorIntelligence → SEO/AutoSeo — بنفس النمط الصارم (فتح/تتبع/فهم/تنفيذ/فحص/commit لكل موديول قبل الانتقال).
 
 ## خطة التطوير (الخطوة 2 مكتملة): التحليل التنافسي لـ 6 موديولات
 - 6 ملفات `docs/COMPETITIVE_ANALYSIS_<Module>.md` (تبعًا لقالب

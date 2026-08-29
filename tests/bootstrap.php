@@ -285,6 +285,8 @@ function applyTestMigrations(): void
         '2026_08_28_000006_add_rule_alert_creative_types.sql',
         '2026_08_28_000007_create_ad_recommendations.sql',
         '2026_08_28_000008_add_stat_lead_scoring.sql',
+        '2026_07_15_000014_create_revenue_intelligence_tables.sql',
+        '2026_08_29_000001_add_product_dimension_to_rev_revenue_records.sql',
     ];
 
     // إصلاح انحرافات السكيما المحلية: schema.sql القديمة بتحتوي أسماء

@@ -26,6 +26,7 @@ class RevenueIntelligenceController extends Controller
     private RevenueActionExecutor $actionExecutor;
     private ExecutiveSummaryService $executiveSummaryService;
     private RevenueCacheService $cacheService;
+    private RevenueQuotaService $quotaService;
 
     public function __construct()
     {
@@ -41,6 +42,7 @@ class RevenueIntelligenceController extends Controller
         $this->actionExecutor = new RevenueActionExecutor();
         $this->executiveSummaryService = new ExecutiveSummaryService();
         $this->cacheService = new RevenueCacheService();
+        $this->quotaService = new RevenueQuotaService();
     }
 
     /** GET /revenue/intelligence - صفحة واحدة بتابات (Tabs) على الـ Client-side. */
@@ -60,6 +62,7 @@ class RevenueIntelligenceController extends Controller
             'subscriptions' => $this->tr('revai.tab.subscriptions'),
             'attribution' => $this->tr('revai.tab.attribution'),
             'benchmarks' => $this->tr('revai.tab.benchmarks'),
+            'quotas' => $this->tr('revai.tab.quotas'),
             'churn' => $this->tr('revai.tab.churn'),
             'assistant' => $this->tr('revai.tab.assistant'),
             'reports' => $this->tr('revai.tab.reports'),
@@ -500,6 +503,27 @@ HTML;
             return $this->success($benchmarks);
         } catch (Throwable $e) {
             return $this->serverError('benchmarks', $e);
+        }
+    }
+
+    /**
+     * GET /api/revenue-intelligence/quotas?period=YYYY-MM
+     * G7: أهداف/حصص المبيعات مع الإنجاز والتنبؤ (من crm_sales_goals).
+     */
+    public function apiQuotas(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        try {
+            $period = (string) $this->get('period', '');
+            if ($period !== '' && !preg_match('/^\d{4}-\d{2}$/', $period)) {
+                return $this->error('صيغة الشهر غير صالحة (YYYY-MM)', 422);
+            }
+            $quotas = $this->quotaService->getQuotas((int) $this->user['id'], $period !== '' ? $period : null);
+            return $this->success($quotas);
+        } catch (Throwable $e) {
+            return $this->serverError('quotas', $e);
         }
     }
 
@@ -1390,6 +1414,37 @@ HTML;
             ${d.note ? `<p style="margin-top:12px;font-size:13px;opacity:.8;">${esc(d.note)}</p>` : ''}</div>`;
     }
 
+    async function renderQuotas() {
+        panel.innerHTML = loadingHtml();
+        const res = await fetchJSON('/api/revenue-intelligence/quotas');
+        if (!res.success) { panel.innerHTML = emptyHtml(res.error); return; }
+        const d = res.data;
+        if (!d.has_data) { panel.innerHTML = emptyHtml(d.message || d.reason || I18N['revai.no_revenue_data']); return; }
+        const statusColor = { ahead: '#22C55E', on_track: '#3FA796', at_risk: '#F59E0B', behind: '#EF4444' };
+        panel.innerHTML = `
+            <div class="p-card"><h4>${I18N['revai.quota.title']}</h4>
+            <p style="font-size:13px;opacity:.8;">${I18N['revai.quota.hint']}</p>
+            <div class="p-table-scroll"><table class="p-table"><thead><tr>
+                <th>${I18N['revai.quota.period']}</th><th>${I18N['revai.quota.target']}</th>
+                <th>${I18N['revai.quota.achieved']}</th><th>${I18N['revai.quota.progress']}</th>
+                <th>${I18N['revai.quota.forecast']}</th><th>${I18N['revai.quota.projected']}</th>
+                <th>${I18N['revai.quota.gap']}</th><th>${I18N['revai.quota.status']}</th>
+            </tr></thead><tbody>
+            ${(d.quotas || []).map(q => `
+                <tr>
+                    <td><b>${esc(q.period)}</b></td>
+                    <td>${fmt(q.target_value)}</td>
+                    <td>${fmt(q.achieved_value)}</td>
+                    <td>${q.progress_percent !== null ? pct(q.progress_percent) : '-'}</td>
+                    <td>${fmt(q.forecast_value)} <span style="opacity:.6;font-size:11px;">(${q.open_deal_count})</span></td>
+                    <td>${q.projected_progress_percent !== null ? pct(q.projected_progress_percent) : '-'}</td>
+                    <td>${q.gap_to_target < 0 ? fmt(0) : fmt(q.gap_to_target)}</td>
+                    <td>${badge(q.status, statusColor[q.status] || '#888')}</td>
+                </tr>`).join('') || `<tr><td colspan="8" class="p-cell-muted">${I18N['common.no_records_yet']}</td></tr>`}
+            </tbody></table></div>
+            ${d.note ? `<p style="margin-top:10px;font-size:12px;opacity:.7;">${esc(d.note)}</p>` : ''}</div>`;
+    }
+
     async function renderAssistant() {
         panel.innerHTML = `
             <div class="p-card">
@@ -1495,6 +1550,7 @@ HTML;
         subscriptions: renderSubscriptions,
         attribution: renderAttribution,
         benchmarks: renderBenchmarks,
+        quotas: renderQuotas,
         churn: renderChurn,
         reports: renderReports,
     };

@@ -4,11 +4,16 @@
 -- (زي مشكلة `competitors`/`reviews` اللي اكتشفناها من غير migration).
 -- تعمّدنا نتجاهل جدولي leads/customers الأصليين في الموديول لأن
 -- عندك crm_leads/crm_contacts بنفس الغرض بالظبط من دفعة سابقة.
+--
+-- إصلاح 2026-08-29: user_id هنا كان BIGINT UNSIGNED مع FK على
+-- users(id) اللي هو INT(11) في السيرفر الحي => FK بيفشل (errno 150)
+-- والجداول لم تُنشأ في أي بيئة فعلية. عُدّل النوع لـ INT(11) ليطابق
+-- users.id ويعمل الـ CASCADE فعليًا.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS `rev_revenue_records` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `user_id` BIGINT UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
     `source` VARCHAR(100) NOT NULL COMMENT 'booking/order/subscription/manual',
     `reference_id` VARCHAR(100) NULL COMMENT 'معرف الطلب/الحجز المرجعي لو موجود',
     `amount` DECIMAL(12,2) NOT NULL,
@@ -22,7 +27,7 @@ CREATE TABLE IF NOT EXISTS `rev_revenue_records` (
 
 CREATE TABLE IF NOT EXISTS `rev_marketing_spend` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `user_id` BIGINT UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
     `channel` VARCHAR(100) NOT NULL COMMENT 'google_ads/meta_ads/other',
     `amount` DECIMAL(12,2) NOT NULL,
     `spend_date` DATE NOT NULL,
@@ -34,7 +39,7 @@ CREATE TABLE IF NOT EXISTS `rev_marketing_spend` (
 
 CREATE TABLE IF NOT EXISTS `rev_kpi_snapshots` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `user_id` BIGINT UNSIGNED NOT NULL,
+    `user_id` INT(11) NOT NULL,
     `snapshot_date` DATE NOT NULL,
     `revenue_total` DECIMAL(12,2) NOT NULL DEFAULT 0,
     `spend_total` DECIMAL(12,2) NOT NULL DEFAULT 0,

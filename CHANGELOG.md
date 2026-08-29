@@ -1,4 +1,33 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## موديول Revenue Intelligence — أهداف/حصص المبيعات + الإيراد حسب المنتج + توسيع معايير المقارنة (M3) — 2026-08-29
+
+تطوير موديول Revenue Intelligence استنادًا إلى فجوات `docs/COMPETITIVE_ANALYSIS_RevenueIntelligence.md`
+(G2/G6/G7) — كل التعديلات Additive بلا كسر أي منطق قائم، وبلا تبعيات خارجية جديدة.
+
+**الإصلاحات:**
+- **أهداف/حصص المبيعات (G7):** `RevenueQuotaService` جديد يقرأ `crm_sales_goals`
+  بعزل تينانت كامل، مع الإنجاز الفعلي من `rev_revenue_records` + إشارة منفصلة
+  لقيمة الصفقات المكسوبة (`crm_deals` won) + تنبؤ من الصفقات المفتوحة المقررة
+  في الشهر (وزن بالاحتمالية `COALESCE(d.probability, s.win_probability)`) + الفجوة
+  والحالة (`ahead/on_track/at_risk/behind`). تبويب "الأهداف والحصص" في
+  `RevenueIntelligenceController` (جدول هدف/محقق/تنبؤ/فجوة/شارة حالة) + endpoint
+  `GET /api/revenue-intelligence/quotas` (يتحقق `period=YYYY-MM`).
+- **الإيراد حسب المنتج (G2):** ميجريشن جديد يضيف `product_name`/`category` إلى
+  `rev_revenue_records` + `getRevenueByProduct()` يجمع الإيراد حسب المنتج ثم
+  التصنيف (fallback شفاف للمصدر) بحصة `share_percent`؛ `RevenueController::createRecord`
+  يستقبل الحقلين مع تحقق (تصنيف ضمن `rooms/tours/transfers/packages/other`).
+- **توسيع اتساع المعايير (G6):** `cron/revai_benchmarks_rebuild.php` ينتج الآن
+  4 مقاييس مجمعة حقيقية بدل واحد: `growth_percent_monthly` + `win_rate_percent`
+  (آخر 90 يوم won/(won+lost)) + `avg_deal_value` (متوسط won آخر 90 يوم) +
+  `revenue_monthly_avg` (متوسط آخر 3 شهور كاملة، يتطلب ≥ شهرين) — كل مقياس بحد
+  `REVAI_BENCH_MIN_ACCOUNTS=10` ورفض صريح للكتابة عند قلة البيانات (لا اختراع أرقام).
+- **إصلاح جذر:** ميجريشن `2026_07_15_000014_create_revenue_intelligence_tables.sql`
+  كان يفشل في الإنشاء (errno 150) لأن `user_id` كان `BIGINT UNSIGNED` مقابل
+  `users.id INT(11)` — عُدّل إلى `INT(11)` في الجداول الثلاثة (لم يكن نُفّذ في أي بيئة).
+
+**التحقق:** lint 766 OK، PHPStan 0، **615/15727 OK** (منها 7 اختبارات جديدة في
+`tests/Integration/RevenueModuleIntegrationTest.php`)، commit منفصل + push.
+
 ## موديول Reputation — قناة SMS + استخراج موضوعات ديناميكي + تصدير المراجعات CSV (M2) — 2026-08-29
 
 تطوير موديول Reputation استنادًا إلى فجوات `docs/COMPETITIVE_ANALYSIS_Reputation.md`

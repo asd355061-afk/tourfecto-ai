@@ -153,12 +153,70 @@ class RevenueOverviewService
         return ['has_data' => true, 'sources' => $out];
     }
 
-    /** Section 8: صريح أن لا بيانات منتج/خدمة حقيقية مرتبطة بالإيراد في المشروع الحالي. */
+    /**
+     * Section 8: الإيراد حسب المنتج/الخدمة (G2).
+     * كان يرجع "Not enough data" صراحة لعدم وجود كتالوج منتجات مرتبط.
+     * من 2026-08-29 أضفنا بُعد المنتج الاختياري (product_name/category)
+     * على rev_revenue_records، فيتجمع الإيراد هنا حسب المنتج أولًا، ثم
+     * التصنيف، مع fallback آمن للمصدر للمسجلات اللي مالهاش بُعد منتج.
+     * لو مفيش أي سجل ببيانات منتج → نرجع "Not enough data" بنفس الصدق.
+     */
     public function getRevenueByProduct(int $userId): array
     {
+        $from = date('Y-m-01 00:00:00', strtotime('-6 months'));
+        $rows = $this->gateway->getRevenueRecordsWithProduct($userId, $from, date('Y-m-d 23:59:59'));
+
+        $groups = [];
+        $hasProductData = false;
+        $totalRevenue = 0.0;
+
+        foreach ($rows as $r) {
+            $product = trim((string) ($r['product_name'] ?? ''));
+            $category = trim((string) ($r['category'] ?? ''));
+            $dimension = 'product';
+            $label = $product;
+            if ($label === '') {
+                $label = $category;
+                $dimension = $category !== '' ? 'category' : 'source';
+            }
+            if ($label === '') {
+                $label = (string) ($r['source'] ?? 'manual');
+            }
+            if ($dimension !== 'source') {
+                $hasProductData = true;
+            }
+
+            $key = $dimension . ':' . $label;
+            if (!isset($groups[$key])) {
+                $groups[$key] = ['label' => $label, 'dimension' => $dimension, 'revenue' => 0.0, 'count' => 0];
+            }
+            $groups[$key]['revenue'] += (float) ($r['amount'] ?? 0);
+            $groups[$key]['count']++;
+            $totalRevenue += (float) ($r['amount'] ?? 0);
+        }
+
+        if (empty($groups)) {
+            return [
+                'has_data' => false,
+                'message' => 'Not enough data for reliable Revenue by Product/Service. No revenue records in the last 6 months carry a product dimension.',
+            ];
+        }
+
+        $out = array_values($groups);
+        usort($out, static function ($a, $b) {
+            return $b['revenue'] <=> $a['revenue'];
+        });
+        foreach ($out as $i => $item) {
+            $out[$i]['share_percent'] = $totalRevenue > 0 ? round(($item['revenue'] / $totalRevenue) * 100, 1) : 0.0;
+        }
+
         return [
-            'has_data' => false,
-            'message' => 'Not enough data for reliable Revenue by Product/Service. Tourfecto currently records revenue with a "source" dimension (booking/order/subscription/manual), not a linked products/services catalog. Integrate a products table with rev_revenue_records.reference_id to enable this view.',
+            'has_data' => $hasProductData,
+            'products' => $out,
+            'total_revenue' => round($totalRevenue, 2),
+            'note' => $hasProductData
+                ? 'Revenue grouped by optional product_name/category on rev_revenue_records (records without a product dimension fall back to source).'
+                : 'No product dimension recorded yet — records are shown grouped by source only. Set product/category when adding revenue for full Product views.',
         ];
     }
 

@@ -99,6 +99,73 @@ class RevenueDataGateway
     }
 
     /**
+     * سجلات الإيراد مع بُعد المنتج (G2) - للمنتجات/التصنيفات. كل سجل
+     * بيحمل source/product_name/category/amount عشان الـ Service يجمعهم
+     * حسب المنتج أو التصنيف مع fallback آمن للمصدر.
+     */
+    public function getRevenueRecordsWithProduct(int $userId, string $fromDate, string $toDate): array
+    {
+        return $this->db->query(
+            "SELECT source, product_name, category, amount, currency, recorded_at
+             FROM rev_revenue_records
+             WHERE user_id = ? AND recorded_at >= ? AND recorded_at < ?
+             ORDER BY recorded_at ASC",
+            [$userId, $fromDate, $toDate]
+        );
+    }
+
+    /**
+     * مجموع الإيراد الفعلي (rev_revenue_records) لشهر معيّن (G7).
+     * الشهر بصيغة YYYY-MM.
+     */
+    public function getRevenueSumForMonth(int $userId, string $period): float
+    {
+        $row = $this->db->query(
+            "SELECT COALESCE(SUM(amount), 0) AS total
+             FROM rev_revenue_records
+             WHERE user_id = ? AND DATE_FORMAT(recorded_at, '%Y-%m') = ?",
+            [$userId, $period]
+        );
+        return (float) ($row[0]['total'] ?? 0);
+    }
+
+    /** مجموع قيمة الصفقات المكسوبة (won) في شهر معيّن (G7) - نفس منطق تقرير CRM. */
+    public function getWonDealsForMonth(int $userId, string $period): float
+    {
+        $row = $this->db->query(
+            "SELECT COALESCE(SUM(value), 0) AS total
+             FROM crm_deals
+             WHERE owner_user_id = ? AND status = 'won' AND closed_at IS NOT NULL
+               AND DATE_FORMAT(closed_at, '%Y-%m') = ?",
+            [$userId, $period]
+        );
+        return (float) ($row[0]['total'] ?? 0);
+    }
+
+    /**
+     * الصفقات المفتوحة المتوقع إغلاقها في شهر معيّن (G7) - للتنبؤ
+     * بتحقيق الهدف من الخط. بيحمل كل صفقة احتمالية صفقتها أو
+     * احتمالية مرحلتها (fallback stage_win_probability).
+     */
+    public function getOpenDealsForMonth(int $userId, string $period): array
+    {
+        try {
+            return $this->db->query(
+                "SELECT d.id, d.title, d.value, d.probability, d.expected_close_date,
+                        COALESCE(d.probability, s.win_probability) AS effective_probability
+                 FROM crm_deals d
+                 LEFT JOIN crm_pipeline_stages s ON s.id = d.stage_id
+                 WHERE d.owner_user_id = ? AND d.status = 'open'
+                   AND d.expected_close_date IS NOT NULL
+                   AND DATE_FORMAT(d.expected_close_date, '%Y-%m') = ?",
+                [$userId, $period]
+            );
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    /**
      * سلسلة شهرية (Y-m) لإيراد نوع معيّن (عادة source='subscription') خلال
      * آخر N شهر - لتحليل استقرار الإيراد المتكرر (Revenue Retention).
      * نرجّع صفًا لكل شهر فيه سجلات فقط (الشهر اللي مفيش فيه سجلات بيختفي

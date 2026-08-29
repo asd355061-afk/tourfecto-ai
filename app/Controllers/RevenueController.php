@@ -31,6 +31,8 @@ class RevenueController extends Controller
                 <div style="padding:16px 20px;display:flex;flex-direction:column;gap:10px;">
                     <select id="revSource" class="p-select"><option value="booking">{$this->tr('revenue.source.booking')}</option><option value="order">{$this->tr('revenue.source.order')}</option><option value="subscription">{$this->tr('revenue.source.subscription')}</option><option value="manual">{$this->tr('revenue.source.other')}</option></select>
                     <input type="number" id="revAmount" class="p-input" placeholder="{$this->tr('revenue.amount_placeholder')}" step="0.01">
+                    <input type="text" id="revProductName" class="p-input" placeholder="{$this->tr('revenue.product_name_placeholder')}">
+                    <select id="revCategory" class="p-select"><option value="">{$this->tr('revenue.category_placeholder')}</option><option value="rooms">{$this->tr('revenue.category.rooms')}</option><option value="tours">{$this->tr('revenue.category.tours')}</option><option value="transfers">{$this->tr('revenue.category.transfers')}</option><option value="packages">{$this->tr('revenue.category.packages')}</option><option value="other">{$this->tr('revenue.category.other')}</option></select>
                     <input type="text" id="revNotes" class="p-input" placeholder="{$this->tr('revenue.notes_placeholder')}">
                     <button class="p-btn primary" onclick="revAdd()">{$this->tr('revenue.add_btn')}</button>
                 </div>
@@ -40,8 +42,8 @@ class RevenueController extends Controller
         <div class="p-card no-pad" style="margin-top:18px;">
             <div class="p-card-head" style="padding:18px 20px 0;"><h3>{$this->tr('revenue.recent.title')}</h3></div>
             <div class="p-table-scroll"><table class="p-table" id="revTable">
-                <thead><tr><th>{$this->tr('revenue.col.source')}</th><th>{$this->tr('revenue.col.amount')}</th><th>{$this->tr('revenue.col.date')}</th><th>{$this->tr('revenue.col.notes')}</th></tr></thead>
-                <tbody><tr class="p-loading-row"><td colspan="4">{$this->tr('common.loading')}</td></tr></tbody>
+                <thead><tr><th>{$this->tr('revenue.col.source')}</th><th>{$this->tr('revenue.col.product')}</th><th>{$this->tr('revenue.col.amount')}</th><th>{$this->tr('revenue.col.date')}</th><th>{$this->tr('revenue.col.notes')}</th></tr></thead>
+                <tbody><tr class="p-loading-row"><td colspan="5">{$this->tr('common.loading')}</td></tr></tbody>
             </table></div>
         </div>
 HTML;
@@ -55,14 +57,16 @@ HTML;
     window.revAdd = async function () {
         const source = document.getElementById('revSource').value;
         const amount = parseFloat(document.getElementById('revAmount').value);
+        const product_name = document.getElementById('revProductName').value.trim();
+        const category = document.getElementById('revCategory').value;
         const notes = document.getElementById('revNotes').value;
         if (!amount || amount <= 0) { toast(I18N['common.invalid_amount'], 'error'); return; }
 
         const res = await fetchJSON('/api/revenue/records', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ source, amount, notes })
+            body: JSON.stringify({ source, amount, product_name, category, notes })
         });
-        if (res.success) { toast(I18N['common.added'], 'success'); document.getElementById('revAmount').value = ''; document.getElementById('revNotes').value = ''; load(); }
+        if (res.success) { toast(I18N['common.added'], 'success'); document.getElementById('revAmount').value = ''; document.getElementById('revProductName').value = ''; document.getElementById('revCategory').value = ''; document.getElementById('revNotes').value = ''; load(); }
         else { toast(res.error || I18N['common.add_failed'], 'error'); }
     };
 
@@ -81,8 +85,8 @@ HTML;
         const rows = res.data.recent || [];
         const tbody = document.querySelector('#revTable tbody');
         tbody.innerHTML = rows.length ? rows.map(r => `
-            <tr><td>${esc(r.source)}</td><td>${fmt(r.amount)}</td><td>${formatDate(r.recorded_at)}</td><td>${esc(r.notes || '-')}</td></tr>
-        `).join('') : `<tr><td colspan="4" class="p-cell-muted">${I18N['common.no_records_yet']}</td></tr>`;
+            <tr><td>${esc(r.source)}</td><td>${esc(r.product_name || r.category || '-')}</td><td>${fmt(r.amount)}</td><td>${formatDate(r.recorded_at)}</td><td>${esc(r.notes || '-')}</td></tr>
+        `).join('') : `<tr><td colspan="5" class="p-cell-muted">${I18N['common.no_records_yet']}</td></tr>`;
 
         if (typeof Chart !== 'undefined') {
             const trend = res.data.trend || [];
@@ -120,16 +124,25 @@ JS;
         $amount = (float) $this->get('amount');
         $source = $this->get('source', 'manual');
         $notes = $this->get('notes');
+        $productName = trim((string) $this->get('product_name', ''));
+        $category = $this->get('category', '');
 
         if ($amount <= 0) {
             return $this->error('المبلغ لازم يكون أكبر من صفر', 422);
         }
+        // G2: بُعد المنتج اختياري — نقيّد الطول وننضّف بدل ما نرفض
+        if (mb_strlen($productName) > 255) {
+            return $this->error('اسم المنتج طويل جدًا (الحد 255 حرف)', 422);
+        }
+        if ($category !== '' && !in_array($category, ['rooms', 'tours', 'transfers', 'packages', 'other'], true)) {
+            return $this->error('تصنيف غير مدعوم', 422);
+        }
 
         try {
             $this->db->exec(
-                "INSERT INTO rev_revenue_records (user_id, source, amount, currency, recorded_at, notes)
-                 VALUES (?, ?, ?, 'USD', NOW(), ?)",
-                [$this->user['id'], $source, $amount, $notes]
+                "INSERT INTO rev_revenue_records (user_id, source, product_name, category, amount, currency, recorded_at, notes)
+                 VALUES (?, ?, ?, ?, ?, 'USD', NOW(), ?)",
+                [$this->user['id'], $source, $productName !== '' ? $productName : null, $category !== '' ? $category : null, $amount, $notes]
             );
 
             // Revenue Intelligence module hook (section 25): يسمح لأي كاش/إعادة
@@ -192,7 +205,7 @@ JS;
             ];
 
             $recent = $this->db->query(
-                "SELECT source, amount, recorded_at, notes FROM rev_revenue_records
+                "SELECT source, product_name, category, amount, recorded_at, notes FROM rev_revenue_records
                  WHERE user_id = ? ORDER BY recorded_at DESC LIMIT 20",
                 [$userId]
             );

@@ -144,4 +144,14 @@ return [
     'settings.js.wallet_balance_label' => 'Aktuelles Guthaben',
     'settings.js.audit_load_failed' => 'Protokoll konnte nicht geladen werden',
     'settings.js.audit_page_of' => 'Seite {page} von {total}',
+
+    // ---- Revenue Intelligence (G2 product dimension) ----
+    'revenue.product_name_placeholder' => 'Produkt/Service-Name (optional)',
+    'revenue.category_placeholder' => 'Kategorie (optional)',
+    'revenue.category.rooms' => 'Zimmer',
+    'revenue.category.tours' => 'Touren',
+    'revenue.category.transfers' => 'Transfers',
+    'revenue.category.packages' => 'Pakete',
+    'revenue.category.other' => 'Sonstiges',
+    'revenue.col.product' => 'Produkt',
 ];
