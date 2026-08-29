@@ -4,6 +4,22 @@
 **الفرع:** `main`
 **الحالة:** 8 بنود جديدة بالتتابع — كل بند migration+model+service+controller+routes+Lang+tests+checks+commit منفصل
 
+## خطة التطوير (الخطوة 2 مكتملة): التحليل التنافسي لـ 6 موديولات
+- 6 ملفات `docs/COMPETITIVE_ANALYSIS_<Module>.md` (تبعًا لقالب
+  `docs/COMPETITIVE_ANALYSIS.md`): مقارنة فيتشرز الكود الفعلي ضد 2-4 منافسين
+  لكل موديول + جدول Gap Analysis (عالية/متوسطة/منخفضة) + الميزات التنافسية.
+- الموديولات: Reputation (Birdeye/Podium/Trustpilot/Reputation.com)،
+  CompetitorIntelligence (SEMrush/SpyFu/SimilarWeb/Kompyte)،
+  RevenueIntelligence (Clari/Gong/RevenueGrid/insightSquared)،
+  WebsiteBuilder (Wix/Squarespace/GoDaddy/Durable)،
+  EmailMarketing (Mailchimp/Brevo/MailerLite/Klaviyo)،
+  SEO/AutoSeo (Ahrefs/SEMrush/Surfer/ScreamingFrog/Cloudflare).
+- commit منفصل لكل ملف بصيغة `docs: competitive analysis for <Module> module`.
+- تم رصد فجوات كود فعلية خلال التحليل (تُركّت كتوثيق فقط بلا تطوير):
+  `layout_key` لا يؤثر على العرض في WebsiteBuilder، تتبع فتح/نقر أتمتة
+  الإيميل لا يُحفظ (EmailMarketing)، عدم تطابق ENUM قناة التنبيهات
+  (CompetitorIntelligence).
+
 ## خطة التطوير (الخطوة 1 مكتملة): Security Audit — تقرير + إصلاح 10 ثغرات XSS
 - `SECURITY_AUDIT.md`: فحص 90 ملف Controller، 10 ثغرات مؤكدة (ملف+سطر+نوع خطر).
 - الإصلاحات: 4× inline-script JSON (`JSON_HEX_*`)، 2× Reflected (OAuth error +
