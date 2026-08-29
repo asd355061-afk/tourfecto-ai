@@ -28,6 +28,9 @@ class CiRateLimiter
         'report_generate' => [20, 3600], // 20 تقرير في الساعة
         'keyword_rankings_check' => [10, 1800], // 10 فحوصات ترتيبات SERP كل 30 دقيقة
         'battlecard_generate' => [10, 300],     // 10 بطاقات معركة كل 5 دقايق
+        // M6 (SEO/AutoSeo, 2026-08-29)
+        'seo_rank_tracking_check' => [10, 1800], // 10 فحوصات ترتيب كلمات (Rank Tracking) كل 30 دقيقة
+        'seo_crawl_run' => [5, 900],             // 5 زحفات متعددة الصفحات كل 15 دقيقة
     ];
 
     /**

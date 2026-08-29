@@ -860,6 +860,62 @@ JS;
      * الصفحة الفعلية - مش نتائج ثابتة أو عشوائية.
      * @return array{findings: array, broken_links: array, context: array}
      */
+    /** POST /api/website-optimizer/crawl  { website_id, max_urls?, max_depth? } - زحف متعدد الصفحات (G1) */
+    public function crawl(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        $websiteId = (int) $this->get('website_id');
+        if (!$websiteId || !$this->ownsWebsite($websiteId)) {
+            return $this->error('الموقع غير موجود', 404);
+        }
+
+        try {
+            $crawler = new SeoCrawlerService();
+            $result = $crawler->crawl($this->db, $websiteId, (int) $this->user['id'], [
+                'max_urls' => (int) $this->get('max_urls', 25),
+                'max_depth' => (int) $this->get('max_depth', 3),
+            ]);
+        } catch (Throwable $e) {
+            if (class_exists('Logger')) {
+                Logger::warning('SEO crawl failed', ['website_id' => $websiteId, 'error' => $e->getMessage()]);
+            }
+            return $this->error('فشل الزحف: ' . $e->getMessage(), 500);
+        }
+
+        if (empty($result['success'])) {
+            return $this->error($result['error'] ?? 'فشل الزحف', 422);
+        }
+
+        return $this->success([
+            'crawl_id' => $result['crawl_id'],
+            'website' => $result['website'],
+            'summary' => $result['summary'],
+            'pages' => $result['pages'],
+        ]);
+    }
+
+    /** GET /api/website-optimizer/crawl?website_id=X - آخر زحف محفوظ (G1) */
+    public function crawlResults(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        $websiteId = (int) $this->get('website_id');
+        if (!$websiteId || !$this->ownsWebsite($websiteId)) {
+            return $this->error('الموقع غير موجود', 404);
+        }
+
+        $last = (new SeoCrawlerService())->lastCrawl($this->db, $websiteId, (int) $this->user['id']);
+        if ($last === null) {
+            return $this->success(['crawl' => null]);
+        }
+        return $this->success(['crawl' => $last]);
+    }
+
     private function performAudit(string $url): array
     {
         $findings = [];

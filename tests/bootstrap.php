@@ -289,6 +289,11 @@ function applyTestMigrations(): void
         '2026_08_29_000001_add_product_dimension_to_rev_revenue_records.sql',
         '2026_08_29_000002_email_marketing_segment_and_automation_tracking.sql',
         '2026_08_29_000003_ci_keyword_rankings_product_prices_battlecards.sql',
+        '2026_08_29_000004_seo_multi_crawl_rank_tracking_reports.sql',
+        // Phase 6 keyword intelligence columns (enriched_at/search_intent/...) —
+        // تستخدمها KeywordResearchService (G4). غير idempotent لكن حلقة الميجريشن
+        // بتتخطى ملف فاشل بأمان، فالإضافة آمنة للتشغيل المتكرر.
+        '2026_08_08_000045_keyword_intelligence.sql',
     ];
 
     // إصلاح انحرافات السكيما المحلية: schema.sql القديمة بتحتوي أسماء

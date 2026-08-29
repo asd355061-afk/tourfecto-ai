@@ -1283,6 +1283,23 @@ $router->post('/api/indexnow/generate-key', 'SeoIndexingController', 'generateKe
 $router->post('/api/indexnow/toggle', 'SeoIndexingController', 'toggle', ['AuthMiddleware']);
 $router->get('/api/indexnow/status', 'SeoIndexingController', 'status', ['AuthMiddleware']);
 $router->post('/api/indexnow/submit', 'SeoIndexingController', 'submit', ['AuthMiddleware']);
+// Phase 26 (M6 SEO: زحف متعدد الصفحات - G1)
+$router->post('/api/website-optimizer/crawl', 'WebsiteOptimizerController', 'crawl', ['AuthMiddleware']);
+$router->get('/api/website-optimizer/crawl', 'WebsiteOptimizerController', 'crawlResults', ['AuthMiddleware']);
+// Phase 26 (M6 SEO: Google Indexing API - G3)
+$router->post('/api/google-indexing/toggle', 'SeoIndexingController', 'googleToggle', ['AuthMiddleware']);
+$router->post('/api/google-indexing/submit', 'SeoIndexingController', 'googleSubmit', ['AuthMiddleware']);
+$router->get('/api/google-indexing/status', 'SeoIndexingController', 'googleStatus', ['AuthMiddleware']);
+// Phase 26 (M6 SEO Insights: Rank Tracking G7 + Charts/Schedules G6 + Keyword Research G4)
+$router->get('/api/seo/rank-tracking', 'SeoInsightsController', 'rankTracking', ['AuthMiddleware']);
+$router->post('/api/seo/rank-tracking/check', 'SeoInsightsController', 'rankTrackingCheck', ['AuthMiddleware']);
+$router->get('/api/seo/rank-tracking/history', 'SeoInsightsController', 'rankTrackingHistory', ['AuthMiddleware']);
+$router->get('/api/seo/report/charts', 'SeoInsightsController', 'reportCharts', ['AuthMiddleware']);
+$router->get('/api/seo/report/schedules', 'SeoInsightsController', 'reportSchedules', ['AuthMiddleware']);
+$router->post('/api/seo/report/schedules', 'SeoInsightsController', 'reportScheduleSave', ['AuthMiddleware']);
+$router->delete('/api/seo/report/schedules/{id}', 'SeoInsightsController', 'reportScheduleDelete', ['AuthMiddleware']);
+$router->get('/api/seo/keyword-research/status', 'SeoInsightsController', 'keywordResearchStatus', ['AuthMiddleware']);
+$router->post('/api/seo/keyword-research/enrich', 'SeoInsightsController', 'keywordResearchEnrich', ['AuthMiddleware']);
 // Phase 23 (SEO A/B Testing - تجارب العناوين والأوصاف وقياس الفائز)
 $router->post('/api/seo-ab-tests', 'SeoAbTestController', 'create', ['AuthMiddleware']);
 $router->get('/api/seo-ab-tests', 'SeoAbTestController', 'list', ['AuthMiddleware']);

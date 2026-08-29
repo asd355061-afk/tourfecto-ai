@@ -199,6 +199,22 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Services/Seo/SeoPerformanceService.php',
     APP_PATH . '/Services/Seo/SeoSchedulerService.php',
     APP_PATH . '/Services/Seo/SeoContentService.php',
+    // M6 (2026-08-29): RankTrackingService (cron/seo_rank_tracking.php) +
+    // SeoScheduledReportService (cron/seo_scheduled_reports.php) + SeoCrawlerService
+    // + GoogleIndexingService + KeywordResearchService (G1/G3/G4/G6/G7) - كلاسات
+    // جديدة مش في classmap القديم، فلازم تتحمّل هنا.
+    APP_PATH . '/Models/SeoCrawlPage.php',
+    APP_PATH . '/Models/SeoRankTrackingHistory.php',
+    APP_PATH . '/Models/SeoReportSchedule.php',
+    APP_PATH . '/Core/Contracts/KeywordResearchSourceInterface.php',
+    APP_PATH . '/Services/Seo/SeoCrawlerService.php',
+    APP_PATH . '/Services/Seo/GoogleIndexingService.php',
+    APP_PATH . '/Services/Seo/NullKeywordResearchSource.php',
+    APP_PATH . '/Services/Seo/HttpKeywordResearchSource.php',
+    APP_PATH . '/Services/Seo/KeywordResearchService.php',
+    APP_PATH . '/Services/Seo/RankTrackingService.php',
+    APP_PATH . '/Services/Seo/SeoChartService.php',
+    APP_PATH . '/Services/Seo/SeoScheduledReportService.php',
     APP_PATH . '/Services/SearchConsole/GoogleSearchConsoleAPI.php',
     APP_PATH . '/Services/Analytics/GoogleAnalyticsAPI.php',
     // Booking & Availability Engine (merge remote 2026-08-21): الكلاسات دي

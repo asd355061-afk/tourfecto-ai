@@ -497,6 +497,23 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/Seo/ImageOptimizationService.php',
     APP_PATH . '/Services/Seo/BaiduIndexingService.php',
     APP_PATH . '/Controllers/BaiduIndexingController.php',
+    // Phase 26 (M6 SEO: زحف متعدد G1 + Google Indexing G3 + Rank Tracking
+    // G7 + تقارير/رسوم G6 + Keyword Research G4): كلاسات جديدة مش في
+    // classmap composer القديم على السيرفر، فلازم تتحمّل يدويًا هنا
+    // (Models -> Contracts -> Services -> Controller).
+    APP_PATH . '/Models/SeoCrawlPage.php',
+    APP_PATH . '/Models/SeoRankTrackingHistory.php',
+    APP_PATH . '/Models/SeoReportSchedule.php',
+    APP_PATH . '/Core/Contracts/KeywordResearchSourceInterface.php',
+    APP_PATH . '/Services/Seo/SeoCrawlerService.php',
+    APP_PATH . '/Services/Seo/GoogleIndexingService.php',
+    APP_PATH . '/Services/Seo/NullKeywordResearchSource.php',
+    APP_PATH . '/Services/Seo/HttpKeywordResearchSource.php',
+    APP_PATH . '/Services/Seo/KeywordResearchService.php',
+    APP_PATH . '/Services/Seo/RankTrackingService.php',
+    APP_PATH . '/Services/Seo/SeoChartService.php',
+    APP_PATH . '/Services/Seo/SeoScheduledReportService.php',
+    APP_PATH . '/Controllers/SeoInsightsController.php',
     // Social Media Expansion (TikTok + YouTube Shorts): PublishSocialPostJob
     // بينادي new TikTokAPI()/new YouTubeAPI() مباشرة من غير class_exists -
     // لازم يتحمّلوا هنا وإلا أي محاولة نشر عبر cron/process_queue.php
