@@ -163,6 +163,14 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Services/CompetitorIntelligence/ReportService.php',
     APP_PATH . '/Services/CompetitorIntelligence/CiPermissions.php',
     APP_PATH . '/Services/CompetitorIntelligence/CompetitorAnalysisService.php',
+    // M5 (2026-08-29): KeywordRankingService + ProductPriceTrackerService +
+    // BattlecardService + NullKeywordRankingSource (G1/G6/G7) - كلاسات جديدة
+    // مش في classmap القديم على السيرفر، لازم تتحمّل في سياق الـ Cron/Worker.
+    APP_PATH . '/Core/Contracts/KeywordRankingSourceInterface.php',
+    APP_PATH . '/Services/CompetitorIntelligence/NullKeywordRankingSource.php',
+    APP_PATH . '/Services/CompetitorIntelligence/KeywordRankingService.php',
+    APP_PATH . '/Services/CompetitorIntelligence/ProductPriceTrackerService.php',
+    APP_PATH . '/Services/CompetitorIntelligence/BattlecardService.php',
     APP_PATH . '/Models/CiDiscoveryCandidate.php',
     APP_PATH . '/Models/CiSnapshot.php',
     APP_PATH . '/Models/CiChange.php',
@@ -172,6 +180,9 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Models/CiInsight.php',
     APP_PATH . '/Models/CiReport.php',
     APP_PATH . '/Models/CiUserPreference.php',
+    APP_PATH . '/Models/CiKeywordRanking.php',
+    APP_PATH . '/Models/CiProductPrice.php',
+    APP_PATH . '/Models/CiBattlecard.php',
     APP_PATH . '/Models/Competitor.php',
     APP_PATH . '/Models/CompetitorRecommendation.php',
     // Phase 16C: Settings > Notifications بتتحكم في digest_weekly، فـ

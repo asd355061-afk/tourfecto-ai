@@ -32,17 +32,21 @@ class MonitoringEngine
     private $alerts;
     /** @var SitemapMonitor */
     private $sitemapMonitor;
+    /** @var ProductPriceTrackerService */
+    private $priceTracker;
 
     public function __construct(
         ?WebsiteSnapshotFetcher $fetcher = null,
         ?ChangeDetectionService $detector = null,
         ?AlertService $alerts = null,
-        ?SitemapMonitor $sitemapMonitor = null
+        ?SitemapMonitor $sitemapMonitor = null,
+        ?ProductPriceTrackerService $priceTracker = null
     ) {
         $this->fetcher = $fetcher ?? new WebsiteSnapshotFetcher();
         $this->detector = $detector ?? new ChangeDetectionService();
         $this->alerts = $alerts ?? new AlertService();
         $this->sitemapMonitor = $sitemapMonitor ?? new SitemapMonitor();
+        $this->priceTracker = $priceTracker ?? new ProductPriceTrackerService();
     }
 
     /**
@@ -92,6 +96,13 @@ class MonitoringEngine
             }
 
             $change = $this->detector->detectAndRecord($competitor, $pageType, $snapshot);
+
+            // G7: تتبع أسعار المنتجات/SKUs بجدولة منتظمة - نستخرج كل
+            // الأسعار الواضحة من لقطات صفحات التسعير/المنتجات/العروض
+            // ونخزنها بسجل زمني (إضافة غير هدّامة فوق Change Detection).
+            if (in_array($pageType, ['pricing', 'products', 'offers'], true)) {
+                $this->priceTracker->trackFromSnapshot($snapshot);
+            }
 
             if ($change !== null) {
                 $changesDetected++;

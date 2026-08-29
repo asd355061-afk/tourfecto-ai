@@ -912,6 +912,230 @@ class CompetitorIntelligenceController extends Controller
         return $this->success(['trend' => $rows]);
     }
 
+    /** GET /api/competitor-intelligence/competitors/{id}/keyword-rankings (G1) */
+    public function apiKeywordRankings(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
+        if (!$competitor) {
+            return $this->error('Not found', 404);
+        }
+        $limit = (int) $this->get('limit', 200);
+        $limit = $limit > 0 ? min(500, $limit) : 200;
+        $rankings = (new KeywordRankingService())->listRankings((int) $competitor->getAttribute('id'), $limit);
+        return $this->success(['keyword_rankings' => $rankings]);
+    }
+
+    /** POST /api/competitor-intelligence/competitors/{id}/keyword-rankings - body: {keyword, position?, url?, source?} (G1) */
+    public function apiRecordKeywordRanking(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
+        if (!$competitor) {
+            return $this->error('Not found', 404);
+        }
+        if (!$this->validate(['keyword' => 'required'])) {
+            return $this->error($this->tr('ci.error.missing_fields'), 422);
+        }
+
+        $positionRaw = $this->get('position');
+        $position = ($positionRaw === null || $positionRaw === '') ? null : (int) $positionRaw;
+        $url = trim((string) $this->get('url', ''));
+        if ($url !== '' && mb_strlen($url) > 1000) {
+            return $this->error($this->tr('ci.error.input_too_long'), 422);
+        }
+        $source = trim((string) $this->get('source', 'manual'));
+        if ($source === '' || mb_strlen($source) > 100) {
+            $source = 'manual';
+        }
+
+        $result = (new KeywordRankingService())->recordRanking(
+            (int) $competitor->getAttribute('id'),
+            (string) $this->get('keyword'),
+            $position,
+            $url !== '' ? $url : null,
+            $source
+        );
+        if (!$result['success']) {
+            return $this->error($result['error'] === 'invalid_keyword' ? $this->tr('ci.js.name_required') : $this->tr('ci.js.failed'), 422);
+        }
+        return $this->success(['ranking' => $result['ranking']], $this->tr('common.added'));
+    }
+
+    /** GET /api/competitor-intelligence/competitors/{id}/keyword-rankings/history?keyword= (G1) */
+    public function apiKeywordRankingHistory(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
+        if (!$competitor) {
+            return $this->error('Not found', 404);
+        }
+        $keyword = trim((string) $this->get('keyword', ''));
+        if ($keyword === '') {
+            return $this->error($this->tr('ci.error.missing_fields'), 422);
+        }
+        $limit = (int) $this->get('limit', 200);
+        $limit = $limit > 0 ? min(500, $limit) : 200;
+        $history = (new KeywordRankingService())->history((int) $competitor->getAttribute('id'), $keyword, $limit);
+        return $this->success(['keyword' => $keyword, 'history' => $history]);
+    }
+
+    /** POST /api/competitor-intelligence/competitors/{id}/keyword-rankings/check (G1 - scheduled SERP check via configured source) */
+    public function apiKeywordRankingCheck(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
+        if (!$competitor) {
+            return $this->error('Not found', 404);
+        }
+        if (($limited = $this->assertRateLimit('keyword_rankings_check')) !== null) {
+            return $limited;
+        }
+
+        $domain = CompetitorDomain::normalizeSafe((string) $competitor->getAttribute('competitor_domain'));
+        if ($domain === null) {
+            return $this->error($this->tr('ci.error.invalid_or_unsafe_url'), 422);
+        }
+
+        // الكلمات المفحوصة: من جدول competitor_keywords (المصدر الفعلي
+        // للكلمات المرصودة) + أي كلمات مسجلة يدويًا في ci_keyword_rankings.
+        $keywords = [];
+        foreach ($this->db->query("SELECT keyword FROM competitor_keywords WHERE competitor_id = ? LIMIT 100", [(int) $competitor->getAttribute('id')]) as $k) {
+            $keywords[] = (string) $k['keyword'];
+        }
+        foreach ($this->db->query(
+            "SELECT DISTINCT keyword FROM ci_keyword_rankings WHERE competitor_id = ? LIMIT 100",
+            [(int) $competitor->getAttribute('id')]
+        ) as $k) {
+            $keywords[] = (string) $k['keyword'];
+        }
+        $keywords = array_values(array_unique(array_filter(array_map('trim', $keywords))));
+
+        $result = (new KeywordRankingService())->runScheduledCheck((int) $competitor->getAttribute('id'), $domain, $keywords);
+        if (!$result['available']) {
+            return $this->success([
+                'available' => false,
+                'reason' => $result['reason'],
+                'recorded' => 0,
+                'results' => [],
+            ], $this->tr('ci.js.discovery_insufficient'));
+        }
+        return $this->success($result, $this->tr('common.updated'));
+    }
+
+    /** GET /api/competitor-intelligence/competitors/{id}/product-prices (G7) */
+    public function apiProductPrices(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
+        if (!$competitor) {
+            return $this->error('Not found', 404);
+        }
+        $limit = (int) $this->get('limit', 200);
+        $limit = $limit > 0 ? min(500, $limit) : 200;
+        $products = (new ProductPriceTrackerService())->listProducts((int) $competitor->getAttribute('id'), $limit);
+        return $this->success(['products' => $products]);
+    }
+
+    /** GET /api/competitor-intelligence/competitors/{id}/product-prices/history?product= (G7) */
+    public function apiProductPriceHistory(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
+        if (!$competitor) {
+            return $this->error('Not found', 404);
+        }
+        $product = trim((string) $this->get('product', ''));
+        if ($product === '') {
+            return $this->error($this->tr('ci.error.missing_fields'), 422);
+        }
+        $limit = (int) $this->get('limit', 100);
+        $limit = $limit > 0 ? min(500, $limit) : 100;
+        $history = (new ProductPriceTrackerService())->history((int) $competitor->getAttribute('id'), $product, $limit);
+        return $this->success(['product' => $product, 'history' => $history]);
+    }
+
+    /** POST /api/competitor-intelligence/competitors/{id}/product-prices - body: {product_name, price, currency?, url?} (G7 manual record) */
+    public function apiRecordProductPrice(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
+        if (!$competitor) {
+            return $this->error('Not found', 404);
+        }
+        if (!$this->validate(['product_name' => 'required', 'price' => 'required'])) {
+            return $this->error($this->tr('ci.error.missing_fields'), 422);
+        }
+        $price = (float) $this->get('price');
+        if (!is_finite($price) || $price <= 0) {
+            return $this->error($this->tr('ci.error.missing_fields'), 422);
+        }
+
+        $result = (new ProductPriceTrackerService())->recordPrice(
+            (int) $competitor->getAttribute('id'),
+            (string) $this->get('product_name'),
+            $price,
+            trim((string) $this->get('currency', 'USD')) ?: 'USD',
+            trim((string) $this->get('url', '')) ?: null
+        );
+        if (!$result['success']) {
+            return $this->error($this->tr('ci.js.failed'), 422);
+        }
+        return $this->success(['product_price' => $result['product_price']], $this->tr('common.added'));
+    }
+
+    /** GET /api/competitor-intelligence/competitors/{id}/battlecard (G6) */
+    public function apiBattlecard(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
+        if (!$competitor) {
+            return $this->error('Not found', 404);
+        }
+        $battlecard = (new BattlecardService())->latest((int) $this->user['id'], (int) $competitor->getAttribute('id'));
+        return $this->success(['battlecard' => $battlecard]);
+    }
+
+    /** POST /api/competitor-intelligence/competitors/{id}/battlecard/generate (G6) */
+    public function apiGenerateBattlecard(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $competitor = $this->assertCompetitorOwnership((int) ($params['id'] ?? 0));
+        if (!$competitor) {
+            return $this->error('Not found', 404);
+        }
+        if (($limited = $this->assertRateLimit('battlecard_generate')) !== null) {
+            return $limited;
+        }
+
+        $result = (new BattlecardService())->generate((int) $this->user['id'], (int) $competitor->getAttribute('id'));
+        if (!$result['success']) {
+            if (!$result['available']) {
+                return $this->success(['available' => false, 'reason' => $result['error']], $this->tr('ci.js.discovery_insufficient'));
+            }
+            return $this->error($result['error'] ?? $this->tr('ci.js.failed'), 422);
+        }
+        return $this->success(['battlecard' => $result['battlecard']], $this->tr('common.updated'));
+    }
+
     /** POST /api/competitor-intelligence/ai/ask */
     public function apiAiAsk(array $params = []): array
     {
@@ -1773,6 +1997,9 @@ HTML;
             <button type="button" class="p-tab ci-profile-tab-btn" data-ptab="changes" role="tab" aria-selected="false" onclick="ciSwitchProfileTab('changes')">{$this->ciIcon('zap')} {$this->tr('ci.profile.changes')}</button>
             <button type="button" class="p-tab ci-profile-tab-btn" data-ptab="timeline" role="tab" aria-selected="false" onclick="ciSwitchProfileTab('timeline')">{$this->ciIcon('clock')} {$this->tr('ci.profile.timeline')}</button>
             <button type="button" class="p-tab ci-profile-tab-btn" data-ptab="insights" role="tab" aria-selected="false" onclick="ciSwitchProfileTab('insights')">{$this->ciIcon('lightbulb')} {$this->tr('ci.profile.insights')}</button>
+            <button type="button" class="p-tab ci-profile-tab-btn" data-ptab="keywords" role="tab" aria-selected="false" onclick="ciSwitchProfileTab('keywords')">{$this->ciIcon('search')} {$this->tr('ci.profile.keywords')}</button>
+            <button type="button" class="p-tab ci-profile-tab-btn" data-ptab="prices" role="tab" aria-selected="false" onclick="ciSwitchProfileTab('prices')">{$this->ciIcon('chart')} {$this->tr('ci.profile.prices')}</button>
+            <button type="button" class="p-tab ci-profile-tab-btn" data-ptab="battlecard" role="tab" aria-selected="false" onclick="ciSwitchProfileTab('battlecard')">{$this->ciIcon('briefcase')} {$this->tr('ci.profile.battlecard')}</button>
         </div>
 
         <div class="p-modal-body">
@@ -1825,6 +2052,55 @@ HTML;
                 </div>
                 <div id="ciProfileInsights"></div>
             </div>
+
+            <div class="ci-profile-tab-panel" id="ciProfileTab-keywords">
+                <div class="p-card" style="margin-bottom:12px;">
+                    <div class="p-card-head"><h4 style="margin:0;">{$this->tr('ci.profile.keywords_record')}</h4></div>
+                    <div class="ci-form-note" style="margin-top:2px;margin-bottom:10px;">{$this->tr('ci.profile.keywords_desc')}</div>
+                    <div class="p-grid cols-3">
+                        <div class="form-group"><label class="form-label">{$this->tr('ci.profile.keyword')}</label><input type="text" id="ciKrKeyword" class="p-input" placeholder="desert safari dubai"></div>
+                        <div class="form-group"><label class="form-label">{$this->tr('ci.profile.position')}</label><input type="number" id="ciKrPosition" class="p-input" min="1" max="100" placeholder="1-100"></div>
+                        <div class="form-group"><label class="form-label">URL</label><input type="text" id="ciKrUrl" class="p-input" dir="ltr" placeholder="https://competitor.example/safari"></div>
+                    </div>
+                    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="p-btn primary xs" onclick="ciRecordKeywordRanking()">{$this->ciIcon('plus')} {$this->tr('ci.profile.keywords_record')}</button>
+                        <button class="p-btn outline xs" onclick="ciRunKeywordRankingCheck()">{$this->ciIcon('refresh')} {$this->tr('ci.profile.keywords_check')}</button>
+                    </div>
+                    <div id="ciKrCheckResult" class="ci-form-note" style="margin-top:8px;"></div>
+                </div>
+                <div class="p-table-scroll"><table class="p-table">
+                    <thead><tr><th>{$this->tr('ci.profile.keyword')}</th><th>{$this->tr('ci.profile.position')}</th><th>{$this->tr('ci.profile.best_position')}</th><th>{$this->tr('ci.profile.trend')}</th><th>{$this->tr('ci.profile.source')}</th><th>{$this->tr('ci.profile.checked_at')}</th><th></th></tr></thead>
+                    <tbody id="ciProfileKeywordRankings"></tbody>
+                </table></div>
+                <div id="ciKrHistory" style="margin-top:12px;"></div>
+            </div>
+
+            <div class="ci-profile-tab-panel" id="ciProfileTab-prices">
+                <div class="p-card" style="margin-bottom:12px;">
+                    <div class="p-card-head"><h4 style="margin:0;">{$this->tr('ci.profile.add_price')}</h4></div>
+                    <div class="ci-form-note" style="margin-top:2px;margin-bottom:10px;">{$this->tr('ci.profile.prices_desc')}</div>
+                    <div class="p-grid cols-3">
+                        <div class="form-group"><label class="form-label">{$this->tr('ci.profile.product_name')}</label><input type="text" id="ciPpProduct" class="p-input" placeholder="Deluxe Room"></div>
+                        <div class="form-group"><label class="form-label">{$this->tr('ci.profile.price')}</label><input type="number" id="ciPpPrice" class="p-input" min="0.01" step="0.01"></div>
+                        <div class="form-group"><label class="form-label">{$this->tr('ci.profile.currency')}</label><input type="text" id="ciPpCurrency" class="p-input" value="USD" dir="ltr" maxlength="8"></div>
+                    </div>
+                    <div style="margin-top:10px;">
+                        <button class="p-btn primary xs" onclick="ciRecordProductPrice()">{$this->ciIcon('plus')} {$this->tr('ci.profile.add_price')}</button>
+                    </div>
+                </div>
+                <div class="p-table-scroll"><table class="p-table">
+                    <thead><tr><th>{$this->tr('ci.profile.product_name')}</th><th>{$this->tr('ci.profile.latest_price')}</th><th>{$this->tr('ci.profile.first_price')}</th><th>{$this->tr('ci.profile.currency')}</th><th>{$this->tr('ci.profile.readings')}</th><th>{$this->tr('ci.profile.detected_at')}</th><th></th></tr></thead>
+                    <tbody id="ciProfileProductPrices"></tbody>
+                </table></div>
+                <div id="ciPpHistory" style="margin-top:12px;"></div>
+            </div>
+
+            <div class="ci-profile-tab-panel" id="ciProfileTab-battlecard">
+                <div style="text-align:end;margin-bottom:10px;">
+                    <button class="p-btn outline xs" onclick="ciGenerateBattlecard()">{$this->ciIcon('refresh')} {$this->tr('ci.profile.battlecard_generate')}</button>
+                </div>
+                <div id="ciProfileBattlecard"></div>
+            </div>
         </div>
     </div>
 </div>
@@ -1856,6 +2132,8 @@ HTML;
     let ciComparisonChartInstance = null;
     let ciScorecardChartInstance = null;
     let ciScorecardTrendChartInstance = null;
+    let ciKrHistoryChartInstance = null;
+    let ciPpHistoryChartInstance = null;
     let ciModalResolve = null;
     let ciLastFocused = null;
     window.__ciWatchKeywords = {};
@@ -2591,6 +2869,9 @@ HTML;
         if (tab === 'changes') ciLoadProfileChanges();
         if (tab === 'timeline') ciLoadProfileTimeline();
         if (tab === 'insights') ciLoadProfileInsights();
+        if (tab === 'keywords') ciLoadKeywordRankings();
+        if (tab === 'prices') ciLoadProductPrices();
+        if (tab === 'battlecard') ciLoadBattlecard();
     };
 
     async function ciLoadProfileOverview(id) {
@@ -2769,6 +3050,212 @@ HTML;
             document.getElementById('ciProfilePositioning').textContent = res.data.insight.description;
         } else {
             document.getElementById('ciProfilePositioning').textContent = res.success ? T('ci.profile.not_available') : (res.error || T('ci.js.failed'));
+        }
+    };
+
+    // ---------- M5 (G1/G6/G7): keyword rankings / product prices / battlecard ----------
+    function trendPill(trend) {
+        if (!trend) return '<span class="pill gray">' + esc(T('ci.js.no_changes_yet')) + '</span>';
+        if (trend < 0) return '<span class="pill green" title="' + esc(trend) + '">' + ic('trending') + ' ' + esc(Math.abs(trend)) + '</span>';
+        if (trend > 0) return '<span class="pill red" title="' + esc(trend) + '">' + ic('trending') + ' -' + esc(trend) + '</span>';
+        return '<span class="pill gray">0</span>';
+    }
+
+    function rankPositionPill(pos) {
+        if (pos === null || pos === undefined) return '<span class="pill gray">-</span>';
+        return '<span class="pill ' + (pos <= 5 ? 'green' : pos <= 20 ? 'blue' : pos <= 50 ? 'gray' : 'red') + '">' + esc(pos) + '</span>';
+    }
+
+    async function ciLoadKeywordRankings() {
+        const res = await fetchJSON('/api/competitor-intelligence/competitors/' + currentProfileId + '/keyword-rankings');
+        const rows = (res.success && res.data.keyword_rankings) || [];
+        document.getElementById('ciProfileKeywordRankings').innerHTML = rows.length
+            ? rows.map(r => `<tr>
+                <td><strong>${esc(r.keyword)}</strong></td>
+                <td>${rankPositionPill(r.position)}</td>
+                <td>${rankPositionPill(r.best_position)}</td>
+                <td>${trendPill(r.trend)}</td>
+                <td>${esc(r.source)}</td>
+                <td>${esc(r.checked_at)}</td>
+                <td>${r.url ? `<a class="p-btn outline xs" href="${esc(r.url)}" target="_blank" rel="noopener">${ic('external')} ${esc(T('ci.js.view'))}</a>` : ''}</td>
+              </tr>`).join('')
+            : emptyRow(7, 'search', T('ci.profile.keywords_empty'));
+    }
+
+    async function ciLoadKeywordHistory(keyword) {
+        const box = document.getElementById('ciKrHistory');
+        if (!keyword) { box.innerHTML = ''; return; }
+        const res = await fetchJSON('/api/competitor-intelligence/competitors/' + currentProfileId + '/keyword-rankings/history?keyword=' + encodeURIComponent(keyword));
+        if (!res.success || !(res.data.history || []).length) { box.innerHTML = ''; return; }
+        box.innerHTML = `<div class="p-card">
+            <div class="p-card-head"><h4 style="margin:0;">${ic('trending')} ${esc(T('ci.profile.rank_history'))}: <span dir="ltr">${esc(keyword)}</span></h4></div>
+            <div class="ci-form-note" style="margin-top:2px;margin-bottom:8px;">${res.data.history.map(h => `${esc(h.checked_at)} → ${rankPositionPill(h.position)}`).join(' · ')}</div>
+            <div style="height:150px;position:relative;"><canvas id="ciKrHistoryChart"></canvas></div>
+        </div>`;
+        if (typeof Chart === 'undefined' || !document.getElementById('ciKrHistoryChart')) return;
+        if (ciKrHistoryChartInstance) { ciKrHistoryChartInstance.destroy(); ciKrHistoryChartInstance = null; }
+        const series = res.data.history;
+        ciKrHistoryChartInstance = new Chart(document.getElementById('ciKrHistoryChart'), {
+            type: 'line',
+            data: {
+                labels: series.map(h => h.checked_at.slice(0, 10)),
+                datasets: [{ label: T('ci.profile.position'), data: series.map(h => h.position === null ? null : h.position), borderColor: cssVar('--panel-accent', '#EFB05E'), backgroundColor: 'rgba(239,176,94,.12)', fill: true, tension: 0.25, spanGaps: true }]
+            },
+            options: chartTheme({ plugins: { legend: { display: false } }, scales: { x: { ticks: { color: cssVar('--panel-text-muted', '#8996AC'), maxRotation: 45, font: { size: 9 } }, grid: { display: false } }, y: { reverse: true, beginAtZero: false, ticks: { color: cssVar('--panel-text-muted', '#8996AC'), precision: 0 }, grid: { color: 'rgba(255,255,255,.06)' } } } })
+        });
+    }
+
+    window.ciRecordKeywordRanking = async function () {
+        if (!currentProfileId) return;
+        const keyword = document.getElementById('ciKrKeyword').value.trim();
+        if (!keyword) { toast(T('ci.js.name_required'), 'error'); return; }
+        const position = document.getElementById('ciKrPosition').value;
+        const url = document.getElementById('ciKrUrl').value.trim();
+        const body = { keyword };
+        if (position !== '') body.position = parseInt(position, 10);
+        if (url) body.url = url;
+        const res = await fetchJSON('/api/competitor-intelligence/competitors/' + currentProfileId + '/keyword-rankings', { method: 'POST', body: JSON.stringify(body) });
+        if (res.success) {
+            toast(T('ci.js.added'), 'success');
+            document.getElementById('ciKrKeyword').value = '';
+            document.getElementById('ciKrPosition').value = '';
+            document.getElementById('ciKrUrl').value = '';
+            ciLoadKeywordRankings();
+        } else {
+            toast(res.error || T('ci.js.failed'), 'error');
+        }
+    };
+
+    window.ciRunKeywordRankingCheck = async function () {
+        if (!currentProfileId) return;
+        const box = document.getElementById('ciKrCheckResult');
+        box.textContent = T('ci.js.checking');
+        const res = await fetchJSON('/api/competitor-intelligence/competitors/' + currentProfileId + '/keyword-rankings/check', { method: 'POST' });
+        if (res.success) {
+            if (res.data.available) {
+                box.textContent = T('ci.js.added') + ' (' + res.data.recorded + ')';
+                toast(T('ci.js.cycle_completed'), 'success');
+            } else {
+                box.textContent = T('ci.profile.keywords_no_source');
+                toast(T('ci.profile.keywords_no_source'), 'info');
+            }
+            ciLoadKeywordRankings();
+        } else {
+            box.textContent = res.error || T('ci.js.failed');
+            toast(res.error || T('ci.js.failed'), 'error');
+        }
+    };
+
+    async function ciLoadProductPrices() {
+        const res = await fetchJSON('/api/competitor-intelligence/competitors/' + currentProfileId + '/product-prices');
+        const rows = (res.success && res.data.products) || [];
+        document.getElementById('ciProfileProductPrices').innerHTML = rows.length
+            ? rows.map(p => `<tr>
+                <td><strong>${esc(p.product_name)}</strong>${p.page_type ? ` <span class="pill gray">${esc(p.page_type)}</span>` : ''}</td>
+                <td><strong>${fmtPrice(p.latest_price, p.currency)}</strong></td>
+                <td>${fmtPrice(p.first_price, p.currency)}</td>
+                <td>${esc(p.currency)}</td>
+                <td>${esc(p.readings)}</td>
+                <td>${esc(p.last_detected_at)}</td>
+                <td><button class="p-btn outline xs" onclick="ciLoadProductPriceHistory('${esc(p.product_name)}')">${ic('chart')} ${esc(T('ci.profile.price_history'))}</button></td>
+              </tr>`).join('')
+            : emptyRow(7, 'chart', T('ci.profile.prices_empty'));
+    }
+
+    async function ciLoadProductPriceHistory(product) {
+        const box = document.getElementById('ciPpHistory');
+        const res = await fetchJSON('/api/competitor-intelligence/competitors/' + currentProfileId + '/product-prices/history?product=' + encodeURIComponent(product));
+        if (!res.success || !(res.data.history || []).length) { box.innerHTML = ''; return; }
+        box.innerHTML = `<div class="p-card">
+            <div class="p-card-head"><h4 style="margin:0;">${ic('trending')} ${esc(T('ci.profile.price_history'))}: <span dir="ltr">${esc(product)}</span></h4></div>
+            <div style="height:150px;position:relative;"><canvas id="ciPpHistoryChart"></canvas></div>
+        </div>`;
+        if (typeof Chart === 'undefined' || !document.getElementById('ciPpHistoryChart')) return;
+        if (ciPpHistoryChartInstance) { ciPpHistoryChartInstance.destroy(); ciPpHistoryChartInstance = null; }
+        const series = res.data.history;
+        ciPpHistoryChartInstance = new Chart(document.getElementById('ciPpHistoryChart'), {
+            type: 'line',
+            data: {
+                labels: series.map(h => h.detected_at.slice(0, 10)),
+                datasets: [{ label: product, data: series.map(h => h.price), borderColor: cssVar('--panel-teal', '#4ECDC4'), backgroundColor: 'rgba(78,205,196,.12)', fill: true, tension: 0.25 }]
+            },
+            options: chartTheme({ plugins: { legend: { display: false } }, scales: { x: { ticks: { color: cssVar('--panel-text-muted', '#8996AC'), maxRotation: 45, font: { size: 9 } }, grid: { display: false } }, y: { ticks: { color: cssVar('--panel-text-muted', '#8996AC') }, grid: { color: 'rgba(255,255,255,.06)' } } } })
+        });
+    }
+
+    window.ciRecordProductPrice = async function () {
+        if (!currentProfileId) return;
+        const product_name = document.getElementById('ciPpProduct').value.trim();
+        const price = document.getElementById('ciPpPrice').value;
+        if (!product_name || !price || parseFloat(price) <= 0) { toast(T('ci.js.name_required'), 'error'); return; }
+        const body = { product_name, price: parseFloat(price), currency: document.getElementById('ciPpCurrency').value.trim() || 'USD' };
+        const res = await fetchJSON('/api/competitor-intelligence/competitors/' + currentProfileId + '/product-prices', { method: 'POST', body: JSON.stringify(body) });
+        if (res.success) {
+            toast(T('ci.js.added'), 'success');
+            document.getElementById('ciPpProduct').value = '';
+            document.getElementById('ciPpPrice').value = '';
+            ciLoadProductPrices();
+        } else {
+            toast(res.error || T('ci.js.failed'), 'error');
+        }
+    };
+
+    async function ciLoadBattlecard() {
+        const box = document.getElementById('ciProfileBattlecard');
+        const res = await fetchJSON('/api/competitor-intelligence/competitors/' + currentProfileId + '/battlecard');
+        if (!res.success || !res.data.battlecard) {
+            box.innerHTML = emptyBlock('briefcase', T('ci.profile.battlecard_empty'), T('ci.profile.battlecard_insufficient'));
+            return;
+        }
+        box.innerHTML = ciRenderBattlecard(res.data.battlecard);
+    }
+
+    function ciRenderBattlecard(b) {
+        const strengths = (b.strengths || []).map(s => `<li>${esc(s)}</li>`).join('');
+        const weaknesses = (b.weaknesses || []).map(w => `<li>${esc(w)}</li>`).join('');
+        const prices = (b.price_position || []).map(p => `<li dir="ltr"><strong>${esc(p.product)}</strong>: ${fmtPrice(p.latest_price, p.currency)} <span class="ci-form-note">(first: ${fmtPrice(p.first_price, p.currency)} · ${esc(p.readings)} readings)</span></li>`).join('');
+        const content = b.content_position || {};
+        const contentLines = [];
+        if (typeof content.total_changes === 'number') contentLines.push(`<li>${esc(T('ci.profile.readings'))}: ${esc(content.total_changes)} change(s), ${esc(content.high_severity)} high-severity</li>`);
+        Object.entries(content.by_page || {}).forEach(([k, v]) => contentLines.push(`<li>${esc(k)}: ${esc(v)}</li>`));
+        const actions = (b.recommended_actions || []).map(a => `<li><strong>${esc(a.action)}</strong><div class="ci-form-note">${esc(a.rationale)}</div></li>`).join('');
+        const evidence = b.evidence ? `<div class="ci-form-note" style="margin-top:6px;white-space:pre-wrap;">${esc(JSON.stringify(b.evidence, null, 2))}</div>` : '';
+
+        return `<div class="p-card" style="margin-bottom:12px;">
+            <div class="p-card-head"><h4 style="margin:0;">${ic('briefcase')} ${esc(b.title)}</h4><span class="ci-form-note">${esc(T('ci.profile.generated_at'))}: ${esc(b.generated_at)}</span></div>
+            ${b.positioning_summary ? `<div class="p-cell-muted" style="margin-top:8px;">${esc(b.positioning_summary)}</div>` : ''}
+        </div>
+        <div class="p-grid cols-2" style="gap:12px;margin-bottom:12px;">
+            <div class="p-card"><div class="p-card-head"><h4 style="margin:0;">${ic('trending')} ${esc(T('ci.profile.strengths'))}</h4></div><ul style="margin:10px 0 0;padding-inline-start:18px;">${strengths || `<li class="ci-form-note">-</li>`}</ul></div>
+            <div class="p-card"><div class="p-card-head"><h4 style="margin:0;">${ic('alert')} ${esc(T('ci.profile.weaknesses'))}</h4></div><ul style="margin:10px 0 0;padding-inline-start:18px;">${weaknesses || `<li class="ci-form-note">-</li>`}</ul></div>
+        </div>
+        <div class="p-grid cols-2" style="gap:12px;margin-bottom:12px;">
+            <div class="p-card"><div class="p-card-head"><h4 style="margin:0;">${ic('chart')} ${esc(T('ci.profile.price_position'))}</h4></div><ul style="margin:10px 0 0;padding-inline-start:18px;">${prices || `<li class="ci-form-note">-</li>`}</ul></div>
+            <div class="p-card"><div class="p-card-head"><h4 style="margin:0;">${ic('zap')} ${esc(T('ci.profile.content_position'))}</h4></div><ul style="margin:10px 0 0;padding-inline-start:18px;">${contentLines.join('') || `<li class="ci-form-note">-</li>`}</ul></div>
+        </div>
+        <div class="p-card" style="margin-bottom:12px;">
+            <div class="p-card-head"><h4 style="margin:0;">${ic('check')} ${esc(T('ci.profile.recommended_actions'))}</h4></div>
+            <ul style="margin:10px 0 0;padding-inline-start:18px;">${actions || `<li class="ci-form-note">-</li>`}</ul>
+        </div>
+        <div class="p-card">
+            <div class="p-card-head"><h4 style="margin:0;">${ic('shield')} ${esc(T('ci.profile.evidence'))}</h4></div>
+            ${evidence}
+        </div>`;
+    }
+
+    window.ciGenerateBattlecard = async function () {
+        if (!currentProfileId) return;
+        document.getElementById('ciProfileBattlecard').innerHTML = `<div class="skeleton" style="height:80px;"></div>`;
+        const res = await fetchJSON('/api/competitor-intelligence/competitors/' + currentProfileId + '/battlecard/generate', { method: 'POST' });
+        if (res.success && res.data.battlecard) {
+            document.getElementById('ciProfileBattlecard').innerHTML = ciRenderBattlecard(res.data.battlecard);
+            toast(T('ci.js.cycle_completed'), 'success');
+        } else if (res.success && res.data.available === false) {
+            document.getElementById('ciProfileBattlecard').innerHTML = emptyBlock('briefcase', T('ci.profile.battlecard_empty'), T('ci.profile.battlecard_insufficient'));
+            toast(T('ci.profile.battlecard_insufficient'), 'info');
+        } else {
+            document.getElementById('ciProfileBattlecard').innerHTML = emptyBlock('alert', res.error || T('ci.js.failed'));
+            toast(res.error || T('ci.js.failed'), 'error');
         }
     };
 

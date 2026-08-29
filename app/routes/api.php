@@ -239,6 +239,15 @@ $router->post('/api/competitor-intelligence/competitors/{id}/scan-insights', 'Co
 $router->post('/api/competitor-intelligence/competitors/{id}/analyze-profile', 'CompetitorIntelligenceController', 'apiAnalyzeProfile', ['AuthMiddleware']);
 $router->post('/api/competitor-intelligence/competitors/{id}/compute-scorecard', 'CompetitorIntelligenceController', 'apiComputeScorecard', ['AuthMiddleware']);
 $router->get('/api/competitor-intelligence/competitors/{id}/scorecard-trend', 'CompetitorIntelligenceController', 'apiScorecardTrend', ['AuthMiddleware']);
+$router->get('/api/competitor-intelligence/competitors/{id}/keyword-rankings', 'CompetitorIntelligenceController', 'apiKeywordRankings', ['AuthMiddleware']);
+$router->post('/api/competitor-intelligence/competitors/{id}/keyword-rankings', 'CompetitorIntelligenceController', 'apiRecordKeywordRanking', ['AuthMiddleware']);
+$router->get('/api/competitor-intelligence/competitors/{id}/keyword-rankings/history', 'CompetitorIntelligenceController', 'apiKeywordRankingHistory', ['AuthMiddleware']);
+$router->post('/api/competitor-intelligence/competitors/{id}/keyword-rankings/check', 'CompetitorIntelligenceController', 'apiKeywordRankingCheck', ['AuthMiddleware']);
+$router->get('/api/competitor-intelligence/competitors/{id}/product-prices', 'CompetitorIntelligenceController', 'apiProductPrices', ['AuthMiddleware']);
+$router->post('/api/competitor-intelligence/competitors/{id}/product-prices', 'CompetitorIntelligenceController', 'apiRecordProductPrice', ['AuthMiddleware']);
+$router->get('/api/competitor-intelligence/competitors/{id}/product-prices/history', 'CompetitorIntelligenceController', 'apiProductPriceHistory', ['AuthMiddleware']);
+$router->get('/api/competitor-intelligence/competitors/{id}/battlecard', 'CompetitorIntelligenceController', 'apiBattlecard', ['AuthMiddleware']);
+$router->post('/api/competitor-intelligence/competitors/{id}/battlecard/generate', 'CompetitorIntelligenceController', 'apiGenerateBattlecard', ['AuthMiddleware']);
 
 $router->post('/api/competitor-intelligence/discovery/suggest', 'CompetitorIntelligenceController', 'apiDiscoverySuggest', ['AuthMiddleware']);
 $router->post('/api/competitor-intelligence/discovery/run', 'CompetitorIntelligenceController', 'apiDiscoveryRun', ['AuthMiddleware']);

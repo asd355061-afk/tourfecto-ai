@@ -26,6 +26,8 @@ class CiRateLimiter
         'ai_weekly_summary' => [4, 3600], // 4 ملخصات أسبوعية في الساعة
         'discovery_run' => [10, 3600], // 10 دورات اكتشاف في الساعة
         'report_generate' => [20, 3600], // 20 تقرير في الساعة
+        'keyword_rankings_check' => [10, 1800], // 10 فحوصات ترتيبات SERP كل 30 دقيقة
+        'battlecard_generate' => [10, 300],     // 10 بطاقات معركة كل 5 دقايق
     ];
 
     /**
