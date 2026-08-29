@@ -796,8 +796,8 @@ HTML;
         // Phase 5 (Auto-Apply): بنمرر seo_title/seo_description الفعليين من
         // الموديل (اللي دلوقتي ممكن يتحدّثوا تلقائيًا من الـWebsite Optimizer)
         // بدل ما الـhead يعتمد بس على business_name/tagline زي الأول.
-        $seoTitle = (string) ($website->getAttribute('seo_title') ?? '');
-        $seoDescription = (string) ($website->getAttribute('seo_description') ?? '');
+        $seoTitle = htmlspecialchars((string) ($website->getAttribute('seo_title') ?? ''), ENT_QUOTES, 'UTF-8');
+        $seoDescription = htmlspecialchars((string) ($website->getAttribute('seo_description') ?? ''), ENT_QUOTES, 'UTF-8');
         $canonicalUrl = $this->publicSiteUrl($slug);
         $ogImage = (string) ($website->getAttribute('logo_url') ?? '');
 

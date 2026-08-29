@@ -241,7 +241,7 @@ class WebsiteController extends Controller
         </div>
 HTML;
 
-        $sitesJson = json_encode($sites, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $sitesJson = json_encode($sites, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         $tNoSites = $this->trJs('websites.no_sites');
         $tVerified = $this->trJs('websites.verified');
         $tUnverified = $this->trJs('websites.unverified');

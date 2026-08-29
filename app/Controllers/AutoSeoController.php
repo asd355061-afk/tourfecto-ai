@@ -32,6 +32,7 @@ class AutoSeoController extends Controller
     public function index(array $params = []): void
     {
         $proxyHost = (defined('SEO_PROXY_HOST') && SEO_PROXY_HOST) ? SEO_PROXY_HOST : ($_SERVER['HTTP_HOST'] ?? '');
+        $proxyHostEsc = htmlspecialchars((string) $proxyHost, ENT_QUOTES, 'UTF-8');
 
         $body = <<<HTML
         <style>
@@ -179,7 +180,7 @@ class AutoSeoController extends Controller
                             <p class="p-cell-muted" style="font-size:12px;">عشان التنفيذ يشتغل server-side على دومينك الحقيقي (مش مجرد embed.js)، أشّر DNS بتاعك ناحية سيرفرنا:</p>
                             <div class="aseo-kv"><span class="k">نوع السجل</span><span class="v">CNAME</span></div>
                             <div class="aseo-kv"><span class="k">الاسم (Host)</span><span class="v">www</span></div>
-                            <div class="aseo-kv"><span class="k">القيمة (Points to)</span><span class="v" id="aseoCnameTarget">{$proxyHost}</span></div>
+                            <div class="aseo-kv"><span class="k">القيمة (Points to)</span><span class="v" id="aseoCnameTarget">{$proxyHostEsc}</span></div>
                             <p class="p-cell-muted" style="font-size:11.5px;">للاختبار من غير تغيير DNS استخدم رابط المعاينة <span dir="ltr">/s/{embed_token}</span>.</p>
                         </div>
 

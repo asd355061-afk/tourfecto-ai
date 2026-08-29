@@ -217,6 +217,15 @@ class SeoProxyService
                     // نص عادي مش HTML - نتجاهل (مش تنسيق OG صحيح)
                     break;
                 }
+                // نسمح بوسوم meta/link فقط، ونشيل أي وسوم خطرة (script/iframe)
+                // أو معالجات أحداث من القيمة المحفوظة قبل حقنها في الـ head.
+                $code = strip_tags($code, '<meta><link>');
+                $code = preg_replace('/\son[a-z0-9_]+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]*)/i', '', $code);
+                $code = preg_replace('/javascript\s*:/i', '', $code);
+                $code = trim($code);
+                if ($code === '') {
+                    break;
+                }
                 $html = str_ireplace('<head>', "<head>\n" . $code . "\n", $html);
                 break;
 
@@ -323,9 +332,9 @@ class SeoProxyService
         }
         $decoded = json_decode($code, true);
         if ($decoded !== null) {
-            return json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+            return json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         }
-        return $code;
+        return htmlspecialchars($code, ENT_QUOTES, 'UTF-8');
     }
 
     /** خدمة ملفات robots.txt / llms.txt / sitemap من إصلاحاتنا (لو موجودة) */

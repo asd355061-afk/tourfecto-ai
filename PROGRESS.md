@@ -4,6 +4,13 @@
 **الفرع:** `main`
 **الحالة:** 8 بنود جديدة بالتتابع — كل بند migration+model+service+controller+routes+Lang+tests+checks+commit منفصل
 
+## خطة التطوير (الخطوة 1 مكتملة): Security Audit — تقرير + إصلاح 10 ثغرات XSS
+- `SECURITY_AUDIT.md`: فحص 90 ملف Controller، 10 ثغرات مؤكدة (ملف+سطر+نوع خطر).
+- الإصلاحات: 4× inline-script JSON (`JSON_HEX_*`)، 2× Reflected (OAuth error +
+  REQUEST_URI)، 1× Host header، 1× Stored `<title>`، 2× حقن SEO Server-Side
+  (JSON-LD escape + og_tags sanitize) — كلها Additive بلا تغيير business logic.
+- التحقق: **583/15567 OK**، lint 762، PHPStan 0. commit + push.
+
 ## البند 8 (مكتمل): معدل الحل الإحصائي للـ AI Chat (AI Resolution Rate)
 - `AiResolutionRateService`: معدل الحل = المحادثات المنتهية (`resolved`/
   `closed`) المحسومة بالكامل عبر الـAI (بلا `handoff_at`) ÷ الإجمالي

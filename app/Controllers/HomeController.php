@@ -70,7 +70,7 @@ XML;
         $langMenu = '';
         foreach (language_switcher_links() as $l) {
             $activeClass = $l['active'] ? ' on' : '';
-            $langMenu .= "<a href=\"{$l['url']}\" class=\"{$activeClass}\">{$l['label']}</a>";
+            $langMenu .= '<a href="' . htmlspecialchars($l['url'], ENT_QUOTES, 'UTF-8') . "\" class=\"{$activeClass}\">{$l['label']}</a>";
         }
 
         // كل خدمات المنصة الكاملة (شرائح مدمجة) - بنعيد استخدام مفاتيح

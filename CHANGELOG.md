@@ -1,4 +1,29 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## التقرير الأمني الشامل وإغلاق ثغرات XSS في الـ Controllers (بند 1: Security Audit) — 2026-08-28
+
+فحص شامل لـ `app/Controllers/` (90 ملف) بحثًا عن XSS (Stored/Reflected) في
+السياقات HTML والـ inline script، مع توثيق كامل في `SECURITY_AUDIT.md` (ملف+سطر+
+نوع الخطر) وإصلاح Additive لكل ثغرة دون تغيير business logic.
+
+**الإصلاحات (10 ثغرات):**
+- **Inline-script JSON (4):** `json_encode` داخل `<script>` كان بيدعم
+  `JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE` فقط فيكسر `</script>` —
+  أُضيف `JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT` في
+  `WebsiteController` (مواقع `/websites`)، `ReputationController` (فروع
+  Google Business)، `SearchConsoleController` (مواقع SC)، `GoogleAnalyticsController`
+  (خصائص GA4).
+- **Reflected (2):** `?error=` من OAuth callback و`$tokenResult['error']`
+  في `ReputationController`، و`REQUEST_URI` في `HomeController` (رابط مبدّل
+  اللغة) — تهريب بـ `htmlspecialchars(..., ENT_QUOTES, 'UTF-8')`.
+- **Host header (1):** `$_SERVER['HTTP_HOST']` في `AutoSeoController` كان
+  يُحقن خامًا في `<span>` — تهريب قبل الدمج في الـ heredoc.
+- **Stored `<title>` (1):** `seo_title`/`seo_description` (DB) في
+  `WebsiteBuilderController` تُمرَّر خامًا لـ `<title>` — تهريب عند القراءة.
+- **حقن SEO Server-Side (2):** في `SeoProxyService` — JSON-LD (json_ld/
+  faq_schema/speakable) يُهرب بـ `JSON_HEX_*` + fallback خام يُهرب، و`og_tags`
+  يُفلتر لوسوم `meta`/`link` فقط مع إزالة معالجات الأحداث و`javascript:`.
+- التحقق: **583/15567 OK**، lint 762، PHPStan 0.
+
 ## معدل الحل الإحصائي للـ AI Chat (بند 8: AI Resolution Rate) — 2026-08-28
 
 بند ختامي في سلسلة البنود التنافسية على `main`: خدمة `AiResolutionRateService`

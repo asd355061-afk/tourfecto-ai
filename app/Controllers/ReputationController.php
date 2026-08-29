@@ -1280,7 +1280,7 @@ JS;
 
         $error = $this->get('error');
         if ($error) {
-            $this->renderOAuthError('العميل رفض الموافقة أو حصل خطأ من Google: ' . $error);
+            $this->renderOAuthError('العميل رفض الموافقة أو حصل خطأ من Google: ' . htmlspecialchars((string) $error, ENT_QUOTES, 'UTF-8'));
             exit;
         }
 
@@ -1305,7 +1305,7 @@ JS;
         $tokenResult = $oauth->exchangeCodeForTokens($code);
 
         if (!$tokenResult['success']) {
-            $this->renderOAuthError('فشل تبادل التوكن مع Google: ' . ($tokenResult['error'] ?? ''));
+            $this->renderOAuthError('فشل تبادل التوكن مع Google: ' . htmlspecialchars((string) ($tokenResult['error'] ?? ''), ENT_QUOTES, 'UTF-8'));
             exit;
         }
 
@@ -1367,7 +1367,7 @@ JS;
             exit;
         }
 
-        $optionsJson = json_encode($options, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $optionsJson = json_encode($options, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 
         $body = <<<'HTML'
         <div class="p-card">
