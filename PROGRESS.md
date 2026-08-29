@@ -4,6 +4,25 @@
 **الفرع:** `main`
 **الحالة:** 8 بنود جديدة بالتتابع — كل بند migration+model+service+controller+routes+Lang+tests+checks+commit منفصل
 
+## خطة التطوير (الخطوة 4): التطوير الفعلي للموديولات الستة — M1 WebsiteBuilder مكتمل
+- **M1 (مكتمل):** Website Builder — إغلاق G1/G2/G3/G7 من
+  `docs/COMPETITIVE_ANALYSIS_WebsiteBuilder.md`:
+  - G2 تطبيق `theme_color` فعليًا: `siteDesignAttrs()` + تمرير `$themeKey`
+    عبر توقيعات `renderToursHome`/`renderHotelHome`/`showTourDetail`/
+    `showRoomDetail`/`showBookingConfirmation` (كان `'gold'` حرفيًا دائمًا).
+  - G1 تطبيق `layout_key`: يُقرأ من `website_templates.template_id` عند العرض
+    ويُخرِج كلاس body `ws-layout-classic/boutique/luxury` + CSS جديد
+    (`generated-site.css`).
+  - G3 قسم تقييمات الزوار: `siteReviewsSectionHtml()` (متوسط/نجوم/نموذج تقييم)
+    على الرئيسية والتفاصيل — عرض المعتمَد فقط عبر `WebsiteReview::approvedFor`.
+  - G7 توجيه الدومين المخصص: `index.php` قسم 9.3b يكتشف `custom_domain` من الـ
+    Host ويعيد كتابة المسار لـ `/sites/{slug}` (published فقط، fallback آمن).
+  - التحقق: lint 762 OK، PHPStan 0، **583/15567 OK** — commit منفصل + push.
+  - ملف الفجوات حُدّث (G1/G2/G3/G7 ✅ مغلقة) + CHANGELOG.md.
+- **M2-M6 (لم تبدأ):** Reputation → RevenueIntelligence → EmailMarketing →
+  CompetitorIntelligence → SEO/AutoSeo — بنفس النمط الصارم (فتح/تتبع/فهم/
+  تنفيذ/فحص/commit لكل موديول قبل الانتقال).
+
 ## خطة التطوير (الخطوة 2 مكتملة): التحليل التنافسي لـ 6 موديولات
 - 6 ملفات `docs/COMPETITIVE_ANALYSIS_<Module>.md` (تبعًا لقالب
   `docs/COMPETITIVE_ANALYSIS.md`): مقارنة فيتشرز الكود الفعلي ضد 2-4 منافسين

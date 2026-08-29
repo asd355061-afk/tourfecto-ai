@@ -856,6 +856,46 @@ if (strpos($path, '/s/') !== 0 && strpos($path, '/api/') !== 0 && strpos($path, 
 }
 
 // ============================================
+// 9.3b. Website Builder Custom Domain (CNAME/DNS A -> /sites/{slug})
+// ============================================
+// لما العميل يربط دومين مخصص (custom_domain) بموقع من الـ Website Builder
+// ويشير الـ DNS ناحية سيرفرنا، الطلب بيوصل بـ Host هو الدومين بتاعه ومسار
+// عام (/ أو /booking/...). بنكشف الموقع من الـ Host (بمطابقة custom_domain
+// مع تطبيع للـ www/حالة الأحرف/البروتوكول) ونعيد كتابة المسار لـ
+// /sites/{slug} عشان المسار الجاهز يخدمه بنفس قواعد العرض والثيم والمراجعات.
+// لو الـ Host مش مربوط بموقع منشور، بنكمّل للـ Router عادي (لوحة التحكم).
+if (strpos($path, '/sites/') !== 0
+    && strpos($path, '/api/') !== 0
+    && strpos($path, '/assets/') !== 0
+    && strpos($path, '/s/') !== 0
+) {
+    $__wbHost = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    $__wbHost = preg_replace('/:\d+$/', '', $__wbHost);
+    $__wbHost = preg_replace('/^www\./', '', $__wbHost);
+    if ($__wbHost !== '' && class_exists('GeneratedWebsite', false)) {
+        $__wbCandidates = [
+            $__wbHost,
+            'www.' . $__wbHost,
+            'https://' . $__wbHost,
+            'https://www.' . $__wbHost,
+            'http://' . $__wbHost,
+            'http://www.' . $__wbHost,
+        ];
+        $__wbSite = null;
+        foreach ($__wbCandidates as $__wbCandidate) {
+            $__wbRows = (new GeneratedWebsite())->where(['custom_domain' => $__wbCandidate], [], 1);
+            if (!empty($__wbRows)) {
+                $__wbSite = $__wbRows[0];
+                break;
+            }
+        }
+        if ($__wbSite && (string) $__wbSite->getAttribute('status') === 'published') {
+            $path = '/sites/' . rawurlencode((string) $__wbSite->getAttribute('slug'));
+        }
+    }
+}
+
+// ============================================
 // 10. تنفيذ التوجيه (Dispatch) ومعالجة الأخطاء
 // ============================================
 try {

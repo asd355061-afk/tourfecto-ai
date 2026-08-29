@@ -771,6 +771,150 @@ HTML;
         return [$lang, $dirMap[$lang] ?? 'rtl'];
     }
 
+    /**
+     * الثيم والـ layout الفعليين للموقع من إعداداته المحفوظة.
+     * إصلاح: كان التخزين شغال (theme_color/template_id بيتحفظوا) لكن العرض
+     * كان دايمًا 'gold' + قالب واحد ثابت - دلوقتي إعدادات العميل بتأثر فعلًا.
+     */
+    private function siteDesignAttrs(GeneratedWebsite $website): array
+    {
+        $theme = (string) $website->getAttribute('theme_color');
+        if (!isset(self::THEMES[$theme])) {
+            $theme = 'gold';
+        }
+
+        $layoutKey = '';
+        $templateId = (int) $website->getAttribute('template_id');
+        if ($templateId > 0) {
+            try {
+                $template = (new WebsiteTemplate())->find($templateId);
+                if ($template && (string) $template->getAttribute('layout_key') !== '') {
+                    $layoutKey = (string) $template->getAttribute('layout_key');
+                }
+            } catch (Exception $e) { /* التصميم الثابت يظل متاحًا */
+            }
+        }
+        if ($layoutKey === '') {
+            $industry = $website->getContent()['industry'] ?? 'tours';
+            $layoutKey = $industry === 'hotel' ? 'render_hotel_classic' : 'render_tours_classic';
+        }
+
+        $bodyClass = 'ws-layout-classic';
+        if (strpos($layoutKey, 'boutique') !== false) {
+            $bodyClass = 'ws-layout-boutique';
+        } elseif (strpos($layoutKey, 'luxury') !== false || strpos($layoutKey, 'pro') !== false) {
+            $bodyClass = 'ws-layout-luxury';
+        }
+
+        return ['theme' => $theme, 'layout_key' => $layoutKey, 'body_class' => $bodyClass];
+    }
+
+    /**
+     * قسم تقييمات الزوار على الموقع المنشور: المراجعات المعتمدة بس (من
+     * website_reviews اللي كان بيتجمع من قبل من غير عرض) + نموذج تقييم جديد.
+     * الـ form بيبعت لـ POST /sites/{slug}/review (موجود أصلًا).
+     */
+    private function siteReviewsSectionHtml(int $websiteId, string $slug, ?string $itemId = null): string
+    {
+        $esc = fn ($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
+
+        $reviews = (new WebsiteReview())->approvedFor($websiteId, $itemId);
+
+        $sum = 0;
+        $cards = '';
+        foreach ($reviews as $r) {
+            $rating = max(1, min(5, (int) $r->getAttribute('rating')));
+            $sum += $rating;
+            $stars = str_repeat('★', $rating) . str_repeat('☆', 5 - $rating);
+            $comment = (string) $r->getAttribute('comment');
+            $commentHtml = $comment !== '' ? '<p class="ws-review-comment">' . $esc($comment) . '</p>' : '';
+            $cards .= '<div class="ws-review-card">'
+                . '<div class="ws-review-head"><strong>' . $esc($r->getAttribute('visitor_name')) . '</strong>'
+                . '<span class="ws-review-stars">' . $stars . '</span></div>'
+                . $commentHtml
+                . '<span class="ws-review-date">' . $esc(date('Y-m-d', strtotime((string) $r->getAttribute('created_at')))) . '</span>'
+                . '</div>';
+        }
+
+        $count = count($reviews);
+        $avg = $count > 0 ? round($sum / $count, 1) : 0.0;
+        $summaryHtml = $count > 0
+            ? '<span class="ws-review-big">★ ' . number_format($avg, 1) . '</span>'
+                . '<span class="ws-review-count">بناءً على ' . $count . ' تقييم' . ($count > 1 ? 'ات' : '') . '</span>'
+            : '<p class="ws-reviews-empty">لا توجد تقييمات بعد - كن أول من يقيّم!</p>';
+
+        $itemField = $itemId !== null
+            ? '<input type="hidden" name="item_id" value="' . $esc($itemId) . '">'
+            : '';
+
+        $form = <<<HTML
+        <form class="ws-review-form" data-action="/sites/{$esc($slug)}/review">
+            <h3 class="ws-review-form-title">أضف تقييمك</h3>
+            {$itemField}
+            <div class="ws-review-cols">
+                <label class="ws-bf-label">اسمك
+                    <input type="text" name="visitor_name" required class="ws-bf-input" maxlength="120">
+                </label>
+                <label class="ws-bf-label">تقييمك
+                    <select name="rating" class="ws-bf-input">
+                        <option value="5">5 - ممتاز</option>
+                        <option value="4">4 - جيد جدًا</option>
+                        <option value="3">3 - جيد</option>
+                        <option value="2">2 - مقبول</option>
+                        <option value="1">1 - ضعيف</option>
+                    </select>
+                </label>
+            </div>
+            <label class="ws-bf-label">تعليقك
+                <textarea name="comment" rows="3" maxlength="1000" class="ws-bf-input"></textarea>
+            </label>
+            <button type="submit" class="ws-btn">إرسال التقييم</button>
+            <div class="ws-booking-msg" role="status"></div>
+        </form>
+        <script>
+        (function () {
+            var f = document.querySelector('.ws-review-form');
+            if (!f) return;
+            var msg = f.querySelector('.ws-booking-msg');
+            f.addEventListener('submit', function (e) {
+                e.preventDefault();
+                msg.className = 'ws-booking-msg';
+                msg.textContent = 'جاري إرسال التقييم...';
+                var payload = {};
+                new FormData(f).forEach(function (value, key) { payload[key] = value; });
+                fetch(f.getAttribute('data-action'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).then(function (r) { return r.json().catch(function () { return { success: false }; }); })
+                .then(function (res) {
+                    if (res.success) {
+                        msg.className = 'ws-booking-msg ws-ok';
+                        msg.textContent = 'شكرًا لتقييمك! هيظهر بعد مراجعة صاحب الموقع';
+                        f.querySelector('textarea[name="comment"]').value = '';
+                    } else {
+                        msg.className = 'ws-booking-msg ws-error';
+                        msg.textContent = res.error || 'حصل خطأ، جرب تاني';
+                    }
+                }).catch(function () {
+                    msg.className = 'ws-booking-msg ws-error';
+                    msg.textContent = 'حصل خطأ، جرب تاني';
+                });
+            });
+        })();
+        </script>
+HTML;
+
+        return <<<HTML
+    <section class="ws-section ws-section-alt ws-reviews" id="reviews">
+        <h2>تقييمات العملاء</h2>
+        <div class="ws-reviews-summary">{$summaryHtml}</div>
+        <div class="ws-reviews-list">{$cards}</div>
+        {$form}
+    </section>
+HTML;
+    }
+
     /** GET /sites/{slug} - الصفحة الرئيسية: بتتفرّع حسب المجال (رحلات أو فندق) */
     public function showPublicSite(array $params = []): array
     {
@@ -798,25 +942,45 @@ HTML;
         // بدل ما الـhead يعتمد بس على business_name/tagline زي الأول.
         $seoTitle = htmlspecialchars((string) ($website->getAttribute('seo_title') ?? ''), ENT_QUOTES, 'UTF-8');
         $seoDescription = htmlspecialchars((string) ($website->getAttribute('seo_description') ?? ''), ENT_QUOTES, 'UTF-8');
-        $canonicalUrl = $this->publicSiteUrl($slug);
+        $canonicalUrl = $this->publicSiteUrl($slug, $website);
         $ogImage = (string) ($website->getAttribute('logo_url') ?? '');
 
+        // الثيم والـ layout الفعليين من إعدادات الموقع المحفوظة (كانوا
+        // بيتحفظوا من غير ما يأثروا على العرض الفعلي).
+        $design = $this->siteDesignAttrs($website);
+
         if ($industry === 'hotel') {
-            echo $this->renderHotelHome($slug, $c, $seoTitle, $seoDescription, $canonicalUrl, $ogImage);
+            echo $this->renderHotelHome($slug, $c, $seoTitle, $seoDescription, $canonicalUrl, $ogImage, $design['theme'], $design['body_class'], (int) $website->getAttribute('id'));
         } else {
-            echo $this->renderToursHome($slug, $c, $seoTitle, $seoDescription, $canonicalUrl, $ogImage);
+            echo $this->renderToursHome($slug, $c, $seoTitle, $seoDescription, $canonicalUrl, $ogImage, $design['theme'], $design['body_class'], (int) $website->getAttribute('id'));
         }
         exit;
     }
 
-    /** رابط الموقع المنشور الفعلي - يستخدم في canonical/OG (Phase 5 Auto-Apply) */
-    private function publicSiteUrl(string $slug): string
+    /**
+     * رابط الموقع المنشور الفعلي - يستخدم في canonical/OG (Phase 5 Auto-Apply).
+     * لو الطلب الحالي جاي على دومين مخصص مربوط بالموقع، بيرجع رابط الدومين ده.
+     */
+    private function publicSiteUrl(string $slug, ?GeneratedWebsite $website = null): string
     {
+        if ($website !== null) {
+            $customDomain = strtolower(trim((string) $website->getAttribute('custom_domain')));
+            if ($customDomain !== '') {
+                $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+                $host = preg_replace('/:\d+$/', '', $host);
+                $host = preg_replace('/^www\./', '', $host);
+                $domain = preg_replace('/^www\./', '', $customDomain);
+                if ($host !== '' && $host === $domain) {
+                    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+                    return $scheme . '://' . $customDomain;
+                }
+            }
+        }
         $base = defined('APP_URL') ? rtrim(APP_URL, '/') : '';
         return $base . '/sites/' . rawurlencode($slug);
     }
 
-    private function renderToursHome(string $slug, array $c, string $seoTitle = '', string $seoDescription = '', string $canonicalUrl = '', string $ogImage = ''): string
+    private function renderToursHome(string $slug, array $c, string $seoTitle = '', string $seoDescription = '', string $canonicalUrl = '', string $ogImage = '', string $themeKey = 'gold', string $bodyClass = '', int $websiteId = 0): string
     {
         $esc = fn ($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
         [$lang, $dir] = $this->siteLangAttrs($c);
@@ -849,11 +1013,13 @@ HTML;
         $address = $esc($contact['address'] ?? '');
         $head = $this->siteHeadHtml(
             $seoTitle !== '' ? $seoTitle : "{$businessName} | {$tagline}",
-            'gold',
+            $themeKey,
             $seoDescription !== '' ? $seoDescription : ($c['about_text'] ?? null),
             $canonicalUrl !== '' ? $canonicalUrl : null,
             $ogImage !== '' ? $ogImage : null
         );
+
+        $reviewsHtml = $websiteId > 0 ? $this->siteReviewsSectionHtml($websiteId, $slug) : '';
 
         header('Content-Type: text/html; charset=utf-8');
         return <<<HTML
@@ -862,13 +1028,14 @@ HTML;
 <head>
 {$head}
 </head>
-<body>
+<body class="{$bodyClass}">
     <nav class="ws-nav">
         <div class="ws-nav-inner">
             <span class="ws-logo">🌍 {$businessName}</span>
             <div class="ws-nav-links">
                 <a href="#about">عننا</a>
                 <a href="#tours">رحلاتنا</a>
+                <a href="#reviews">تقييماتنا</a>
                 <a href="#contact">تواصل معنا</a>
                 <a href="{$whatsappLink}" target="_blank" class="ws-nav-cta">احجز الآن</a>
             </div>
@@ -900,6 +1067,8 @@ HTML;
         </div>
     </section>
 
+    {$reviewsHtml}
+
     <section class="ws-section ws-section-alt ws-contact" id="contact">
         <h2>تواصل معنا</h2>
         <p>📞 {$phone}</p>
@@ -914,7 +1083,7 @@ HTML;
 HTML;
     }
 
-    private function renderHotelHome(string $slug, array $c, string $seoTitle = '', string $seoDescription = '', string $canonicalUrl = '', string $ogImage = ''): string
+    private function renderHotelHome(string $slug, array $c, string $seoTitle = '', string $seoDescription = '', string $canonicalUrl = '', string $ogImage = '', string $themeKey = 'gold', string $bodyClass = '', int $websiteId = 0): string
     {
         $esc = fn ($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
         [$lang, $dir] = $this->siteLangAttrs($c);
@@ -952,11 +1121,13 @@ HTML;
         $address = $esc($contact['address'] ?? '');
         $head = $this->siteHeadHtml(
             $seoTitle !== '' ? $seoTitle : "{$businessName} | {$tagline}",
-            'gold',
+            $themeKey,
             $seoDescription !== '' ? $seoDescription : ($c['about_text'] ?? null),
             $canonicalUrl !== '' ? $canonicalUrl : null,
             $ogImage !== '' ? $ogImage : null
         );
+
+        $reviewsHtml = $websiteId > 0 ? $this->siteReviewsSectionHtml($websiteId, $slug) : '';
 
         header('Content-Type: text/html; charset=utf-8');
         return <<<HTML
@@ -965,13 +1136,14 @@ HTML;
 <head>
 {$head}
 </head>
-<body>
+<body class="{$bodyClass}">
     <nav class="ws-nav">
         <div class="ws-nav-inner">
             <span class="ws-logo">🏨 {$businessName}</span>
             <div class="ws-nav-links">
                 <a href="#about">عننا</a>
                 <a href="#rooms">غرفنا</a>
+                <a href="#reviews">تقييماتنا</a>
                 <a href="#contact">تواصل معنا</a>
                 <a href="{$whatsappLink}" target="_blank" class="ws-nav-cta">احجز الآن</a>
             </div>
@@ -998,6 +1170,8 @@ HTML;
         <h2>مرافق الفندق</h2>
         <div class="ws-trust-grid">{$amenitiesHtml}</div>
     </section>
+
+    {$reviewsHtml}
 
     <section class="ws-section ws-section-alt ws-contact" id="contact">
         <h2>تواصل معنا</h2>
@@ -1084,7 +1258,9 @@ HTML;
         $duration = $esc($tour['duration'] ?? '');
         $price = $esc($tour['price'] ?? '');
         $groupSize = $esc($tour['group_size'] ?? '');
-        $head = $this->siteHeadHtml("{$tourName} | {$businessName}", 'gold');
+        $design = $this->siteDesignAttrs($website);
+        $head = $this->siteHeadHtml("{$tourName} | {$businessName}", $design['theme']);
+        $reviewsHtml = $this->siteReviewsSectionHtml((int) $website->getAttribute('id'), $slug, $tourSlug);
         $heroImageHtml = !empty($tour['image_url'])
             ? '<div class="ws-tour-hero-img" style="background-image:url(\'' . $esc($tour['image_url']) . '\');"></div>'
             : '';
@@ -1096,7 +1272,7 @@ HTML;
 <head>
 {$head}
 </head>
-<body>
+<body class="{$design['body_class']}">
     <nav class="ws-nav">
         <div class="ws-nav-inner">
             <a href="/sites/{$slug}" class="ws-logo" style="text-decoration:none;">🌍 {$businessName}</a>
@@ -1140,6 +1316,8 @@ HTML;
             <a href="{$whatsappLink}" target="_blank" class="ws-btn ws-btn-wa">📲 احجز عبر واتساب</a>
         </div>
     </section>
+
+    {$reviewsHtml}
 
     <footer class="ws-footer">© {$businessName} - صُمم بواسطة Tourfecto</footer>
 </body>
@@ -1209,7 +1387,9 @@ HTML;
         $price = $esc($room['price'] ?? '');
         $capacity = $esc($room['capacity'] ?? '');
         $size = $esc($room['size'] ?? '');
-        $head = $this->siteHeadHtml("{$roomName} | {$businessName}", 'gold');
+        $design = $this->siteDesignAttrs($website);
+        $head = $this->siteHeadHtml("{$roomName} | {$businessName}", $design['theme']);
+        $reviewsHtml = $this->siteReviewsSectionHtml((int) $website->getAttribute('id'), $slug, $roomSlug);
         $heroImageHtml = !empty($room['image_url'])
             ? '<div class="ws-tour-hero-img" style="background-image:url(\'' . $esc($room['image_url']) . '\');"></div>'
             : '';
@@ -1221,7 +1401,7 @@ HTML;
 <head>
 {$head}
 </head>
-<body>
+<body class="{$design['body_class']}">
     <nav class="ws-nav">
         <div class="ws-nav-inner">
             <a href="/sites/{$slug}" class="ws-logo" style="text-decoration:none;">🏨 {$businessName}</a>
@@ -1260,6 +1440,8 @@ HTML;
             <a href="{$whatsappLink}" target="_blank" class="ws-btn ws-btn-wa">📲 احجز عبر واتساب</a>
         </div>
     </section>
+
+    {$reviewsHtml}
 
     <footer class="ws-footer">© {$businessName} - صُمم بواسطة Tourfecto</footer>
 </body>
@@ -1571,7 +1753,8 @@ HTML;
             ? 'ws-ok' : 'ws-pending';
 
         $businessName = $esc($c['business_name'] ?? '');
-        $head = $this->siteHeadHtml("تأكيد الحجز | {$businessName}", 'gold');
+        $design = $this->siteDesignAttrs($website);
+        $head = $this->siteHeadHtml("تأكيد الحجز | {$businessName}", $design['theme']);
 
         header('Content-Type: text/html; charset=utf-8');
         echo <<<HTML
@@ -1580,7 +1763,7 @@ HTML;
 <head>
 {$head}
 </head>
-<body>
+<body class="{$design['body_class']}">
     <nav class="ws-nav">
         <div class="ws-nav-inner">
             <a href="/sites/{$slug}" class="ws-logo" style="text-decoration:none;">🌍 {$businessName}</a>

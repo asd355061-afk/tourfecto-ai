@@ -1,4 +1,33 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## موديول Website Builder — تطبيق فعلي للتخصيص + تقييمات الزوار + توجيه الدومين المخصص (M1) — 2026-08-29
+
+تطوير موديول Website Builder استنادًا إلى فجوات `docs/COMPETITIVE_ANALYSIS_WebsiteBuilder.md`
+(G1/G2/G3/G7) — كل التعديلات Additive بلا كسر أي منطق قائم، وبلا تبعيات خارجية جديدة.
+
+**الإصلاحات:**
+- **تطبيق الثيم الفعلي (G2):** `siteDesignAttrs()` يقرأ `theme_color` المحفوظ من
+  `generated_websites` (كان يُحفظ لكن العرض يمرّر `'gold'` حرفيًا في كل الصفحات)
+  ويُمرَّر عبر توقيعات `renderToursHome`/`renderHotelHome`/`showTourDetail`/
+  `showRoomDetail`/`showBookingConfirmation` إلى `siteHeadHtml` — 5 ألوان
+  (`gold/blue/green/red/purple`) تؤثر فعلًا الآن على الموقع المنشور.
+- **تطبيق التخطيط حسب القالب (G1):** `siteDesignAttrs()` يقرأ `layout_key` من
+  `website_templates.template_id` عند العرض (كان معرّفًا في الجدول لكنه غير
+  مستخدم) ويُخرِج كلاس body (`ws-layout-classic/boutique/luxury`) مع CSS مخصّص
+  جديد في `generated-site.css` (تخطيط Boutique محاذى يسارًا + Luxury بخطوط/زوايا
+  مختلفة) — fallback آمن للتخطيط الثابت لو القالب غير موجود.
+- **عرض تقييمات الزوار (G3):** `siteReviewsSectionHtml()` جديدة تعرض المعتمَد فقط
+  (`WebsiteReview::approvedFor`) بمتوسط/عدد/نجوم على الصفحة الرئيسية (رحلات/
+  فنادق) وصفحات تفاصيل العناصر (مرتبطة بـ item_id)، مع نموذج تقييم يرسل
+  `POST /sites/{slug}/review` (نقطة موجودة أصلًا) ويظهر رسالة نجاح/خطأ — تجربة
+  شبيهة بـ TripAdvisor داخل الموقع العام.
+- **توجيه الدومين المخصص (G7):** `index.php` (قسم 9.3b) يكتشف `custom_domain` من
+  الـ Host header (مع تطبيع www/الحالة/البروتوكول) ويعيد كتابة المسار لـ
+  `/sites/{slug}` — بنفس نمط CNAME passthrough الخاص بـ SeoProxy؛ يتحقق من حالة
+  `published` فقط ويتجاهل الفشل بأمان (اللوحة والمسارات الداخلية غير متأثرة).
+- `canonical`/`og:image` على الدومين المخصص عبر `publicSiteUrl` (كان موجودًا).
+
+**التحقق:** lint 762 OK، PHPStan 0، **583/15567 OK**، commit منفصل + push.
+
 ## التقرير الأمني الشامل وإغلاق ثغرات XSS في الـ Controllers (بند 1: Security Audit) — 2026-08-28
 
 فحص شامل لـ `app/Controllers/` (90 ملف) بحثًا عن XSS (Stored/Reflected) في
