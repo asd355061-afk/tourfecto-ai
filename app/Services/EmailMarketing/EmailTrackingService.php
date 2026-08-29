@@ -75,6 +75,85 @@ class EmailTrackingService
     }
 
     /**
+     * تسجيل فتح بريد أتمتة (G3). يرفع open_count على سجل email_automation_logs.
+     */
+    public function recordAutomationOpen(string $openToken): bool
+    {
+        $rows = $this->db->query(
+            "SELECT id, user_id, subscriber_id, open_count FROM email_automation_logs WHERE open_token = ? LIMIT 1",
+            [$openToken]
+        );
+        if (empty($rows)) {
+            return false;
+        }
+        $this->db->query(
+            "UPDATE email_automation_logs
+             SET open_count = open_count + 1,
+                 opened_at = COALESCE(opened_at, NOW())
+             WHERE id = ?",
+            [(int) $rows[0]['id']]
+        );
+        $this->bumpEngagement((int) $rows[0]['user_id'], (int) ($rows[0]['subscriber_id'] ?? 0));
+        return true;
+    }
+
+    /**
+     * تسجيل كليك في بريد أتمتة (G3). يعيد الوجهة الأصلية.
+     * @return string|null الـ URL الأصلي أو null لو التوكن غير صالح
+     */
+    public function recordAutomationClick(string $clickToken, ?string $encodedUrl): ?string
+    {
+        $rows = $this->db->query(
+            "SELECT id, user_id, subscriber_id, click_count FROM email_automation_logs WHERE click_token = ? LIMIT 1",
+            [$clickToken]
+        );
+        if (empty($rows)) {
+            return null;
+        }
+        $url = $this->decodeUrl($encodedUrl);
+        if ($url === null) {
+            return null;
+        }
+        $this->db->query(
+            "UPDATE email_automation_logs
+             SET click_count = click_count + 1,
+                 clicked_at = COALESCE(clicked_at, NOW())
+             WHERE id = ?",
+            [(int) $rows[0]['id']]
+        );
+        $this->bumpEngagement((int) $rows[0]['user_id'], (int) ($rows[0]['subscriber_id'] ?? 0));
+        return $url;
+    }
+
+    /**
+     * إعادة حساب درجة تفاعل المشترك بعد حدث فتح/كليك (G9).
+     */
+    private function bumpEngagement(int $userId, int $subscriberId): void
+    {
+        if ($subscriberId <= 0 || $userId <= 0) {
+            return;
+        }
+        try {
+            (new ContactManagementService())->recomputeEngagementScore($userId, $subscriberId);
+        } catch (\Throwable $e) {
+            // لا نفشل التتبع بسبب فشل تحديث درجة التفاعل
+        }
+    }
+
+    /** مالك الحملة (user_id) لاستخدامه في تحديث درجة التفاعل. */
+    private function campaignOwnerId(int $campaignId): int
+    {
+        if ($campaignId <= 0) {
+            return 0;
+        }
+        $rows = $this->db->query(
+            "SELECT user_id FROM email_campaigns WHERE id = ? LIMIT 1",
+            [$campaignId]
+        );
+        return (int) ($rows[0]['user_id'] ?? 0);
+    }
+
+    /**
      * تسجيل فتح البريد. يرفع open_count على المستلم ويحدّث عدّاد الحملة.
      */
     public function recordOpen(string $openToken): bool
@@ -106,6 +185,7 @@ class EmailTrackingService
             [$id]
         );
         $this->recomputeCampaignCounts($campaignId);
+        $this->bumpEngagement($this->campaignOwnerId($campaignId), $subscriberId);
 
         // خطاف الأتمتة: "عند فتح حملة"
         if ($subscriberId > 0 && class_exists('EmailAutomationService')) {
@@ -161,6 +241,7 @@ class EmailTrackingService
             [$id]
         );
         $this->recomputeCampaignCounts($campaignId);
+        $this->bumpEngagement($this->campaignOwnerId($campaignId), $subscriberId);
 
         // خطاف الأتمتة: "عند النقر في حملة"
         if ($subscriberId > 0 && class_exists('EmailAutomationService')) {

@@ -715,6 +715,12 @@ class EmailMarketingController extends Controller
                             <select id="campaignList" class="p-select" style="width:100%;"></select>
                         </div>
                     </div>
+                    <div style="margin-top:8px;">
+                        <label class="p-cell-muted" style="font-size:12px;">أو استهدف شريحة ديناميكية (تغلب على القائمة)</label>
+                        <select id="campaignSegment" class="p-select" style="width:100%;">
+                            <option value="0">— بدون شريحة —</option>
+                        </select>
+                    </div>
                     <label class="p-cell-muted" style="font-size:12px;margin-top:8px;display:block;">الموضوع (subject) *</label>
                     <input type="text" id="campaignSubject" class="p-select" style="width:100%;margin-bottom:8px;" placeholder="مثال: عرض خاص لأول 50 عميل {{first_name}}">
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -1972,6 +1978,7 @@ class EmailMarketingController extends Controller
         return $this->success([
             'campaigns' => $this->campaignService->list($this->uid()),
             'lists' => $this->listService->lists($this->uid()),
+            'segments' => $this->contacts()->segments($this->uid()),
             'templates' => (new EmailTemplate())->where(['user_id' => $this->uid()], ['created_at' => 'DESC']),
         ]);
     }
@@ -2623,6 +2630,7 @@ class EmailMarketingController extends Controller
         }
         $this->trackingService->recordOpen($token);
         $this->trackingService->recordTransactionalOpen($token);
+        $this->trackingService->recordAutomationOpen($token);
         $this->gif();
         exit;
     }
@@ -2634,6 +2642,9 @@ class EmailMarketingController extends Controller
         $url = $this->trackingService->recordClick($clickToken, $encoded);
         if ($url === null) {
             $url = $this->trackingService->recordTransactionalClick($clickToken, $encoded);
+        }
+        if ($url === null) {
+            $url = $this->trackingService->recordAutomationClick($clickToken, $encoded);
         }
 
         if ($url === null) {
@@ -3399,6 +3410,9 @@ class EmailMarketingController extends Controller
             const cl = document.getElementById('campaignList');
             if (cl) cl.innerHTML = '<option value="0">اختر قائمة</option>' + (r.data.lists || []).map(l =>
                 `<option value="${l.id}">${l.name} (${l.actual_count})</option>`).join('');
+            const cs = document.getElementById('campaignSegment');
+            if (cs) cs.innerHTML = '<option value="0">— بدون شريحة —</option>' + (r.data.segments || []).map(s =>
+                `<option value="${s.id}">${s.name} (${s.subscriber_count || 0})</option>`).join('');
 
             const list = r.data.campaigns || [];
             document.getElementById('emCampaignsTable').innerHTML = list.length ? `
@@ -3407,7 +3421,7 @@ class EmailMarketingController extends Controller
                     <tbody>${list.map(c => `
                         <tr>
                             <td><b>${c.name}</b><div style="font-size:11px;color:#6b7280;">${c.subject}</div></td>
-                            <td style="font-size:12px;">${c.list_name || '—'}</td>
+                            <td style="font-size:12px;">${c.segment_id ? ('🧩 ' + (c.segment_name || 'شريحة')) : (c.list_name || '—')}</td>
                             <td>${cStatusBadge(c.status)}</td>
                             <td>${c.sent_count}</td>
                             <td>${c.opened_count}</td>
@@ -3434,6 +3448,7 @@ class EmailMarketingController extends Controller
             document.getElementById('campaignModalTitle').textContent = 'حملة جديدة';
             ['campaignId','campaignName','campaignSubject','campaignFromName','campaignFromEmail','campaignHtml','campaignScheduledAt'].forEach(id => document.getElementById(id).value='');
             document.getElementById('campaignList').value = '0';
+            document.getElementById('campaignSegment').value = '0';
             document.getElementById('campaignScheduleWrap').style.display = 'none';
             document.getElementById('campaignModal').classList.add('open');
         }
@@ -3449,6 +3464,8 @@ class EmailMarketingController extends Controller
             document.getElementById('campaignFromEmail').value = c.from_email || '';
             document.getElementById('campaignHtml').value = c.html_body || '';
             document.getElementById('campaignList').value = c.list_id || '0';
+            const cs = document.getElementById('campaignSegment');
+            if (cs) cs.value = c.segment_id ? String(c.segment_id) : '0';
             document.getElementById('campaignScheduleWrap').style.display = c.status === 'scheduled' ? 'block' : 'none';
             document.getElementById('campaignScheduledAt').value = c.scheduled_at ? c.scheduled_at.slice(0,16) : '';
             document.getElementById('campaignModal').classList.add('open');
@@ -3466,6 +3483,7 @@ class EmailMarketingController extends Controller
                 from_name: document.getElementById('campaignFromName').value.trim(),
                 from_email: document.getElementById('campaignFromEmail').value.trim(),
                 list_id: document.getElementById('campaignList').value,
+                segment_id: document.getElementById('campaignSegment').value,
                 html_body: document.getElementById('campaignHtml').value,
                 scheduled_at: schedule ? document.getElementById('campaignScheduledAt').value : null
             };

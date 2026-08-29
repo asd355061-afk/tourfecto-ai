@@ -45,6 +45,11 @@ class EmailCampaignService
             return ['success' => false, 'error' => 'محتوى البريد مطلوب'];
         }
 
+        $segmentId = !empty($data['segment_id']) ? (int) $data['segment_id'] : 0;
+        if ($segmentId > 0 && !$this->segmentOwnedBy($userId, $segmentId)) {
+            return ['success' => false, 'error' => 'الشريحة غير موجودة'];
+        }
+
         $campaign = new EmailCampaign([
             'user_id' => $userId,
             'name' => trim((string) $data['name']),
@@ -54,6 +59,7 @@ class EmailCampaignService
             'template_id' => !empty($data['template_id']) ? (int) $data['template_id'] : null,
             'list_id' => !empty($data['list_id']) ? (int) $data['list_id'] : null,
             'audience_ids' => $this->normalizeAudience($data['audience_ids'] ?? []),
+            'segment_id' => $segmentId > 0 ? $segmentId : null,
             'html_body' => (string) $data['html_body'],
             'status' => EmailCampaign::STATUS_DRAFT,
         ]);
@@ -87,6 +93,13 @@ class EmailCampaignService
         }
         if (array_key_exists('audience_ids', $data)) {
             $campaign->setAttribute('audience_ids', $this->normalizeAudience($data['audience_ids']));
+        }
+        if (array_key_exists('segment_id', $data)) {
+            $segmentId = !empty($data['segment_id']) ? (int) $data['segment_id'] : 0;
+            if ($segmentId > 0 && !$this->segmentOwnedBy($userId, $segmentId)) {
+                return ['success' => false, 'error' => 'الشريحة غير موجودة'];
+            }
+            $campaign->setAttribute('segment_id', $segmentId > 0 ? $segmentId : null);
         }
         if (array_key_exists('scheduled_at', $data)) {
             $campaign->setAttribute('scheduled_at', !empty($data['scheduled_at']) ? $data['scheduled_at'] : null);
@@ -122,15 +135,23 @@ class EmailCampaignService
             $list = (new EmailList())->find((int) $row['list_id']);
             $row['list'] = $list ? $list->toArray() : null;
         }
+        $row['segment'] = null;
+        $row['segment_name'] = null;
+        if (!empty($row['segment_id'])) {
+            $segment = (new EmailSegment())->find((int) $row['segment_id']);
+            $row['segment'] = $segment ? $segment->toArray() : null;
+            $row['segment_name'] = $segment ? (string) $segment->getAttribute('name') : null;
+        }
         return $row;
     }
 
     public function list(int $userId): array
     {
         return $this->db->query(
-            "SELECT c.*, l.name AS list_name
+            "SELECT c.*, l.name AS list_name, seg.name AS segment_name
              FROM email_campaigns c
              LEFT JOIN email_lists l ON l.id = c.list_id
+             LEFT JOIN email_segments seg ON seg.id = c.segment_id
              WHERE c.user_id = ?
              ORDER BY c.created_at DESC",
             [$userId]
@@ -139,9 +160,15 @@ class EmailCampaignService
 
     // ============================ Audience & Recipients ============================
 
-    /** يحسب الجمهور: قائمة مفردة أو اتحاد قوائم audience_ids. */
+    /** يحسب الجمهور: قائمة مفردة أو اتحاد قوائم audience_ids أو شريحة segment_id. */
     public function audience(int $userId, EmailCampaign $campaign): array
     {
+        // G2: شريحة ديناميكية تغلب على القوائم لو حُددت (مع عزل تينانت كامل)
+        $segmentId = (int) $campaign->getAttribute('segment_id');
+        if ($segmentId > 0) {
+            return $this->segmentAudience($userId, $segmentId);
+        }
+
         $listId = (int) $campaign->getAttribute('list_id');
         $audienceIds = json_decode((string) $campaign->getAttribute('audience_ids'), true) ?: [];
 
@@ -685,6 +712,13 @@ class EmailCampaignService
     private function token(): string
     {
         return bin2hex(random_bytes(16));
+    }
+
+    /** هل الشريحة مملوكة للمستخدم (عزل تينانت)؟ */
+    private function segmentOwnedBy(int $userId, int $segmentId): bool
+    {
+        $segment = (new EmailSegment())->find($segmentId);
+        return $segment !== null && (int) $segment->getAttribute('user_id') === $userId;
     }
 
     private function trackingBaseUrl(): string

@@ -4,7 +4,19 @@
 **الفرع:** `main`
 **الحالة:** 8 بنود جديدة بالتتابع — كل بند migration+model+service+controller+routes+Lang+tests+checks+commit منفصل
 
-## خطة التطوير (الخطوة 4): التطوير الفعلي للموديولات الستة — M1 + M2 + M3 مكتملان
+## خطة التطوير (الخطوة 4): التطوير الفعلي للموديولات الستة — M1 + M2 + M3 + M4 مكتملان
+- **M4 (مكتمل):** Email Marketing — إغلاق G2/G3/G9 من
+  `docs/COMPETITIVE_ANALYSIS_EmailMarketing.md`:
+  - G2 استهداف الشرائح: عمود `segment_id` على `email_campaigns` + `audience()`
+    يفضّل الشريحة على القوائم (عزل تينانت + استبعاد الممنوعين) + مُحدِّد الشريحة
+    في واجهة الحملات واسمها في الجدول.
+  - G3 تتبع رسائل الأتمتة: جدول `email_automation_logs` (توكنات فتح/كليك لكل
+    إرسال + حالة sent/failed بعد الإرسال) ومسارا التتبع العامان يسجّلان الفتح/
+    الكليك على السجل.
+  - G9 درجة التفاعل: `recomputeEngagementScore` من أحداث فتح/كليك حقيقية
+    (حملات + أتمتة، +20/+30 حتى 100) يُستدعى تلقائيًا عند كل حدث.
+  - التحقق: lint 767 OK، PHPStan 0، **629/15783 OK** — commit منفصل + push.
+  - ملف الفجوات حُدّث (G2/G3/G9 ✅ مغلقة) + CHANGELOG.md.
 - **M3 (مكتمل):** Revenue Intelligence — إغلاق G2/G6/G7 من
   `docs/COMPETITIVE_ANALYSIS_RevenueIntelligence.md`:
   - G7 أهداف/حصص المبيعات: `RevenueQuotaService` (عزل تينانت) يقرأ
@@ -47,7 +59,7 @@
     Host ويعيد كتابة المسار لـ `/sites/{slug}` (published فقط، fallback آمن).
   - التحقق: lint 762 OK، PHPStan 0، **583/15567 OK** — commit منفصل + push.
   - ملف الفجوات حُدّث (G1/G2/G3/G7 ✅ مغلقة) + CHANGELOG.md.
-- **M4-M6 (لم تبدأ):** EmailMarketing → CompetitorIntelligence → SEO/AutoSeo — بنفس النمط الصارم (فتح/تتبع/فهم/تنفيذ/فحص/commit لكل موديول قبل الانتقال).
+- **M5-M6 (لم تبدأ):** CompetitorIntelligence → SEO/AutoSeo — بنفس النمط الصارم (فتح/تتبع/فهم/تنفيذ/فحص/commit لكل موديول قبل الانتقال).
 
 ## خطة التطوير (الخطوة 2 مكتملة): التحليل التنافسي لـ 6 موديولات
 - 6 ملفات `docs/COMPETITIVE_ANALYSIS_<Module>.md` (تبعًا لقالب

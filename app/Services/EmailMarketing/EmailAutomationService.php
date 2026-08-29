@@ -357,7 +357,7 @@ class EmailAutomationService
             }
 
             // خطوة فعلية → تنفيذ ثم تقدم
-            $advance = $this->executeStep($userId, $subscriberId, $context, $step, $value);
+            $advance = $this->executeStep($userId, $subscriberId, $context, $step, $value, $automationId, $entryId);
             if (!$advance) {
                 // الخطوة لم تُنفذ (مثل قائمة غير موجودة) - نكمل للخطوة التالية
                 $this->db->exec(
@@ -386,7 +386,7 @@ class EmailAutomationService
         return $rows[0] ?? null;
     }
 
-    private function executeStep(int $userId, int $subscriberId, array $context, array $step, array $value): bool
+    private function executeStep(int $userId, int $subscriberId, array $context, array $step, array $value, int $automationId, int $entryId): bool
     {
         switch ($step['step_type']) {
             case EmailAutomationStep::STEP_SEND_EMAIL:
@@ -402,7 +402,7 @@ class EmailAutomationService
                         $html = $html !== '' ? $html : (string) $template->getAttribute('html_body');
                     }
                 }
-                return $this->sendToSubscriber($userId, $subscriberId, $subject, $html);
+                return $this->sendToSubscriber($userId, $subscriberId, $subject, $html, $automationId, (int) ($step['id'] ?? 0), $entryId);
             case EmailAutomationStep::STEP_ADD_TAG:
                 return (new ContactManagementService())->applyTagByName($userId, $subscriberId, (string) ($value['tag'] ?? '')) !== false;
             case EmailAutomationStep::STEP_REMOVE_TAG:
@@ -432,7 +432,7 @@ class EmailAutomationService
         }
     }
 
-    private function sendToSubscriber(int $userId, int $subscriberId, string $subject, string $html): bool
+    private function sendToSubscriber(int $userId, int $subscriberId, string $subject, string $html, int $automationId, int $stepId, int $entryId): bool
     {
         $row = $this->db->query(
             "SELECT * FROM email_subscribers WHERE id = ? AND user_id = ? AND status = 'subscribed' LIMIT 1",
@@ -461,16 +461,52 @@ class EmailAutomationService
             $unsubToken = hash('sha256', 'auto-unsub:' . ($sub['email'] ?? '') . ':' . ($sub['id'] ?? 0));
         }
         $baseUrl = rtrim(defined('APP_URL') ? APP_URL : 'https://tourfecto.com', '/');
+        // G3: توكنات فتح/كليك فريدة تُحفظ في email_automation_logs قبل الإرسال
+        // حتى تتبعها مسارات /track/open و /track/click (كانت تُولَّد وتُهمل).
+        $openToken = $this->token();
+        $clickToken = $this->token();
+        $logId = $this->insertLog($userId, $automationId, $entryId, $stepId, $subscriberId, (string) $sub['email'], (string) ($sub['name'] ?? ''), $subject, $openToken, $clickToken);
         $html = $renderer->finalize(
             $html,
             $data,
-            $this->token(),
-            $this->token(),
+            $openToken,
+            $clickToken,
             $baseUrl,
             $baseUrl . '/api/email-marketing/unsubscribe/' . rawurlencode($unsubToken)
         );
-        $result = (new SmtpSettingsService())->mailerForUser($userId)->send((string) $sub['email'], (string) ($sub['name'] ?? ''), $subject, $html);
-        return !empty($result['success']);
+        try {
+            $result = (new SmtpSettingsService())->mailerForUser($userId)->send((string) $sub['email'], (string) ($sub['name'] ?? ''), $subject, $html);
+            $ok = !empty($result['success']);
+            $this->updateLogResult($logId, $ok, (string) ($result['error'] ?? ''));
+            return $ok;
+        } catch (\Throwable $e) {
+            $this->updateLogResult($logId, false, $e->getMessage());
+            return false;
+        }
+    }
+
+    /** إنشاء سجل إرسال أتمتة مع توكنات التتبع (G3). */
+    private function insertLog(int $userId, int $automationId, int $entryId, int $stepId, int $subscriberId, string $email, string $name, string $subject, string $openToken, string $clickToken): int
+    {
+        return (int) $this->db->query(
+            "INSERT INTO email_automation_logs
+                (user_id, automation_id, entry_id, step_id, subscriber_id, to_email, to_name, subject, status, open_token, click_token)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'sending', ?, ?)",
+            [$userId, $automationId, $entryId > 0 ? $entryId : null, $stepId > 0 ? $stepId : null, $subscriberId, $email, $name, $subject, $openToken, $clickToken]
+        );
+    }
+
+    /** تحديث حالة الإرسال (sent/failed) + الخطأ على سجل الأتمتة. */
+    private function updateLogResult(int $logId, bool $ok, string $error): void
+    {
+        if ($logId <= 0) {
+            return;
+        }
+        $this->db->query(
+            "UPDATE email_automation_logs
+             SET status = ?, error = ? WHERE id = ?",
+            [$ok ? 'sent' : 'failed', $error !== '' ? substr($error, 0, 1000) : null, $logId]
+        );
     }
 
     private function completeEntry(EmailAutomationEntry $entry): void

@@ -758,6 +758,50 @@ class ContactManagementService
     }
 
     /**
+     * إعادة حساب درجة تفاعل المشترك (engagement_score 0-100) من أحداث حقيقية:
+     * فتح/كليك في حملات (email_campaign_recipients) + رسائل الأتمتة
+     * (email_automation_logs). كل فتح +20 وكل كليك +30 حتى سقف 100.
+     * تعيد الدرجة المحسوبة وتحدّث العمود. (G9 — كانت الدرجة صفرًا دائمًا).
+     */
+    public function recomputeEngagementScore(int $userId, int $subscriberId): int
+    {
+        $opened = 0;
+        $clicked = 0;
+
+        $campaignRows = $this->db->query(
+            "SELECT COUNT(*) AS opened,
+                    SUM(CASE WHEN clicked_at IS NOT NULL THEN 1 ELSE 0 END) AS clicked
+             FROM email_campaign_recipients r
+             JOIN email_campaigns c ON c.id = r.campaign_id
+             WHERE c.user_id = ? AND r.subscriber_id = ?",
+            [$userId, $subscriberId]
+        );
+        if (!empty($campaignRows)) {
+            $opened += (int) ($campaignRows[0]['opened'] ?? 0);
+            $clicked += (int) ($campaignRows[0]['clicked'] ?? 0);
+        }
+
+        $autoRows = $this->db->query(
+            "SELECT COUNT(*) AS opened,
+                    SUM(CASE WHEN clicked_at IS NOT NULL THEN 1 ELSE 0 END) AS clicked
+             FROM email_automation_logs
+             WHERE user_id = ? AND subscriber_id = ?",
+            [$userId, $subscriberId]
+        );
+        if (!empty($autoRows)) {
+            $opened += (int) ($autoRows[0]['opened'] ?? 0);
+            $clicked += (int) ($autoRows[0]['clicked'] ?? 0);
+        }
+
+        $score = min(100, $opened * 20 + $clicked * 30);
+        $this->db->query(
+            "UPDATE email_subscribers SET engagement_score = ? WHERE id = ? AND user_id = ?",
+            [$score, $subscriberId, $userId]
+        );
+        return $score;
+    }
+
+    /**
      * هل البريد ممنوع (ارتداد/شكوى/سبام/يدوي)؟ يُستخدم قبل أي إرسال
      */
     public function isSuppressed(int $userId, string $email): bool

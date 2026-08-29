@@ -1,4 +1,28 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## موديول Email Marketing — استهداف الشرائح + تتبع رسائل الأتمتة + درجة التفاعل (M4) — 2026-08-29
+
+تطوير موديول Email Marketing استنادًا إلى فجوات `docs/COMPETITIVE_ANALYSIS_EmailMarketing.md`
+(G2/G3/G9) — كل التعديلات Additive بلا كسر أي منطق قائم، وبلا تبعيات خارجية جديدة.
+
+**الإصلاحات:**
+- **استهداف الشرائح كجمهور للحملات (G2):** عمود `segment_id` على `email_campaigns`
+  (FK مع حذف SET NULL + تحقق ملكية في create/update)؛ `EmailCampaignService::audience()`
+  يفضّل الشريحة على القوائم عبر `segmentAudience()` (عزل تينانت + subscribed +
+  استبعاد `email_suppressions`)؛ واجهة الحملات تعرض مُحدِّد شريحة ديناميكية في
+  النموذج واسم الشريحة في جدول الحملات.
+- **تتبع فتح/كليك رسائل الأتمتة (G3):** جدول `email_automation_logs` جديد يُنشأ
+  لكل إرسال أتمتة (automation/entry/step/subscriber + توكنات فتح/كليك فريدة)
+  وتُحدَّث حالته sent/failed بعد الإرسال (مع خطأ SMTP صريح عند عدم التهيئة)؛
+  مسارا التتبع العامان `/track/open` و `/track/click` يبحثان في السجل إلى جانب
+  الحملات والمعاملات ويسجّلان الفتح/الكليك والعدّادات.
+- **حساب درجة التفاعل (G9):** `ContactManagementService::recomputeEngagementScore`
+  يحسب 0-100 من أحداث فتح/كليك حقيقية (حملات + أتمتة — كل فتح +20 وكل كليك +30
+  حتى سقف 100) ويُستدعى تلقائيًا من `EmailTrackingService` عند كل حدث فتح/كليك
+  (كان العمود صفرًا دائمًا).
+
+**التحقق:** lint 767 OK، PHPStan 0، **629/15783 OK** (منها 7 اختبارات جديدة في
+`tests/Integration/EmailMarketingModuleIntegrationTest.php`)، commit منفصل + push.
+
 ## موديول Revenue Intelligence — أهداف/حصص المبيعات + الإيراد حسب المنتج + توسيع معايير المقارنة (M3) — 2026-08-29
 
 تطوير موديول Revenue Intelligence استنادًا إلى فجوات `docs/COMPETITIVE_ANALYSIS_RevenueIntelligence.md`
