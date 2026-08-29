@@ -1,4 +1,77 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## موديول SEO/AutoSeo — زحف متعدد الصفحات + Google Indexing + Rank Tracking + Keyword Research + تقارير مجدولة (M6) — 2026-08-29
+
+تطوير موديول SEO/AutoSeo استنادًا إلى فجوات `docs/COMPETITIVE_ANALYSIS_SeoAutoSeo.md`
+(G1/G3/G4/G6/G7) — كل التعديلات Additive بلا كسر أي منطق قائم، وبلا تبعيات خارجية جديدة.
+G2 (JS Rendering/Web Vitals) وG5 (نشر خارجي للمحتوى) خارج النطاق لافتقار التكامل Infrastructure.
+
+### G1 — زحف كامل للموقع (Multi-page crawl)
+- ميجريشن `2026_08_29_000004_seo_multi_crawl_rank_tracking_reports.sql`: 3 جداول جديدة
+  `seo_crawl_pages` / `seo_rank_tracking_history` / `seo_report_schedules` + أعمدة
+  `websites.google_indexing_enabled` / `last_google_indexed_at` / `last_rank_tracked_at`
+  (كلها `ADD COLUMN IF NOT EXISTS`).
+- `SeoCrawlerService`: زحاف BFS للروابط الداخلية (نفس الدومين فقط، عمق 1-6، حد 3-100 صفحة،
+  ميزانية وقت، ignore لوسوم/ملفات ثابتة) مع فحص on-page فعلي لكل URL
+  (title/title_length/meta description/H1 count+text/word count/HTTP status/وقت استجابة/خطأ جلب)
+  محفوظ في `seo_crawl_pages` + `aggregate()` (تكرارات عناوين وH1، صفحات بلا meta/H1، متوسطات)
+  + `lastCrawl()`. الـ fetcher قابل للحقن لاختبار المنطق بلا شبكة.
+- endpoints: `POST /api/website-optimizer/crawl` + `GET /api/website-optimizer/crawl`
+  مع حد معدل `seo_crawl_run` (5/15د).
+
+### G3 — الفهرسة لدى Google (Google Indexing API)
+- `GoogleIndexingService`: إبلاغ Google عبر الـ API الرسمي `urlNotifications:publish` بمصادقة
+  OAuth 2.0 Service Account (JWT RS256 بـ openssl) من `GOOGLE_SERVICE_ACCOUNT_JSON` (base64).
+- `notify()` / `submitSite()` (تحقق تينانت + احترام `google_indexing_enabled` + تحديث
+  `last_google_indexed_at`) / `isConfigured()` / `configReason()`.
+- **غير مختبَر** ضد Google فعليًا (يحتاج حساب خدمة + تفعيل Indexing API) — يوثّق ذلك في
+  ملف الفجوات؛ عند غياب المفتاح كل دالة ترجع `available=false` بلا اختلاق.
+- endpoints: `POST /api/google-indexing/toggle` / `POST /api/google-indexing/submit` /
+  `GET /api/google-indexing/status`.
+
+### G4 — بيانات كلمات مفتاحية خارجية (حجم بحث/صعوبة)
+- `KeywordResearchSourceInterface` + `HttpKeywordResearchSource`
+  (`KEYWORD_RESEARCH_API_URL`/`KEYWORD_RESEARCH_API_KEY`) + `NullKeywordResearchSource` (fail-safe).
+- `KeywordResearchService::enrichTrackedKeywords()`: يحدّث `search_volume`/`difficulty`/`enriched_at`
+  من بيانات حقيقية فقط؛ بلا مصدر مهيأ → `available=false` ولا يتغير شيء (لا اختلاق).
+- **غير مختبَر** مع مزوّد خارجي فعلي (مُوثّق)؛ endpoints: `GET /api/seo/keyword-research/status`
+  + `POST /api/seo/keyword-research/enrich`.
+
+### G6 — تقرير بصري + تقارير بريدية مجدولة
+- `SeoChartService`: بيانات Chart.js جاهزة من DB حقيقية — `scoreTrend`
+  (من seo_reports ثم wo_audits)، `categoryScores` (نتائج آخر تدقيق لكل فئة)،
+  `gscTopPages` (من كاش GSC)، `fixesAppliedTrend` (من auto_seo_applied_fixes).
+- `SeoScheduledReportService`: جدولة daily/weekly/monthly على `seo_report_schedules`
+  (تحقق: تردد/ساعة 0-23/يوم 0-6/بريد صالح) + `dueSchedules()` + `sendDue()` عبر `Mailer`
+  (skip آمن عند غياب إعداد البريد) + `buildReportHtml()` (HTML RTL مهرَّب بالكامل من
+  آخر تدقيق + أهم المشاكل + أحدث اللقطات).
+- `cron/seo_scheduled_reports.php` (كل ساعة) + endpoints: `GET/POST /api/seo/report/schedules`
+  + `DELETE /api/seo/report/schedules/{id}` + `GET /api/seo/report/charts`.
+
+### G7 — Rank Tracking (تتبع ترتيب يومي للكلمات المفتاحية)
+- `RankTrackingService` يعيد استخدام `KeywordRankingSourceInterface` من M5:
+  - `dueWebsites()`: مواقع بها كلمات متابعة + مرّ يوم منذ `last_rank_tracked_at`.
+  - `checkWebsite()`: فحص ترتيب الكلمات → تسجيل كل قياس في `seo_rank_tracking_history`
+    (بُعد زمني) + تحديث `current_position`/`last_checked_at` + `last_rank_tracked_at`.
+  - `trackingOverview()` (current/best/trend/readings/volume/difficulty) + `history()` لكل كلمة.
+- `cron/seo_rank_tracking.php` (يومي) + endpoints: `GET /api/seo/rank-tracking`,
+  `POST /api/seo/rank-tracking/check`, `GET /api/seo/rank-tracking/history`
+  مع حد معدل `seo_rank_tracking_check` (10/30د).
+
+### الواجهة والتسجيل
+- `SeoInsightsController` (8 endpoints) — كلها محمية بمصادقة + عزل تينانت صارم عبر `user_id`.
+- 9 مسارات جديدة في `app/routes/api.php` + scopes جديدة في `CiRateLimiter`.
+- تسجيل يدوي لكل الملفات الجديدة (Models → Contracts → Services → Controller) في
+  `public_html/index.php` و`cron/bootstrap.php` (لا classmap قديم يرصدها).
+
+### الفحص
+- `php tools/lint.php`: OK (793 ملفًا بلا أخطاء صياغة).
+- `vendor/bin/phpstan analyse`: No errors.
+- `vendor/bin/phpunit` (كامل): OK — 699 tests / 16451 assertions
+  (منها 20 اختبارًا لـ M6 في `SeoAutoSeoModuleIntegrationTest`، واختبار KnowledgeBase واحد
+  معروف التذبذب سابق الوجود على نظيف baseline بدون تغييرات M6).
+- التكاملات الخارجية (Google Indexing / Keyword Research) **غير مختبَرة** — fail-safe
+  `available=false` عند غياب الإعداد.
+
 ## موديول Competitor Intelligence — تتبع ترتيب الكلمات المفتاحية + Battlecards + تتبع أسعار المنتجات (M5) — 2026-08-29
 
 تطوير موديول Competitor Intelligence استنادًا إلى فجوات `docs/COMPETITIVE_ANALYSIS_CompetitorIntelligence.md`

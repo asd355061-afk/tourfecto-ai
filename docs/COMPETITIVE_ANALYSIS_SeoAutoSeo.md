@@ -37,7 +37,7 @@ Frog SEO Spider، وCloudflare (HTML Rewriter / Transform Rules).
 |---|---|---|---|---|---|---|
 | فحص on-page حقيقي من HTML + Headers | ✅ | ✅ | 🔶 | ✅ | 🔶 | ✅ (`WebsiteOptimizerController::performAudit` + `AuditChecksService`) |
 | تعدد فئات الفحص (SEO/Speed/Security/Mobile/Accessibility/AEO/GEO) | ✅ | ✅ | 🔶 | ✅ | 🔶 | ✅ (7 فئات في `AuditChecksService::run`) |
-| **زحف كامل للموقع (Multi-page crawl)** | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ (الصفحة الرئيسية فقط + عينة: 10 روابط، 8 صور — `performAudit` و`checkBrokenResources`) |
+| **زحف كامل للموقع (Multi-page crawl)** | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ (`SeoCrawlerService` — BFS للروابط الداخلية مع فحص on-page لكل URL وتجميع مقاييس الموقع، مخزّن في `seo_crawl_pages`) |
 | تحليل JSON-LD وسلامته (عدّ البلوكات غير الصالحة + استخراج الأنواع) | ✅ | ✅ | 🔶 | ✅ | ❌ | ✅ (`extractJsonLd` + `collectSchemaTypes` + فحص `structured_data_valid`) |
 | Score إجمالي + Scores لكل فئة | ✅ | ✅ | 🔶 | ✅ | ❌ | ✅ (`calculateScore` + `calculateCategoryScores`) |
 | فحص فجوات الكلمات المفتاحية مقابل المنافسين (Keyword Gap) | ✅ | ✅ | 🔶 | 🔶 | ❌ | 🔶 (موجود في `SeoStrategyService::fetchKeywordGaps` لكن كمدخل للخطة فقط، بلا تقرير مستقل) |
@@ -100,7 +100,7 @@ Frog SEO Spider، وCloudflare (HTML Rewriter / Transform Rules).
 | إرسال تلقائي للفهرسة بعد كل تطبيق إصلاح/تدقيق/محتوى | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ (`AutoSeoController::submitToIndexNow` + `AutoSeoReauditJob` + `indexItem`) |
 | **Baidu Active Push (السوق الصيني)** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ (`BaiduIndexingService` + `BaiduIndexingController` — يفعّل فقط عند وجود `zh` في target_languages) |
 | خدمة ملف مفتاح IndexNow Server-Side | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ (`SeoProxyService::renderSite`) |
-| **Google Indexing API / URL Inspection** | 🔶 | 🔶 | ❌ | ❌ | ❌ | ❌ (IndexNow لا يغطي Google) |
+| **Google Indexing API / URL Inspection** | 🔶 | 🔶 | ❌ | ❌ | ❌ | ✅ (`GoogleIndexingService` — OAuth Service Account JWT RS256 + toggle لكل موقع؛ 🔶 غير مختبَر ضد Google فعليًا) |
 | ربط Google Search Console (قياس CTR/ظهور/ترتيب) | ✅ | ✅ | 🔶 | ❌ | ❌ | ✅ (`GoogleSearchConsoleAPI` + كاش `seo_gsc_page_metrics` عبر `SeoPerformanceService`) |
 
 ### 2.7 تجارب SEO A/B
@@ -130,8 +130,8 @@ Frog SEO Spider، وCloudflare (HTML Rewriter / Transform Rules).
 |---|---|---|---|---|---|---|
 | لقطات قبل/بعد (seo_reports) + سجل درجات التدقيق عبر الزمن | 🔶 | ✅ | ❌ | ❌ | ❌ | ✅ (`SeoPerformanceService::snapshot` + `history` + `AutoSeoController::report`) |
 | تجميع مقاييس GSC/GA4 في تقرير موحّد | ✅ | ✅ | 🔶 | ❌ | ❌ | ✅ (`cachedSummary` + `ga4Summary`) |
-| **رسوم بيانية/لوحة تفاعلية** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ (جداول وقيم فقط — على عكس موديول CRM في المنصة نفسه الذي يملك `CrmChartService`) |
-| **تقارير مجدولة PDF/Email** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **رسوم بيانية/لوحة تفاعلية** | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ (`SeoChartService` — scoreTrend/categoryScores/gscTopPages/fixesAppliedTrend جاهزة لـ Chart.js من بيانات حقيقية) |
+| **تقارير مجدولة PDF/Email** | ✅ | ✅ | ❌ | ❌ | ❌ | 🔶 (`SeoScheduledReportService` — جدولة daily/weekly/monthly + HTML RTL عبر `Mailer` في cron؛ PDF خارج النطاق) |
 | تصدير نتائج التدقيق (CSV/API) | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
 
 ### 2.10 الجدولة / الأتمتة
@@ -140,6 +140,7 @@ Frog SEO Spider، وCloudflare (HTML Rewriter / Transform Rules).
 |---|---|---|---|---|---|---|
 | **إعادة تدقيق دورية حسب التردد (daily/weekly/monthly)** | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ (`SeoSchedulerService::reauditDueSites` + `cron/auto_seo_scheduler.php` + `AutoSeoReauditJob`) |
 | **إعادة فهرسة دورية (IndexNow) بدون تدخل** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ (`reindexDueSites` + `reindexSite`) |
+| **Rank Tracking (تتبع ترتيب يومي للكلمات المفتاحية)** | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ (`RankTrackingService` + `cron/seo_rank_tracking.php` — فحص يومي عبر `KeywordRankingSourceInterface` وسجل زمني في `seo_rank_tracking_history`؛ المصدر الافتراضي Null يفشل بأمان) |
 | **سير عمل محتوى آلي بحلقة مغلقة (Cron)** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ (`cron/seo_content_engine.php` → `runEngineCycle`) |
 | تنفيذ خلفي عبر طابور مهام (Queue) للعمليات الثقيلة | 🔶 | 🔶 | ❌ | ❌ | ❌ | ✅ (`AutoSeoReauditJob` + `SeoContentGenerateJob` عبر `QueueManager`) |
 | خطة استراتيجية 30/60/90 يوم مبنية على بيانات حقيقية (LLM) | 🔶 | 🔶 | ❌ | ❌ | ❌ | 🔶 (`SeoStrategyService::generatePlan` — يستهلك 1 Credit، يدمج SEO score + منافسين + كلمات + Keyword Gap + Outreach) |
@@ -154,18 +155,18 @@ Frog SEO Spider، وCloudflare (HTML Rewriter / Transform Rules).
 
 | # | الفجوة | المنافسون الذين يملكونها | الفجوة الحالية في الموديول |
 |---|---|---|---|
-| G1 | **زحف كامل للموقع (Multi-page crawl)** | Ahrefs/SEMrush/Screaming Frog | التدقيق يفحص الصفحة الرئيسية فقط؛ عينة روابط 10 وصور 8 (`performAudit`، `checkBrokenResources`). لا يوجد اكتشاف صفحات orphan أو عمق الزحف أو تحليل on-page لكل URL |
-| G2 | **JS Rendering + Web Vitals حقيقية** | Ahrefs/SEMrush/Surfer | لا يوجد headless browser؛ فحص تقريبي (`js_render_risk`) وفحوصات سرعة by-header فقط (`checkSpeed`) — لا CrUX ولا Lighthouse ولا CWV فعلية |
-| G3 | **الفهرسة لدى Google (Google Indexing API / URL Inspection)** | Ahrefs/SEMrush (عبر GSC) | IndexNow يغطي Bing/Yandex/Seznam/Naver فقط (`IndexNowService::ENGINES`) — لا مسار إبلاغ جوجل رغم أنه المحرك الأهم للسياحة |
-| G4 | **بيانات كلمات مفتاحية خارجية (حجم بحث/صعوبة/SERP)** | Ahrefs/SEMrush/Surfer | `tracked_keywords` يعتمد على بيانات داخلية/يدوية؛ لا يوجد تكامل Keyword Planner أو API خارجي لحجم البحث والمنافسة (يؤثر على ترتيب اكتشاف المواضيع) |
+| G1 | ~~**زحف كامل للموقع (Multi-page crawl)**~~ ✅ مُغلق | Ahrefs/SEMrush/Screaming Frog | **مُغلق (M6, 2026-08-29)**: `SeoCrawlerService` زحاف BFS للروابط الداخلية (نفس الدومين/عمق 1-6/حد 3-100 صفحة/ميزانية وقت) مع فحص on-page فعلي لكل URL (title/meta description/H1/عدد كلمات/كود HTTP/وقت استجابة/أخطاء) مخزّن في `seo_crawl_pages` + تجميع مقاييس الموقع (تكرارات العناوين وH1، صفحات بلا meta/H1، متوسط السرعة والكلمات) + `lastCrawl` + endpoints `POST/GET /api/website-optimizer/crawl`؛ لا ينفّذ JavaScript (خارج النطاق G2) |
+| G2 | **JS Rendering + Web Vitals حقيقية** | Ahrefs/SEMrush/Surfer | **لم تبدأ (خارج نطاق M6)**: يحتاج headless browser (Playwright/Puppeteer) + بيانات CrUX/Lighthouse — لا توجد تبعيات خارجية في القيود المعمارية؛ الزحف النصي G1 يوفر on-page بديلًا |
+| G3 | ~~**الفهرسة لدى Google (Google Indexing API / URL Inspection)**~~ ✅ مُغلق | Ahrefs/SEMrush (عبر GSC) | **مُغلق (M6, 2026-08-29)**: `GoogleIndexingService` يتكامل مع Google Indexing API الرسمي عبر OAuth Service Account (JWT RS256) — `notify`/`submitSite`/toggle لكل موقع (`google_indexing_enabled`/`last_google_indexed_at`) + endpoints `googleToggle/googleSubmit/googleStatus`؛ **غير مختبَر** ضد Google فعليًا (يحتاج حساب خدمة + تفعيل Indexing API) ويفشل بأمان `available=false` عند غياب `GOOGLE_SERVICE_ACCOUNT_JSON` |
+| G4 | ~~**بيانات كلمات مفتاحية خارجية (حجم بحث/صعوبة/SERP)**~~ ✅ مُغلق | Ahrefs/SEMrush/Surfer | **مُغلق (M6, 2026-08-29)**: `KeywordResearchSourceInterface` + `HttpKeywordResearchSource` قابل للتكوين (`KEYWORD_RESEARCH_API_URL`/`_KEY`) و`NullKeywordResearchSource` fail-safe — `KeywordResearchService::enrichTrackedKeywords` يحدّث `search_volume/difficulty/enriched_at` من بيانات حقيقية فقط بلا اختلاق (status/إثراء endpoints)؛ **غير مختبَر** مع مزوّد خارجي فعلي |
 
 ### 3.2 أولوية متوسطة (تمايز قوي)
 
 | # | الفجوة | المنافسون الذين يملكونها | الفجوة الحالية في الموديول |
 |---|---|---|---|
-| G5 | **نشر تلقائي للمحتوى المولَّد على مواقع خارجية** | Surfer (نصف تلقائي) | المقال يُحفظ في `ai_articles` فقط؛ `ArticleGenerator` يوثّق أن النشر الخارجي "جاهز للنسخ/التنزيل" — الحلقة المغلقة تنقطع عند النشر الفعلي |
-| G6 | **تقرير بصري + تقارير مجدولة (PDF/Email)** | Ahrefs/SEMrush | `AutoSeoController::report` يعرض جداول وقيم فقط؛ لا رسوم بيانية ولا إرسال مجدول (بينما موديول CRM في المنصة يملك `CrmChartService` — نمط جاهز لإعادة الاستخدام) |
-| G7 | **Rank Tracking (تتبع ترتيب يومي للكلمات المفتاحية)** | Ahrefs/SEMrush | `tracked_keywords.current_position` عمود فقط بلا تتبع SERP آلي/تاريخي؛ لا يوجد رصد لتغير الترتيب عبر الزمن |
+| G5 | **نشر تلقائي للمحتوى المولَّد على مواقع خارجية** | Surfer (نصف تلقائي) | **لم تبدأ (خارج نطاق M6)**: المقال يُحفظ في `ai_articles` فقط؛ الحلقة المغلقة تنقطع عند النشر الفعلي — يتطلب تكامل نشر خارجي (Tombstone/Webhooks) خارج القيود الحالية |
+| G6 | ~~**تقرير بصري + تقارير مجدولة (PDF/Email)**~~ ✅ مُغلق | Ahrefs/SEMrush | **مُغلق (M6, 2026-08-29)**: `SeoChartService` يسلّم بيانات Chart.js جاهزة من DB حقيقية (scoreTrend/categoryScores/gscTopPages/fixesAppliedTrend) + `SeoScheduledReportService` جدولة daily/weekly/monthly (`seo_report_schedules`) وبناء تقرير HTML RTL مهرَّب بالكامل + إرسال عبر `Mailer` في `cron/seo_scheduled_reports.php` (skip آمن عند غياب إعداد البريد)؛ PDF خارج النطاق (بلا مكتبة توليد PDF) |
+| G7 | ~~**Rank Tracking (تتبع ترتيب يومي للكلمات المفتاحية)**~~ ✅ مُغلق | Ahrefs/SEMrush | **مُغلق (M6, 2026-08-29)**: `RankTrackingService` يعيد استخدام `KeywordRankingSourceInterface` (M5) — فحص يومي `dueWebsites` (فاصل يوم واحد عبر `websites.last_rank_tracked_at`)، تسجيل كل قياس في `seo_rank_tracking_history` (بُعد زمني)، تحديث `current_position/last_checked_at`، نظرة عامة بـ best/trend/readings + سلسلة زمنية لكل كلمة + `cron/seo_rank_tracking.php` + endpoints (GET/check/history) |
 | G8 | **تحسين صور متقدم (srcset/AVIF/تحجيم متجاوب)** | Cloudflare (Polish) | `ImageOptimizationService` ينتج WebP بجودة ثابتة + lazy فقط؛ لا srcset ولا AVIF ولا اختيار حسب DPR |
 
 ### 3.3 أولوية منخفضة / خارج نطاق تنفيذ اليوم
@@ -195,9 +196,11 @@ Frog SEO Spider، وCloudflare (HTML Rewriter / Transform Rules).
   `llms-full.txt`، أقسام روبوتات AI في robots.txt (GPTBot/ClaudeBot/PerplexityBot/
   OAI-SearchBot)، الاستشهاد بمصادر موثوقة، `sameAs`، Speakable — منطقة ناشئة لا
   تقدمها الأدوات التقليدية.
-- **فهرسة متعددة المحركات تشمل السوق الصيني**: IndexNow تلقائي عبر 4 محركات
-  (مع توليد مفتاح وخدمة ملف المفتاح Server-Side عند الربط) + Baidu Active Push
-  بشرط استهداف `zh` (`BaiduIndexingService`) — تكامل نادر ومربح لوكالات سفر
+- **فهرسة متعددة المحركات تشمل Google والسوق الصيني**: IndexNow تلقائي عبر 4
+  محركات (مع توليد مفتاح وخدمة ملف المفتاح Server-Side عند الربط) + Google
+  Indexing API عبر Service Account (`GoogleIndexingService` — جاهز، غير مختبَر
+  ضد Google فعليًا) + Baidu Active Push بشرط استهداف `zh`
+  (`BaiduIndexingService`) — تكامل نادر ومربح لوكالات سفر
   تستهدف السوق الصيني.
 - **حلقة محتوى مغلقة بالكامل تعمل بـ Cron**: اكتشاف مواضيع (كلمات/GSC) → توليد
   LLM → حفظ `ai_articles` → IndexNow → تجربة A/B على العنوان → قياس CTR → تطبيق
@@ -214,17 +217,21 @@ Frog SEO Spider، وCloudflare (HTML Rewriter / Transform Rules).
   Migrations الخاصة بـ SEO في `/workspace`:
   - Services: `app/Services/Seo/*` (AuditChecksService, BaiduIndexingService,
     ImageOptimizationService, SeoAbTestService, SeoContentService,
-    SeoPerformanceService, SeoProxyService, SeoSchedulerService),
+    SeoPerformanceService, SeoProxyService, SeoSchedulerService,
+    SeoCrawlerService, GoogleIndexingService, KeywordResearchService,
+    RankTrackingService, SeoChartService, SeoScheduledReportService +
+    Null/HttpKeywordResearchSource),
     `app/Services/AutoSeo/AutoSeoEmbedService.php`,
     `app/Services/SeoStrategy/SeoStrategyService.php`,
     `app/Services/Indexing/IndexNowService.php`, `app/Services/AI/ArticleGenerator.php`.
   - Controllers: AutoSeoController, SeoContentController, SeoProxyController,
     SeoAbTestController, SeoIndexingController, SeoStrategyController,
-    BaiduIndexingController, WebsiteOptimizerController (لا يوجد
-    `SeoOptimizerController` منفصل — دوره يؤديه WebsiteOptimizerController).
+    BaiduIndexingController, SeoInsightsController, WebsiteOptimizerController
+    (لا يوجد `SeoOptimizerController` منفصل — دوره يؤديه WebsiteOptimizerController).
   - Migrations: `2026_08_20_000001` (embed) / `000002` (IndexNow+A/B) / `000003`
     (performance+schedule) / `000004` (content engine)، `000050` (strategy),
-    `add_baidu_token`, `expand_target_language`.
+    `add_baidu_token`, `expand_target_language`,
+    `2026_08_29_000004` (crawl_pages/rank_tracking_history/report_schedules).
 - بيانات المنافسين: المعرفة العامة بالمواصفات الموثّقة (الصفحات الرسمية
   المعروفة) دون جلب صفحات في هذه الجلسة؛ الأرقام التسويقية خارج نطاق الادعاء.
 - كل ميزة منافِسة قورنت 1:1 مع التنفيذ الفعلي في الكود (وليس مع الوعد التسويقي)؛

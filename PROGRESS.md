@@ -4,7 +4,36 @@
 **الفرع:** `main`
 **الحالة:** 8 بنود جديدة بالتتابع — كل بند migration+model+service+controller+routes+Lang+tests+checks+commit منفصل
 
-## خطة التطوير (الخطوة 4): التطوير الفعلي للموديولات الستة — M1 + M2 + M3 + M4 + M5 مكتملان
+## خطة التطوير (الخطوة 4): التطوير الفعلي للموديولات الستة — M1 + M2 + M3 + M4 + M5 + M6 مكتملون
+- **M6 (مكتمل):** SEO/AutoSeo — إغلاق G1/G3/G4/G6/G7 من
+  `docs/COMPETITIVE_ANALYSIS_SeoAutoSeo.md`:
+  - G1 زحف متعدد الصفحات: `SeoCrawlerService` BFS للروابط الداخلية (عمق 1-6/حد
+    3-100 صفحة/ميزانية وقت/مُحدَّد نطاق بنفس الدومين) مع فحص on-page فعلي لكل URL
+    (title/meta/H1/عدد كلمات/HTTP/وقت استجابة/أخطاء) → `seo_crawl_pages` + تجميع
+    مقاييس الموقع (تكرارات عناوين/H1، صفحات بلا meta/H1، متوسط سرعة/كلمات) +
+    `lastCrawl` + endpoints `POST/GET /api/website-optimizer/crawl`.
+  - G3 الفهرسة لدى Google: `GoogleIndexingService` عبر Google Indexing API الرسمي
+    (OAuth Service Account JWT RS256) + toggle/status لكل موقع
+    (`google_indexing_enabled`/`last_google_indexed_at`) — fail-safe
+    `available=false` عند غياب `GOOGLE_SERVICE_ACCOUNT_JSON` (**غير مختبَر** ضد
+    Google فعليًا؛ يُكمّل IndexNow/Baidu القائمين).
+  - G4 بيانات كلمات خارجية: `KeywordResearchSourceInterface` + `HttpKeywordResearchSource`
+    (`KEYWORD_RESEARCH_API_URL`/`_KEY`) + `NullKeywordResearchSource` — إثراء
+    `tracked_keywords` بـ search_volume/difficulty/enriched_at من بيانات حقيقية
+    بلا اختلاق (**غير مختبَر** مع مزوّد خارجي فعلي).
+  - G6 تقرير بصري + مجدول: `SeoChartService` (scoreTrend/categoryScores/gscTopPages/
+    fixesAppliedTrend جاهزة لـ Chart.js) + `SeoScheduledReportService` جدولة
+    daily/weekly/monthly → تقرير HTML RTL مهرَّب عبر `Mailer` في
+    `cron/seo_scheduled_reports.php` (skip آمن عند غياب البريد)؛ PDF خارج النطاق.
+  - G7 Rank Tracking: `RankTrackingService` يعيد استخدام `KeywordRankingSourceInterface`
+    (M5) — فحص يومي `dueWebsites` + سجل زمني `seo_rank_tracking_history` +
+    تحديث `current_position` + نظرة عامة best/trend/readings + سلسلة زمنية لكل
+    كلمة + `cron/seo_rank_tracking.php` + 8 endpoints عبر `SeoInsightsController`.
+  - G2 (JS Rendering/Web Vitals) وG5 (نشر خارجي للمحتوى) **خارج نطاق M6** — بلا
+    تكامل Infrastructure؛ تُركا مفتوحتين ومُوثّقتين في ملف الفجوات.
+  - التحقق: lint 793 OK، PHPStan 0، **699/16451 OK** (منها 20 اختبار M6 في
+    `SeoAutoSeoModuleIntegrationTest`) — commit `4be3a22` منفصل + push.
+  - ملف الفجوات حُدّث (G1/G3/G4/G6/G7 ✅ مغلقة) + CHANGELOG.md.
 - **M5 (مكتمل):** Competitor Intelligence — إغلاق G1/G6/G7 من
   `docs/COMPETITIVE_ANALYSIS_CompetitorIntelligence.md`:
   - G1 تتبع ترتيب الكلمات المفتاحية: جدول `ci_keyword_rankings` (بُعد زمني،
@@ -24,7 +53,6 @@
   - التحقق: lint 777 OK، PHPStan 0، **659/16049 OK** (منها 30 اختبار M5) —
     commit `c2e3668` منفصل + push.
   - ملف الفجوات حُدّث (G1/G6/G7 ✅ مغلقة) + CHANGELOG.md.
-- **M6 (لم تبدأ):** SEO/AutoSeo — بنفس النمط الصارم (فتح/تتبع/فهم/تنفيذ/فحص/commit لكل موديول قبل الانتقال).
 - **M4 (مكتمل):** Email Marketing — إغلاق G2/G3/G9 من
   `docs/COMPETITIVE_ANALYSIS_EmailMarketing.md`:
   - G2 استهداف الشرائح: عمود `segment_id` على `email_campaigns` + `audience()`
