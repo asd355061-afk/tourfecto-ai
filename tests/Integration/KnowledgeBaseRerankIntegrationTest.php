@@ -99,8 +99,15 @@ final class KnowledgeBaseRerankIntegrationTest extends TestCase
         $pdo = $this->db();
         $stmt = $pdo->prepare("INSERT INTO websites (user_id, main_url, company_name, brand_name)
                                VALUES (?, ?, ?, ?)");
-        $stmt->execute([self::USER_ID, 'https://kb.example.com', 'KB Travel', 'KB Travel']);
-        return (int) $pdo->lastInsertId();
+        $ok = $stmt->execute([self::USER_ID, 'https://kb.example.com', 'KB Travel', 'KB Travel']);
+        if (!$ok) {
+            $this->fail('Failed to create test website');
+        }
+        $id = (int) $pdo->lastInsertId();
+        if ($id < 1) {
+            $this->fail('Failed to obtain test website id');
+        }
+        return $id;
     }
 
     private function addEntry(int $websiteId, string $section, string $title, string $content, int $priority = 0): int

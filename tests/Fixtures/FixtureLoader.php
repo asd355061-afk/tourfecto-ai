@@ -57,9 +57,19 @@ class FixtureLoader
      */
     private function cleanDatabase(): void
     {
+        // إعادة تفعيل فحص القيود على جلسة الاختبار المشتركة أولاً: أي bootstrap
+        // فاشل لميجرشن بيترك FOREIGN_KEY_CHECKS = 0 على الجلسة، وبدون إعادة
+        // تفعيله الـ DELETE على websites بيتحول لحذف بدون CASCADE فتتراكم
+        // صفوف يتيمة في الجداول الابنة (زي ai_knowledge_base) وبتلتصق بمواقع
+        // جديدة تستخدم نفس الـ id بعد إعادة ضبط AUTO_INCREMENT.
+        $this->db->query('SET FOREIGN_KEY_CHECKS = 1');
+
+        // تنظيف الجداول الابنة قبل الجداول الأب (websites) لضمان عدم بقاء
+        // صفوف يتيمة حتى لو انطفأ فحص القيود لأي سبب لاحقًا.
         $tables = [
             'chat_messages', 'reviews', 'ai_reports',
-            'bot_settings', 'subscriptions', 'websites', 'users'
+            'ai_knowledge_base', 'bot_settings',
+            'subscriptions', 'websites', 'users'
         ];
 
         foreach ($tables as $table) {

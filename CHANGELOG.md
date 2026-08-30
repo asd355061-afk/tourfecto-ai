@@ -1,4 +1,46 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## إصلاح جذري لتذبذب `KnowledgeBaseRerankIntegrationTest::testRerankNeverDropsAllEntries` — 2026-08-30
+
+إصلاح السبب الجذري لفشل `actual size 10 matches expected 5` — تذبذب طويل الأمد في
+`tests/Integration/KnowledgeBaseRerankIntegrationTest.php` كان يظهر على قواعد بيانات
+مُلوّثة فقط، وتم إثبات الاستقرار 10/10 تشغيلات متتالية (699 tests / 16451 assertions).
+
+### السبب الجذري (الآلية الكاملة)
+1. **بوتستراب فاشل يطفئ فحص القيود:** أي ميجريشن في `applyTestMigrations()` يبدأ بـ
+   `SET FOREIGN_KEY_CHECKS = 0` ويفشل mid-file قبل سطره الأخير `SET FOREIGN_KEY_CHECKS = 1`
+   يترك جلسة PDO المشتركة (`Database::getInstance()`) بفحص قيود **مُطفأ**.
+2. **`FixtureLoader::cleanDatabase()` تحذف بلا CASCADE:** مع فحص القيود مُطفأ، تنفيذ
+   `DELETE FROM websites WHERE id > 0` لا يُسقط صفوف `ai_knowledge_base` الابنة تلقائيًا
+   (الـ FK `ai_knowledge_base_ibfk_1 ... ON DELETE CASCADE` لا يعمل) فتتراكم صفوف **يتيمة**
+   (website_id يشير لموقع محذوف أصلًا).
+3. **إعادة ضبط `AUTO_INCREMENT = 1` + إعادة استخدام الـ ids:** الـ `ALTER TABLE websites AUTO_INCREMENT = 1`
+   يعيد العدّاد لـ 1، فيحصل الموقع الجديد الذي ينشئه الاختبار على id واطئ، فتلتصق به الصفوف
+   اليتيمة القديمة التي تحمل نفس الـ id → عدد العناصر يرتفع (5 متوقع → 6/10 فعلي).
+4. **اليتامى لا يزولون أبدًا بمفردهم:** بمجرد حذف الـ parent website، لا يستطيع أي
+   `DELETE FROM websites` لاحق (ولا الـ CASCADE) الوصول للصفوف اليتيمة لأن أصلها غير موجود —
+   فتستمر في التراكم عبر التشغيلات وتلوّث الاختبارات التالية.
+
+### الإصلاح (defense-in-depth)
+- **`tests/Fixtures/FixtureLoader.php` — `cleanDatabase()`:**
+  - يُعاد تفعيل `SET FOREIGN_KEY_CHECKS = 1` صراحةً **أولًا** على الجلسة المشتركة، فيُحيد
+    أي جلسة مُلوّثة بميجرشن فاشل قبل أي حذف.
+  - أُضيفت `ai_knowledge_base` إلى قائمة الجداول المُنظَّفة **قبل `websites`**، فيُحذف كل
+    صفوف المعرفة (بما فيها اليتيمة) صراحةً قبل حذف المواقع — حتى لو انطفأ فحص القيود لأي
+    سبب لاحقًا لا يبقى أي يتيم.
+- **`tests/Integration/KnowledgeBaseRerankIntegrationTest.php` — `addWebsite()`:**
+  - فحص صريح لنتيجة `execute()` وإبطال الاختبار عند فشل الإدراج، ورفض الـ id غير الصالح
+    (`< 1`) بدل الاعتماد الصامت على `lastInsertId()` — يفضح أي تلوّث فور حدوثه بدل أعراض
+    مبهمة لاحقًا.
+
+### التحقق
+- إعادة إنتاج متعمّدة للمآزق أولًا: حقن صفوف يتيمة عبر جلسة `FOREIGN_KEY_CHECKS = 0`
+  (محاكاة البوتستراب الفاشل) → الاختبار فشل بـ `actual size 6 matches expected 5` كما كان يحدث.
+- بعد الإصلاح: **10/10 تشغيلات متتالية** للـ full suite كلها `OK (699 tests, 16451 assertions)`.
+- **اختبار الاسترداد من حالة ملوّثة:** إعادة حقن 15 صفًّا يتيمًا ثم تشغيل الـ suite →
+  `cleanDatabase()` تنظّفها والـ suite `OK`، وبعد التشغيل `orphans = 0`.
+- `php tools/lint.php`: OK (793 ملفًا بلا أخطاء). | `vendor/bin/phpstan analyse`: No errors.
+- `vendor/bin/pint --test` على الملفين المعدَّلَين: passed.
+
 ## موديول SEO/AutoSeo — زحف متعدد الصفحات + Google Indexing + Rank Tracking + Keyword Research + تقارير مجدولة (M6) — 2026-08-29
 
 تطوير موديول SEO/AutoSeo استنادًا إلى فجوات `docs/COMPETITIVE_ANALYSIS_SeoAutoSeo.md`
