@@ -1,5 +1,42 @@
 # Tourfecto AI Chat & Customer Communication Platform
-## إكمال وحدة Backlink/Outreach Backend: مراقبة الروابط + متابعات + تقرير أداء — 2026-08-31
+## الموديول 1 — OTA Integration: GetYourGuide + Viator مع ربط إيراد الحجوزات — 2026-08-31
+
+إضافات جديدة بالكامل (بلا لمس أي موديول قائم): عملاء GetYourGuide/Viator القابلان
+للحقن في الاختبارات، وخدمة ربط إيراد الحجز OTA في `rev_revenue_records`، مع تغطية
+اختبارات شاملة (19 اختبار/130 assertion) عبر transport وهمي — صفر اتصالات شبكة/AI.
+
+### إعادة هيكلة خفيفة مضادة للتغيير لعملاء OTA
+- `app/Services/OTA/GetYourGuideAPI.php`: `__construct(string $apiToken, ?callable $transport = null)`
+  — حقنة `callable` اختيارية للاختبارات، مع الاحتفاظ بسلوك curl التقليدي افتراضيًا.
+  `verifyToken()`/`getTours($page,$limit)`/`getBooking($ref)` كلها تبني envelope موحّد
+  (`success`/`data`/`error`/`http_code`) + معالجة آمنة للأجسام غير JSON (no throw) +
+  `log()` تسجّل الأخطاء/التحذيرات في `Logger` مع fallback `app_log`.
+- `app/Services/OTA/ViatorAPI.php`: نفس النمط مع `?callable $transport` ثالث؛
+  `verifyToken()`/`searchProducts()`/`getBooking()` — `searchProducts` يرسل الفلاتر
+  كجسم JSON.
+
+### `app/Services/OTA/OtaBookingService.php` (جديد)
+- `recordBookingRevenue($userId,$platform,$bookingReference,$amount,$currency='USD',...)`
+  — يُدرج `rev_revenue_records` بمصدر `ota_booking` + `reference_id` = معرّف الحجز
+  الرسمي + `event('revenue.updated')`؛ **idempotent** على `user_id+source+reference_id`؛
+  **fail-safe** try/catch + Logger (لا يكسر أي تدفق).
+- `recordBookingRefund()` — مصدر `ota_refund` بمبلغ سالب فقط بعد وجود إيراد
+  موجب (`ota_booking`) ومرة واحدة فقط (بلا استرداد مسبق).
+- يتحقق من صحة المدخلات (مبلغ موجب، platform معروف، reference غير فارغ).
+
+### التسجيل
+- `cron/bootstrap.php` + `public_html/index.php`: الكلاسات الثلاثة مسجّلة في
+  `optionalJobDependencyFiles`/`optionalNewClassFiles`.
+
+### الاختبارات
+- `tests/Integration/OtaModuleIntegrationTest.php` (جديد): `FakeOtaTransport` يسجّل
+  `calls[]` ويعيد response/http_code/curlError. يغطي: verifyToken ناجح/مفتاح خاطئ/
+  فشل شبكة لكلا العملاء، استعلام tours (page/limit)، searchProducts (جسم JSON)،
+  getBooking، أجسام malformed آمنة، أخطاء الطرف الثالث (429→HTTP 429)، ربط الإيراد
+  (حقول صحيحة + idempotency + رفض مدخلات غير صالحة + استرداد بعد سجل موجب فقط +
+  الظهور في `RevenueOverviewService` المختلط + عزل بين المستخدمين).
+- **خط الأساس:** 773/16831 OK (2 تشغيلتين متتاليتين)؛ lint (803 ملف) + phpstan بلا أخطاء.
+
 
 البنية الخلفية الكاملة لموديول الـ Outreach (تكملة Phase 10): مراقبة أسبوعية للباك لينكس
 التي تم الحصول عليها فعليًا، توليد مسودات متابعة (مسودات فقط — ممنوع الإرسال التلقائي)،

@@ -268,6 +268,11 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Services/Outreach/OutreachFollowUpDraftService.php',
     APP_PATH . '/Services/Outreach/OutreachPerformanceService.php',
     APP_PATH . '/Models/Notification.php',
+    // OTA (Item 1, 2026-08-31): ربط حجوزات OTA بالإيرادات في سياق الـ Cron.
+    // الكلاسات مش في classmap القديم على السيرفر (composer dump-autoload غير متاح).
+    APP_PATH . '/Services/OTA/GetYourGuideAPI.php',
+    APP_PATH . '/Services/OTA/ViatorAPI.php',
+    APP_PATH . '/Services/OTA/OtaBookingService.php',
 ];
 foreach ($optionalJobDependencyFiles as $depFile) {
     if (file_exists($depFile)) {

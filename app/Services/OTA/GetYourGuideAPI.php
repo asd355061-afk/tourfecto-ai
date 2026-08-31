@@ -14,9 +14,19 @@ class GetYourGuideAPI
 
     private string $accessToken;
 
-    public function __construct(string $accessToken)
+    /** @var callable|null transport قابل للحقن في الاختبارات بدل curl الحقيقي */
+    private $transport;
+
+    /**
+     * @param string      $accessToken مفتاح الوصول (X-ACCESS-TOKEN) من Partner portal
+     * @param callable|null $transport  fn(string $method, string $url, array $headers, ?string $body)
+     *                                  => array{response:?string, http_code:int, error:?string}
+     *                                  - اختياري للاختبارات فقط؛ الإنتاج يبقى curl كالمعتاد.
+     */
+    public function __construct(string $accessToken, ?callable $transport = null)
     {
         $this->accessToken = $accessToken;
+        $this->transport = $transport;
     }
 
     /**
@@ -61,33 +71,40 @@ class GetYourGuideAPI
             $url .= '?' . http_build_query($query);
         }
 
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CUSTOMREQUEST  => strtoupper($method),
-            CURLOPT_HTTPHEADER     => [
-                'Accept: application/json',
-                'X-ACCESS-TOKEN: ' . $this->accessToken,
-            ],
-            CURLOPT_TIMEOUT => 15,
-        ]);
-        if (!empty($body)) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
-        }
+        $headers = ['Accept: application/json', 'X-ACCESS-TOKEN: ' . $this->accessToken];
+        $requestBody = !empty($body) ? json_encode($body) : null;
 
-        $response = curl_exec($ch);
-        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlError = curl_error($ch);
-        curl_close($ch);
+        if ($this->transport !== null) {
+            $result = call_user_func($this->transport, strtoupper($method), $url, $headers, $requestBody);
+            $response = $result['response'] ?? null;
+            $httpCode = (int) ($result['http_code'] ?? 0);
+            $curlError = $result['error'] ?? null;
+        } else {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CUSTOMREQUEST  => strtoupper($method),
+                CURLOPT_HTTPHEADER     => $headers,
+                CURLOPT_TIMEOUT => 15,
+            ]);
+            if ($requestBody !== null) {
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $requestBody);
+            }
+
+            $response = curl_exec($ch);
+            $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+        }
 
         if ($curlError) {
             $this->log('error', "GetYourGuide cURL error: {$curlError}");
             return ['success' => false, 'data' => null, 'error' => $curlError, 'http_code' => 0];
         }
 
-        $decoded = json_decode($response, true);
+        $decoded = json_decode((string) $response, true);
         if ($httpCode >= 400) {
-            $this->log('warning', "GetYourGuide API error HTTP {$httpCode}", ['response' => $response]);
+            $this->log('warning', "GetYourGuide API error HTTP {$httpCode}", ['response' => (string) $response]);
             return ['success' => false, 'data' => $decoded, 'error' => "HTTP {$httpCode}", 'http_code' => $httpCode];
         }
 
@@ -96,6 +113,16 @@ class GetYourGuideAPI
 
     private function log(string $level, string $message, array $context = []): void
     {
+        // الترحيل: الاعتماد الأساسي على Logger الموجود في المشروع؛ مع fallback
+        // للـ app_log القديمة (غير معرّفة في الكود الحالي فتعمل كـ no-op).
+        if (class_exists('Logger')) {
+            if ($level === 'error') {
+                Logger::error($message, $context);
+            } else {
+                Logger::warning($message, $context);
+            }
+            return;
+        }
         if (function_exists('app_log')) {
             app_log($level, $message, $context);
         }

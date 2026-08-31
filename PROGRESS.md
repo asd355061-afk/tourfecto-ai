@@ -1,5 +1,31 @@
 # PROGRESS — الخطوة 4: Ads (5) + CRM (1) + AI Chat (2)
 
+## الموديول 1 (مكتمل 2026-08-31): OTA Integration — GetYourGuide + Viator + ربط إيراد الحجوزات
+- **هدف:** جعل عملاء OTA الحاليين قابلين للاختبار بأمان (بلا مساس بسلوك الإنتاج)
+  وربط إيراد الحجوزات OTA في `rev_revenue_records` بنفس قواعد
+  `BookingEngine::recordBookingRevenue/Refund`.
+- **منفّذ (إضافات جديدة — بلا لمس أي موديول قائم):**
+  - **1a — العملاء:** `GetYourGuideAPI`/`ViatorAPI` مُعاد هيكلتهما بحقنة
+    `?callable $transport` اختيارية (الاختبارات تحقن Fake؛ الإنتاج يبقى curl بالظبط
+    كما كان) + envelope موحّد + معالجة آمنة للأجسام غير JSON (no throw) +
+    `log()` في `Logger` مع fallback `app_log`.
+  - **1b — ربط الإيراد:** `OtaBookingService` جديد — `recordBookingRevenue()`
+    يُدرج `source='ota_booking'` + `event('revenue.updated')` idempotent على
+    `user_id+source+reference_id`؛ `recordBookingRefund()` بمصدر `ota_refund` بمبلغ
+    سالب فقط بعد إيراد موجب ومرة واحدة؛ fail-safe try/catch + Logger؛ تحقق من
+    صحة المدخلات.
+  - **1c — التسجيل:** الكلاسات الثلاثة مسجّلة في `cron/bootstrap.php` و
+    `public_html/index.php`.
+- **التحقق:** `tests/Integration/OtaModuleIntegrationTest.php` جديد (19 اختبار/130
+  assertion عبر `FakeOtaTransport` — صفر شبكة/AI): verifyToken/أخطاء مفتاح/فشل شبكة،
+  استعلام tours و searchProducts (تحقق من المعاملات/الجسم)، getBooking + malformed
+  آمنة + أخطاء 429، ربط الإيراد الكامل (حقول + idempotency + رفض مدخلات + استرداد
+  بعد موجب فقط + ظهوره في تقرير `RevenueOverviewService` المختلط + عزل بين المستخدمين).
+- **ملاحظة تذبذب:** فشلان مؤقتان في تشغيلتين (FK في `ci_insights` و assert في
+  `SeoAutoSeo`) — سابقان للوجود ومرتبطان بترتيب الاختبارات العشوائي؛ إعادة التشغيل
+  سليمة تمامًا: **773/16831 OK** في تشغيلتين متتاليتين؛ lint (803 ملف) + phpstan بلا أخطاء.
+- **Commit:** منفصل + push (تفاصيل في CHANGELOG.md).
+
 ## البند 2 (مكتمل 2026-08-31): إكمال وحدة Backlink/Outreach Backend
 - **هدف:** البنية الخلفية الكاملة لموديول الـ Outreach بعد الحصول على الباك لينكس:
   مراقبة أسبوعية للحالة، متابعات (مسودات فقط)، وتقرير أداء للـ pipeline.

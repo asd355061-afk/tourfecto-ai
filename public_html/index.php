@@ -171,6 +171,11 @@ $optionalNewClassFiles = [
     // classmap القديم، فأي طلب لـ /api/ota/status كان بيرمي
     // "Controller OTAController not found" (2026-08-09).
     APP_PATH . '/Controllers/OTAController.php',
+    // OTA (Item 1, 2026-08-31): عملاء OTA + ربط حجوزات OTA بالإيرادات.
+    // OtaBookingService كلاس جديد مش في classmap القديم على السيرفر.
+    APP_PATH . '/Services/OTA/GetYourGuideAPI.php',
+    APP_PATH . '/Services/OTA/ViatorAPI.php',
+    APP_PATH . '/Services/OTA/OtaBookingService.php',
     // ============================================
     // Competitor Intelligence (موديول موحّد جديد - 2026-08-09)
     // كل الكلاسات دي جديدة على المشروع ومش موجودة في classmap القديم
