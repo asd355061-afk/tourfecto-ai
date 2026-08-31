@@ -126,6 +126,27 @@ final class SeoAutoSeoModuleIntegrationTest extends TestCase
             $pdo->exec(
                 "UPDATE websites SET main_url = 'https://crawl.example', is_connected = 1 WHERE id = " . (int) self::$websiteId
             );
+        } else {
+            // Defensive: cleanDatabase() بين الملفات بيمسح users/websites ويرجّع
+            // الفيكتشرز بس - نعيد إنشاء المستخدم والموقع لو اترشّحوا
+            $userStmt = $pdo->query("SELECT id FROM users WHERE id = " . (int) self::$userId);
+            $userExists = $userStmt ? $userStmt->fetchAll() : [];
+            if (empty($userExists)) {
+                self::$userId = createTestUser();
+                self::$websiteId = createTestWebsite(self::$userId);
+                $pdo->exec(
+                    "UPDATE websites SET main_url = 'https://crawl.example', is_connected = 1 WHERE id = " . (int) self::$websiteId
+                );
+            } else {
+                $siteStmt = $pdo->query("SELECT id FROM websites WHERE id = " . (int) self::$websiteId);
+                $siteExists = $siteStmt ? $siteStmt->fetchAll() : [];
+                if (empty($siteExists)) {
+                    self::$websiteId = createTestWebsite(self::$userId);
+                    $pdo->exec(
+                        "UPDATE websites SET main_url = 'https://crawl.example', is_connected = 1 WHERE id = " . (int) self::$websiteId
+                    );
+                }
+            }
         }
     }
 

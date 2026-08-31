@@ -62,13 +62,20 @@ class SocialLoginClient
     private string $redirectUri;
     private string $tenant;
 
-    public function __construct(string $provider)
+    /**
+     * @var callable|null حقنة اختيارية للاختبارات - بتستقبل وصف الطلب وترجع
+     * رد محاكى ['body'=>string,'http_code'=>int,'error'=>?string] بدل curl.
+     */
+    private $transport;
+
+    public function __construct(string $provider, ?callable $transport = null)
     {
         if (!isset(self::PROVIDERS[$provider])) {
             throw new InvalidArgumentException("منصة تسجيل دخول غير مدعومة: {$provider}");
         }
         $this->provider = $provider;
         $this->config = self::PROVIDERS[$provider];
+        $this->transport = $transport;
 
         $settings = class_exists('SystemSettingsService') ? new SystemSettingsService() : null;
         $this->clientId = $settings ? $settings->get($this->config['client_id_key'], '') : '';
@@ -120,27 +127,20 @@ class SocialLoginClient
         ];
 
         try {
-            $ch = curl_init($this->url('token_url'));
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_POST => true,
-                CURLOPT_POSTFIELDS => http_build_query($fields),
-                CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded', 'Accept: application/json'],
-                CURLOPT_TIMEOUT => 20,
-                CURLOPT_SSL_VERIFYPEER => true,
-            ]);
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $curlError = curl_error($ch);
-            curl_close($ch);
+            $result = $this->httpRequest(
+                'POST',
+                $this->url('token_url'),
+                ['Content-Type: application/x-www-form-urlencoded', 'Accept: application/json'],
+                http_build_query($fields)
+            );
 
-            if ($curlError) {
-                return ['success' => false, 'error' => 'cURL Error: ' . $curlError];
+            if ($result['error']) {
+                return ['success' => false, 'error' => 'cURL Error: ' . $result['error']];
             }
 
-            $data = json_decode($response, true);
-            if ($httpCode !== 200 || !isset($data['access_token'])) {
-                return ['success' => false, 'error' => $data['error_description'] ?? $data['error'] ?? "OAuth token error (HTTP {$httpCode})"];
+            $data = json_decode($result['body'], true);
+            if ($result['http_code'] !== 200 || !isset($data['access_token'])) {
+                return ['success' => false, 'error' => $data['error_description'] ?? $data['error'] ?? "OAuth token error (HTTP {$result['http_code']})"];
             }
 
             return ['success' => true, 'access_token' => $data['access_token']];
@@ -161,25 +161,16 @@ class SocialLoginClient
         }
 
         try {
-            $ch = curl_init($url);
             $headers = ['Accept: application/json'];
             if ($this->provider !== 'facebook') {
                 $headers[] = 'Authorization: Bearer ' . $accessToken;
             }
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_HTTPHEADER => $headers,
-                CURLOPT_TIMEOUT => 20,
-                CURLOPT_SSL_VERIFYPEER => true,
-            ]);
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
+            $result = $this->httpRequest('GET', $url, $headers);
 
-            if ($httpCode !== 200) {
+            if ($result['error'] || $result['http_code'] !== 200) {
                 return null;
             }
-            $data = json_decode($response, true);
+            $data = json_decode($result['body'], true);
             if (!is_array($data)) {
                 return null;
             }
@@ -200,5 +191,51 @@ class SocialLoginClient
             }
             return null;
         }
+    }
+
+    /**
+     * تنفيذ طلب HTTP عبر الـ transport الوهمي (لو محقون) أو curl العادي.
+     * نفس بنية خيارات curl السابقة تمامًا - لا تغيير في سلوك الإنتاج.
+     * @return array ['body'=>string,'http_code'=>int,'error'=>?string]
+     */
+    private function httpRequest(string $method, string $url, array $headers = [], ?string $body = null): array
+    {
+        if ($this->transport !== null) {
+            $fake = call_user_func($this->transport, [
+                'method' => $method,
+                'url' => $url,
+                'headers' => $headers,
+                'body' => $body,
+            ]);
+            return [
+                'body' => (string) ($fake['body'] ?? ''),
+                'http_code' => (int) ($fake['http_code'] ?? 0),
+                'error' => isset($fake['error']) ? (string) $fake['error'] : null,
+            ];
+        }
+
+        $ch = curl_init($url);
+        $options = [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_TIMEOUT => 20,
+            CURLOPT_SSL_VERIFYPEER => true,
+        ];
+        if ($method === 'POST') {
+            $options[CURLOPT_POST] = true;
+            $options[CURLOPT_POSTFIELDS] = $body ?? '';
+        }
+        curl_setopt_array($ch, $options);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        return [
+            'body' => (string) $response,
+            'http_code' => (int) $httpCode,
+            'error' => $curlError ?: null,
+        ];
     }
 }

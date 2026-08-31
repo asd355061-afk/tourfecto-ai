@@ -1,4 +1,38 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## الموديول 8 — اختبارات تكامل تسجيل الدخول الاجتماعي OAuth (Google/Facebook/Microsoft/Apple) — 2026-08-31
+
+تغطية تدفقات OAuth Login الكاملة بمصادر بيانات حقيقية في `tourfecto_test` **وصفر
+شبكة** — حقن `transport` وهمي (بنفس بنية رد curl) في العميلين، بنفس نمط حقن
+`WordPressPublisher` من الموديول 3:
+
+1. **النجاح:** تبادل الكود → توكن، وجلب البروفايل (Google/Microsoft/منصات
+   Bearer) / فك `id_token` (Apple) → هوية (`sub`/`id` + إيميل + اسم).
+2. **توكن غير صالح/منتهي:** رفض تبادل الكود (400 `invalid_grant`/`error_description`)
+   أو فشل جلب البروفايل (401) → فشل نظيف بلا throw.
+3. **فشل اتصال بالمزوّد الخارجي:** transport يرجّع خطأ شبكة (DNS/timeout/refused)
+   → `cURL Error: ...` من التبادل، و`null` من البروفايل.
+4. **Replay attack:** نفس الكود مستخدم مرتين — أول مرة تنجح والثانية يرفضها
+   المزوّد (`invalid_grant`)؛ و`verifyOAuthState` أحادية الاستخدام على مستوى
+   المتحكم — نفس الـ state مرتين → الثانية مرفوضة، وتضارب provider مرفوض.
+5. **Facebook:** البروفايل بـ `access_token` في الـ query + `fields`.
+6. **Microsoft:** الـ tenant في عنوان التبادل (`login.microsoftonline.com/common`).
+7. **Apple:** توليد `client_secret` (JWT ES256) من مفتاح EC صالح + تبادل +
+   فك `id_token` + رفض `id_token` ناقص `sub`/مالفورم.
+
+### التغييرات
+- `app/Services/OAuth/SocialLoginClient.php`: constructor يقبل `?callable $transport`
+  + `httpRequest()` خاص يستخدم الـ fake أولًا (سلوك الإنتاج مطابق تمامًا).
+- `app/Services/OAuth/AppleSignInClient.php`: constructor يقبل `?callable $transport`
+  + `httpRequest()` خاص — كود curl القديم اتنقل له سليمًا (نفس الخيارات).
+- `tests/Integration/OAuthLoginModuleIntegrationTest.php` (جديد): 16 اختبار/
+  56 assertion؛ مستخدم 999961 + عناوين 203.0.113.x؛ إعدادات OAuth بقيم اختبارية
+  في `system_settings` (تُمسح بعد كل اختبار).
+- تثبيت flake نادر من الترتيب العشوائي: `EmailMarketingContactsIntegrationTest`
+  و`SeoAutoSeoModuleIntegrationTest` يعيدان إنشاء مستخدم/موقع الاختبار لو
+  `cleanDatabase()` اترشّحهم (بدون لمس كود الإنتاج).
+
+**الحالة:** `OK (1007 tests, 17793 assertions)`؛ lint (811 ملف) + phpstan بلا أخطاء.
+
 ## الموديول 7 — Rate Limiting شامل: حماية AI لكل مستخدم + Auth لكل IP + رسائل 429 عربي — 2026-08-31
 
 حماية معدلات شاملة فوق الـ `RateLimiter` الموجود (`app/Services/Security/RateLimiter.php`)

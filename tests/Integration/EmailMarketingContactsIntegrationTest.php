@@ -90,6 +90,14 @@ final class EmailMarketingContactsIntegrationTest extends TestCase
         }
         if (self::$userId === 0) {
             self::$userId = createTestUser();
+        } else {
+            // Defensive: التنفيذ العشوائي بين الملفات بيخلي FixtureLoader::cleanDatabase()
+            // يمسح users ويرجّع الفيكتشرز بس، فالمستخدم بتاعنا بيترشّح -> نعيد إنشاؤه
+            $stmt = $pdo->query("SELECT id FROM users WHERE id = " . (int) self::$userId);
+            $exists = $stmt ? $stmt->fetchAll() : [];
+            if (empty($exists)) {
+                self::$userId = createTestUser();
+            }
         }
     }
 

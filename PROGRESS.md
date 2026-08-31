@@ -1,5 +1,26 @@
 # PROGRESS — الخطوة 4: Ads (5) + CRM (1) + AI Chat (2)
 
+## الموديول 8 (مكتمل 2026-08-31): اختبارات تكامل OAuth Login (Google/Facebook/Microsoft/Apple)
+- **هدف:** تغطية تدفقات تسجيل الدخول الاجتماعي كاملة بمصادر حقيقية **وصفر شبكة**
+  (حقن transport وهمي بنفس بنية رد curl — نمط حقن WordPressPublisher من م3).
+- **منفّذ (إضافات بلا تغيير سلوك الإنتاج):**
+  - **8a — الحقن:** `SocialLoginClient::__construct($provider, ?callable $transport)`
+    و`AppleSignInClient::__construct(?callable $transport)` + `httpRequest()` خاص
+    بيفضّل الـ fake قبل curl (نفس الخيارات/الهيئات بالظبط).
+  - **8b — السيناريوهات:** نجاح (تبادل+بروفايل/فك id_token)؛ توكن غير صالح/منتهي
+    (400/401)؛ فشل شبكة المزوّد الخارجي؛ replay (نفس الكود مرتين — الأولى تنجح
+    والثانية `invalid_grant` + `verifyOAuthState` أحادية الاستخدام)؛ Facebook
+    (`access_token` في query)؛ Microsoft (tenant في URL)؛ Apple (client_secret
+    JWT ES256 من مفتاح EC + فك id_token + رفض المالفورم/نقص sub).
+- **التحقق:** `tests/Integration/OAuthLoginModuleIntegrationTest.php` جديد
+  (16 اختبار/56 assertion؛ مستخدم 999961 + عناوين 203.0.113.x؛ إعدادات OAuth
+  تُزرع في system_settings وتُمسح). **1007/17793 OK**؛ lint (811 ملف) + phpstan
+  بلا أخطاء.
+- **ملاحظة:** تثبيت flake نادر من الترتيب العشوائي في `EmailMarketingContactsIntegrationTest`
+  و`SeoAutoSeoModuleIntegrationTest` (إعادة إنشاء المستخدم/الموقع لو اترشّحوا) —
+  بدون لمس كود الإنتاج.
+- **Commit:** منفصل + push (تفاصيل في CHANGELOG.md).
+
 ## الموديول 7 (مكتمل 2026-08-31): Rate Limiting شامل — AI لكل مستخدم + Auth لكل IP
 - **هدف:** حماية معدلات شاملة لكل نقط النهايات عبر الـ `RateLimiter` الموجود
   (مش نظام جديد): نطاق AI لكل مستخدم (تكلفة)، نطاق Auth لكل IP (Brute Force)،
