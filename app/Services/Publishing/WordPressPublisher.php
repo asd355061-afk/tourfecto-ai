@@ -17,6 +17,14 @@ class WordPressPublisher
 {
     private int $timeout = 30;
 
+    /** @var callable|null حقنة اختيارية للاختبارات - بتستقبل المصفوفة الكاملة للطلب وترجع رد محاكى */
+    private $transport;
+
+    public function __construct(?callable $transport = null)
+    {
+        $this->transport = $transport;
+    }
+
     /**
      * تجربة الاتصال (بنجيب بيانات المستخدم الحالي /users/me) للتأكد إن
      * الرابط + اليوزر + الباسورد صحيحين قبل ما نحفظهم.
@@ -89,11 +97,28 @@ class WordPressPublisher
     {
         $url = rtrim($siteUrl, '/') . $path;
 
-        $ch = curl_init($url);
         $headers = [
             'Accept: application/json',
             'Authorization: Basic ' . base64_encode($username . ':' . $appPassword),
         ];
+
+        if (!empty($data)) {
+            $headers[] = 'Content-Type: application/json';
+        }
+        $body = !empty($data) ? json_encode($data, JSON_UNESCAPED_UNICODE) : null;
+
+        // الاختبارات تحقن transport وهمي (بدون curl) عبر الـ constructor
+        if ($this->transport !== null) {
+            $fake = call_user_func($this->transport, [
+                'method' => $method,
+                'url' => $url,
+                'headers' => $headers,
+                'body' => $body,
+            ]);
+            return $this->buildResult($fake);
+        }
+
+        $ch = curl_init($url);
 
         $options = [
             CURLOPT_RETURNTRANSFER => true,
@@ -106,9 +131,8 @@ class WordPressPublisher
             CURLOPT_MAXREDIRS => 3,
         ];
 
-        if (!empty($data)) {
-            $options[CURLOPT_HTTPHEADER][] = 'Content-Type: application/json';
-            $options[CURLOPT_POSTFIELDS] = json_encode($data, JSON_UNESCAPED_UNICODE);
+        if ($body !== null) {
+            $options[CURLOPT_POSTFIELDS] = $body;
         }
 
         curl_setopt_array($ch, $options);
@@ -123,6 +147,37 @@ class WordPressPublisher
         }
 
         $decoded = json_decode($response, true);
+
+        if ($httpCode === 401 || $httpCode === 403) {
+            return ['success' => false, 'error' => 'بيانات الدخول غلط أو الحساب مالوش صلاحية نشر (تأكد من اليوزر و Application Password)'];
+        }
+
+        if ($httpCode < 200 || $httpCode >= 300) {
+            $errorMessage = $decoded['message'] ?? "خطأ غير متوقع (HTTP {$httpCode})";
+            return ['success' => false, 'error' => "WordPress API Error: {$errorMessage}", 'http_code' => $httpCode];
+        }
+
+        if (!is_array($decoded)) {
+            return ['success' => false, 'error' => 'رد غير متوقع من الموقع - تأكد إن الرابط صحيح وإن REST API مفعّل'];
+        }
+
+        return ['success' => true, 'data' => $decoded, 'http_code' => $httpCode];
+    }
+
+    /**
+     * تحويل رد الـ transport الوهمي (نفس بنية رد curl) لنتيجة موحّدة.
+     * @param array $fake ['body'=>string, 'http_code'=>int, 'error'=>?string]
+     */
+    private function buildResult(array $fake): array
+    {
+        $httpCode = (int) ($fake['http_code'] ?? 0);
+        $curlError = $fake['error'] ?? null;
+
+        if ($curlError) {
+            return ['success' => false, 'error' => 'تعذر الوصول لموقعك: ' . $curlError];
+        }
+
+        $decoded = json_decode((string) ($fake['body'] ?? ''), true);
 
         if ($httpCode === 401 || $httpCode === 403) {
             return ['success' => false, 'error' => 'بيانات الدخول غلط أو الحساب مالوش صلاحية نشر (تأكد من اليوزر و Application Password)'];

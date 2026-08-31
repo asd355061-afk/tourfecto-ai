@@ -294,6 +294,8 @@ function applyTestMigrations(): void
         '2026_08_31_000001_create_monitored_backlinks.sql',
         // Module 2 (2026-08-31): White-Label agency invitation table (idempotent).
         '2026_08_31_000002_agency_invitations.sql',
+        // Module 3 (2026-08-31): إصلاح انحراف enum حالة النشر (published/publish_failed).
+        '2026_08_31_000003_fix_ai_articles_publish_status.sql',
         // Phase 6 keyword intelligence columns (enriched_at/search_intent/...) —
         // تستخدمها KeywordResearchService (G4). غير idempotent لكن حلقة الميجريشن
         // بتتخطى ملف فاشل بأمان، فالإضافة آمنة للتشغيل المتكرر.

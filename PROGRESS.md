@@ -1,5 +1,34 @@
 # PROGRESS — الخطوة 4: Ads (5) + CRM (1) + AI Chat (2)
 
+## الموديول 3 (مكتمل 2026-08-31): Publishing — تغطية WordPress/Custom API + حالة publish_failed
+- **هدف:** جعل النشر الحالي (`WordPressPublisher`/`CustomApiPublisher`/
+  `PublishScheduledArticleJob`/`AIController::publishArticle`) قابلًا للاختبار
+  بلا مساس بسلوك الإنتاج، وتمييز فشل النشر الفعلي عن فشل الجدولة، وإصلاح
+  انحراف enum `ai_articles.status`.
+- **منفّذ (إضافات — بلا لمس أي منطق شغال):**
+  - **3a — حقن transport:** `WordPressPublisher`/`CustomApiPublisher` قبلان
+    `?callable $transport` (الاختبارات تحقن Fake؛ الإنتاج يبقى curl كما كان) +
+    `buildResult()` يوحّد رسائل الأخطاء العربية بين مسار curl والوهم.
+  - **3b — الجدولة:** `PublishScheduledArticleJob` بمُنشئ `?callable
+    $publisherFactory` + `makePublisher(platform)`؛ فشل النشر الفعلي →
+    `publish_failed` + `error_message` + Notification؛ فشل ما قبل التنفيذ →
+    `schedule_failed`؛ النجاح → `published` + `published_at` + `published_url` +
+    `wp_post_id` + تحرير `scheduled_job_id`.
+  - **3c — الـ controller:** `AIController::publishArticle` يضبط
+    `status='publish_failed'` + `error_message` + Notification + 502.
+  - **3d — migration:** `2026_08_31_000003_fix_ai_articles_publish_status.sql`
+    (idempotent) يعيد `published` ويضيف `publish_failed` للـ enum؛ مسجّل في
+    `applyTestMigrations`.
+- **التحقق:** `tests/Integration/PublishingModuleIntegrationTest.php` جديد
+  (20 اختبار/138 assertion عبر `FakePublishTransport` — صفر شبكة/AI):
+  testConnection/أخطاء/فشل شبكة، createPost/updatePost (URL + status +
+  أخطاء 500 + رد غير JSON)، CustomApi (هيدرز Auth/Secret + is_test/source +
+  url)، job end-to-end عبر publisherFactory (نجاح WordPress/CustomApi، فشل
+  publish_failed، لا اتصال schedule_failed، مقال غير scheduled noop)، انحراف
+  enum. **854/17157 OK** (إعادة تشغيل واحدة لتذبذب `SeoAutoSeo` السابق للوجود)؛
+  lint (806 ملف) + phpstan بلا أخطاء.
+- **Commit:** منفصل + push (تفاصيل في CHANGELOG.md).
+
 ## الموديول 2 (مكتمل 2026-08-31): White-Label — دعوات العملاء + لوحة تحكم الوكيل
 - **هدف:** تدفّق دعوة العميل بالرمز/الرابط (العميل الحقيقي هو من يقبل → يتحول
   لعميل في `agency_clients`) + لوحة تحكم الوكيل، كلها داخل عزل agency_id صارم.

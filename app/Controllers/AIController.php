@@ -3290,6 +3290,11 @@ JS;
                 $connection->setAttribute('last_error', $result['error'] ?? 'Unknown error');
                 $connection->save();
 
+                // حالة نشر واضحة + سبب الفشل (بدل ما يفضل completed ويكتشف العميل الفشل من الـ error بس)
+                $article->setAttribute('status', 'publish_failed');
+                $article->setAttribute('error_message', $result['error'] ?? 'خطأ غير معروف أثناء النشر');
+                $article->save();
+
                 if (class_exists('Notification')) {
                     Notification::notify(
                         (int) $this->getUserId(),

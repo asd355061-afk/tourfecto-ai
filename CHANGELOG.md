@@ -1,4 +1,55 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## الموديول 3 — Publishing: اختبار تغطية WordPress/Custom API + حالة publish_failed — 2026-08-31
+
+إضافات فوق بنية النشر القائمة (`WordPressPublisher`/`CustomApiPublisher`/
+`PublishScheduledArticleJob`/`AIController`) دون تغيير أي سلوك إنتاجي: حقن
+transport قابل للاختبار، تمييز فشل النشر الفعلي عن فشل الجدولة، وإصلاح
+انحراف الـ enum الذي أسقط `published`/لم يضف `publish_failed`.
+
+### حقن Transport (نمط `?callable $transport`)
+- `app/Services/Publishing/WordPressPublisher.php`: مُنشئ `new
+  WordPressPublisher(?callable $transport = null)` + `buildResult()` — عند عدم
+  وجود transport يتصرف تمامًا كما كان (curl + `curl_errno`). الاختبارات تحقن
+  Fake يستقبل `['method','url','headers','body']` ويرد `['body','http_code','error']`
+  (كل رسائل الأخطاء العربية عبر `buildResult` متطابقة في مسارات curl والوهم).
+- `app/Services/Publishing/CustomApiPublisher.php`: نفس النمط لـ `publish()`.
+
+### `PublishScheduledArticleJob` (تحسينات الجدولة)
+- مُنشئ `?callable $publisherFactory` + `makePublisher(platform)` — الإنتاج
+  بلا factory يبني `new WordPressPublisher()`/`new CustomApiPublisher()` كما كان.
+- فشل **طلب النشر الفعلي** → `status='publish_failed'` + `error_message` +
+  Notification؛ فشل **قبل التنفيذ** (لا اتصال/موقع/مقال غير scheduled) →
+  `schedule_failed` (كالمعتاد). `published` الناجح يثبّت `published_at` +
+  `published_url` + `wp_post_id` ويحرّر `scheduled_job_id`.
+
+### `AIController::publishArticle`
+- عند فشل النشر: يضبط `ai_articles.status='publish_failed'` + `error_message` +
+  Notification + استجابة HTTP 502 (بالإضافة إلى `last_error`).
+
+### Migration إصلاح الـ enum
+- `database/migrations/2026_08_31_000003_fix_ai_articles_publish_status.sql`
+  (idempotent `MODIFY COLUMN`): `status ENUM('generating','completed','failed',
+  'scheduled','schedule_failed','published','publish_failed') NOT NULL DEFAULT
+  'generating'` — يعيد `published` (الساقط في `2026_08_07_000041`) ويضيف
+  `publish_failed`. مسجّل في `applyTestMigrations` في `tests/bootstrap.php`.
+
+### الاختبارات
+- `tests/Integration/PublishingModuleIntegrationTest.php` (جديد): 20 اختبار/
+  138 assertion — `FakePublishTransport` (صفر شبكة): testConnection
+  ناجح/401/فشل شبكة، createPost (POST الصحيح + status publish/draft + فحص
+  id/link) + خطأ 500 + رد غير JSON، updatePost (المسار `wp/v2/posts/{id}`),
+  CustomApi (هيدرز Authorization + X-Tourfecto-Secret + is_test/source +
+  استخراج url/published_url + أخطاء HTTP/شبكة)، job end-to-end عبر
+  publisherFactory (WordPress/CustomApi نجاح → published + published_url +
+  wp_post_id؛ فشل → publish_failed + error_message؛ لا اتصال →
+  schedule_failed؛ مقال غير scheduled → noop)، وتحقق انحراف enum
+  published/publish_failed.
+- **854/17157 OK** (بعد إعادة تشغيل واحدة لتذبذب `SeoAutoSeo` السابق للوجود)؛
+  lint (806 ملف) + phpstan بلا أخطاء.
+
+### Commit
+- منفصل + push (هذا الموديول).
+
 ## الموديول 2 — White-Label: دعوات العملاء + لوحة تحكم الوكيل — 2026-08-31
 
 إضافات جديدة بالكامل فوق البنية القائمة (AgencyService/AgencyController):

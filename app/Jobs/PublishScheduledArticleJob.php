@@ -13,6 +13,23 @@
 
 class PublishScheduledArticleJob implements QueueJobInterface
 {
+    /** @var callable|null حقنة اختيارية للاختبارات: ($platform) => Publisher */
+    private $publisherFactory;
+
+    public function __construct(?callable $publisherFactory = null)
+    {
+        $this->publisherFactory = $publisherFactory;
+    }
+
+    /** إنشاء الـ publisher المناسب للمنصة (أو حقنة الاختبارات لو موجودة) */
+    private function makePublisher(string $platform)
+    {
+        if ($this->publisherFactory !== null) {
+            return call_user_func($this->publisherFactory, $platform);
+        }
+        return $platform === 'wordpress' ? new WordPressPublisher() : new CustomApiPublisher();
+    }
+
     public function handle(array $payload): void
     {
         $articleId = (int) ($payload['article_id'] ?? 0);
@@ -62,7 +79,7 @@ class PublishScheduledArticleJob implements QueueJobInterface
                 $html = ContentFormatter::markdownToHtml($markdown);
                 $publishStatus = $draft ? 'draft' : 'publish';
 
-                $publisher = new WordPressPublisher();
+                $publisher = $this->makePublisher('wordpress');
                 $existingPostId = $article->getAttribute('wp_post_id');
 
                 $result = $existingPostId
@@ -74,7 +91,7 @@ class PublishScheduledArticleJob implements QueueJobInterface
                 $authToken = $connection->getAttribute('access_token') ? $encryption->decrypt($connection->getAttribute('access_token')) : '';
                 $endpointUrl = (string) $connection->getAttribute('external_location_id');
 
-                $publisher = new CustomApiPublisher();
+                $publisher = $this->makePublisher('custom_api');
                 $result = $publisher->publish($endpointUrl, $authToken, [
                     'article_id' => (int) $article->getAttribute('id'),
                     'title' => $title,
@@ -91,7 +108,7 @@ class PublishScheduledArticleJob implements QueueJobInterface
             if (!$result['success']) {
                 $connection->setAttribute('last_error', $result['error'] ?? 'Unknown error');
                 $connection->save();
-                $this->markFailed($article, $result['error'] ?? 'خطأ غير معروف أثناء النشر المجدول');
+                $this->markFailed($article, $result['error'] ?? 'خطأ غير معروف أثناء النشر المجدول', 'publish_failed');
                 return;
             }
 
@@ -136,9 +153,13 @@ class PublishScheduledArticleJob implements QueueJobInterface
         }
     }
 
-    private function markFailed(AIArticle $article, string $reason): void
+    /**
+     * @param string $status 'schedule_failed' للفشل قبل التنفيذ (اتصال/موقع مفقود)،
+     *                       'publish_failed' للفشل أثناء طلب النشر الفعلي.
+     */
+    private function markFailed(AIArticle $article, string $reason, string $status = 'schedule_failed'): void
     {
-        $article->setAttribute('status', 'schedule_failed');
+        $article->setAttribute('status', $status);
         $article->setAttribute('error_message', $reason);
         $article->save();
 
