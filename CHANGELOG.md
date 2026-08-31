@@ -1,4 +1,61 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## إكمال وحدة Backlink/Outreach Backend: مراقبة الروابط + متابعات + تقرير أداء — 2026-08-31
+
+البنية الخلفية الكاملة لموديول الـ Outreach (تكملة Phase 10): مراقبة أسبوعية للباك لينكس
+التي تم الحصول عليها فعليًا، توليد مسودات متابعة (مسودات فقط — ممنوع الإرسال التلقائي)،
+وتقرير أداء شامل للـ pipeline. كلها إضافات جديدة لا تلمس أي موديول قائم.
+
+### جدول جديد `monitored_backlinks`
+- `database/migrations/2026_08_31_000001_create_monitored_backlinks.sql` (idempotent):
+  `user_id, website_id, prospect_id (NULL), link_url, domain,
+  status ENUM('pending','live','lost'), last_checked_at, last_seen_live_at,
+  check_count, last_http_status, last_error` + فهارس على user/website/status/prospect.
+- `app/Models/MonitoredBacklink.php` — نموذج بسيط بنمط المشروع.
+
+### `app/Services/Outreach/BacklinkMonitorService.php` (جديد)
+- `registerAcquiredLink()`: تسجيل رابط بعد الحصول عليه فعليًا — idempotent
+  (`prospect_id + link_url`)، يستخرج الدومين عبر `parse_url` إن لم يُمرَّر.
+- `checkLink()`: فحص رابط واحد عبر HTTP GET آمن (SSRF-protected عبر
+  `WebsiteSnapshotFetcher` مع التحقق لكل قفزة redirect، أو حقنة `callable` قابلة للاختبار)؛
+  live على 2xx/3xx، lost على 4xx/5xx/خطأ الشبكة.
+- `dueBacklinks()` / `monitorDue()`: الفحص الدوري الأسبوعي للروابط المتأخرة
+  (`last_checked_at IS NULL` أو مرّ 7 أيام).
+- `summaryForWebsite()`: إجمالي pending/live/lost لموقع معيّن.
+
+### `app/Services/Outreach/OutreachFollowUpDraftService.php` (جديد)
+- `generateDueFollowUps()`: يبحث عن المرشّحين النشطين
+  (`contacted/replied/negotiating`) الذين مرّ 7 أيام على آخر رسالة مُرسلة،
+  ويولّد المسودة التالية (`sequence` تالي، أقصى 3 متابعات لكل مرشّح).
+  Idempotent (لا يكرر نفس الـ sequence). **مسودات فقط — لا إرسال تلقائي أبدًا**؛
+  أي إرسال يظل يتطلب `approved` من العميل.
+- إشعار واحد لكل مستخدم (`Notification::notify`) عند توليد مسودات جديدة للمراجعة.
+
+### `app/Services/Outreach/OutreachPerformanceService.php` (جديد)
+- `report()`: قمع المراحل (funnel لكل الحالات + total)، معدلات التحويل بين المراحل
+  (contact/reply/negotiation/acquisition/overall)، حالة الباك لينكس الحية/المفقودة،
+  ومتوسط الوقت (أيام) للوصول إلى `link_acquired`.
+
+### `app/Controllers/OutreachController.php` + `app/routes/api.php`
+- `updateProspectStatus()`: عند `link_acquired` مع `link_url` يسجّل الرابط تلقائيًا في
+  `monitored_backlinks` (فشل التسجيل لا يكسر تحديث الحالة).
+- 3 مسارات جديدة (كلها عبر `AuthMiddleware`):
+  `GET /api/outreach/backlinks`, `POST /api/outreach/backlinks/{id}/check`,
+  `GET /api/outreach/performance`.
+
+### Crones
+- `cron/monitor_backlinks.php` (أسبوعي): `monitorDue(200)` + إحصائيات + catch Throwable.
+- `cron/generate_outreach_followups.php` (يومي): `generateDueFollowUps(50)` + إحصائيات
+  + catch Throwable. كلاهما `class_exists` guard + تسجيل الكلاسات الجديدة في
+  `cron/bootstrap.php` و `public_html/index.php`.
+
+### الاختبارات
+- `tests/Integration/OutreachBacklinkMonitoringIntegrationTest.php` (جديد، 18 اختبارًا /
+  112 assertion): فحص الرابط (live/lost)، الـ idempotency للتسجيل والمتابعات، الاستحقاق
+  الأسبوعي، ملخص الموقع، ربط `link_acquired` عبر الـ controller، توليد المسودات بعد 7 أيام
+  فقط (لا للمرسلين حديثًا ولا للـ declined)، حد 3 متابعات، وتقرير الأداء (قمع/تحويل/باك
+  لينكس/متوسط الوقت). الاختبارات تحقن `callable` وهمي — لا شبكة ولا استدعاءات AI فعلية.
+- الفحص الكامل: `OK (735 tests, 16701 assertions)` — lint و phpstan بلا أخطاء.
+
 ## ربط الحجوزات الفعلية بسجلات الإيرادات (`rev_revenue_records`) — 2026-08-31
 
 `BookingEngine` يسجّل الآن الإيرادات المحققة/المصححة من الحجوزات داخل نفس المعاملة

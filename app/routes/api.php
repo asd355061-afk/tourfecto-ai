@@ -1354,6 +1354,9 @@ $router->get('/api/outreach/emails', 'OutreachController', 'listEmails', ['AuthM
 $router->post('/api/outreach/emails/{id}/edit', 'OutreachController', 'editEmail', ['AuthMiddleware']);
 $router->post('/api/outreach/emails/{id}/approve', 'OutreachController', 'approveEmail', ['AuthMiddleware']);
 $router->post('/api/outreach/emails/{id}/send', 'OutreachController', 'sendEmail', ['AuthMiddleware']);
+$router->get('/api/outreach/backlinks', 'OutreachController', 'listBacklinks', ['AuthMiddleware']);
+$router->post('/api/outreach/backlinks/{id}/check', 'OutreachController', 'checkBacklink', ['AuthMiddleware']);
+$router->get('/api/outreach/performance', 'OutreachController', 'performanceReport', ['AuthMiddleware']);
 
 // ============================================
 // AI Chat & Customer Communication Platform (2026-08-08)

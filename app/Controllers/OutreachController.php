@@ -156,7 +156,99 @@ class OutreachController extends Controller
         }
         $prospect->save();
 
+        // Item 2a: عند الحصول على الرابط فعليًا، نسجّله في مراقبة
+        // الباك لينكس (idempotent - لن يتكرر لنفس المرشّح). فشل التسجيل
+        // لا يكسر تحديث الحالة - يتحمّل بهدوء.
+        if ($status === 'link_acquired' && $prospect->getAttribute('link_url')) {
+            try {
+                (new BacklinkMonitorService())->registerAcquiredLink(
+                    (int) $this->user['id'],
+                    (int) $prospect->getAttribute('website_id'),
+                    (int) $prospect->getAttribute('id'),
+                    (string) $prospect->getAttribute('link_url'),
+                    (string) $prospect->getAttribute('domain')
+                );
+            } catch (Throwable $e) {
+                if (class_exists('Logger')) {
+                    Logger::warning('Outreach: failed to register acquired backlink', ['prospect_id' => (int) $prospect->getAttribute('id'), 'error' => $e->getMessage()]);
+                }
+            }
+        }
+
         return $this->success(['prospect' => $prospect->toArray()], 'تم تحديث الحالة');
+    }
+
+    /** GET /api/outreach/backlinks?website_id=X - حالة الباك لينكس المسجّلة للمراقبة */
+    public function listBacklinks(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        $websiteId = (int) $this->get('website_id');
+        if (!$websiteId) {
+            return $this->error('website_id مطلوب', 422);
+        }
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('الموقع غير موجود', 404);
+        }
+
+        $backlinks = $this->db->query(
+            'SELECT b.*, p.domain AS prospect_domain
+             FROM monitored_backlinks b
+             LEFT JOIN outreach_prospects p ON p.id = b.prospect_id
+             WHERE b.user_id = ? AND b.website_id = ?
+             ORDER BY b.created_at DESC
+             LIMIT 200',
+            [(int) $this->user['id'], $websiteId]
+        );
+
+        $summary = (new BacklinkMonitorService())->summaryForWebsite((int) $this->user['id'], $websiteId);
+        return $this->success(['backlinks' => $backlinks, 'summary' => $summary]);
+    }
+
+    /** POST /api/outreach/backlinks/{id}/check - فحص رابط مسجّل فورًا */
+    public function checkBacklink(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        $backlinkId = (int) ($params['id'] ?? 0);
+        if ($backlinkId <= 0) {
+            return $this->error('بيانات غير صالحة', 422);
+        }
+
+        $backlink = (new MonitoredBacklink())->find($backlinkId);
+        if (!$backlink || (int) $backlink->getAttribute('user_id') !== (int) $this->user['id']) {
+            return $this->error('الرابط غير موجود', 404);
+        }
+
+        $result = (new BacklinkMonitorService())->checkLink($backlinkId);
+        if (!$result['success']) {
+            return $this->error($result['error'] ?? 'تعذر الفحص', 502);
+        }
+
+        return $this->success(['backlink' => $result['backlink']], 'تم الفحص - الحالة: ' . $result['status']);
+    }
+
+    /** GET /api/outreach/performance?website_id=X - تقرير أداء الـ Pipeline (Item 2c) */
+    public function performanceReport(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        $websiteId = (int) $this->get('website_id');
+        if (!$websiteId) {
+            return $this->error('website_id مطلوب', 422);
+        }
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('الموقع غير موجود', 404);
+        }
+
+        $report = (new OutreachPerformanceService())->report((int) $this->user['id'], $websiteId);
+        return $this->success(['report' => $report]);
     }
 
     /** POST /api/outreach/emails/generate  { prospect_id, sequence_number? } */

@@ -256,6 +256,18 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Services/EmailMarketing/TransactionalEmailService.php',
     APP_PATH . '/Services/EmailMarketing/AbTestService.php',
     APP_PATH . '/Services/Mailer.php',
+    // Item 2 (2026-08-31): Backlink monitoring + Outreach follow-up drafts +
+    // Outreach performance. الكلاسات دي مش في classmap القديم على السيرفر،
+    // و cron/monitor_backlinks.php و cron/generate_outreach_followups.php
+    // محتاجينها في سياق الـ Cron.
+    APP_PATH . '/Models/MonitoredBacklink.php',
+    APP_PATH . '/Models/OutreachProspect.php',
+    APP_PATH . '/Models/OutreachEmail.php',
+    APP_PATH . '/Services/Outreach/OutreachEmailGenerator.php',
+    APP_PATH . '/Services/Outreach/BacklinkMonitorService.php',
+    APP_PATH . '/Services/Outreach/OutreachFollowUpDraftService.php',
+    APP_PATH . '/Services/Outreach/OutreachPerformanceService.php',
+    APP_PATH . '/Models/Notification.php',
 ];
 foreach ($optionalJobDependencyFiles as $depFile) {
     if (file_exists($depFile)) {

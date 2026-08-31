@@ -1,5 +1,34 @@
 # PROGRESS — الخطوة 4: Ads (5) + CRM (1) + AI Chat (2)
 
+## البند 2 (مكتمل 2026-08-31): إكمال وحدة Backlink/Outreach Backend
+- **هدف:** البنية الخلفية الكاملة لموديول الـ Outreach بعد الحصول على الباك لينكس:
+  مراقبة أسبوعية للحالة، متابعات (مسودات فقط)، وتقرير أداء للـ pipeline.
+- **منفّذ (إضافات جديدة — بلا لمس أي موديول قائم):**
+  - **2a — المراقبة:** جدول `monitored_backlinks` (migration idempotent)
+    + `MonitoredBacklink` + `BacklinkMonitorService`
+    (`registerAcquiredLink` idempotent / `checkLink` live على 2xx-3xx و lost على
+    4xx/5xx/خطأ / `monitorDue` أسبوعي / `summaryForWebsite`). فحص HTTP آمن
+    SSRF-protected عبر `WebsiteSnapshotFetcher`، مع حقنة `callable` قابلة للاختبار.
+  - **2b — المتابعات:** `OutreachFollowUpDraftService::generateDueFollowUps()`
+    — مرشّحون نشطون مرّ 7 أيام على آخر رسالة مُرسلة → المسودة التالية
+    (أقصى 3 متابعات، idempotent، **مسودات فقط — ممنوع الإرسال التلقائي**)
+    + إشعار `Notification` واحد لكل مستخدم للمراجعة.
+  - **2c — التقرير:** `OutreachPerformanceService::report()` — قمع المراحل +
+    معدلات التحويل + حالة الباك لينكس + متوسط الوقت للوصول للرابط (أيام).
+  - **الربط:** `OutreachController::updateProspectStatus` يسجّل الرابط تلقائيًا عند
+    `link_acquired` + `link_url` (فشل هادئ لا يكسر تحديث الحالة)؛ 3 مسارات جديدة
+    عبر `AuthMiddleware`: `GET /api/outreach/backlinks`,
+    `POST /api/outreach/backlinks/{id}/check`, `GET /api/outreach/performance`.
+  - **Crones:** `cron/monitor_backlinks.php` (أسبوعي) + `cron/generate_outreach_followups.php`
+    (يومي) — `class_exists` guard + إحصائيات STDOUT + catch Throwable؛ الكلاسات
+    الجديدة مسجّلة في `cron/bootstrap.php` و `public_html/index.php` و
+    `tests/bootstrap.php` (قائمة `applyTestMigrations`).
+- **التحقق:** `tests/Integration/OutreachBacklinkMonitoringIntegrationTest.php` جديد
+  (18 اختبار/112 assertion: فحص live/lost، idempotency للتسجيل والمتابعات، الاستحقاق
+  الأسبوعي، ملخص الموقع، ربط الـ controller، مسودات بعد 7 أيام فقط، حد 3 متابعات،
+  تقرير الأداء — بحقنة وهمية بلا شبكة/AI)؛ **735/16701 OK**؛ lint + phpstan بلا أخطاء.
+- **Commit:** منفصل + push (تفاصيل في CHANGELOG.md).
+
 ## البند 1 (مكتمل 2026-08-31): ربط الحجوزات الفعلية بسجلات الإيرادات
 - **هدف:** تدفّق الحجوزات الفعلية إلى `rev_revenue_records` بدون المساس بمنطق
   Stripe/CRM/العمولة/الكاش القائم.
