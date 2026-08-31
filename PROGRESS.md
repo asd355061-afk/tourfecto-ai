@@ -1,5 +1,30 @@
 # PROGRESS — الخطوة 4: Ads (5) + CRM (1) + AI Chat (2)
 
+## الموديول 5 (مكتمل 2026-08-31): Executive Suite — تغطية تكامل كاملة للوحات الإدارة
+- **هدف:** تغطية الموديولات التنفيذية الثلاثة القائمة (`ExecutiveDashboardService`/
+  `CeoAdvisorService`/`ActionCenterService`+`ActionCenterExecutionService`+
+  `ActionCenterExecutor`) بمصادر بيانات حقيقية وصفر شبكة/AI حقيقية.
+- **منفّذ (تغطية فقط — لم يتغير أي كود إنتاجي):**
+  - **5a — ExecutiveDashboard:** الست درجات من بيانات حقيقية (wo_audits/
+    competitors/reviews/ai_articles/tracked_keywords) مع null للمصادر الفارغة +
+    Top Opportunities/Problems + RecentChanges (يستبعد rolled_back) + لقطة
+    المنافسين (حد 5).
+  - **5b — CeoAdvisor:** `gatherAccountSnapshot` يجمع كل المصادر فعلًا،
+    `ask()` عبر `FakeCeoAi` (صفر شبكة) + رفض سؤال فارغ/بلا مواقع + فشل AI.
+  - **5c — Action Center:** تجميع 8 مصادر موحّدة بترتيب الأولوية + فلتر
+    الموقع؛ `getNextBestActions` للمصادر القابلة للتنفيذ فقط؛ `ActionCenterExecutor`
+    (taskCreator/notifier وهميين + action_executions حقيقي + dedup + dry_run +
+    وسم ci_insights actioned + history).
+- **التحقق:** `tests/Integration/ExecutiveSuiteModuleIntegrationTest.php` جديد
+  (46 اختبار/202 assertion؛ مستخدم معزول 999800، موقعان 999850/999851).
+  **939/17501 OK** من أول تشغيل؛ lint (808 ملف) + phpstan بلا أخطاء.
+- **ملاحظات:** دروس من البيانات الحقيقية — `` `trigger` `` عمود محجوز + enum
+  manual_click/audit_auto_pilot؛ `reviews.source_platform` enum
+  (google_business لا google)؛ due_date في `planOne` نسبية لـ NOW؛ action_key
+  يلحق period عند وجوده؛ وسم ci_insights يتطلب affected_area_id (كما يمرّره
+  الإنتاج عبر mapItemToAction).
+- **Commit:** منفصل + push (تفاصيل في CHANGELOG.md).
+
 ## الموديول 4 (مكتمل 2026-08-31): Creative Studio — حقن عملاء التوليد + تغطية كاملة
 - **هدف:** جعل موديول الاستوديو الإبداعي (`MediaGenerationService`/
   `VideoScriptService`/`GenerateMediaJob`/`GenerateVideoJob`) قابلًا للاختبار

@@ -1,4 +1,60 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## الموديول 5 — Executive Suite: تغطية تكامل كاملة للوحات الإدارة التنفيذية — 2026-08-31
+
+اختبارات تكامل شاملة لموديولات الإدارة التنفيذية الثلاثة القائمة
+(`ExecutiveDashboardService`/`CeoAdvisorService`/`ActionCenterService` +
+`ActionCenterExecutionService` + `ActionCenterExecutor`) بمصادر بيانات حقيقية
+في `tourfecto_test`، بصفر شبكة/AI حقيقية (محرك CEO Advisor وهمي يرث ردًا
+جاهزًا). **لم يتغير أي كود إنتاجي** — موديول تغطية بالكامل.
+
+### التغطية
+- `tests/Integration/ExecutiveSuiteModuleIntegrationTest.php` (جديد): 46
+  اختبار/202 assertion. معرّفات معزولة: المستخدم 999800، الموقعان
+  999850/999851 (تجنّب تصادم مع 999500 المحجوز لـ OTA/Booking).
+- **ExecutiveDashboardService:**
+  - `getScores` من بيانات حقيقية: wo_audits (seo)، AVG competitors.my_score
+    (competitor)، reviews avg_rating + نسبة الإيجابية (reputation)،
+    ai_articles + FAQs (content)، tracked_keywords + target_page (visibility) —
+    مع `null` لكل مصدر فاضي و overall من المتاح فقط؛ رفض enum
+    `reviews.source_platform` خارج القيم المسموحة (google_business بدل google).
+  - `getTopOpportunities` (دمج فرص النمو + الكلمات المفتاحية، ترتيب high أولًا)
+    و `getTopProblems` (أخطر findings التدقيق + المخاطر المفتوحة بترتيب
+    severity) و `getRecentChanges` (يستبعد rolled_back؛ `` `trigger` `` عمود
+    محجوز → backticks + قيم enum manual_click/audit_auto_pilot) و
+    `getCompetitorSnapshot` (آخر 5 فقط).
+- **CeoAdvisorService:** `gatherAccountSnapshot` يجمع فعلًا websites/wo_audits/
+  competitors/tracked_keywords/outreach_pipeline/api_usage_logs/ملاحظات/مخاطر/
+  فرص؛ `ask()` عبر `FakeCeoAi` (كائن يرد `['success','data','provider']` — صفر
+  شبكة) يبني prompt فيه محتوى اللقطة، ويرفض سؤالًا فارغًا/مستخدمًا بلا مواقع،
+  ويسلّط فشل الذكاء الاصطناعي.
+- **ActionCenterService:** `getActionItems` يجمع 8 مصادر
+  (website_optimizer/outreach×2/manual/ceo_advisor×2/competitor/marketing) بترتيب
+  critical→high→...، وفلتر `website_id` للأصناف المرتبطة بموقع.
+- **ActionCenterExecutionService:** `getNextBestActions` يمرّر فقط المصادر
+  القابلة للتنفيذ (competitor/ceo_advisor×2/marketing = 4) ويستبعد
+  website_optimizer/outreach، مع source_category/affected_area/period.
+- **ActionCenterExecutor:** `planOne` (action_key = source_type:category:area
+  +period، due_date نسبية لـ NOW: +1/+3/+7 يوم، ⚡ بادئة المهمة، notify=high)؛
+  `executeActions` (taskCreator/notifier وهميين + `action_executions` حقيقي +
+  dedup + dry_run يكتب لا شيء)؛ وسم `ci_insights.status='actioned'` عبر
+  `affected_area_id`؛ `history`.
+
+### ملاحظات مستخلصة من البيانات الحقيقية
+- `auto_pilot_change_log.trigger` عمود MySQL محجوز (يحتاج backticks) + enum
+  `('manual_click','audit_auto_pilot')` — الاختبار يطابق القيم الفعلية.
+- `reviews.source_platform` enum بـ `('tripadvisor','google_business',...)`
+  يرفض `'google'` (truncation) — القيم الفعلية إلزامية.
+- `ActionExecutor::planOne` يحسب `due_date` من NOW لا من created_at، و`action_key`
+  يلحق `period` فقط عند وجوده — الاختبار يعكس ذلك.
+- وسم ci_insights actioned يتطلب تمرير `affected_area_id` (كما تفعل
+  `mapItemToAction` في الإنتاج) — الاختبار يقلّد التدفق الحقيقي.
+
+### التحقق
+- **939/17501 OK** من أول تشغيل؛ lint (808 ملف) + phpstan بلا أخطاء.
+
+### Commit
+- منفصل + push (هذا الموديول).
+
 ## الموديول 4 — Creative Studio: حقن عملاء التوليد + تغطية كاملة — 2026-08-31
 
 إضافات فوق بنية الاستوديو الإبداعي القائمة (`MediaGenerationService`/
