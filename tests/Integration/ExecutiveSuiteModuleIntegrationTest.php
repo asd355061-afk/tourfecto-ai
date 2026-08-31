@@ -370,6 +370,11 @@ final class ExecutiveSuiteModuleIntegrationTest extends TestCase
 
     public function testAskRequiresWebsites(): void
     {
+        // Defensive cleanup: 999801 لازم مايكونش ليه مواقع - أي صف متبقّي من
+        // اختبار سابق في نفس الجلسة (ترتيب عشوائي) ممكن يخلي السيناريو ده
+        // فاشل. بنمسحه قبل التنفيذ بدل الاعتماد على حالة قاعدة مشتركة.
+        self::$pdo->exec("DELETE FROM websites WHERE user_id = 999801");
+
         $fake = new FakeCeoAi(['success' => true, 'data' => 'x']);
         $res = (new CeoAdvisorService($fake))->ask($this->dbInstance(), 999801, 'سؤال');
         // مستخدم 999801 مالهوش مواقع

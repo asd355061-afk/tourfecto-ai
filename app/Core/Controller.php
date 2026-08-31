@@ -143,6 +143,64 @@ abstract class Controller
     }
 
     /**
+     * حارس معدل الطلبات (Rate Limit Guard) - طبقة دقيقة فوق RateLimiter
+     * الموجود. يعيد null لو الطلب مسموح (أو لو فشل الفحص لأي سبب -
+     * fail-open عشان الحماية مش تعطّل الاستخدام العادي)، أو مصفوفة خطأ 429
+     * بالعربي لو تجاوز الحد.
+     *
+     * النطاقات (Tiers):
+     *   - 'user': بمعرّف المستخدم الحالي (user:{id}) - للحدود الصارمة لكل
+     *     مستخدم على نقط النهايات المكلفة (AI). لو مفيش مستخدم موثّق
+     *     نرجّع null ونعتمد على الطبقة العامة (middleware) بالـ IP.
+     *   - 'ip': بمعرّف عنوان IP - للحدود المبنية على العنوان (login/auth).
+     *
+     * كل نقط النهايات اللي بتستخدم نفس الـ scope لنفس المستخدم/الـ IP
+     * بتشارك عداد واحد - يعني حد AI شامل لكل مستخدم مش حد لكل نقطة.
+     *
+     * @param string $tier 'user' أو 'ip'
+     * @param string $scope نوع الحصة (ai, auth_ip, ...) - يحدد مفتاح الكاش
+     * @param int $max الحد الأقصى للطلبات خلال النافذة
+     * @param int $window نافذة الوقت بالثواني
+     * @return array|null مصفوفة خطأ 429 لو تجاوز، أو null لو مسموح
+     */
+    protected function rateLimitGuard(string $tier, string $scope, int $max, int $window = 60): ?array
+    {
+        try {
+            $limiter = new RateLimiter();
+
+            if ($tier === 'user') {
+                $userId = (int) ($this->user['id'] ?? 0);
+                if ($userId <= 0) {
+                    return null;
+                }
+                $identifier = 'user:' . $userId;
+            } elseif ($tier === 'ip') {
+                $identifier = function_exists('get_client_ip') ? get_client_ip() : ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
+            } else {
+                return null;
+            }
+
+            $result = $limiter->checkWithDetails($identifier, $scope, $max, $window);
+
+            if (!$result['allowed']) {
+                return $this->error(
+                    'طلبات كتير أوي - من فضلك انتظر لحظة وحاول تاني',
+                    429,
+                    [
+                        'retry_after' => (int) ($result['reset_in'] ?? $window),
+                        'limit' => $max,
+                    ]
+                );
+            }
+        } catch (\Throwable $e) {
+            // لو فشل الفحص لأي سبب (DB/كاش)، منمنعش الاستخدام العادي بسببه
+            Logger::error('Rate Limit Guard Error', ['tier' => $tier, 'scope' => $scope, 'error' => $e->getMessage()]);
+        }
+
+        return null;
+    }
+
+    /**
      * الحصول على قيمة من الإدخال
      * @param string $key
      * @param mixed $default

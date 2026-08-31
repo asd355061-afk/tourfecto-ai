@@ -3012,6 +3012,10 @@ JS;
             return $this->error('Unauthorized', 401);
         }
 
+        if ($rateError = $this->rateLimitGuard('user', 'ai', 20, 60)) {
+            return $rateError;
+        }
+
         $messageId = (int) $this->get('message_id', 0);
         if (!$messageId) {
             return $this->error('معرف الرسالة مطلوب', 422);

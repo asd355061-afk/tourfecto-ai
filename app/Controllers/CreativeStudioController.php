@@ -414,6 +414,9 @@ JS;
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
+        if ($rateError = $this->rateLimitGuard('user', 'ai', 20, 60)) {
+            return $rateError;
+        }
         if (!$this->validate(['type' => 'required', 'prompt' => 'required'])) {
             return $this->error('بيانات ناقصة', 422);
         }
@@ -440,6 +443,9 @@ JS;
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
+        if ($rateError = $this->rateLimitGuard('user', 'ai', 20, 60)) {
+            return $rateError;
+        }
         if (!$this->validate(['prompt' => 'required'])) {
             return $this->error('الوصف مطلوب', 422);
         }
@@ -464,6 +470,9 @@ JS;
     {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
+        }
+        if ($rateError = $this->rateLimitGuard('user', 'ai', 20, 60)) {
+            return $rateError;
         }
         if (!$this->validate(['prompt' => 'required'])) {
             return $this->error('الوصف مطلوب', 422);
@@ -513,6 +522,9 @@ PROMPT;
     {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
+        }
+        if ($rateError = $this->rateLimitGuard('user', 'ai', 20, 60)) {
+            return $rateError;
         }
         if (!$this->validate(['topic' => 'required'])) {
             return $this->error('الموضوع مطلوب', 422);

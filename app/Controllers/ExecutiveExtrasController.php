@@ -102,6 +102,10 @@ class ExecutiveExtrasController extends Controller
             return $this->error('Unauthorized', 401);
         }
 
+        if ($rateError = $this->rateLimitGuard('user', 'ai', 20, 60)) {
+            return $rateError;
+        }
+
         $question = trim((string) $this->get('question', ''));
         if ($question === '') {
             return $this->error('اكتب سؤالك الأول', 422);

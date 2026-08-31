@@ -1,5 +1,31 @@
 # PROGRESS — الخطوة 4: Ads (5) + CRM (1) + AI Chat (2)
 
+## الموديول 7 (مكتمل 2026-08-31): Rate Limiting شامل — AI لكل مستخدم + Auth لكل IP
+- **هدف:** حماية معدلات شاملة لكل نقط النهايات عبر الـ `RateLimiter` الموجود
+  (مش نظام جديد): نطاق AI لكل مستخدم (تكلفة)، نطاق Auth لكل IP (Brute Force)،
+  والطبقة العامة (middleware) برسائل 429 عربي.
+- **منفّذ (إضافات — بلا لمس أي منطق شغال):**
+  - **7a — البنية:** `RateLimiter::resetWindow(identifier,type)` (مسح العدّاد +
+    إلغاء الحظر) + `Controller::rateLimitGuard(tier,scope,max,window)` يرجع
+    429 عربي مع retry_after/limit. Fail-open عند فشل الفحص.
+  - **7b — نطاق AI (20/دقيقة لكل مستخدم، عداد مشترك بين كل نقاط AI):**
+    AIController (analyze/generateArticle/analyzeCompetitor/discoverKeywords/
+    enrichKeywords) + ChatController::generateReply + CreativeStudio (requestMedia/
+    requestVideo/enhancePrompt/requestVideoScript) + MarketingAssistant::run +
+    ExecutiveExtras::askCeoAdvisor + SocialMedia::generateCaption.
+  - **7c — نطاق Auth (30/دقيقة لكل IP):** AuthController login/register/
+    forgotPassword/resetPassword/socialRedirect/socialCallback/appleCallback.
+  - **7d — الطبقة العامة:** رسالة 429 عربي في `RateLimitMiddleware` + مسارات
+    reset-password/resend-verification في خريطة الحدود + `addRateLimitHeaders`
+    أصبحت protected (للاختبار).
+- **التحقق:** `tests/Integration/RateLimitingModuleIntegrationTest.php` جديد
+  (8 اختبارات/50 assertion؛ مستخدم 999951 + عناوين 203.0.113.x) — رفض بعد
+  تجاوز الحد + التعافي بعد `resetWindow` + عداد مشترك + fail-open +
+  middleware عربي. **975/17681 OK**؛ lint (810 ملف) + phpstan بلا أخطاء.
+- **ملاحظة:** تثبيت `ExecutiveSuiteModuleIntegrationTest::testAskRequiresWebsites`
+  بتفريغ دفاعي لمواقع المستخدم 999801 (flake نادر من ترتيب عشوائي).
+- **Commit:** منفصل + push (تفاصيل في CHANGELOG.md).
+
 ## الموديول 6 (مكتمل 2026-08-31): Marketing Assistant — تغطية الأدوات الست + الحفظ
 - **هدف:** تغطية `MarketingAssistantService` (الأدوات الست + بناء البرومبت +
   حفظ `ai_assistant_interactions` + `activity_logs` + فشل AI + أداة مجهولة +

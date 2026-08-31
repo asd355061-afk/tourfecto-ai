@@ -226,6 +226,9 @@ JS;
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
+        if ($rateError = $this->rateLimitGuard('user', 'ai', 20, 60)) {
+            return $rateError;
+        }
         if (!$this->validate(['topic' => 'required'])) {
             return $this->error('الموضوع مطلوب', 422);
         }

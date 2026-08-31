@@ -65,7 +65,7 @@ class RateLimitMiddleware
             http_response_code(429);
             return [
                 'success' => false,
-                'error' => 'Too many requests. Please try again later.',
+                'error' => 'طلبات كتير أوي - من فضلك انتظر لحظة وحاول تاني',
                 'code' => 429,
                 'retry_after' => $result['reset_in'] ?? 60,
                 'limit' => $result['max'] ?? 0,
@@ -231,7 +231,7 @@ class RateLimitMiddleware
      * إضافة رؤوس المعدل
      * @param array $result
      */
-    private function addRateLimitHeaders(array $result): void
+    protected function addRateLimitHeaders(array $result): void
     {
         header('X-RateLimit-Limit: ' . ($result['max'] ?? 0));
         header('X-RateLimit-Remaining: ' . ($result['remaining'] ?? 0));
@@ -283,6 +283,8 @@ class RateLimitMiddleware
             '/api/auth/login' => ['max' => 5, 'window' => 300, 'type' => 'auth'],
             '/api/auth/register' => ['max' => 3, 'window' => 3600, 'type' => 'auth'],
             '/api/auth/forgot-password' => ['max' => 3, 'window' => 3600, 'type' => 'auth'],
+            '/api/auth/reset-password' => ['max' => 5, 'window' => 3600, 'type' => 'auth'],
+            '/api/auth/resend-verification' => ['max' => 5, 'window' => 3600, 'type' => 'auth'],
             '/api/ai/analyze' => ['max' => 20, 'window' => 3600, 'type' => 'ai'],
             '/api/chat/send' => ['max' => 50, 'window' => 60, 'type' => 'chat'],
             '/api/review/webhook' => ['max' => 10, 'window' => 60, 'type' => 'webhook']

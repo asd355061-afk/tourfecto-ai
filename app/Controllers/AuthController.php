@@ -216,6 +216,12 @@ class AuthController extends Controller
             return $csrfError;
         }
 
+        // حارس معدل الطلبات: حد تسجيل دخول صارم لكل عنوان IP (مشترك بين
+        // كل نقط نهايات المصادقة) - الحماية من محاولات الاختراق الموزّعة.
+        if ($rateError = $this->rateLimitGuard('ip', 'auth_ip', 30, 60)) {
+            return $rateError;
+        }
+
         if (!$this->validate([
             'email' => 'required|email',
             'password' => 'required',
@@ -546,6 +552,10 @@ HTML;
             return $csrfError;
         }
 
+        if ($rateError = $this->rateLimitGuard('ip', 'auth_ip', 30, 60)) {
+            return $rateError;
+        }
+
         if (!$this->validate([
             'company_name' => 'required',
             'email' => 'required|email',
@@ -660,6 +670,10 @@ HTML;
      */
     public function socialRedirect(array $params = []): array
     {
+        if ($rateError = $this->rateLimitGuard('ip', 'auth_ip', 30, 60)) {
+            return $rateError;
+        }
+
         $provider = (string) ($params['provider'] ?? '');
         if (!in_array($provider, self::SOCIAL_PROVIDERS, true)) {
             header('Location: /login?error=' . rawurlencode('منصة تسجيل دخول غير معروفة'));
@@ -704,6 +718,10 @@ HTML;
      */
     public function socialCallback(array $params = []): array
     {
+        if ($rateError = $this->rateLimitGuard('ip', 'auth_ip', 30, 60)) {
+            return $rateError;
+        }
+
         $provider = (string) ($params['provider'] ?? '');
         if (!in_array($provider, self::SOCIAL_PROVIDERS, true) || $provider === 'apple') {
             header('Location: /login?error=' . rawurlencode('منصة تسجيل دخول غير معروفة'));
@@ -753,6 +771,10 @@ HTML;
      */
     public function appleCallback(array $params = []): array
     {
+        if ($rateError = $this->rateLimitGuard('ip', 'auth_ip', 30, 60)) {
+            return $rateError;
+        }
+
         $code = (string) ($_POST['code'] ?? '');
         $state = (string) ($_POST['state'] ?? '');
 
@@ -1036,6 +1058,10 @@ HTML;
      */
     public function forgotPassword(array $params = []): array
     {
+        if ($rateError = $this->rateLimitGuard('ip', 'auth_ip', 30, 60)) {
+            return $rateError;
+        }
+
         if (!$this->validate(['email' => 'required|email'])) {
             return $this->error('بريد إلكتروني غير صحيح', 422, $this->getErrors());
         }
@@ -1128,6 +1154,10 @@ HTML;
      */
     public function resetPassword(array $params = []): array
     {
+        if ($rateError = $this->rateLimitGuard('ip', 'auth_ip', 30, 60)) {
+            return $rateError;
+        }
+
         if (!$this->validate(['token' => 'required', 'password' => 'required|min:8'])) {
             return $this->error('بيانات غير صحيحة', 422, $this->getErrors());
         }

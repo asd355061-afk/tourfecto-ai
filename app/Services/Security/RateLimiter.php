@@ -188,6 +188,28 @@ class RateLimiter
     }
 
     /**
+     * إعادة تعيين نافذة المعدل بالكامل لمعرف ونوع محددين: يمسح عدّاد
+     * الاستخدام الحالي + يلغي أي حظر نشط على نفس المعرف. تستخدمه
+     * المتحكمات بعد نجاح عملية حساسة (مثل تسجيل الدخول) وفي الاختبارات
+     * لمحاكاة مرور النافذة الزمنية. إضافة فقط - لا تغيّر سلوك أي مكوّن.
+     * @param string $identifier
+     * @param string $type
+     */
+    public function resetWindow(string $identifier, string $type): void
+    {
+        try {
+            $this->cache->delete($this->getKey($identifier, $type));
+            $this->unblockIdentifier($identifier);
+        } catch (Exception $e) {
+            Logger::error('Reset Rate Limit Window Error', [
+                'identifier' => $identifier,
+                'type' => $type,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
      * إلغاء حظر معرف
      * @param string $identifier
      * @return bool

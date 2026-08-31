@@ -116,6 +116,12 @@ class AIController extends Controller
                 return $this->error('يجب تسجيل الدخول أولاً', 401);
             }
 
+            // حارس معدل الطلبات: حد AI صارم لكل مستخدم (20/دقيقة مشتركة
+            // بين كل نقط نهايات الذكاء الاصطناعي).
+            if ($rateError = $this->rateLimitGuard('user', 'ai', 20, 60)) {
+                return $rateError;
+            }
+
             // ✅ التأكد من وجود معرف المستخدم
             $userId = $this->getUserId();
             if (!$userId) {
@@ -1186,6 +1192,10 @@ JS;
             return $this->error('Unauthorized', 401);
         }
 
+        if ($rateError = $this->rateLimitGuard('user', 'ai', 20, 60)) {
+            return $rateError;
+        }
+
         try {
             $competitor = (new Competitor())->find((int) ($params['id'] ?? 0));
             if (!$competitor || (int) $competitor->getAttribute('user_id') !== (int) $this->user['id']) {
@@ -1645,6 +1655,10 @@ JS;
             return $this->error('Unauthorized', 401);
         }
 
+        if ($rateError = $this->rateLimitGuard('user', 'ai', 20, 60)) {
+            return $rateError;
+        }
+
         $websiteId = (int) $this->get('website_id');
         if (!$websiteId) {
             return $this->error('اختر الموقع الأول', 422);
@@ -1903,6 +1917,10 @@ PROMPT;
     {
         if (!$this->isAuthenticated()) {
             return $this->error('يجب تسجيل الدخول أولاً', 401);
+        }
+
+        if ($rateError = $this->rateLimitGuard('user', 'ai', 20, 60)) {
+            return $rateError;
         }
 
         $websiteId = (int) $this->get('website_id');
@@ -2781,6 +2799,10 @@ JS;
     {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
+        }
+
+        if ($rateError = $this->rateLimitGuard('user', 'ai', 20, 60)) {
+            return $rateError;
         }
 
         $topic = trim((string) $this->get('topic', ''));

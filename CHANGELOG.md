@@ -1,4 +1,61 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## الموديول 7 — Rate Limiting شامل: حماية AI لكل مستخدم + Auth لكل IP + رسائل 429 عربي — 2026-08-31
+
+حماية معدلات شاملة فوق الـ `RateLimiter` الموجود (`app/Services/Security/RateLimiter.php`)
+دون بناء نظام جديد — ثلاث طبقات:
+
+1. **نطاق AI (لكل مستخدم):** كل نقط نهايات توليد الذكاء الاصطناعي بتشارك
+   عداد واحد صارم **20/دقيقة لكل user** (`rateLimitGuard('user','ai',20,60)` —
+   المعرف `user:{id}`)، فلو المستخدم استنفد حد الدقيقة على أي نقطة (تحليل،
+   مقال، كلمات مفتاحية، رد شات، استوديو إبداعي، مساعد تسويق، مستشار CEO،
+   كابشن سوشيال) يترفض الباقي بـ 429 عربي بدل حرق رصيد/تكلفة AI.
+2. **نطاق Auth (لكل IP):** نقط تسجيل الدخول/التسجيل/استعادة كلمة المرور/
+   OAuth (Google/Apple/Facebook/Microsoft) بتشارك عداد **30/دقيقة لكل عنوان**
+   (`rateLimitGuard('ip','auth_ip',30,60)`) — حماية من Brute Force الموزّع.
+3. **الطبقة العامة (middleware):** رسالة 429 اتغيرت للعربي + إضافة
+   `/api/auth/reset-password` و `/api/auth/resend-verification` للخريطة.
+
+**Fail-open:** لو فشل فحص المعدل لأي سبب، الاستخدام العادي مش بيتوقف (نفس
+سلوك `checkLoginRateLimit` الموجود). **معرّف موحّد:** كل نقط نهايات AI لنفس
+المستخدم تشارك نفس المفتاح (`ai` + `user:{id}`) — حد تكلفة شامل مش حد لكل نقطة.
+
+### التغييرات
+- `app/Services/Security/RateLimiter.php`: إضافة `resetWindow(identifier, type)`
+  (مسح العدّاد + إلغاء الحظر) — إضافة فقط بلا لمس أي منطق شغال.
+- `app/Core/Controller.php`: إضافة `rateLimitGuard(tier, scope, max, window)`
+  — حارس موحّد يرجع 429 عربي (`طلبات كتير أوي - من فضلك انتظر لحظة وحاول تاني`)
+  مع `retry_after`/`limit` في التفاصيل.
+- النطاقات المركّبة (كلها `rateLimitGuard`):
+  - **AI لكل مستخدم (20/دقيقة):** `AIController::analyze`/`generateArticle`/
+    `analyzeCompetitor`/`discoverKeywords`/`enrichKeywords`،
+    `ChatController::generateReply`، `CreativeStudioController::requestMedia`/
+    `requestVideo`/`enhancePrompt`/`requestVideoScript`،
+    `MarketingAssistantController::run`، `ExecutiveExtrasController::askCeoAdvisor`،
+    `SocialMediaController::generateCaption`.
+  - **Auth لكل IP (30/دقيقة):** `AuthController::login`/`register`/`forgotPassword`/
+    `resetPassword`/`socialRedirect`/`socialCallback`/`appleCallback`.
+- `app/Middleware/RateLimitMiddleware.php`: رسالة 429 عربي + مسارات
+  reset-password/resend-verification في خريطة الحدود + `addRateLimitHeaders`
+  أصبحت `protected` (للاختبار).
+
+### التغطية
+- `tests/Integration/RateLimitingModuleIntegrationTest.php` (جديد): 8 اختبارات/
+  50 assertion. معرّفات معزولة: مستخدم 999951، عناوين 203.0.113.x.
+  - نطاق المستخدم: 3 مسموحة ثم 429 عربي، والتعافي بعد `resetWindow`.
+  - نطاق الـ IP: نفس السلوك.
+  - عداد مشترك بين نقط AI مختلفة لنفس المستخدم.
+  - fail-open بدون مستخدم موثّق.
+  - `RateLimiter::check`/`isBlocked`/`resetWindow` مباشرة.
+  - middleware: 429 عربي + التعافي بعد إعادة الضبط.
+
+### التحقق
+- **975/17681 OK**؛ lint (810 ملف) + phpstan بلا أخطاء. تثبيت اختبار
+  `testAskRequiresWebsites` (ExecutiveSuite) بتفريغ دفاعي لمواقع المستخدم
+  999801 (كان ينهار نادرًا مع الترتيب العشوائي لصف متبقّي من اختبار سابق).
+
+### Commit
+- منفصل + push (هذا الموديول).
+
 ## الموديول 6 — Marketing Assistant: تغطية تكامل كاملة للأدوات الست + الحفظ — 2026-08-31
 
 اختبارات تكامل شاملة لموديول مساعد التسويق الذكي (`MarketingAssistantService` +
