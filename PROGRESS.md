@@ -1,5 +1,31 @@
 # PROGRESS — الخطوة 4: Ads (5) + CRM (1) + AI Chat (2)
 
+## الموديول 2 (مكتمل 2026-08-31): White-Label — دعوات العملاء + لوحة تحكم الوكيل
+- **هدف:** تدفّق دعوة العميل بالرمز/الرابط (العميل الحقيقي هو من يقبل → يتحول
+  لعميل في `agency_clients`) + لوحة تحكم الوكيل، كلها داخل عزل agency_id صارم.
+- **منفّذ (إضافات جديدة — بلا لمس أي منطق شغال):**
+  - **2a — الدعوات:** جدول `agency_invitations` (migration idempotent) +
+    `AgencyInvitation` + `AgencyService::createInvitation` (رمز فريد/idempotent) +
+    `acceptInvitation` (تحقق من الحالة/الانتهاء/تطابق البريد/حد المقاعد، يضيف
+    العميل بنسبة دعوته، ActivityLog + إشعار لصاحب الوكالة) + `revokeInvitation`/
+    `listInvitations`.
+  - **2b — لوحة الوكيل:** `agencyStats()` (عملاء/حجوزات/إيراد/عمولات/دعوات
+    معلقة/آخر العمولات) + `clientPerformance()` (أداء كل عميل تنازليًا بالإيراد).
+  - **2c — الـ API:** 5 مسارات جديدة عبر `AuthMiddleware` + `ownedAgency`
+    (404 للوكالات غير المملوكة): إنشاء/قائمة/إلغاء دعوة، قبول بالرمز (لا يُعاد
+    الرمز)، لوحة الوكيل.
+  - **تسجيل:** `AgencyInvitation` في `cron/bootstrap.php` + `public_html/index.php`
+    + `applyTestMigrations`؛ إصلاح `AgencyClient::$fillable` بنقص `commission_rate`.
+- **التحقق:** `tests/Integration/AgencyInvitationIntegrationTest.php` جديد
+  (20 اختبار/124 assertion: إنشاء/idempotency/رفض مدخلات، قبول بنسبة الدعوة،
+  رفض رمز خاطئ/منتهي/ملغي/بريد مختلف/حد مقاعد، عزل endpoints، لوحة الوكيل
+  بتجميع حجوزات وعمولات حقيقية). دورة العمولة الكاملة مغطاة في
+  `AgencyCommissionIntegrationTest` السابق. **813/17019 OK**؛ lint (805 ملف) +
+  phpstan بلا أخطاء.
+- **ملاحظة اختبارات:** إعادة ضبط `CONTENT_TYPE` في helper الاختبارات لتفادي
+  تسريب application/json من bootstrap يؤثر على `parseInput`.
+- **Commit:** منفصل + push (تفاصيل في CHANGELOG.md).
+
 ## الموديول 1 (مكتمل 2026-08-31): OTA Integration — GetYourGuide + Viator + ربط إيراد الحجوزات
 - **هدف:** جعل عملاء OTA الحاليين قابلين للاختبار بأمان (بلا مساس بسلوك الإنتاج)
   وربط إيراد الحجوزات OTA في `rev_revenue_records` بنفس قواعد

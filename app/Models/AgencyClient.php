@@ -9,6 +9,6 @@ class AgencyClient extends Model
 {
     protected $table = 'agency_clients';
     protected $fillable = [
-        'agency_id', 'client_user_id', 'status'
+        'agency_id', 'client_user_id', 'status', 'commission_rate'
     ];
 }

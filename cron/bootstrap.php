@@ -273,6 +273,8 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Services/OTA/GetYourGuideAPI.php',
     APP_PATH . '/Services/OTA/ViatorAPI.php',
     APP_PATH . '/Services/OTA/OtaBookingService.php',
+    // White-Label (Module 2, 2026-08-31): AgencyInvitation في سياق الـ Cron.
+    APP_PATH . '/Models/AgencyInvitation.php',
 ];
 foreach ($optionalJobDependencyFiles as $depFile) {
     if (file_exists($depFile)) {

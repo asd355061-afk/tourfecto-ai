@@ -292,6 +292,8 @@ function applyTestMigrations(): void
         '2026_08_29_000004_seo_multi_crawl_rank_tracking_reports.sql',
         // Item 2 (2026-08-31): Backlink monitoring table (idempotent).
         '2026_08_31_000001_create_monitored_backlinks.sql',
+        // Module 2 (2026-08-31): White-Label agency invitation table (idempotent).
+        '2026_08_31_000002_agency_invitations.sql',
         // Phase 6 keyword intelligence columns (enriched_at/search_intent/...) —
         // تستخدمها KeywordResearchService (G4). غير idempotent لكن حلقة الميجريشن
         // بتتخطى ملف فاشل بأمان، فالإضافة آمنة للتشغيل المتكرر.

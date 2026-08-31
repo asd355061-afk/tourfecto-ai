@@ -1,5 +1,47 @@
 # Tourfecto AI Chat & Customer Communication Platform
-## الموديول 1 — OTA Integration: GetYourGuide + Viator مع ربط إيراد الحجوزات — 2026-08-31
+## الموديول 2 — White-Label: دعوات العملاء + لوحة تحكم الوكيل — 2026-08-31
+
+إضافات جديدة بالكامل فوق البنية القائمة (AgencyService/AgencyController):
+تدفّق دعوة العميل بالرمز/الرابط (مربوط بـ `agency_clients` عند القبول) ولوحة
+تحكم الوكيل (`agencyStats`/`clientPerformance`) داخل عزل agency_id صارم.
+
+### جدول جديد `agency_invitations`
+- `database/migrations/2026_08_31_000002_agency_invitations.sql` (idempotent):
+  `agency_id, email, token (UNIQUE), commission_rate, invited_by, status
+  ENUM('pending','accepted','revoked'), expires_at, accepted_at` + فهارس.
+- `app/Models/AgencyInvitation.php` — نموذج بنمط المشروع.
+
+### `AgencyService` (إضافات)
+- `createInvitation()`: رمز عشوائي فريد (`random_bytes`)، idempotent لدعوة
+  pending لنفس البريد+الوكالة، تحقق من بريد/نسبة صالحة.
+- `acceptInvitation($userId, $token)`: يتحقق من صلاحية الرمز/الحالة/الانتهاء/
+  تطابق البريد مع المستخدم، يضيف العميل في `agency_clients` بنسبة دعوته، يعلّم
+  الدعوة accepted + ActivityLog + إشعار لصاحب الوكالة. Idempotent للعميل المضاف.
+- `revokeInvitation()` / `listInvitations()`.
+- `agencyStats()`: إحصائيات اللوحة (عملاء/حجوزات/إيراد/عمولات/دعوات معلقة/
+  آخر العمولات). `clientPerformance()`: أداء كل عميل (حجوزات/إيراد/عمولات
+  pending/paid بنسبته) مرتبًا تنازليًا بالإيراد — كلها في عزل agency_id.
+- `addClient()` باتت تقبل نسبة عمولة اختيارية (الافتراضي 10%).
+
+### `AgencyController` (إضافات) + مسارات
+- `POST /api/agency/{id}/invitations` (إنشاء) / `GET .../invitations` (قائمة) /
+  `DELETE .../invitations/{inviteId}` (إلغاء) / `POST /api/agency/invitations/accept`
+  (قبول بالرمز — يستجيب بدون كشف الرمز) / `GET /api/agency/{id}/dashboard`
+  (لوحة الوكيل) — كلها عبر `AuthMiddleware` و `ownedAgency` (404 للوكالات غير المملوكة).
+
+### التسجيل
+- `AgencyInvitation.php` مسجّل في `cron/bootstrap.php` + `public_html/index.php`
+  + قائمة `applyTestMigrations` في `tests/bootstrap.php`.
+- `AgencyClient::$fillable` أضيف لها `commission_rate` (كانت تُفقد عند قراءة النموذج).
+
+### الاختبارات
+- `tests/Integration/AgencyInvitationIntegrationTest.php` (جديد): 20 اختبار/124
+  assertion — إنشاء/idempotency/رفض المدخلات، قبول (يضيف العميل بنسبة الدعوة +
+  علامة accepted)، رفض (رمز خاطئ/منتهي/ملغي/بريد مختلف/حد مقاعد)، عزل endpoints
+  (404)، لوحة الوكيل (تجميع حجوزات + عمولات حقيقية + أداء لكل عميل + عزل).
+- دورة العمولة الكاملة مغطاة سابقًا في `AgencyCommissionIntegrationTest`.
+- **خط الأساس:** 813/17019 OK؛ lint (805 ملف) + phpstan بلا أخطاء.
+
 
 إضافات جديدة بالكامل (بلا لمس أي موديول قائم): عملاء GetYourGuide/Viator القابلان
 للحقن في الاختبارات، وخدمة ربط إيراد الحجز OTA في `rev_revenue_records`، مع تغطية

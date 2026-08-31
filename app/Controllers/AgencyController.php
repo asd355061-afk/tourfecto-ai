@@ -439,4 +439,154 @@ JS;
             return $this->error('تعذر توليد تقرير الأداء', 500);
         }
     }
+
+    // ------------------------------------------------------------
+    // دعوات العملاء (رمز/رابط القبول)
+    // ------------------------------------------------------------
+
+    /** POST /api/agency/{id}/invitations - إنشاء دعوة لعميل حقيقي (بريده) */
+    public function createInvitation(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (!$this->validate(['email' => 'required|email'])) {
+            return $this->error('بريد إلكتروني غير صحيح', 422);
+        }
+
+        $agency = $this->ownedAgency((int) ($params['id'] ?? 0));
+        if (!$agency) {
+            return $this->error('الوكالة غير موجودة', 404);
+        }
+
+        $clientUser = User::findByEmail((string) $this->get('email'));
+        if (!$clientUser) {
+            return $this->error('مفيش حساب مسجّل بالبريد ده في تورفكتو - العميل لازم يكون له حساب حقيقي الأول', 404);
+        }
+        if ((int) $clientUser->getAttribute('id') === (int) $this->user['id']) {
+            return $this->error('متقدرش تدعو نفسك كعميل لوكالتك', 422);
+        }
+        if (!empty((new AgencyClient())->where(['agency_id' => (int) $agency->getAttribute('id'), 'client_user_id' => (int) $clientUser->getAttribute('id')]))) {
+            return $this->error('هذا العميل مضاف بالفعل لهذه الوكالة', 422);
+        }
+
+        $rate = (float) $this->get('commission_rate', 10.00);
+
+        try {
+            $invitation = $this->service->createInvitation(
+                (int) $agency->getAttribute('id'),
+                (string) $this->get('email'),
+                $rate,
+                (int) $this->user['id']
+            );
+            return $this->success(['invitation' => $invitation->toArray()], 'تم إنشاء دعوة الانضمام', 201);
+        } catch (Exception $e) {
+            return $this->error($e->getMessage(), 422);
+        }
+    }
+
+    /** GET /api/agency/{id}/invitations - قائمة دعوات الوكالة */
+    public function listInvitations(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        $agency = $this->ownedAgency((int) ($params['id'] ?? 0));
+        if (!$agency) {
+            return $this->error('الوكالة غير موجودة', 404);
+        }
+
+        try {
+            $invitations = array_map(
+                fn ($inv) => $inv->toArray(),
+                $this->service->listInvitations((int) $agency->getAttribute('id'))
+            );
+            return $this->success(['invitations' => $invitations]);
+        } catch (Exception $e) {
+            Logger::error('listInvitations Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر جلب الدعوات', 500);
+        }
+    }
+
+    /** DELETE /api/agency/{id}/invitations/{inviteId} - إلغاء دعوة */
+    public function revokeInvitation(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        $agency = $this->ownedAgency((int) ($params['id'] ?? 0));
+        if (!$agency) {
+            return $this->error('الوكالة غير موجودة', 404);
+        }
+
+        $invitation = (new AgencyInvitation())->find((int) ($params['inviteId'] ?? 0));
+        if (!$invitation || (int) $invitation->getAttribute('agency_id') !== (int) $agency->getAttribute('id')) {
+            return $this->error('الدعوة غير موجودة في هذه الوكالة', 404);
+        }
+
+        try {
+            $this->service->revokeInvitation((int) $invitation->getAttribute('id'));
+            return $this->success([], 'تم إلغاء الدعوة');
+        } catch (Exception $e) {
+            Logger::error('revokeInvitation Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر إلغاء الدعوة', 500);
+        }
+    }
+
+    /** POST /api/agency/invitations/accept - قبول الدعوة بالرمز (أي مستخدم مسجّل دخوله) */
+    public function acceptInvitation(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        $token = trim((string) $this->get('token'));
+        if ($token === '') {
+            return $this->error('رمز الدعوة مطلوب', 422);
+        }
+
+        try {
+            $invitation = $this->service->acceptInvitation((int) $this->user['id'], $token);
+            $data = $invitation->toArray();
+            // الرمز حساس - لا يُعاد في الاستجابة بعد القبول
+            unset($data['token']);
+            return $this->success(['invitation' => $data], 'تم الانضمام للوكالة بنجاح');
+        } catch (Exception $e) {
+            return $this->error($e->getMessage(), 422);
+        }
+    }
+
+    // ------------------------------------------------------------
+    // لوحة تحكم الوكيل
+    // ------------------------------------------------------------
+
+    /** GET /api/agency/{id}/dashboard - إحصائيات اللوحة + أداء كل عميل */
+    public function agencyDashboard(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        $agency = $this->ownedAgency((int) ($params['id'] ?? 0));
+        if (!$agency) {
+            return $this->error('الوكالة غير موجودة', 404);
+        }
+        $agencyId = (int) $agency->getAttribute('id');
+
+        try {
+            $stats = $this->service->agencyStats($agencyId);
+            if (empty($stats)) {
+                return $this->error('الوكالة غير موجودة', 404);
+            }
+            return $this->success([
+                'stats' => $stats,
+                'clients_performance' => $this->service->clientPerformance($agencyId),
+            ]);
+        } catch (Exception $e) {
+            Logger::error('agencyDashboard Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر توليد لوحة الوكالة', 500);
+        }
+    }
 }

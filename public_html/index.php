@@ -176,6 +176,10 @@ $optionalNewClassFiles = [
     APP_PATH . '/Services/OTA/GetYourGuideAPI.php',
     APP_PATH . '/Services/OTA/ViatorAPI.php',
     APP_PATH . '/Services/OTA/OtaBookingService.php',
+    // White-Label (Module 2, 2026-08-31): AgencyInvitation كلاس جديد
+    // مش في classmap القديم على السيرفر - يستخدمه AgencyService/AgencyController
+    // في تدفّق دعوات العملاء.
+    APP_PATH . '/Models/AgencyInvitation.php',
     // ============================================
     // Competitor Intelligence (موديول موحّد جديد - 2026-08-09)
     // كل الكلاسات دي جديدة على المشروع ومش موجودة في classmap القديم

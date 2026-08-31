@@ -597,6 +597,11 @@ $router->delete('/api/agency/{id}/clients/{clientId}', 'AgencyController', 'remo
 $router->get('/api/agency/{id}/commissions', 'AgencyController', 'listCommissions', ['AuthMiddleware']);
 $router->post('/api/agency/commissions/{id}/paid', 'AgencyController', 'markCommissionPaid', ['AuthMiddleware']);
 $router->get('/api/agency/{id}/performance', 'AgencyController', 'performanceReport', ['AuthMiddleware']);
+$router->get('/api/agency/{id}/dashboard', 'AgencyController', 'agencyDashboard', ['AuthMiddleware']);
+$router->post('/api/agency/{id}/invitations', 'AgencyController', 'createInvitation', ['AuthMiddleware']);
+$router->get('/api/agency/{id}/invitations', 'AgencyController', 'listInvitations', ['AuthMiddleware']);
+$router->delete('/api/agency/{id}/invitations/{inviteId}', 'AgencyController', 'revokeInvitation', ['AuthMiddleware']);
+$router->post('/api/agency/invitations/accept', 'AgencyController', 'acceptInvitation', ['AuthMiddleware']);
 
 // إدارة الإعلانات
 $router->get('/api/ads/campaigns', 'AdsController', 'list', ['AuthMiddleware']);
