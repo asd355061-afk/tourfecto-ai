@@ -1,4 +1,37 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## ربط الحجوزات الفعلية بسجلات الإيرادات (`rev_revenue_records`) — 2026-08-31
+
+`BookingEngine` يسجّل الآن الإيرادات المحققة/المصححة من الحجوزات داخل نفس المعاملة
+(transaction) الخاصة بالتأكيد والإلغاء، عبر مصدرين جديدين في `rev_revenue_records`:
+`booking` و `booking_refund`. لا يمس أي منطق قائم (Stripe/CRM/العمولة/الكاش).
+
+### التغييرات في `app/Services/BookingEngine.php`
+- `confirmBooking()`: بعد `recordAgencyCommission` داخل نفس الـ transaction يتم استدعاء
+  `recordBookingRevenue($db, $bookingId)` لكتابة صف `source='booking'` بقيمة `total_amount`
+  بالعملة، ومع إشعار `revenue.updated` لتفريغ كاش `RevenueCacheService`.
+- `confirmBookingFromPayment()`: استدعاء `recordBookingRevenue` قبل
+  `dispatchConversionEventIfAttributed`.
+- `cancelBooking()`: الـ SELECT يسترجع الآن `booking_reference, total_amount, currency, status`
+  ويمرر الحالة السابقة إلى `recordBookingRefund()`.
+- `recordBookingRevenue()` (private): يُدرج فقط إذا لم يوجد صف مكرر
+  (`user_id + source + reference_id`) — idempotent بالكامل، ويفشل بهدوء (لا يرمي) كي لا يكسر
+  تدفق التأكيد إذا تعذر تسجيل الإيراد (نفس فلسفة `recordAgencyCommission`).
+- `recordBookingRefund()` (private): يُدرج `source='booking_refund'` بمبلغ سالب `-total_amount`
+  فقط إذا كانت الحالة السابقة `confirmed` (إلغاء الحجز المعلّق pending لا يولّد استردادًا)،
+  idempotent عبر نفس مفتاح المصدر المرجعي، يفشل بهدوء.
+
+### الاختبارات
+- `tests/Integration/BookingRevenueIntegrationTest.php` (جديد، 18 اختبار / 92 assertion):
+  يغطي مسار التأكيد اليدوي ومسار الدفع، عدم التكرار عند تكرار التأكيد، إلغاء الحجز المؤكد
+  (صف استرداد سالب) مقابل إلغاء الحجز المعلّق (لا شيء)، رفض الإلغاء المكرر دون تكرار
+  التصحيح، ودمج الحجز/الاسترداد مع السجلات اليدوية في `RevenueOverviewService`
+  (`total_revenue`/`revenue_records_count`/`revenue_by_source`) و
+  `getRevenueBySourceWithGrowth`، مع `backdateRevenueRecords()` لتفادي حدّ نهاية الفترة
+  الحصري (`recorded_at < now`) ذي الثانية الواحدة.
+- إعادة تشغيل حزم الحجز القائمة سليمة: `BookingEngineIntegrationTest` +
+  `BookingCancellationCommissionTest` + `FullBookingJourneyIntegrationTest` (36 اختبار).
+- الفحص الكامل: `OK (717 tests, 16543 assertions)` — lint و phpstan بلا أخطاء.
+
 ## إصلاح جذري لتذبذب `KnowledgeBaseRerankIntegrationTest::testRerankNeverDropsAllEntries` — 2026-08-30
 
 إصلاح السبب الجذري لفشل `actual size 10 matches expected 5` — تذبذب طويل الأمد في

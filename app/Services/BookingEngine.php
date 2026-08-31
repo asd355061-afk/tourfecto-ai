@@ -140,10 +140,12 @@ class BookingEngine
         $confirmed = $this->changeStatus($userId, $bookingId, 'confirmed', 'تأكيد الحجز');
         if ($confirmed) {
             // هوك ما بعد التأكيد: ارفع الصفقة المربوطة بالحجز لـ won
-            // (إن كانت open) + سجّل عمولة الوكالة للحجز لو صاحبه عميل وكالة.
+            // (إن كانت open) + سجّل عمولة الوكالة للحجز لو صاحبه عميل وكالة
+            // + سجّل إيراد الحجز في rev_revenue_records (ذكاء الإيرادات).
             $this->db->transaction(function (Database $db) use ($bookingId) {
                 $this->markLinkedDealWon($db, $bookingId);
                 $this->recordAgencyCommission($db, $bookingId);
+                $this->recordBookingRevenue($db, $bookingId);
             });
 
             // CAPI: حدث تحويل غير متزامن لو الحجز اتعمل عليه إسناد إعلاني
@@ -190,6 +192,8 @@ class BookingEngine
             $this->markLinkedDealWon($db, $bookingId);
             // سجّل عمولة الوكالة للحجز لو صاحبه عميل وكالة (نفس الـ transaction)
             $this->recordAgencyCommission($db, $bookingId);
+            // سجّل إيراد الحجز في rev_revenue_records (idempotent)
+            $this->recordBookingRevenue($db, $bookingId);
             // CAPI: حدث تحويل غير متزامن لو الحجز اتعمل عليه إسناد إعلاني
             // (INSERT جوه نفس الـ transaction - لو التأكيد اتراجع، الحدث مش بيتبعت)
             $this->dispatchConversionEventIfAttributed($db, $bookingId);
@@ -207,7 +211,8 @@ class BookingEngine
     {
         return $this->db->transaction(function (Database $db) use ($userId, $bookingId, $reason) {
             $rows = $db->query(
-                'SELECT id, product_id, start_date, status FROM bookings WHERE id = ? AND user_id = ? LIMIT 1 FOR UPDATE',
+                'SELECT id, product_id, start_date, status, booking_reference, total_amount, currency
+                 FROM bookings WHERE id = ? AND user_id = ? LIMIT 1 FOR UPDATE',
                 [$bookingId, $userId]
             );
             if (empty($rows)) {
@@ -237,6 +242,12 @@ class BookingEngine
             // عمولة الوكالة المرتبطة بالحجز (لو موجودة): pending تُلغى
             // تلقائيًا (voided)، وpaid تُترك كما هي مع تنبيه الأدمن.
             $this->handleCommissionOnCancel($db, $bookingId);
+
+            // تصحيح إيراد ذكاء الإيرادات: لو الحجز ده كان مؤكَّد فعلًا
+            // (يعني سجّلناله إيراد booking في rev_revenue_records)، نسجّل
+            // سجل تصحيحي بمبلغ سالب (booking_refund) عشان صافي الإيراد
+            // يعكس الواقع — حجز ملغي ما يفضلش محسوب كإيراد.
+            $this->recordBookingRefund($db, $bookingId, (string) $booking['status']);
 
             return true;
         });
@@ -435,6 +446,150 @@ class BookingEngine
              ON DUPLICATE KEY UPDATE commission_amount = VALUES(commission_amount)",
             [(int) $row['agency_id'], (int) $row['agency_client_id'], $bookingId, $amount]
         );
+    }
+
+    /**
+     * تسجيل إيراد الحجز المؤكَّد في rev_revenue_records (ذكاء الإيرادات).
+     * يُستدعى من نقطتي التأكيد (يدوي + بعد الدفع) داخل نفس الـ transaction.
+     *
+     * Idempotent إلزامي: لو نفس الحجز اتأكد أكتر من مرة (الكود الحالي بيسمح
+     * بذلك نادرًا)، ما نضيفش سجل مكرر — بنفحص وجود reference_id لنفس
+     * user_id + source='booking' قبل الإدخال. بيستخدم نفس جدول
+     * rev_revenue_records الموجود (المصمم من البداية لاستقبال
+     * booking/order/subscription/manual) — لا ننشئ جدولًا جديدًا ولا
+     * نلمس منطق Stripe/CRM/العمولة القائم.
+     */
+    private function recordBookingRevenue(Database $db, int $bookingId): void
+    {
+        try {
+            $rows = $db->query(
+                "SELECT user_id, booking_reference, total_amount, currency
+                 FROM bookings WHERE id = ? AND status = 'confirmed' LIMIT 1",
+                [$bookingId]
+            );
+            if (empty($rows)) {
+                return;
+            }
+            $booking = $rows[0];
+            $userId = (int) $booking['user_id'];
+            $reference = (string) $booking['booking_reference'];
+            $amount = round((float) $booking['total_amount'], 2);
+            if ($reference === '' || $amount <= 0) {
+                return;
+            }
+
+            // Idempotency: سجل إيراد booking لنفس الحجز موجود أصلًا؟ → لا نضيف مكرر
+            $existing = $db->query(
+                "SELECT id FROM rev_revenue_records
+                 WHERE user_id = ? AND source = 'booking' AND reference_id = ? LIMIT 1",
+                [$userId, $reference]
+            );
+            if (!empty($existing)) {
+                return;
+            }
+
+            $db->query(
+                "INSERT INTO rev_revenue_records
+                    (user_id, source, reference_id, amount, currency, recorded_at, notes)
+                 VALUES (?, 'booking', ?, ?, ?, NOW(), ?)",
+                [
+                    $userId,
+                    $reference,
+                    $amount,
+                    (string) ($booking['currency'] ?: 'USD'),
+                    'حجز مؤكد - ' . $reference,
+                ]
+            );
+
+            // مزامنة كاش/إعادة الحساب المرتبطة بالموديول (نفس نمط RevenueController)
+            if (function_exists('event')) {
+                event('revenue.updated', ['user_id' => $userId, 'amount' => $amount, 'source' => 'booking']);
+            }
+        } catch (Exception $e) {
+            // الإيراد ثانوي ولا يجب أن يكسر تدفق التأكيد - نسجّل ونتجاهل
+            if (class_exists('Logger')) {
+                Logger::warning('Booking revenue record failed', ['booking_id' => $bookingId, 'error' => $e->getMessage()]);
+            }
+        }
+    }
+
+    /**
+     * تسجيل تصحيح الإيراد عند إلغاء حجز كان مؤكَّدًا بالفعل.
+     * يُستدعى من cancelBooking داخل نفس الـ transaction.
+     *
+     * القاعدة (نفس أسلوب إصلاح العمولة "لو كان موجود، وثّق الإلغاء"):
+     *   - لو الحجز المسجل بالـ fromStatus لم يكن confirmed → مفيش إيراد
+     *     booking اتسجّل أصلًا (الحجز اللي اتحول cancelled من pending) فلا
+     *     نضيف سجل تصحيحي.
+     *   - لو من confirmed → نضيف سجل booking_refund بمبلغ سالب
+     *     (-total_amount) للـ reference_id نفسه، بشرط وجود السجل الإيجابي
+     *     الأصلي، وبشرط عدم وجود سجل تصحيحي مسبق (idempotent).
+     * amount من نوع DECIMAL(12,2) موقّع (ليس UNSIGNED) → المبلغ السالب مقبول.
+     */
+    private function recordBookingRefund(Database $db, int $bookingId, string $fromStatus): void
+    {
+        if ($fromStatus !== 'confirmed') {
+            return;
+        }
+        try {
+            $rows = $db->query(
+                "SELECT user_id, booking_reference, total_amount, currency
+                 FROM bookings WHERE id = ? LIMIT 1",
+                [$bookingId]
+            );
+            if (empty($rows)) {
+                return;
+            }
+            $booking = $rows[0];
+            $userId = (int) $booking['user_id'];
+            $reference = (string) $booking['booking_reference'];
+            $amount = round((float) $booking['total_amount'], 2);
+            if ($reference === '' || $amount <= 0) {
+                return;
+            }
+
+            // لا نضيف تصحيح إلا لو كان فيه سجل إيراد booking أصلي فعليًا
+            $positive = $db->query(
+                "SELECT id FROM rev_revenue_records
+                 WHERE user_id = ? AND source = 'booking' AND reference_id = ? LIMIT 1",
+                [$userId, $reference]
+            );
+            if (empty($positive)) {
+                return;
+            }
+
+            // Idempotency: سجل تصحيحي لنفس الحجز موجود أصلًا؟ → لا نضيف مكرر
+            $existing = $db->query(
+                "SELECT id FROM rev_revenue_records
+                 WHERE user_id = ? AND source = 'booking_refund' AND reference_id = ? LIMIT 1",
+                [$userId, $reference]
+            );
+            if (!empty($existing)) {
+                return;
+            }
+
+            $db->query(
+                "INSERT INTO rev_revenue_records
+                    (user_id, source, reference_id, amount, currency, recorded_at, notes)
+                 VALUES (?, 'booking_refund', ?, ?, ?, NOW(), ?)",
+                [
+                    $userId,
+                    $reference,
+                    -$amount,
+                    (string) ($booking['currency'] ?: 'USD'),
+                    'استرداد حجز ملغي - ' . $reference,
+                ]
+            );
+
+            if (function_exists('event')) {
+                event('revenue.updated', ['user_id' => $userId, 'amount' => -$amount, 'source' => 'booking_refund']);
+            }
+        } catch (Exception $e) {
+            // التصحيح ثانوي ولا يكسر تدفق الإلغاء - نسجّل ونتجاهل
+            if (class_exists('Logger')) {
+                Logger::warning('Booking refund record failed', ['booking_id' => $bookingId, 'error' => $e->getMessage()]);
+            }
+        }
     }
 
     /**

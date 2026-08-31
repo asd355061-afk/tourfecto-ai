@@ -1,5 +1,29 @@
 # PROGRESS — الخطوة 4: Ads (5) + CRM (1) + AI Chat (2)
 
+## البند 1 (مكتمل 2026-08-31): ربط الحجوزات الفعلية بسجلات الإيرادات
+- **هدف:** تدفّق الحجوزات الفعلية إلى `rev_revenue_records` بدون المساس بمنطق
+  Stripe/CRM/العمولة/الكاش القائم.
+- **منفّذ في `app/Services/BookingEngine.php`:**
+  - مصدر جديد `booking`: يُدرج عند `confirmBooking()` و `confirmBookingFromPayment()`
+    داخل نفس الـ transaction (بعد `recordAgencyCommission`)، بقيمة `total_amount`
+    والعملة، مع `event('revenue.updated')` لتفريغ كاش `RevenueCacheService`.
+  - مصدر جديد `booking_refund`: يُدرج عند `cancelBooking()` بمبلغ سالب
+    `-total_amount` **فقط** إذا كانت الحالة السابقة `confirmed` (إلغاء `pending`
+    بلا تصحيح).
+  - **Idempotent:** فحص `user_id + source + reference_id` قبل الإدراج؛ **fail-safe**
+    بلا `throw` (لا يكسر تدفق التأكيد/الإلغاء إن فشل التسجيل).
+- **بدون لمس:** `RevenueDataGateway`/`RevenueController`/`RevenueCacheService`/
+  `CustomerRevenueService` (المصدر يبقى `crm_deals won` فقط) — تغطية نموذجية
+  مُثبتة بالاختبارات.
+- **التحقق:** `tests/Integration/BookingRevenueIntegrationTest.php` جديد
+  (18 اختبار/92 assertion: مسار يدوي+دفع، idempotency، الاسترداد عند الإلغاء،
+  تقارير `RevenueOverviewService` المختلطة)؛ إعادة تشغيل حزم الحجز القائمة
+  (36 اختبار) سليمة؛ **717/16543 OK**؛ lint + phpstan بلا أخطاء.
+- **ملاحظة فنية:** `getOverview()`/`getRevenueBySourceWithGrowth()` يستخدمان نهاية
+  فترة حصرية (`recorded_at < now`) — الاختبارات تستخدم `backdateRevenueRecords()`
+  لتجنّب تذبذب نفس الثانية.
+- **Commit:** منفصل + push (تفاصيل في CHANGELOG.md).
+
 **التاريخ:** 2026-08-28
 **الفرع:** `main`
 **الحالة:** 8 بنود جديدة بالتتابع — كل بند migration+model+service+controller+routes+Lang+tests+checks+commit منفصل
