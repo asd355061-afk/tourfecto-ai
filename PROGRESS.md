@@ -1,5 +1,23 @@
 # PROGRESS — الخطوة 4: Ads (5) + CRM (1) + AI Chat (2)
 
+## الموديول 6 (مكتمل 2026-08-31): Marketing Assistant — تغطية الأدوات الست + الحفظ
+- **هدف:** تغطية `MarketingAssistantService` (الأدوات الست + بناء البرومبت +
+  حفظ `ai_assistant_interactions` + `activity_logs` + فشل AI + أداة مجهولة +
+  اقتطاع العنوان + السجل + الربط مع Action Center) بمصادر حقيقية وصفر
+  شبكة/AI حقيقية.
+- **منفّذ (تغطية فقط — لم يتغير أي كود إنتاجي):**
+  - **6a — الأدوات:** availableTools (6) + run() لكل أداة يحفظ صفًا بنوعه.
+  - **6b — run():** برومبت قالب الأداة عبر `MarketingFakeGemini` (يمدد
+    GeminiClient) + حفظ التفاعل + ActivityLog (marketing_assistant/tool.used).
+  - **6c — الفشل:** فشل AI → `خطأ: ...` محفوظ بلا throw؛ أداة غير معروفة →
+    InvalidArgumentException بلا كتابة؛ اقتطاع العنوان (100 حرف).
+  - **6d — السجل والربط:** `where()` تنازليًا + ظهور الناتج كعنصر `marketing`
+    في `ActionCenterService::getActionItems`.
+- **التحقق:** `tests/Integration/MarketingAssistantModuleIntegrationTest.php`
+  جديد (20 اختبار/80 assertion؛ مستخدم معزول 999900). **959/17581 OK** من أول
+  تشغيل؛ lint (809 ملف) + phpstan بلا أخطاء.
+- **Commit:** منفصل + push (تفاصيل في CHANGELOG.md).
+
 ## الموديول 5 (مكتمل 2026-08-31): Executive Suite — تغطية تكامل كاملة للوحات الإدارة
 - **هدف:** تغطية الموديولات التنفيذية الثلاثة القائمة (`ExecutiveDashboardService`/
   `CeoAdvisorService`/`ActionCenterService`+`ActionCenterExecutionService`+

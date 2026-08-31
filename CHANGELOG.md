@@ -1,4 +1,37 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## الموديول 6 — Marketing Assistant: تغطية تكامل كاملة للأدوات الست + الحفظ — 2026-08-31
+
+اختبارات تكامل شاملة لموديول مساعد التسويق الذكي (`MarketingAssistantService` +
+`AIAssistantInteraction` + ربط Action Center) بمصادر بيانات حقيقية في
+`tourfecto_test`، بصفر شبكة/AI حقيقية (محرك Gemini وهمي يمدّد `GeminiClient`).
+**لم يتغير أي كود إنتاجي** — موديول تغطية بالكامل.
+
+### التغطية
+- `tests/Integration/MarketingAssistantModuleIntegrationTest.php` (جديد): 20
+  اختبار/80 assertion. مستخدم معزول 999900.
+- **الأدوات:** `availableTools()` يرجع الستة (ad_copy/slogan/email_subject/
+  social_bio/product_description/campaign_ideas)؛ `run()` على كل أداة بيحفظ
+  صف فعلًا في `ai_assistant_interactions` بنوعه.
+- **`run()`:** بناء البرومبت من قالب الأداة (`sprintf`) + `maxOutputTokens=1024`
+  عبر `MarketingFakeGemini` (يرث `GeminiClient` ويفوق `generateContent`)؛ حفظ
+  التفاعل (user_id/type/title=أول 100 حرف/input_payload JSON/output)؛
+  `activity_logs` بـ module=marketing_assistant + action=tool.used +
+  subject_type=ai_assistant_interactions + meta.
+- **الفشل:** فشل AI → ناتج `خطأ: ...` محفوظ بلا throw؛ أداة غير معروفة →
+  `InvalidArgumentException` بلا كتابة وبلا نداء على محرك AI؛ اقتطاع العنوان
+  الطويل (250→100 حرف بالـ mb_strlen).
+- **السجل:** استعلام `AIAssistantInteraction::where(['user_id'=>...])`
+  بالترتيب التنازلي يعيد الأحدث أولًا.
+- **ربط Action Center (الموديول 5):** ناتج أداة تسويق بيظهر كعنصر
+  `marketing` في `getActionItems` بعنوان `نفّذ المحتوى التسويقي: ...` ووصف
+  مقتطع من الناتج.
+
+### التحقق
+- **959/17581 OK** من أول تشغيل؛ lint (809 ملف) + phpstan بلا أخطاء.
+
+### Commit
+- منفصل + push (هذا الموديول).
+
 ## الموديول 5 — Executive Suite: تغطية تكامل كاملة للوحات الإدارة التنفيذية — 2026-08-31
 
 اختبارات تكامل شاملة لموديولات الإدارة التنفيذية الثلاثة القائمة
