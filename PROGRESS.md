@@ -1,5 +1,27 @@
 # PROGRESS — الخطوة 4: Ads (5) + CRM (1) + AI Chat (2)
 
+## الموديول 4 (مكتمل 2026-08-31): Creative Studio — حقن عملاء التوليد + تغطية كاملة
+- **هدف:** جعل موديول الاستوديو الإبداعي (`MediaGenerationService`/
+  `VideoScriptService`/`GenerateMediaJob`/`GenerateVideoJob`) قابلًا للاختبار
+  بلا مساس بسلوك الإنتاج وصفر شبكة/AI حقيقية.
+- **منفّذ (إضافات — بلا لمس أي منطق شغال):**
+  - **4a — حقن العملاء:** `GenerateMediaJob`/`GenerateVideoJob` قبلان
+    `?callable $clientFactory` (الغائب → `new GeminiClient()`/`new VeoClient()`
+    كما كان). `VideoScriptService` كان قابلًا للحقن أصلًا.
+  - **4b — الاختبارات:** `tests/Integration/CreativeStudioModuleIntegrationTest.php`
+    جديد (20 اختبار/142 assertion): fakes تمدّ GeminiClient/VeoClient،
+    `ROOT_PATH` مؤقت لكتابة الملفات خارج public_html.
+- **التحقق:** التغطية: MediaGenerationService (نسب الأبعاد + جدولة jobs +
+  ActivityLog + رفض الأنواع + fallback المدة)، GenerateMediaJob (نجاح بكتابة
+  ملف + امتداد jpg + فشل AI + عنصر مفقود)، GenerateVideoJob (فشل البدء +
+  نجاح البدء/provider_ref + اكتمال الفحص + مهلة + poll_attempts)،
+  VideoScriptService (JSON/نشاط/فشل/مشوه). **893/17299 OK**؛ lint (807 ملف)
+  + phpstan بلا أخطاء.
+- **ملاحظات:** قاعدة بيانات الاختبار مطلوبة منها أعمدة الفيديو — أُضيف
+  migration `2026_08_07_000040` لقائمة `applyTestMigrations`. تحقّق من
+  معرّفات المستخدم المعزولة (999600) لتفادي تصادم مع Booking/OTA.
+- **Commit:** منفصل + push (تفاصيل في CHANGELOG.md).
+
 ## الموديول 3 (مكتمل 2026-08-31): Publishing — تغطية WordPress/Custom API + حالة publish_failed
 - **هدف:** جعل النشر الحالي (`WordPressPublisher`/`CustomApiPublisher`/
   `PublishScheduledArticleJob`/`AIController::publishArticle`) قابلًا للاختبار

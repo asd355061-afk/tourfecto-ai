@@ -10,6 +10,14 @@
  */
 class GenerateMediaJob implements QueueJobInterface
 {
+    /** @var callable|null */
+    private $clientFactory;
+
+    public function __construct(?callable $clientFactory = null)
+    {
+        $this->clientFactory = $clientFactory;
+    }
+
     public function handle(array $payload): void
     {
         $itemId = (int) ($payload['media_item_id'] ?? 0);
@@ -23,7 +31,7 @@ class GenerateMediaJob implements QueueJobInterface
         $item->save();
 
         try {
-            $gemini = new GeminiClient();
+            $gemini = $this->clientFactory ? ($this->clientFactory)() : new GeminiClient();
             $promptToUse = (string) ($payload['final_prompt'] ?? $item->getAttribute('prompt'));
             $aspectRatio = (string) ($item->getAttribute('aspect_ratio') ?: '1:1');
             $result = $gemini->generateImage($promptToUse, $aspectRatio);

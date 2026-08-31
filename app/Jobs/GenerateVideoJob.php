@@ -17,6 +17,14 @@ class GenerateVideoJob implements QueueJobInterface
     private const MAX_POLL_ATTEMPTS = 40;
     private const POLL_DELAY_SECONDS = 20;
 
+    /** @var callable|null */
+    private $clientFactory;
+
+    public function __construct(?callable $clientFactory = null)
+    {
+        $this->clientFactory = $clientFactory;
+    }
+
     public function handle(array $payload): void
     {
         $itemId = (int) ($payload['media_item_id'] ?? 0);
@@ -26,7 +34,7 @@ class GenerateVideoJob implements QueueJobInterface
             throw new Exception("MediaItem #{$itemId} غير موجود");
         }
 
-        $veo = new VeoClient();
+        $veo = $this->clientFactory ? ($this->clientFactory)() : new VeoClient();
         $operationName = (string) ($item->getAttribute('provider_ref') ?: '');
 
         try {

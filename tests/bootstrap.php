@@ -300,6 +300,10 @@ function applyTestMigrations(): void
         // تستخدمها KeywordResearchService (G4). غير idempotent لكن حلقة الميجريشن
         // بتتخطى ملف فاشل بأمان، فالإضافة آمنة للتشغيل المتكرر.
         '2026_08_08_000045_keyword_intelligence.sql',
+        // Module 4 (2026-08-31): أعمدة توليد الفيديو في media_items
+        // (aspect_ratio/duration_seconds/provider_ref/poll_attempts) — الطلب
+        // الأول بيضيفها، ولو اتكرر بيتخطى بأمان (حلقة try/catch).
+        '2026_08_07_000040_add_ai_video_generation_and_publishing.sql',
     ];
 
     // إصلاح انحرافات السكيما المحلية: schema.sql القديمة بتحتوي أسماء

@@ -1,4 +1,46 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## الموديول 4 — Creative Studio: حقن عملاء التوليد + تغطية كاملة — 2026-08-31
+
+إضافات فوق بنية الاستوديو الإبداعي القائمة (`MediaGenerationService`/
+`VideoScriptService`/`GenerateMediaJob`/`GenerateVideoJob`) دون تغيير أي
+سلوك إنتاجي: عملاء التوليد أصبحوا قابلين للحقن، وكل التدفقات مغطاة باختبارات
+بصفر شبكة/AI حقيقية.
+
+### حقن العملاء (نمط `?callable $clientFactory`)
+- `app/Jobs/GenerateMediaJob.php`: مُنشئ `?callable $clientFactory` — عند
+  غيابه يبني `new GeminiClient()` كما كان بالضبط. الاختبارات تحقن Fake يمدّد
+  `GeminiClient` (`generateImage`).
+- `app/Jobs/GenerateVideoJob.php`: نفس النمط لـ `VeoClient` (`startGeneration`/
+  `checkOperation`/`downloadVideo`) — `startOperation`/`pollOperation` يبقوا
+  مستقبلين لـ `VeoClient` كما هم، لكن العملاء الآن يُمرَّرون من factory.
+- `VideoScriptService` كان قابلًا للحقن أصلًا (`?GeminiClient $ai`).
+
+### الاختبارات
+- `tests/Integration/CreativeStudioModuleIntegrationTest.php` (جديد): 20
+  اختبار/142 assertion — `CreativeStudioFakeGemini` (يمدد GeminiClient)
+  + `CreativeStudioFakeVeo` (يمدد VeoClient)، و `ROOT_PATH` موجّه لمجلد مؤقت
+  (`sys_get_temp_dir()`) حتى كتابة الملفات ما تتلوّثش في `public_html` الحقيقي.
+  - **MediaGenerationService:** إنشاء MediaItem + نسب الأبعاد الصحيحة
+    (story 9:16، facebook_cover 16:9...) + جدولة GenerateMediaJob/GenerateVideoJob
+    في الجدول `jobs` + ActivityLog؛ رفض الأنواع غير المدعومة و `short_video`
+    عبر `requestGeneration`؛ fallback مدة الفيديو إلى 8.
+  - **GenerateMediaJob:** نجاح التوليد (كتابة ملف + `completed` + الأبعاد
+    1x1) مع فحص الـ prompt النهائي/النسبة المرسلة؛ فشل الذكاء الاصطناعي
+    (`failed` + `error_message`)؛ امتداد `.jpg` عند `image/jpeg`؛ عنصر مفقود
+    (استثناء).
+  - **GenerateVideoJob:** فشل البدء (`failed`)؛ نجاح البدء (يخزّن
+    `provider_ref` + إعادة جدولة)؛ اكتمال الفحص (download + كتابة + `completed`
+    + تفريغ provider_ref)؛ انتهاء المهلة (40 محاولة → failed)؛ عدم الاكتمال
+    (يزيد `poll_attempts` + إعادة جدولة).
+  - **VideoScriptService:** نجاح التوليد (script_text + scenes JSON + نشاط)،
+    JSON code-fenced، فشل الذكاء الاصطناعي (throws + failed)، JSON مشوه.
+- `tests/bootstrap.php`: `2026_08_07_000040_add_ai_video_generation_and_publishing.sql`
+  أُضيف لقائمة `applyTestMigrations` (يضيف أعمدة الفيديو في media_items).
+- **893/17299 OK**؛ lint (807 ملف) + phpstan بلا أخطاء.
+
+### Commit
+- منفصل + push (هذا الموديول).
+
 ## الموديول 3 — Publishing: اختبار تغطية WordPress/Custom API + حالة publish_failed — 2026-08-31
 
 إضافات فوق بنية النشر القائمة (`WordPressPublisher`/`CustomApiPublisher`/
