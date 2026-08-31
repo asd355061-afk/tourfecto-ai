@@ -18,11 +18,19 @@ class GoogleSearchConsoleAPI
     private int $timeout = 30;
 
     /**
+     * @var callable|null حقنة اختيارية للاختبارات - بتستقبل وصف الطلب
+     * ['method','url','headers','body'] وترجع رد محاكى
+     * ['body'=>string,'http_code'=>int,'error'=>?string] بدل curl.
+     */
+    private $transport;
+
+    /**
      * @param string $accessToken توكن OAuth حقيقي (scope: webmasters.readonly) خاص بحساب هذا العميل.
      */
-    public function __construct(string $accessToken = '')
+    public function __construct(string $accessToken = '', ?callable $transport = null)
     {
         $this->accessToken = $accessToken;
+        $this->transport = $transport;
     }
 
     /**
@@ -137,39 +145,28 @@ class GoogleSearchConsoleAPI
             $url .= '?' . http_build_query($query);
         }
 
-        $ch = curl_init($url);
-
         $headers = ['Accept: application/json'];
         if ($this->accessToken) {
             $headers[] = 'Authorization: Bearer ' . $this->accessToken;
         }
 
-        $options = [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => $this->timeout,
-            CURLOPT_CUSTOMREQUEST => $method,
-            CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_USERAGENT => 'Tourfecto/1.0',
-        ];
-
         if (!empty($data)) {
-            $options[CURLOPT_HTTPHEADER][] = 'Content-Type: application/json';
-            $options[CURLOPT_POSTFIELDS] = json_encode($data, JSON_UNESCAPED_UNICODE);
+            $headers[] = 'Content-Type: application/json';
         }
 
-        curl_setopt_array($ch, $options);
+        $result = $this->httpRequest(
+            $method,
+            $url,
+            $headers,
+            !empty($data) ? json_encode($data, JSON_UNESCAPED_UNICODE) : null
+        );
 
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlError = curl_error($ch);
-        curl_close($ch);
-
-        if ($curlError) {
-            return ['success' => false, 'error' => 'cURL Error: ' . $curlError];
+        if ($result['error']) {
+            return ['success' => false, 'error' => 'cURL Error: ' . $result['error']];
         }
 
-        $decoded = json_decode($response, true);
+        $decoded = json_decode($result['body'], true);
+        $httpCode = $result['http_code'];
 
         if ($httpCode < 200 || $httpCode >= 300) {
             $errorMessage = $decoded['error']['message'] ?? 'Unknown error';
@@ -181,5 +178,52 @@ class GoogleSearchConsoleAPI
         }
 
         return ['success' => true, 'data' => $decoded, 'http_code' => $httpCode];
+    }
+
+    /**
+     * تنفيذ طلب HTTP عبر الـ transport الوهمي (لو محقون) أو curl العادي.
+     * نفس خيارات curl السابقة بالظبط - لا تغيير في سلوك الإنتاج.
+     * @return array ['body'=>string,'http_code'=>int,'error'=>?string]
+     */
+    private function httpRequest(string $method, string $url, array $headers = [], ?string $body = null): array
+    {
+        if ($this->transport !== null) {
+            $fake = call_user_func($this->transport, [
+                'method' => $method,
+                'url' => $url,
+                'headers' => $headers,
+                'body' => $body,
+            ]);
+            return [
+                'body' => (string) ($fake['body'] ?? ''),
+                'http_code' => (int) ($fake['http_code'] ?? 0),
+                'error' => isset($fake['error']) ? (string) $fake['error'] : null,
+            ];
+        }
+
+        $ch = curl_init($url);
+        $options = [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => $this->timeout,
+            CURLOPT_CUSTOMREQUEST => $method,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_USERAGENT => 'Tourfecto/1.0',
+        ];
+        if ($body !== null) {
+            $options[CURLOPT_POSTFIELDS] = $body;
+        }
+        curl_setopt_array($ch, $options);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        return [
+            'body' => (string) $response,
+            'http_code' => (int) $httpCode,
+            'error' => $curlError ?: null,
+        ];
     }
 }

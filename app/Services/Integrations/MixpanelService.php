@@ -41,18 +41,10 @@ class MixpanelService extends BaseIntegrationService
 
         $data = base64_encode(json_encode([$eventData], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
-        $ch = curl_init('https://api.mixpanel.com/track');
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => 'data=' . $data,
-            CURLOPT_TIMEOUT        => 20,
-            CURLOPT_CONNECTTIMEOUT => 10,
-        ]);
-        $response = curl_exec($ch);
-        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlError = curl_error($ch);
-        curl_close($ch);
+        $raw = $this->rawRequest('POST', 'https://api.mixpanel.com/track', [], 'data=' . $data);
+        $response = $raw['body'];
+        $httpCode = $raw['http_code'];
+        $curlError = $raw['error'];
 
         if ($curlError !== '') {
             return ['success' => false, 'data' => null, 'error' => $curlError, 'http_code' => 0];

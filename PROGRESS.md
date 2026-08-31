@@ -1,5 +1,27 @@
 # PROGRESS — الخطوة 4: Ads (5) + CRM (1) + AI Chat (2)
 
+## الموديول 9 (مكتمل 2026-08-31): اختبارات SearchConsole + Integrations + SocialMedia بـ fakes
+- **هدف:** تغطية الأنظمة الثلاثة بمصادر حقيقية **وصفر شبكة** — حقن
+  `?callable $transport` في عملاء HTTP (نفس بنية رد curl — نمط حقن م3).
+- **منفّذ (إضافات بلا تغيير سلوك الإنتاج):**
+  - **9a — SearchConsole:** `GoogleSearchConsoleAPI` (connect/auth-fail/مالفورم/
+    شبكة/analytics+summary) + `GoogleSearchConsoleIntegration::request()` (بدون
+    token رفض مبكر + dispatch عبر partial mock).
+  - **9b — Integrations:** `BaseIntegrationService` (constructor transport +
+    `httpJson/httpForm` على `dispatch/rawRequest`) + `MixpanelService::track`
+    على `rawRequest` — تغطية Slack/Algolia/Calendly/HubSpot/Mixpanel/OneSignal/
+    Zapier/Zoom (headers/URL/body الصح + ok:false + HTTP errors + شبكة + Zoom
+    token exchange).
+  - **9c — SocialMedia:** `MetaSocialAPI`/`TikTokAPI`/`YouTubeAPI` (transport)
+    — listPages/نشر فيسبوك وانستجرام/video containers/checkPublishStatus/
+    checkVideoStatus + `SocialPostService::generateCaption` عبر GeminiClient وهمي.
+- **التحقق:** 3 ملفات جديدة (52 اختبار/203 assertion): SearchConsole 12/48،
+  Integrations 18/69، SocialMedia 22/86. **1111/18199 OK**؛ lint (814 ملف) +
+  phpstan بلا أخطاء.
+- **ملاحظة:** placeholders في `PublishSocialPostJobTest` (6) خارج نطاق الموديول
+  (محتاجين DI للـ Job نفسه) — تُترك كما هي.
+- **Commit:** منفصل + push (تفاصيل في CHANGELOG.md).
+
 ## الموديول 8 (مكتمل 2026-08-31): اختبارات تكامل OAuth Login (Google/Facebook/Microsoft/Apple)
 - **هدف:** تغطية تدفقات تسجيل الدخول الاجتماعي كاملة بمصادر حقيقية **وصفر شبكة**
   (حقن transport وهمي بنفس بنية رد curl — نمط حقن WordPressPublisher من م3).

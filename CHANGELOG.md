@@ -1,4 +1,46 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## الموديول 9 — اختبارات SearchConsole + Integrations + SocialMedia بـ fakes — 2026-08-31
+
+تغطية الأنظمة الثلاثة بمصادر حقيقية **وصفر شبكة** — حقن `?callable $transport`
+في عملاء HTTP (نفس بنية رد curl / نمط حقن WordPressPublisher من م3):
+
+1. **SearchConsole:** `GoogleSearchConsoleAPI` — connect (`listSites` بيفلتر
+   `siteUnverifiedUser` + Bearer header)، auth fail (401/403)، بيانات ملوّثة
+   (رد غير JSON → قوائم/صفوف فاضية من غير crash)، فشل شبكة، تحويل الـ dimensions
+   لصفوف + تجميع `getSummary`، و`GoogleSearchConsoleIntegration::request()`
+   (رفض مبكر بدون access_token + dispatch صحيح عبر partial mock).
+2. **Integrations:** `BaseIntegrationService::httpJson/httpForm` عدّيت على
+   transport واحد + `MixpanelService::track` استخدم `rawRequest` — تغطية كل
+   الخدمات: Slack (Bearer + `ok:false`)، Algolia (X-Algolia headers/URL بـ appId)،
+   Calendly (Bearer + resource) ، HubSpot (create contact)، Mixpanel (base64 data +
+   رد `'1'`/`'0'`)، OneSignal (Basic auth)، Zapier (webhook بدون auth)، Zoom
+   (token exchange httpForm + createMeeting + فشل بدون token)، فشل شبكة عام +
+   رفض action غير مدعوم.
+3. **SocialMedia:** `MetaSocialAPI` (listPages/publish صفحة + صورة/انستجرام
+   خطوتين/video container + فحص الحالة/نشر container + أخطاء auth وشبكة)،
+   `TikTokAPI` (publishVideo بيرفع publish_id + فحص الحالة PUBLISHED/FAILED +
+   خطأ API)، `YouTubeAPI` (checkVideoStatus FINISHED/IN_PROGRESS/ERROR/مفقود/
+   شبكة + رفض ملف غير موجود)، و`SocialPostService::generateCaption` عبر
+   `GeminiClient` وهمي (نجاح/فك fences/فشل AI/JSON غير قابل للتحليل).
+
+### التغييرات
+- `app/Services/SearchConsole/GoogleSearchConsoleAPI.php`: constructor يقبل
+  `?callable $transport` + `httpRequest()` خاص (كود curl السابق سليم — سلوك
+  الإنتاج مطابق).
+- `app/Services/Integrations/BaseIntegrationService.php`: constructor يقبل
+  `?callable $transport` + `httpJson/httpForm` بتمرّان على `rawRequest()`/`dispatch()`
+  الموحّدين (نفس معالجة الأخطاء بالظبط) + `rawRequest()` protected للاستخدام المباشر.
+- `app/Services/Integrations/MixpanelService.php`: `track()` بيستخدم `rawRequest()`
+  بدل curl الخام (نفس السلوك).
+- `app/Services/SocialMedia/MetaSocialAPI.php` / `TikTokAPI.php` / `YouTubeAPI.php`:
+  constructors تقبل `?callable $transport` + `httpRequest()` خاص لكل عميل.
+- اختبارات جديدة (52 اختبار/203 assertion):
+  `tests/Integration/SearchConsoleModuleIntegrationTest.php` (12/48)،
+  `tests/Integration/IntegrationsModuleIntegrationTest.php` (18/69، تعتمد على
+  system_settings)، `tests/Integration/SocialMediaModuleIntegrationTest.php` (22/86).
+
+**الحالة:** `OK (1111 tests, 18199 assertions)`؛ lint (814 ملف) + phpstan بلا أخطاء.
+
 ## الموديول 8 — اختبارات تكامل تسجيل الدخول الاجتماعي OAuth (Google/Facebook/Microsoft/Apple) — 2026-08-31
 
 تغطية تدفقات OAuth Login الكاملة بمصادر بيانات حقيقية في `tourfecto_test` **وصفر

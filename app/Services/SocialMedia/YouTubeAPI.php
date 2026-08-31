@@ -10,9 +10,17 @@ class YouTubeAPI
 {
     private string $accessToken;
 
-    public function __construct(string $accessToken)
+    /**
+     * @var callable|null حقنة اختيارية للاختبارات - بتستقبل وصف الطلب
+     * ['method','url','headers','body'] وترجع رد محاكى
+     * ['body'=>string,'http_code'=>int,'error'=>?string] بدل curl.
+     */
+    private $transport;
+
+    public function __construct(string $accessToken, ?callable $transport = null)
     {
         $this->accessToken = $accessToken;
+        $this->transport = $transport;
     }
 
     /**
@@ -177,35 +185,24 @@ class YouTubeAPI
     protected function request(string $method, string $url, array $data = []): array
     {
         try {
-            $ch = curl_init($url);
-            $options = [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT        => 30,
-                CURLOPT_SSL_VERIFYPEER => true,
-                CURLOPT_CUSTOMREQUEST  => $method,
-                CURLOPT_HTTPHEADER     => [
-                    'Authorization: Bearer ' . $this->accessToken,
-                    'Accept: application/json',
-                ],
+            $headers = [
+                'Authorization: Bearer ' . $this->accessToken,
+                'Accept: application/json',
             ];
-
+            $body = null;
             if ($method === 'POST' && !empty($data)) {
-                $options[CURLOPT_POSTFIELDS] = json_encode($data);
-                $options[CURLOPT_HTTPHEADER][] = 'Content-Type: application/json';
+                $headers[] = 'Content-Type: application/json';
+                $body = json_encode($data);
             }
 
-            curl_setopt_array($ch, $options);
+            $result = $this->httpRequest($method, $url, $headers, $body);
 
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $curlError = curl_error($ch);
-            curl_close($ch);
-
-            if ($curlError) {
-                return ['success' => false, 'error' => 'cURL Error: ' . $curlError];
+            if ($result['error']) {
+                return ['success' => false, 'error' => 'cURL Error: ' . $result['error']];
             }
 
-            $decoded = json_decode($response, true);
+            $decoded = json_decode($result['body'], true);
+            $httpCode = $result['http_code'];
 
             if ($httpCode < 200 || $httpCode >= 300 || isset($decoded['error'])) {
                 return [
@@ -221,5 +218,51 @@ class YouTubeAPI
             }
             return ['success' => false, 'error' => $e->getMessage()];
         }
+    }
+
+    /**
+     * تنفيذ طلب HTTP عبر الـ transport الوهمي (لو محقون) أو curl العادي.
+     * نفس سلوك curl السابق بالظبط - لا تغيير في الإنتاج.
+     * @return array ['body'=>string,'http_code'=>int,'error'=>?string]
+     */
+    private function httpRequest(string $method, string $url, array $headers = [], ?string $body = null): array
+    {
+        if ($this->transport !== null) {
+            $fake = call_user_func($this->transport, [
+                'method' => $method,
+                'url' => $url,
+                'headers' => $headers,
+                'body' => $body,
+            ]);
+            return [
+                'body' => (string) ($fake['body'] ?? ''),
+                'http_code' => (int) ($fake['http_code'] ?? 0),
+                'error' => isset($fake['error']) ? (string) $fake['error'] : null,
+            ];
+        }
+
+        $ch = curl_init($url);
+        $options = [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 30,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_CUSTOMREQUEST  => $method,
+            CURLOPT_HTTPHEADER     => $headers,
+        ];
+        if ($body !== null) {
+            $options[CURLOPT_POSTFIELDS] = $body;
+        }
+        curl_setopt_array($ch, $options);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        return [
+            'body' => (string) $response,
+            'http_code' => (int) $httpCode,
+            'error' => $curlError ?: null,
+        ];
     }
 }
