@@ -1,4 +1,42 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## موديول الواجهة 2 — إعادة تصميم موديول CRM وفصل الواجهة عن المتحكم — 2026-09-01 (فرع redesign/frontend-all)
+
+ثاني موديول في إعادة تصميم واجهة المنصة (بعد Ads — موديول الواجهة 1).
+فصل HTML/JS من داخل `CrmController` إلى Views مستقلة + ملفات JS ثابتة،
+مع تحسين التصميم بنفس الهوية البصرية (Compass/Panel) — بدون أي تغيير في
+منطق العمل أو العناوين (endpoints) أو معرّفات العناصر اللي تعتمد عليها الـ JS.
+
+1. **فصل الواجهة في CrmController (2041 ← 469 سطرًا):** صفحات الموديول الـ 11
+   تحوّلت لـ Views مستقلة في `app/Views/crm/` (`index`, `leads`, `deals`,
+   `contacts`, `contact_profile`, `companies`, `tasks`, `appointments`,
+   `reports`, `automation`, `team`) + partial تبويث `_tabs.php` (حل محل
+   `crmTabsHtml()` ويعرّف مساعد `$__tr` مهرب HTML لكل الفيو). صفحة
+   `contact_profile` أصبحت تقرأ `data-contact-id` من `#c360Root` بدل
+   placeholder `__CONTACT_ID__` (نفس نمط `ads/campaign_details.php`).
+2. **فصل JS:** كل سكريبتات الصفحات اللي كانت nowdoc جوه المتحكم اتنقلت
+   **حرفيًا** لملفات ثابتة `public_html/assets/js/crm/*.js` (11 ملفًا — تم
+   التحقق أنها مطابقة byte-for-byte للنسخ الأصلية عبر git HEAD، وكلها
+   `node --check` سليمة).
+3. **طبقة تصميم جديدة:** `public_html/assets/css/crm.css` (نظرة HubSpot) —
+   Metric tiles محسّنة للـ KPIs، لوحة Kanban للصفقات، شريط القطاعات مع
+   الجدول (يترصّون عموديًا على الموبايل)، بطاقات الـ Customer 360، صفوف
+   باني الأتمتة، وحماية تراكب النصوص — كلها responsive mobile-first (RTL).
+   بتتحقن تلقائيًا في الـ head لصفحات `/crm` (نفس نمط `ads.css`).
+4. **التحقق:** كل الـ IDs اللي بتعتمد عليها الـ JS محفوظة (فحص آلي لكل
+   `getElementById`/`querySelector` ثابت مقابل الـ Views، والديناميكي منها
+   بيتولّد جوه الـ JS نفسه)؛ فحص متصفح حقيقي (Puppeteer) لكل الصفحات الـ 11
+   في أكتر من viewport — 0 تراكب/0 pageerror؛ `tools/lint.php` (840 ملفًا
+   سليمًا)؛ phpstan بلا أخطاء؛ phpunit **1111/18199** — نفس خط الأساس
+   (فشل 4 اختبارات Revenue pre-existing خارج نطاق الموديول).
+
+### التغييرات
+- `app/Core/Controller.php`: حقن `crm.css` لصفحات `/crm` (نفس نمط `ads.css`).
+- `app/Controllers/CrmController.php`: إزالة ~1570 سطرًا من HTML/JS الـ inline
+  واستبدالها باستدعاءات `renderView()` + `<script src>`؛ إزالة `crmTabsHtml()`.
+- `app/Views/crm/`: 11 ملف View جديد + `_tabs.php`.
+- `public_html/assets/js/crm/`: 11 ملف JS ثابت جديد (byte-identical).
+- `public_html/assets/css/crm.css`: طبقة تصميم جديدة (نظرة HubSpot).
+
 ## موديول الواجهة 1 — إعادة تصميم موديول الإعلانات وفصل الواجهة عن المتحكم — 2026-09-01 (فرع redesign/frontend-all)
 
 بداية إعادة تصميم واجهة المنصة بالكامل (موديول بموديول على فرع

@@ -609,6 +609,11 @@ abstract class Controller
         if ($activeTab === 'ads') {
             $adsAssetsHead = '    <link rel="stylesheet" href="' . asset_v('/assets/css/ads.css') . '">' . "\n";
         }
+        // موديول CRM: طبقة تصميم خاصة (crm.css) بتتحقن بس لصفحات /crm
+        $crmAssetsHead = '';
+        if ($activeTab === 'crm') {
+            $crmAssetsHead = '    <link rel="stylesheet" href="' . asset_v('/assets/css/crm.css') . '">' . "\n";
+        }
         // نفس باغ asset_v بالظبط - site_brand_html() لازم يتحسب في متغير
         $brandHtml = site_brand_html();
         // تخصيص الوكالات (White-Label): حقن ألوان براندنج الوكالة كـ CSS
@@ -682,7 +687,7 @@ abstract class Controller
     {$faviconHtml}
     <link rel="stylesheet" href="{$styleCssUrl}">
     <link rel="stylesheet" href="{$panelCssUrl}">
-{$brandingCss}{$thirdPartyHead}{$chatAssetsHead}{$adsAssetsHead}</head>
+{$brandingCss}{$thirdPartyHead}{$chatAssetsHead}{$adsAssetsHead}{$crmAssetsHead}</head>
 <body>
     <div class="panel-shell">
         <div class="panel-overlay-bg"></div>
