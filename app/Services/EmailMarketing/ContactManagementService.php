@@ -515,7 +515,9 @@ class ContactManagementService
         $glue = $matchAll ? ' AND ' : ' OR ';
         $where = implode($glue, $sqlParts);
 
-        $baseSql = "SELECT DISTINCT s.id FROM email_subscribers s WHERE s.user_id = ? AND {$where}";
+        // بند 2 (Double Opt-In): أي جمهور/شريحة يستثني pending_optin — اللي
+        // لسه ما أكّدش بريده لا يظهر في شرائح الحملات إطلاقًا.
+        $baseSql = "SELECT DISTINCT s.id FROM email_subscribers s WHERE s.user_id = ? AND s.status != 'pending_optin' AND ({$where})";
         $paramsBase = array_merge([$userId], $params);
 
         $countRow = $this->db->query(

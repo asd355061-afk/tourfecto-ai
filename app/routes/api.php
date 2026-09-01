@@ -1220,6 +1220,11 @@ $router->post('/webhooks/crm/email-inbound', 'CrmEmailWebhookController', 'recei
 // user_id في الـ URL والمفتاح السري هو الضمان.
 $router->post('/webhooks/email/delivery-status/{user_id}', 'WebhookController', 'emailDeliveryStatusWebhook', []);
 
+// Double Opt-In (بند 2): اشتراك عام + تأكيد من رابط البريد — بدون Auth
+// عمدًا (نموذج عام). حماية الإساءة: RateLimitMiddleware العام + تحقق بريد.
+$router->post('/webhooks/email/subscribe', 'EmailMarketingController', 'publicSubscribe', []);
+$router->get('/webhooks/email/confirm/{token}', 'EmailMarketingController', 'publicConfirmOptin', []);
+
 // ============================================
 // AI Chat Platform - Knowledge Base (بند 4 + 13 Brand Voice)
 // Phase 1: يدير صاحب الشركة معلومات شركته/خدماته/أسعاره/سياساته التي

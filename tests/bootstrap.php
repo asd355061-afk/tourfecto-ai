@@ -307,6 +307,9 @@ function applyTestMigrations(): void
         // بند 1 (2026-09-01): webhook تتبع التسليم — delivery_webhook_enabled
         // + delivery_webhook_secret في email_smtp_settings.
         '2026_09_01_000001_email_delivery_webhook.sql',
+        // بند 2 (2026-09-01): Double Opt-In — حالة pending_optin في الـ ENUM
+        // + عمود optin_token في email_subscribers.
+        '2026_09_01_000002_email_double_optin.sql',
     ];
 
     // إصلاح انحرافات السكيما المحلية: schema.sql القديمة بتحتوي أسماء

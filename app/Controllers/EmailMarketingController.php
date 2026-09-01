@@ -1415,6 +1415,90 @@ class EmailMarketingController extends Controller
             : $this->error($result['error'], 422);
     }
 
+    // ============================================================
+    //  Public: Double Opt-In (بند 2) — بدون AuthMiddleware عمدًا
+    //  (النموذج العام + رابط التأكيد في البريد). حماية الإساءة عبر
+    //  RateLimitMiddleware العام + التحقق من صحة الإيميل فقط.
+    // ============================================================
+
+    /**
+     * POST /webhooks/email/subscribe — اشتراك عام (يبدأ pending_optin).
+     * البريد الإلكتروني مطلوب؛ قائمة اختيارية (تُربط بها عند التأكيد).
+     * @param array $params body أو form: email, name, list_id
+     */
+    public function publicSubscribe(array $params = []): array
+    {
+        $email = strtolower(trim((string) $this->get('email')));
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $this->error('بريد إلكتروني غير صالح', 422);
+        }
+
+        // الاشتراك العام يتطلب تأكيد (Double Opt-In) — معرفة المالك (user_id)
+        // من القائمة المختارة إن وُجدت، وإلا نرفض (لا يمكن إسناد الاشتراك
+        // لمستخدم بدون سياق قائمة). الـ endpoint العام يفترض إرسال list_id
+        // من نموذج الموقع/الوصلة العامة.
+        $listId = (int) $this->get('list_id', 0);
+        $list = $listId > 0 ? (new EmailList())->find($listId) : null;
+        if (!$list) {
+            return $this->error('قائمة الاشتراك غير صالحة', 422);
+        }
+        $userId = (int) $list->getAttribute('user_id');
+
+        $result = $this->listService->subscribe(
+            $userId,
+            $email,
+            ['name' => (string) $this->get('name'), 'source' => 'form', 'require_optin' => true],
+            $listId
+        );
+        if (!$result['success']) {
+            return $this->error($result['error'], 422);
+        }
+        return $this->success([
+            'id' => $result['id'],
+            'pending_optin' => (bool) ($result['pending_optin'] ?? false),
+            'status' => $result['status'] ?? 'subscribed',
+        ], 'تم استلام اشتراكك — تحقق من بريدك وأكّد اشتراكك خلال دقائق');
+    }
+
+    /**
+     * GET /webhooks/email/confirm/{token} — تفعيل الاشتراك من رابط البريد.
+     * يعرض صفحة HTML بسيطة بنتيجة التأكيد (نجاح/فشل) ولا يحتاج Auth.
+     */
+    public function publicConfirmOptin(array $params = []): array
+    {
+        $token = (string) ($params['token'] ?? '');
+        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+        $result = $this->listService->confirmOptin($token, $ip);
+
+        $success = (bool) ($result['success'] ?? false);
+        $emoji = $success ? '✅' : '⚠️';
+        $title = $success ? 'تم تأكيد اشتراكك' : 'رابط غير صالح';
+        $body = $success
+            ? 'شكرًا لك! اشتراكك مؤكّد الآن وستصلك رسائلنا.'
+            : 'هذا الرابط غير صالح أو منتهٍ. يمكنك إعادة الاشتراك من النموذج العام.';
+
+        header('Content-Type: text/html; charset=utf-8');
+        echo <<<HTML
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{$title}</title>
+<style>
+body{font-family:Segoe UI,Tahoma,Arial,sans-serif;background:#f1f5f9;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;}
+.box{background:#fff;border-radius:16px;box-shadow:0 10px 30px rgba(15,23,42,.08);padding:40px;max-width:420px;width:100%;text-align:center;}
+.ico{font-size:48px;margin-bottom:12px;}
+h1{font-size:22px;color:#0f172a;margin:0 0 10px;}
+p{color:#475569;line-height:1.9;margin:0;}
+</style>
+</head>
+<body><div class="box"><div class="ico">{$emoji}</div><h1>{$title}</h1><p>{$body}</p></div></body>
+</html>
+HTML;
+        exit;
+    }
+
     public function importSubscribers(array $params = []): array
     {
         if (!$this->isAuthenticated()) {
