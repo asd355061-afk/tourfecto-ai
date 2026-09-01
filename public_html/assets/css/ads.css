@@ -240,3 +240,20 @@
     .ads-rule-row { grid-template-columns: auto 1fr; }
     .ads-rule-row > div:last-child { grid-column: 2; }
 }
+
+/* ===== Text-overlap safety (card heads + dashboard card bodies) =====
+   يضمن عدم تراكب النصوص داخل الكروت مهما كانت الخطوط/الأحجام
+   (تكبير نظام، خطوط عربية بديلة، إيموجي) بالسماح بالالتفاف وضبط
+   ارتفاع الأسطر وتكسير الكلمات الطويلة. */
+.ads-card .p-card-head { flex-wrap: wrap; row-gap: 6px; }
+.ads-card .p-card-head h3 { line-height: 1.5; min-width: 0; overflow-wrap: break-word; }
+.ads-card .p-card-head .p-card-sub { line-height: 1.55; min-width: 0; }
+.ads-card .p-loading-row { line-height: 1.7; padding: 4px 0; }
+
+#dashboardRecommendations,
+#metaConnectionStatus,
+#googleAdsConnectionStatus { line-height: 1.6; min-width: 0; overflow-wrap: break-word; }
+
+/* صفوف الربط المحقونة من JS: الأزرار تنزل لسطر جديد على الشاشات الضيقة */
+#metaConnectionStatus > div,
+#googleAdsConnectionStatus > div { flex-wrap: wrap; row-gap: 8px; }
