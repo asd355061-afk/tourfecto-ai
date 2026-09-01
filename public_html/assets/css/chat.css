@@ -815,3 +815,81 @@
     .ch-kv-grid { grid-template-columns: 1fr; }
     .ch-toolbar .ch-search { max-width: 100%; }
 }
+
+/* ============================================================
+   19. Inbox split layout (قائمة المحادثات + سلسلة الرسائل)
+   ============================================================ */
+.ch-inbox-split {
+    display: grid;
+    grid-template-columns: 372px minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+}
+.ch-inbox-card { overflow: hidden; }
+.ch-inbox-card .ai-chat-list { max-height: calc(100vh - 235px); overflow-y: auto; scrollbar-width: thin; }
+.ch-inbox-main { min-width: 0; }
+@media (max-width: 960px) {
+    .ch-inbox-split { grid-template-columns: 1fr; }
+    .ch-inbox-card .ai-chat-list { max-height: 320px; }
+}
+
+/* ============================================================
+   20. Legacy generated content (ai-chat-*) — بيستخدمه JS بتاع
+   الصفحة في الـ innerHTML templates، متقدرش تغيّر كلاساته.
+   ============================================================ */
+.ai-chat-item { padding: 12px 14px; border-bottom: 1px solid var(--panel-border); cursor: pointer; transition: background .18s ease, box-shadow .18s ease; }
+.ai-chat-item:hover { background: var(--panel-sidebar-bg-hover); }
+.ai-chat-item.active { background: var(--panel-accent-light); box-shadow: 3px 0 0 var(--panel-accent) inset; }
+.ai-chat-item .r1 { display: flex; align-items: center; gap: 10px; }
+.ai-chat-avatar { width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; background: var(--panel-info-light); color: var(--panel-info); }
+.ai-chat-avatar.whatsapp { background: var(--panel-success-light); color: var(--panel-success); }
+.ai-chat-avatar.email { background: var(--panel-warning-light); color: var(--panel-warning); }
+.ai-chat-item .nm { flex: 1; min-width: 0; }
+.ai-chat-item .nm b { display: block; font-size: 13.5px; color: var(--panel-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ai-chat-item .nm small { display: block; color: var(--panel-text-muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ai-chat-item .ch { font-size: 11px; white-space: nowrap; }
+.ai-chat-item .tm { color: var(--panel-text-muted); font-size: 11px; white-space: nowrap; }
+.ai-chat-item .ub { min-width: 20px; height: 20px; border-radius: 10px; background: var(--panel-danger); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 6px; margin-inline-start: 4px; }
+
+.ai-chat-bubbles { display: flex; flex-direction: column; gap: 8px; }
+.ai-bubble { max-width: 78%; padding: 10px 14px; border-radius: 14px; font-size: 13.5px; line-height: 1.6; word-break: break-word; }
+.ai-bubble.in { background: var(--panel-card-bg-2); border: 1px solid var(--panel-border); align-self: flex-start; border-bottom-left-radius: 4px; }
+.ai-bubble.out { background: linear-gradient(150deg, #F2B35E, #D98E36); color: #0B1220; align-self: flex-end; border-bottom-right-radius: 4px; }
+.ai-bubble .ai-tag { font-size: 10px; opacity: .8; display: block; margin-bottom: 2px; }
+.ai-bubble .ai-tag svg { width: 12px; height: 12px; vertical-align: -2px; }
+.ai-bubble .bt { font-size: 10px; opacity: .65; margin-top: 4px; text-align: left; }
+.ai-sugg { border: 1px solid var(--panel-info); background: var(--panel-info-light); }
+.ai-sugg:hover { border-color: var(--panel-info); }
+
+.ai-conv-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* اقتباس عرض سعر داخل الشات */
+.ai-quote-card { border: 1px solid var(--panel-accent); border-radius: var(--panel-radius-sm); overflow: hidden; margin-top: 10px; }
+.ai-quote-card .q-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--panel-accent-light); }
+.ai-quote-card .q-head svg { width: 16px; height: 16px; vertical-align: -3px; margin-inline-end: 6px; }
+.ai-quote-row { display: flex; justify-content: space-between; gap: 10px; padding: 6px 14px; font-size: 13px; }
+.ai-quote-row.total { border-top: 1px dashed var(--panel-border); font-weight: 700; margin-top: 4px; padding-top: 8px; }
+.ai-quote-actions { display: flex; gap: 6px; padding: 10px 14px; flex-wrap: wrap; }
+.q-row { display: grid; grid-template-columns: 1fr 64px 90px 26px; gap: 6px; margin-bottom: 6px; align-items: center; }
+@media (max-width: 560px) { .q-row { grid-template-columns: 1fr 64px 90px; } .q-row .q-del { grid-column: 3; } }
+
+/* ============================================================
+   21. Base interactive polish (اتنقل من chatUiCss() اللي كانت
+   جوه المتحكم - دلوقتي chat.css محمّل على كل صفحات الشات)
+   ============================================================ */
+.ic { width: 16px; height: 16px; display: inline-block; vertical-align: -3px; }
+.p-btn .ic, button .ic { margin-inline-end: 6px; }
+.p-btn { transition: background .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+.p-btn:not(:disabled):hover { box-shadow: var(--panel-shadow-hover); }
+.p-btn:not(:disabled):active { transform: translateY(1px); }
+.p-btn:disabled { opacity: .55; cursor: not-allowed; }
+button, .p-btn, .ai-chat-item, .pill, select.p-select, input, textarea { outline: none; }
+button:focus-visible, .p-btn:focus-visible, select.p-select:focus-visible, input:focus-visible, textarea:focus-visible,
+.ai-chat-item:focus-visible { box-shadow: 0 0 0 3px var(--panel-accent-rgb, rgba(196,158,63,.35)); }
+.p-card { transition: box-shadow .2s ease; }
+.p-empty-icon { width: 44px; height: 44px; margin: 0 auto 10px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--panel-sidebar-bg-hover); color: var(--panel-text-muted); }
+.p-empty-icon svg { width: 22px; height: 22px; }
+.skeleton { position: relative; overflow: hidden; background: var(--panel-sidebar-bg-hover); border-radius: 6px; min-height: 16px; }
+.skeleton::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.06), transparent); animation: chatShimmer 1.4s infinite; }
+@keyframes chatShimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

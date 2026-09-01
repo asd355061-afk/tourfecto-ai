@@ -597,10 +597,11 @@ abstract class Controller
         $panelCssUrl = asset_v('/assets/css/panel.css');
         $panelJsUrl = asset_v('/assets/js/panel.js');
         // وحدة الشات: طبقة مكوّنات احترافية (chat.css + chat-panel.js)
-        // بتتحقن بس لما الصفحة بتاعة الشات - باقي اللوحة مبيتأثرش بيها.
+        // بتتحقن بس لصفحات موديول الشات (activeTab بادئته ai_chat_) -
+        // باقي اللوحة مبيتأثرش بيها.
         $chatAssetsHead = '';
         $chatAssetsFoot = '';
-        if ($activeTab === 'chat') {
+        if (str_starts_with((string) $activeTab, 'ai_chat')) {
             $chatAssetsHead = '    <link rel="stylesheet" href="' . asset_v('/assets/css/chat.css') . '">' . "\n";
             $chatAssetsFoot = '    <script src="' . asset_v('/assets/js/chat-panel.js') . '"></script>' . "\n";
         }

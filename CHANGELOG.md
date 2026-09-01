@@ -1,4 +1,53 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## موديول الواجهة 3 — إعادة تصميم موديول الشات وفصل الواجهة عن المتحكم — 2026-09-01 (فرع redesign/frontend-all)
+
+ثالث موديول في إعادة تصميم واجهة المنصة (بعد Ads — موديول الواجهة 1، وCRM —
+موديول الواجهة 2). فصل HTML/JS من داخل `ChatController` إلى Views مستقلة +
+ملفات JS ثابتة، مع تحسين التصميم بنفس الهوية البصرية (Compass/Panel) —
+بدون أي تغيير في منطق العمل أو العناوين (endpoints) أو معرّفات العناصر
+اللي تعتمد عليها الـ JS.
+
+1. **فصل الواجهة في ChatController (3530 ← 1294 سطرًا):** صفحات الموديول
+   الـ 9 تحوّلت لـ Views مستقلة في `app/Views/chat/` (`index`,
+   `conversation`, `pending`, `settings`, `knowledge_base`,
+   `followup_settings`, `analytics`, `learning`, `leads`) — كل فيو بيستخدم
+   `$this->tr(...)` مباشرة (متاح لأن `renderView` يعمل include داخل scope
+   الـ method) و`{ICON_SPRITE}` و`{IC_*}` placeholders اللي بيستبدلها
+   `applyChatUi()`. المتغيرات الرقمية (`currentUserId`, `conversationId`)
+   بتتحوّل لـ data-attributes على `#ucBody`/`#convBody` بدل placeholders
+   (نفس سابقة `data-contact-id` في CRM).
+2. **فصل JS:** كل سكريبتات الصفحات اللي كانت heredoc جوه المتحكم اتنقلت
+   **حرفيًا** لملفات ثابتة `public_html/assets/js/chat/*.js` (9 ملفات — تم
+   التحقق أنها مطابقة byte-for-byte للنسخ الأصلية عبر git HEAD، وكلها
+   `node --check` سليمة). مكان واحد مقصود اتحوّل: الـ placeholders
+   `__CURRENT_USER_ID__`/`__CONVERSATION_ID__` (index/conversation) بقت
+   `dataset.userId`/`dataset.conversationId`، وtokens الترجمة
+   `__PENDING_*__`/`__SETTINGS_*__`/`__COMMON_*__` (pending/settings) بقت
+   `window.I18N['key']` — لأن `renderPanelPage` بيحقن `window.I18N`
+   تلقائيًا.
+3. **طبقة تصميم جديدة:** `public_html/assets/css/chat.css` —
+   `ch-toolbar` للفلاتر، `ch-inbox-split` (قائمة المحادثات + لوحة الخيط
+   جنب بعضها، بيتكوموا عموديًا عند 960px)، بطاقات الـ `ch-card`،
+   `ch-thread`/`ch-composer` للمراسلة، `ch-form` لصفحات الإعدادات،
+   `ch-stats`/`ch-stat` للتحليلات، `ch-empty` للحالات الفارغة، وإحياء
+   أنماط المحتوى المولّد بالـ JS (`.ai-chat-*`, `.ai-bubble`,
+   `.ai-quote-card`) — responsive mobile-first (RTL) مع `prefers-reduced-motion`.
+   بتحقن تلقائيًا في الـ head لصفحات `ai_chat_*`.
+4. **إصلاح شرط حقن الأصول:** الشرط القديم `$activeTab === 'chat'` كان
+   لا يطابق أبدًا (الأكتف تابس الحقيقية `ai_chat_inbox`/`ai_chat_knowledge`/...)
+   — اتصلّح لـ `str_starts_with((string) $activeTab, 'ai_chat')` في
+   `app/Core/Controller.php` عشان `chat.css` + `chat-panel.js` يتحقنوا فعلًا
+   (نفس نمط ads.css/crm.css).
+5. **التحقق:** كل الـ IDs اللي بتعتمد عليها الـ JS محفوظة (فحص آلي لكل
+   `getElementById`/`querySelector` ثابت مقابل الـ Views، والديناميكي منها
+   بيتولّد جوه الـ JS نفسه)؛ فحص متصفح حقيقي (Puppeteer) لكل الصفحات الـ 9
+   في viewports 320–1024 — 0 pageerror و0 overlap chat-specific (التراكب/
+   الانسياح اللي ظهر في 390/640px جايي من شل اللوحة المشترك نفسه، شغّال
+   بنفس الطريقة على `/crm` و`/email-marketing/settings` = pre-existing خارج
+   نطاق الموديول)؛ `tools/lint.php` (849 ملفًا سليمًا)؛ phpstan بلا أخطاء؛
+   phpunit **1111/18199** — نفس خط الأساس (فشل 4 اختبارات Revenue
+   pre-existing خارج نطاق الموديول).
+
 ## موديول الواجهة 2 — إعادة تصميم موديول CRM وفصل الواجهة عن المتحكم — 2026-09-01 (فرع redesign/frontend-all)
 
 ثاني موديول في إعادة تصميم واجهة المنصة (بعد Ads — موديول الواجهة 1).
