@@ -508,6 +508,28 @@ abstract class Controller
     }
 
     /**
+     * يردّ HTML من ملف View خارجي منفصل عن الـ Controller.
+     * الفكرة: فصل كل المارك-أب (HTML) من جوه الـ Controllers لقسم Views،
+     * عشان كل واحد يبقى مسؤول عن حاجته بس (التحكم = منطق، الـ View = عرض).
+     *
+     * @param string $view مسار نسبي من جوه app/Views (زي 'ads/index')
+     * @param array<string,mixed> $vars متغيرات بيتم extract() جوه الـ View
+     * @return string
+     */
+    protected function renderView(string $view, array $vars = []): string
+    {
+        $base = defined('ROOT_PATH') ? ROOT_PATH : dirname(__DIR__, 2);
+        $viewFile = $base . '/app/Views/' . $view . '.php';
+        if (!is_file($viewFile)) {
+            throw new RuntimeException('View not found: ' . $view);
+        }
+        extract($vars, EXTR_SKIP);
+        ob_start();
+        include $viewFile;
+        return (string) ob_get_clean();
+    }
+
+    /**
      * الشِل الكامل لأي صفحة داخل لوحة العميل (نفس تصميم /dashboard تمامًا).
      * الصفحات (AI, السمعة, الشات...) بتمرر بس عنوانها ومحتواها وجافاسكريبت
      * التفاعل بتاعها، وده بيتجنب تكرار كود الـ layout في كل Controller.
@@ -516,7 +538,9 @@ abstract class Controller
      * @param string $pageTitle
      * @param string $pageSubtitle
      * @param string $bodyHtml محتوى panel-content (HTML كامل)
-     * @param string $scriptJs كود JS بيتنفذ بعد تحميل الصفحة (من غير <script> tags)
+     * @param string $scriptJs كود JS بيتنفذ بعد تحميل الصفحة. بيقبل:
+     *                         - كود JS خام (بيتحط جوه <script> تلقائيًا)
+     *                         - أو وسم <script src="..."> كامل (بيتحط زي ما هو)
      * @return string
      */
     protected function renderPanelPage(string $activeTab, string $pageTitle, string $pageSubtitle, string $bodyHtml, string $scriptJs = ''): string
@@ -580,6 +604,11 @@ abstract class Controller
             $chatAssetsHead = '    <link rel="stylesheet" href="' . asset_v('/assets/css/chat.css') . '">' . "\n";
             $chatAssetsFoot = '    <script src="' . asset_v('/assets/js/chat-panel.js') . '"></script>' . "\n";
         }
+        // موديول الإعلانات: طبقة تصميم خاصة (ads.css) بتتحقن بس لصفحات /ads
+        $adsAssetsHead = '';
+        if ($activeTab === 'ads') {
+            $adsAssetsHead = '    <link rel="stylesheet" href="' . asset_v('/assets/css/ads.css') . '">' . "\n";
+        }
         // نفس باغ asset_v بالظبط - site_brand_html() لازم يتحسب في متغير
         $brandHtml = site_brand_html();
         // تخصيص الوكالات (White-Label): حقن ألوان براندنج الوكالة كـ CSS
@@ -628,6 +657,12 @@ abstract class Controller
         $iconGlobe = icon_svg('globe');
         $iconSparkles = icon_svg('sparkles');
         $iconUser = icon_svg('user');
+        // لو المتصل بيمرر وسم <script src="..."> كامل بيتحط زي ما هو؛
+        // غير كده بيتم لفه جوه <script> عشان يفضل متوافق مع المتصلين القدامى.
+        $scriptTrimmed = ltrim($scriptJs);
+        $scriptBlock = $scriptTrimmed !== '' && str_starts_with($scriptTrimmed, '<script')
+            ? $scriptJs
+            : '<script>' . $scriptJs . '</script>';
 
         return <<<HTML
 <!DOCTYPE html>
@@ -647,7 +682,7 @@ abstract class Controller
     {$faviconHtml}
     <link rel="stylesheet" href="{$styleCssUrl}">
     <link rel="stylesheet" href="{$panelCssUrl}">
-{$brandingCss}{$thirdPartyHead}{$chatAssetsHead}</head>
+{$brandingCss}{$thirdPartyHead}{$chatAssetsHead}{$adsAssetsHead}</head>
 <body>
     <div class="panel-shell">
         <div class="panel-overlay-bg"></div>
@@ -716,7 +751,7 @@ abstract class Controller
     <script>window.I18N = {$this->i18nJson()};</script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
     <script src="{$panelJsUrl}"></script>
-{$chatAssetsFoot}    <script>{$scriptJs}</script>
+{$chatAssetsFoot}{$scriptBlock}
 <button id="pwaInstallBtn" class="pwa-install-fab" type="button" aria-label="تثبيت التطبيق" title="تثبيت التطبيق">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <span>تثبيت التطبيق</span>

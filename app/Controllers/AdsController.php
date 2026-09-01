@@ -31,799 +31,14 @@ class AdsController extends Controller
             'UTF-8'
         );
 
-        $tabsHtml = $this->adsTabsHtml('dashboard');
-
-        $body = <<<HTML
-        {$tabsHtml}
-
-        <div class="p-card" id="dashboardFilters" style="margin-bottom:16px;">
-            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;">
-                <div>
-                    <label class="p-cell-muted" style="font-size:12px;">الفترة</label><br>
-                    <select id="dashPeriod" class="p-select" onchange="loadDashboardSummary()">
-                        <option value="daily">آخر يوم</option>
-                        <option value="weekly" selected>آخر 7 أيام</option>
-                        <option value="monthly">آخر 30 يوم</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="p-cell-muted" style="font-size:12px;">المنصة</label><br>
-                    <select id="dashPlatform" class="p-select" onchange="loadDashboardSummary()">
-                        <option value="">كل المنصات</option>
-                        <option value="meta_ads">Meta Ads</option>
-                        <option value="google_ads">Google Ads</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="p-cell-muted" style="font-size:12px;">الحالة</label><br>
-                    <select id="dashStatus" class="p-select" onchange="loadDashboardSummary()">
-                        <option value="">كل الحالات</option>
-                        <option value="active">نشطة</option>
-                        <option value="paused">متوقفة</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        <div id="dashboardKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px;">
-            <div class="p-loading-row">جارِ التحميل...</div>
-        </div>
-
-        <div class="p-card" id="dashboardRecommendationsCard" style="margin-bottom:16px;">
-            <div class="p-card-head"><h3>💡 توصيات الذكاء الاصطناعي</h3><span class="p-card-sub">مبنية على أداء حسابك الفعلي - راجع صفحة Autopilot لتفاصيل كل توصية</span></div>
-            <div id="dashboardRecommendations"><div class="p-loading-row">جارِ التحميل...</div></div>
-        </div>
-
-        <div class="p-card" id="metaConnectCard" style="margin-bottom:16px;">
-            <div class="p-card-head"><h3>Meta Ads (Facebook / Instagram)</h3><span class="p-card-sub">اربط حساب إعلاناتك عشان تسحب حملات وإنفاق حقيقي</span></div>
-            <div id="metaConnectionStatus"><div class="p-loading-row">جارِ التحميل...</div></div>
-        </div>
-
-        <div class="p-card" id="googleAdsConnectCard" style="margin-bottom:16px;">
-            <div class="p-card-head"><h3>Google Ads</h3><span class="p-card-sub">اربط حساب Google Ads عشان تسحب حملات وإنفاق حقيقي</span></div>
-            <div id="googleAdsConnectionStatus"><div class="p-loading-row">جارِ التحميل...</div></div>
-        </div>
-
-        <div class="p-modal-overlay" id="campaignToolsModal">
-            <div class="p-modal wide">
-                <div class="p-modal-head">
-                    <h3>🛠 أدوات الحملة: <span id="toolsCampaignName"></span></h3>
-                    <button class="p-modal-close" onclick="document.getElementById('campaignToolsModal').classList.remove('open')">×</button>
-                </div>
-                <div class="p-modal-body">
-                    <div class="p-card" style="margin-bottom:14px;">
-                        <div class="p-card-head"><h3>🔑 كلمات مفتاحية (AI Keyword Strategist)</h3></div>
-                        <textarea id="kwGoalDesc" class="p-select" style="width:100%;min-height:60px;" placeholder="وصف مختصر للعرض (لو فاضي هيستخدم product_or_service المسجّل بالفعل)"></textarea>
-                        <button class="p-btn primary xs" style="margin-top:8px;" onclick="generateCampaignKeywords()">توليد الكلمات المفتاحية</button>
-                        <div id="kwResults" style="margin-top:10px;font-size:13px;"></div>
-                    </div>
-
-                    <div class="p-card" style="margin-bottom:14px;">
-                        <div class="p-card-head"><h3>🎯 تحليل صفحة الهبوط</h3></div>
-                        <input type="text" id="lpUrl" class="p-select" style="width:100%;" placeholder="https://example.com/landing-page">
-                        <button class="p-btn primary xs" style="margin-top:8px;" onclick="analyzeCampaignLandingPage()">تحليل الصفحة</button>
-                        <div id="lpResults" style="margin-top:10px;font-size:13px;"></div>
-                    </div>
-
-                    <div class="p-card">
-                        <div class="p-card-head"><h3>🔗 رابط UTM جديد</h3></div>
-                        <input type="text" id="utmDest" class="p-select" style="width:100%;margin-bottom:6px;" placeholder="رابط الوجهة (صفحة الهبوط)">
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                            <input type="text" id="utmSource" class="p-select" placeholder="utm_source (مثال: google)" value="google">
-                            <input type="text" id="utmMedium" class="p-select" placeholder="utm_medium (مثال: cpc)" value="cpc">
-                        </div>
-                        <button class="p-btn primary xs" style="margin-top:8px;" onclick="createCampaignUtmLink()">إنشاء الرابط</button>
-                        <div id="utmResults" style="margin-top:10px;font-size:13px;"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="adsWizardConfig" data-ctas="{$ctasJson}" style="display:none;"></div>
-
-        <div class="p-toolbar" style="gap:10px;flex-wrap:wrap;">
-            <button class="p-btn primary" onclick="openAiWizard()">✨ حملة إعلانية بالذكاء الاصطناعي</button>
-            <button class="p-btn outline" onclick="document.getElementById('newCampaignModal').classList.add('open')">+ حملة يدوية</button>
-        </div>
-
-        <div class="p-toolbar" style="gap:10px;flex-wrap:wrap;margin-top:10px;">
-            <input type="text" id="campaignSearch" class="p-select" style="flex:1;min-width:180px;" placeholder="ابحث باسم الحملة...">
-            <select id="campaignStatusFilter" class="p-select" style="width:auto;">
-                <option value="">كل الحالات</option>
-                <option value="active">نشطة</option>
-                <option value="paused">متوقفة</option>
-                <option value="draft">مسودة</option>
-            </select>
-            <select id="campaignSort" class="p-select" style="width:auto;">
-                <option value="created_at">الأحدث</option>
-                <option value="name">الاسم</option>
-                <option value="spend">الإنفاق</option>
-                <option value="daily_budget">الميزانية</option>
-            </select>
-        </div>
-
-        <div id="bulkActionBar" style="display:none;background:var(--card-bg, #fff);border:1px solid var(--border-color, #eee);border-radius:8px;padding:10px;margin-top:10px;align-items:center;gap:10px;">
-            <span id="bulkSelectedCount" class="p-cell-muted"></span>
-            <button class="p-btn outline xs" onclick="bulkUpdateStatus('active')">▶ استئناف المحدّد</button>
-            <button class="p-btn outline xs" onclick="bulkUpdateStatus('paused')">⏸ إيقاف المحدّد</button>
-        </div>
-
-        <div class="p-card no-pad">
-            <div class="p-table-scroll"><table class="p-table" id="campaignsTable">
-                <thead><tr><th><input type="checkbox" id="selectAllCampaigns" onchange="toggleSelectAll()"></th><th>الاسم</th><th>الميزانية اليومية</th><th>الحالة</th><th>الإنفاق</th><th>النصوص الإعلانية</th></tr></thead>
-                <tbody><tr class="p-loading-row"><td colspan="6">جارِ التحميل...</td></tr></tbody>
-            </table></div>
-            <div id="campaignsPagination" style="display:flex;justify-content:space-between;align-items:center;padding:10px;"></div>
-        </div>
-
-        <div class="p-modal-overlay" id="newCampaignModal">
-            <div class="p-modal">
-                <div class="p-modal-head"><h3>حملة إعلانية جديدة (يدوي)</h3><button class="p-modal-close" onclick="document.getElementById('newCampaignModal').classList.remove('open')">×</button></div>
-                <div class="p-modal-body">
-                    <label>اسم الحملة</label>
-                    <input type="text" id="campaignName" class="p-select" style="width:100%;margin-bottom:10px;">
-                    <label>الميزانية اليومية (USD)</label>
-                    <input type="number" id="campaignBudget" class="p-select" style="width:100%;">
-                </div>
-                <div class="p-modal-foot"><button class="p-btn" onclick="createCampaign()">إنشاء</button></div>
-            </div>
-        </div>
-
-        <div class="p-modal-overlay" id="aiWizardModal">
-            <div class="p-modal wide">
-                <div class="p-modal-head">
-                    <h3>✨ حملة إعلانية بالذكاء الاصطناعي</h3>
-                    <button class="p-modal-close" onclick="closeAiWizard()">×</button>
-                </div>
-                <div class="p-modal-body">
-                    <div id="aiWizardStep1">
-                        <label>الهدف من الحملة</label>
-                        <select id="aiObjective" class="p-select" style="width:100%;margin-bottom:14px;">{$objectiveOptionsHtml}</select>
-
-                        <label>وصف مختصر لعرضك</label>
-                        <textarea id="aiGoalDescription" class="p-select" rows="3" style="width:100%;margin-bottom:14px;" placeholder="مثال: رحلة الغردقة 3 أيام 2 ليلة شاملة الإقامة والإفطار بـ 5000 جنيه للفرد" maxlength="2000"></textarea>
-
-                        <label>الميزانية اليومية المتوقعة (USD) - اختياري</label>
-                        <input type="number" id="aiDailyBudget" class="p-select" style="width:100%;margin-bottom:6px;" min="1" step="0.5">
-                        <div class="p-cell-muted" style="font-size:11.5px;margin-bottom:16px;">سيب الحقل ده فاضي لو عايز الذكاء الاصطناعي يقترحلك رقم مناسب</div>
-
-                        <button class="p-btn primary btn-block" id="aiGenerateBtn" onclick="generateAiBrief()">توليد الحملة بالذكاء الاصطناعي ✨</button>
-                        <div class="p-cell-muted" style="font-size:11px;text-align:center;margin-top:8px;">هيتم خصم سعر التوليد من رصيد محفظتك عند نجاح التوليد بس</div>
-                        <div id="aiWizardError" class="alert alert-danger" style="display:none;margin-top:12px;"></div>
-                    </div>
-
-                    <div id="aiWizardStep2" style="display:none;"></div>
-                </div>
-                <div class="p-modal-foot" id="aiWizardFoot" style="display:none;">
-                    <button class="p-btn outline" onclick="backToAiStep1()">‹ رجوع للتعديل</button>
-                    <button class="p-btn primary" id="aiConfirmCreateBtn" onclick="confirmCreateAiCampaign()">إنشاء الحملة ✅</button>
-                </div>
-            </div>
-        </div>
-HTML;
-
-        $script = <<<'JS'
-(function () {
-    const P = window.Panel;
-    const esc = P.esc;
-    const _ownerId = new URLSearchParams(window.location.search).get('owner_id') || '';
-    const fetchJSON = _ownerId
-        ? (url, options) => P.fetchJSON(url + (url.includes('?') ? '&' : '?') + 'owner_id=' + encodeURIComponent(_ownerId), options)
-        : P.fetchJSON;
-    const ALLOWED_CTAS = JSON.parse(document.getElementById('adsWizardConfig').dataset.ctas || '[]');
-    const LIMITS = {
-        headline: { recommended: 27, max: 40 },
-        description: { recommended: 27, max: 30 },
-        primary_text: { recommended: 125, max: 220 },
-    };
-    let currentBrief = null;
-
-    async function loadMetaStatus() {
-        const res = await fetchJSON('/api/ads/meta/status');
-        const box = document.getElementById('metaConnectionStatus');
-        if (!res.success) { box.innerHTML = '<div class="p-cell-muted">تعذر التحقق من حالة الربط</div>'; return; }
-
-        if (!res.data.configured) {
-            box.innerHTML = '<div class="p-cell-muted">ربط Meta Ads لسه مش مفعّل من إدارة النظام (بيانات App ID/Secret ناقصة في إعدادات السيرفر).</div>';
-            return;
-        }
-
-        if (res.data.connected) {
-            box.innerHTML = `
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <span><span class="pill green">✔ مربوط</span> ${esc(res.data.account_name || res.data.external_account_id || '')}</span>
-                    <div style="display:flex;gap:8px;">
-                        <button class="p-btn outline xs" onclick="syncMetaCampaigns()">🔄 مزامنة الحملات الآن</button>
-                        <button class="p-btn danger xs" onclick="disconnectMeta()">فصل الربط</button>
-                    </div>
-                </div>`;
-        } else {
-            box.innerHTML = `<a href="/ads/connect/meta" class="p-btn primary xs">🔗 ربط حساب Meta Ads</a>`;
-        }
-    }
-
-    window.syncMetaCampaigns = async function () {
-        P.toast('جارِ سحب الحملات من Meta...', 'success');
-        const res = await fetchJSON('/api/ads/meta/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-        if (res.success) { P.toast('تمت المزامنة: ' + res.data.synced + ' حملة', 'success'); load(); }
-        else P.toast(res.error || 'تعذرت المزامنة', 'error');
-    };
-
-    window.disconnectMeta = async function () {
-        if (!confirm('متأكد من فصل ربط Meta Ads؟')) return;
-        const res = await fetchJSON('/api/ads/meta/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-        if (res.success) { P.toast('تم فصل الربط', 'success'); loadMetaStatus(); }
-        else P.toast(res.error || 'تعذر الفصل', 'error');
-    };
-
-    async function loadGoogleAdsStatus() {
-        const res = await fetchJSON('/api/ads/google/status');
-        const box = document.getElementById('googleAdsConnectionStatus');
-        if (!res.success) { box.innerHTML = '<div class="p-cell-muted">تعذر التحقق من حالة الربط</div>'; return; }
-
-        if (!res.data.configured) {
-            box.innerHTML = '<div class="p-cell-muted">ربط Google Ads لسه مش مفعّل من إدارة النظام (GOOGLE_ADS_DEVELOPER_TOKEN ناقص في إعدادات السيرفر).</div>';
-            return;
-        }
-
-        if (res.data.connected) {
-            box.innerHTML = `
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <span><span class="pill green">✔ مربوط</span> ${esc(res.data.external_account_id || '')}</span>
-                    <div style="display:flex;gap:8px;">
-                        <button class="p-btn outline xs" onclick="syncGoogleAdsCampaigns()">🔄 مزامنة الحملات الآن</button>
-                        <button class="p-btn danger xs" onclick="disconnectGoogleAds()">فصل الربط</button>
-                    </div>
-                </div>`;
-        } else {
-            box.innerHTML = `<a href="/ads/connect/google" class="p-btn primary xs">🔗 ربط حساب Google Ads</a>`;
-        }
-    }
-
-    window.syncGoogleAdsCampaigns = async function () {
-        P.toast('جارِ سحب الحملات من Google Ads...', 'success');
-        const res = await fetchJSON('/api/ads/google/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-        if (res.success) { P.toast('تمت المزامنة: ' + res.data.synced + ' حملة', 'success'); load(); }
-        else P.toast(res.error || 'تعذرت المزامنة', 'error');
-    };
-
-    window.disconnectGoogleAds = async function () {
-        if (!confirm('متأكد من فصل ربط Google Ads؟')) return;
-        const res = await fetchJSON('/api/ads/google/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-        if (res.success) { P.toast('تم فصل الربط', 'success'); loadGoogleAdsStatus(); }
-        else P.toast(res.error || 'تعذر الفصل', 'error');
-    };
-
-    let currentPage = 1;
-    let searchDebounceTimer = null;
-
-    async function load() {
-        const tbody = document.querySelector('#campaignsTable tbody');
-        tbody.innerHTML = '<tr class="p-loading-row"><td colspan="6">جارِ التحميل...</td></tr>';
-        document.getElementById('selectAllCampaigns').checked = false;
-        updateBulkBar();
-
-        const qs = new URLSearchParams({
-            q: document.getElementById('campaignSearch').value.trim(),
-            status: document.getElementById('campaignStatusFilter').value,
-            sort: document.getElementById('campaignSort').value,
-            dir: 'desc',
-            page: currentPage,
-            per_page: 20,
-        });
-
-        const res = await fetchJSON('/api/ads/campaigns/search?' + qs.toString());
-        if (res.success && res.data.campaigns && res.data.campaigns.length) {
-            tbody.innerHTML = res.data.campaigns.map(c => `
-                <tr>
-                    <td><input type="checkbox" class="campaign-select" value="${c.id}" onchange="updateBulkBar()"></td>
-                    <td>
-                        ${esc(c.name)}
-                        ${c.ai_generated ? '<span class="pill blue xs" style="margin-inline-start:6px;">✨ ذكاء اصطناعي</span>' : ''}
-                        ${c.target_audience_brief ? '<div class="p-cell-muted" style="font-size:11px;margin-top:3px;">🎯 ' + esc(c.target_audience_brief) + '</div>' : ''}
-                    </td>
-                    <td>${esc(c.daily_budget || '-')} ${esc(c.currency)}</td>
-                    <td>${esc(c.status)}</td>
-                    <td>${esc(c.spend)} ${esc(c.currency)}</td>
-                    <td>
-                        <a href="/ads/campaigns/${c.id}" class="p-btn outline xs" style="text-decoration:none;">📋 التفاصيل</a>
-                        <button class="p-btn outline xs" onclick="generateCopies(${c.id})">توليد ✨</button>
-                        <button class="p-btn outline xs" data-campaign-id="${c.id}" data-campaign-name="${esc(c.name)}" onclick="openCampaignTools(this)">🛠 أدوات</button>
-                        <div id="copies-${c.id}" style="margin-top:6px;"></div>
-                    </td>
-                </tr>
-            `).join('');
-            res.data.campaigns.forEach(c => { if (c.id) loadCopiesInline(c.id); });
-            renderPagination(res.data.total, res.data.page, res.data.per_page);
-        } else {
-            tbody.innerHTML = '<tr><td colspan="6" class="p-empty">لا يوجد حملات مطابقة</td></tr>';
-            document.getElementById('campaignsPagination').innerHTML = '';
-        }
-    }
-
-    function renderPagination(total, page, perPage) {
-        const box = document.getElementById('campaignsPagination');
-        const totalPages = Math.max(1, Math.ceil(total / perPage));
-        if (total === 0) { box.innerHTML = ''; return; }
-        box.innerHTML = `
-            <span class="p-cell-muted">${total} حملة - صفحة ${page} من ${totalPages}</span>
-            <div style="display:flex;gap:6px;">
-                <button class="p-btn outline xs" ${page <= 1 ? 'disabled' : ''} onclick="goToPage(${page - 1})">السابق</button>
-                <button class="p-btn outline xs" ${page >= totalPages ? 'disabled' : ''} onclick="goToPage(${page + 1})">التالي</button>
-            </div>`;
-    }
-
-    window.goToPage = function (page) { currentPage = page; load(); };
-
-    window.toggleSelectAll = function () {
-        const checked = document.getElementById('selectAllCampaigns').checked;
-        document.querySelectorAll('.campaign-select').forEach(cb => { cb.checked = checked; });
-        updateBulkBar();
-    };
-
-    window.updateBulkBar = function () {
-        const selected = document.querySelectorAll('.campaign-select:checked');
-        const bar = document.getElementById('bulkActionBar');
-        if (selected.length > 0) {
-            bar.style.display = 'flex';
-            document.getElementById('bulkSelectedCount').textContent = selected.length + ' حملة محدّدة';
-        } else {
-            bar.style.display = 'none';
-        }
-    };
-
-    window.bulkUpdateStatus = async function (newStatus) {
-        const ids = Array.from(document.querySelectorAll('.campaign-select:checked')).map(cb => parseInt(cb.value, 10));
-        if (!ids.length) return;
-        const actionLabel = newStatus === 'paused' ? 'إيقاف' : 'استئناف';
-        if (!confirm('متأكد من ' + actionLabel + ' ' + ids.length + ' حملة؟')) return;
-
-        const res = await fetchJSON('/api/ads/campaigns/bulk-status', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ campaign_ids: ids, status: newStatus }),
-        });
-        if (res.success) {
-            const failed = res.data.results.filter(r => !r.success);
-            if (failed.length) P.toast(failed.length + ' حملة فشلت (راجع التفاصيل)', 'error');
-            else P.toast('تم ' + actionLabel + ' الحملات المحدّدة', 'success');
-            load();
-        } else {
-            P.toast(res.error || 'تعذّر تنفيذ الإجراء الجماعي', 'error');
-        }
-    };
-
-    document.getElementById('campaignSearch').addEventListener('input', () => {
-        clearTimeout(searchDebounceTimer);
-        searchDebounceTimer = setTimeout(() => { currentPage = 1; load(); }, 400);
-    });
-    document.getElementById('campaignStatusFilter').addEventListener('change', () => { currentPage = 1; load(); });
-    document.getElementById('campaignSort').addEventListener('change', () => { currentPage = 1; load(); });
-
-    async function loadCopiesInline(campaignId) {
-        const box = document.getElementById('copies-' + campaignId);
-        if (!box) return;
-        const res = await fetchJSON('/api/ads/campaigns/' + campaignId + '/copies');
-        if (res.success && res.data.copies && res.data.copies.length) {
-            renderCopiesList(box, res.data.copies);
-        }
-    }
-
-    function renderCopiesList(box, copies) {
-        box.innerHTML = copies.map(c => `
-            <div class="ads-copy-mini ${c.status === 'approved' ? 'approved' : ''} ${c.status === 'rejected' ? 'rejected' : ''}">
-                <div><strong>[${esc(c.variant_label)}]</strong> ${esc(c.headline)}</div>
-                <div class="p-cell-muted" style="font-size:11px;">${esc(c.description || '')}</div>
-                <div class="ads-copy-mini-actions">
-                    ${c.status === 'approved'
-                        ? '<span class="pill green xs">✔ معتمدة</span>'
-                        : `<button class="p-btn outline xs" onclick="approveCopy(${c.id})">اعتماد</button>
-                           <button class="p-btn ghost xs" onclick="rejectCopy(${c.id})">استبعاد</button>`}
-                </div>
-            </div>
-        `).join('');
-    }
-
-    window.generateCopies = async function (id) {
-        const box = document.getElementById('copies-' + id);
-        box.innerHTML = '<div class="p-cell-muted">جارِ التوليد...</div>';
-        const res = await fetchJSON('/api/ads/campaigns/' + id + '/generate-copies', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-        if (res.success && res.data.copies) {
-            renderCopiesList(box, res.data.copies);
-        } else {
-            box.innerHTML = '<span class="p-cell-muted">' + esc(res.error || 'فشل التوليد') + '</span>';
-        }
-    };
-
-    window.approveCopy = async function (id) {
-        const res = await fetchJSON('/api/ads/copies/' + id + '/approve', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-        if (res.success) { P.toast('تم اعتماد النسخة', 'success'); load(); }
-        else P.toast(res.error || 'تعذر الاعتماد', 'error');
-    };
-
-    window.rejectCopy = async function (id) {
-        const res = await fetchJSON('/api/ads/copies/' + id + '/reject', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-        if (res.success) { P.toast('تم استبعاد النسخة', 'success'); load(); }
-        else P.toast(res.error || 'تعذر الاستبعاد', 'error');
-    };
-
-    window.createCampaign = async function () {
-        const name = document.getElementById('campaignName').value.trim();
-        const daily_budget = document.getElementById('campaignBudget').value;
-        if (!name) return;
-        const res = await fetchJSON('/api/ads/campaigns', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, daily_budget }) });
-        document.getElementById('newCampaignModal').classList.remove('open');
-        document.getElementById('campaignName').value = '';
-        document.getElementById('campaignBudget').value = '';
-        if (res.success) { P.toast('تم إنشاء الحملة (مسودة)', 'success'); load(); }
-        else P.toast(res.error || 'فشل الإنشاء', 'error');
-    };
-
-    // ============ ويزارد الحملة بالذكاء الاصطناعي ============
-    window.openAiWizard = function () {
-        currentBrief = null;
-        document.getElementById('aiWizardError').style.display = 'none';
-        document.getElementById('aiWizardStep1').style.display = 'block';
-        document.getElementById('aiWizardStep2').style.display = 'none';
-        document.getElementById('aiWizardStep2').innerHTML = '';
-        document.getElementById('aiWizardFoot').style.display = 'none';
-        document.getElementById('aiWizardModal').classList.add('open');
-    };
-
-    window.closeAiWizard = function () {
-        document.getElementById('aiWizardModal').classList.remove('open');
-    };
-
-    window.backToAiStep1 = function () {
-        document.getElementById('aiWizardStep1').style.display = 'block';
-        document.getElementById('aiWizardStep2').style.display = 'none';
-        document.getElementById('aiWizardFoot').style.display = 'none';
-    };
-
-    window.generateAiBrief = async function () {
-        const objective = document.getElementById('aiObjective').value;
-        const goalDescription = document.getElementById('aiGoalDescription').value.trim();
-        const dailyBudget = document.getElementById('aiDailyBudget').value;
-        const errBox = document.getElementById('aiWizardError');
-        errBox.style.display = 'none';
-
-        if (!goalDescription) {
-            errBox.textContent = 'اكتب وصف مختصر لعرضك الأول';
-            errBox.style.display = 'block';
-            return;
-        }
-
-        const btn = document.getElementById('aiGenerateBtn');
-        const originalLabel = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = 'جارِ التوليد بالذكاء الاصطناعي...';
-
-        const payload = { objective: objective, goal_description: goalDescription };
-        if (dailyBudget) payload.daily_budget = dailyBudget;
-
-        let res;
-        try {
-            res = await fetchJSON('/api/ads/campaigns/ai-generate', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-            });
-        } catch (e) {
-            res = { success: false, error: 'تعذر الاتصال بالسيرفر' };
-        }
-
-        btn.disabled = false;
-        btn.textContent = originalLabel;
-
-        if (res.success) {
-            currentBrief = res.data.brief;
-            renderAiReview(currentBrief);
-            document.getElementById('aiWizardStep1').style.display = 'none';
-            document.getElementById('aiWizardStep2').style.display = 'block';
-            document.getElementById('aiWizardFoot').style.display = 'flex';
-        } else {
-            if (res.data && res.data.shortfall) {
-                errBox.textContent = 'رصيدك في المحفظة مش كافي - محتاج تودّع $' + res.data.shortfall + ' إضافية';
-            } else {
-                errBox.textContent = res.error || 'تعذر توليد الحملة، جرّب تاني';
-            }
-            errBox.style.display = 'block';
-        }
-    };
-
-    function ctaOptionsHtml(selected) {
-        return ALLOWED_CTAS.map(function (c) {
-            return '<option value="' + esc(c) + '"' + (c === selected ? ' selected' : '') + '>' + esc(c) + '</option>';
-        }).join('');
-    }
-
-    function badgeClass(len, limitObj) {
-        return len <= limitObj.recommended ? 'ok' : 'warn';
-    }
-
-    function renderCopyCard(c, i) {
-        const headline = c.headline || '';
-        const description = c.description || '';
-        const primaryText = c.primary_text || '';
-        const hLen = headline.length, dLen = description.length, pLen = primaryText.length;
-
-        let html = '<div class="ads-copy-card">';
-        html += '<div class="ads-copy-card-head">نسخة ' + esc(c.variant_label || String.fromCharCode(65 + i)) + '</div>';
-
-        html += '<label>العنوان (Headline)</label>';
-        html += '<div class="ads-field-row"><input type="text" class="p-select ads-cc-headline" data-idx="' + i + '" style="width:100%;" maxlength="' + LIMITS.headline.max + '" value="' + esc(headline) + '">';
-        html += '<span class="ads-char-badge ' + badgeClass(hLen, LIMITS.headline) + '" id="badge-headline-' + i + '">' + hLen + '/' + LIMITS.headline.max + '</span></div>';
-
-        html += '<label>الوصف (Description)</label>';
-        html += '<div class="ads-field-row"><input type="text" class="p-select ads-cc-description" data-idx="' + i + '" style="width:100%;" maxlength="' + LIMITS.description.max + '" value="' + esc(description) + '">';
-        html += '<span class="ads-char-badge ' + badgeClass(dLen, LIMITS.description) + '" id="badge-description-' + i + '">' + dLen + '/' + LIMITS.description.max + '</span></div>';
-
-        html += '<label>النص الأساسي (Primary Text)</label>';
-        html += '<div class="ads-field-row"><textarea class="p-select ads-cc-primary_text" data-idx="' + i + '" style="width:100%;" rows="2" maxlength="' + LIMITS.primary_text.max + '">' + esc(primaryText) + '</textarea>';
-        html += '<span class="ads-char-badge ' + badgeClass(pLen, LIMITS.primary_text) + '" id="badge-primary_text-' + i + '">' + pLen + '/' + LIMITS.primary_text.max + '</span></div>';
-
-        html += '<label>دعوة لاتخاذ إجراء (CTA)</label>';
-        html += '<select class="p-select ads-cc-cta" data-idx="' + i + '" style="width:100%;">' + ctaOptionsHtml(c.call_to_action) + '</select>';
-
-        const warnings = c.policy_warnings || [];
-        if (warnings.length) {
-            html += '<div class="ads-policy-warnings">' + warnings.map(function (w) {
-                return '<div class="ads-policy-warning">⚠️ ' + esc(w) + '</div>';
-            }).join('') + '</div>';
-        }
-
-        html += '</div>';
-        return html;
-    }
-
-    function bindCopyCardEvents(count) {
-        for (let i = 0; i < count; i++) {
-            bindField('headline', i, LIMITS.headline);
-            bindField('description', i, LIMITS.description);
-            bindField('primary_text', i, LIMITS.primary_text);
-        }
-    }
-
-    function bindField(field, i, limitObj) {
-        const el = document.querySelector('.ads-cc-' + field + '[data-idx="' + i + '"]');
-        const badge = document.getElementById('badge-' + field + '-' + i);
-        if (!el || !badge) return;
-        el.addEventListener('input', function () {
-            const len = el.value.length;
-            badge.textContent = len + '/' + limitObj.max;
-            badge.classList.remove('ok', 'warn');
-            badge.classList.add(badgeClass(len, limitObj));
-        });
-    }
-
-    function renderAiReview(brief) {
-        const step2 = document.getElementById('aiWizardStep2');
-        const a = brief.audience || {};
-        const b = brief.budget_recommendation || {};
-        let html = '';
-
-        html += '<label>اسم الحملة</label>';
-        html += '<input type="text" id="reviewCampaignName" class="p-select" style="width:100%;margin-bottom:16px;" maxlength="255" value="' + esc(brief.campaign_name || '') + '">';
-
-        html += '<div class="p-card" style="margin-bottom:14px;padding:14px;">';
-        html += '<div style="font-weight:800;font-size:13.5px;margin-bottom:10px;">🎯 الجمهور المستهدف</div>';
-        html += '<div class="ads-grid-2">';
-        html += '<div><label>أقل عمر</label><input type="number" id="reviewAgeMin" class="p-select" style="width:100%;" value="' + (a.age_min != null ? a.age_min : 18) + '" min="13" max="65"></div>';
-        html += '<div><label>أكبر عمر</label><input type="number" id="reviewAgeMax" class="p-select" style="width:100%;" value="' + (a.age_max != null ? a.age_max : 65) + '" min="13" max="65"></div>';
-        html += '</div>';
-        html += '<label style="margin-top:10px;display:block;">الجنس</label>';
-        html += '<select id="reviewGenders" class="p-select" style="width:100%;">';
-        html += '<option value="all"' + (a.genders === 'all' ? ' selected' : '') + '>الكل</option>';
-        html += '<option value="male"' + (a.genders === 'male' ? ' selected' : '') + '>ذكور</option>';
-        html += '<option value="female"' + (a.genders === 'female' ? ' selected' : '') + '>إناث</option>';
-        html += '</select>';
-        html += '<label style="margin-top:10px;display:block;">المواقع الجغرافية (افصل بفاصلة)</label>';
-        html += '<input type="text" id="reviewLocations" class="p-select" style="width:100%;" value="' + esc((a.locations || []).join('، ')) + '">';
-        html += '<label style="margin-top:10px;display:block;">الاهتمامات (افصل بفاصلة)</label>';
-        html += '<input type="text" id="reviewInterests" class="p-select" style="width:100%;" value="' + esc((a.interests || []).join('، ')) + '">';
-        if (brief.target_audience_brief) {
-            html += '<div class="p-cell-muted" style="margin-top:10px;font-size:12px;">💡 ' + esc(brief.target_audience_brief) + '</div>';
-        }
-        html += '</div>';
-
-        html += '<div class="p-card" style="margin-bottom:14px;padding:14px;">';
-        html += '<div style="font-weight:800;font-size:13.5px;margin-bottom:10px;">💰 توصية الميزانية</div>';
-        html += '<label>الميزانية اليومية المقترحة (USD)</label>';
-        html += '<input type="number" id="reviewBudget" class="p-select" style="width:100%;margin-bottom:8px;" min="1" step="0.5" value="' + (b.recommended_daily_budget != null ? b.recommended_daily_budget : 10) + '">';
-        if (b.bid_strategy) html += '<div class="p-cell-muted" style="font-size:12px;"><strong>استراتيجية المزايدة:</strong> ' + esc(b.bid_strategy) + '</div>';
-        if (b.reasoning) html += '<div class="p-cell-muted" style="font-size:12px;margin-top:4px;">💡 ' + esc(b.reasoning) + '</div>';
-        html += '</div>';
-
-        html += '<div style="font-size:13px;font-weight:800;margin:14px 0 8px;">✍️ النصوص الإعلانية (اتفحص العدّادات وعدّل اللي يعجبك)</div>';
-        const copies = brief.copies || [];
-        copies.forEach(function (c, i) { html += renderCopyCard(c, i); });
-
-        step2.innerHTML = html;
-        bindCopyCardEvents(copies.length);
-    }
-
-    function collectReviewData() {
-        const locations = document.getElementById('reviewLocations').value.split(/[,،]/).map(s => s.trim()).filter(Boolean);
-        const interests = document.getElementById('reviewInterests').value.split(/[,،]/).map(s => s.trim()).filter(Boolean);
-        const copyCount = (currentBrief && currentBrief.copies ? currentBrief.copies.length : 0);
-        const copies = [];
-        for (let i = 0; i < copyCount; i++) {
-            const headlineEl = document.querySelector('.ads-cc-headline[data-idx="' + i + '"]');
-            if (!headlineEl) continue;
-            copies.push({
-                headline: headlineEl.value.trim(),
-                description: document.querySelector('.ads-cc-description[data-idx="' + i + '"]').value.trim(),
-                primary_text: document.querySelector('.ads-cc-primary_text[data-idx="' + i + '"]').value.trim(),
-                call_to_action: document.querySelector('.ads-cc-cta[data-idx="' + i + '"]').value,
-                variant_label: (currentBrief.copies[i] && currentBrief.copies[i].variant_label) || String.fromCharCode(65 + i),
-            });
-        }
-
-        return {
-            name: document.getElementById('reviewCampaignName').value.trim(),
-            objective: currentBrief.objective,
-            product_or_service: currentBrief.product_or_service,
-            target_audience_brief: currentBrief.target_audience_brief,
-            daily_budget: document.getElementById('reviewBudget').value,
-            ai_generated: true,
-            audience: {
-                age_min: document.getElementById('reviewAgeMin').value,
-                age_max: document.getElementById('reviewAgeMax').value,
-                genders: document.getElementById('reviewGenders').value,
-                locations: locations,
-                interests: interests,
-            },
-            budget_recommendation: {
-                recommended_daily_budget: document.getElementById('reviewBudget').value,
-                bid_strategy: (currentBrief.budget_recommendation || {}).bid_strategy || '',
-                reasoning: (currentBrief.budget_recommendation || {}).reasoning || '',
-            },
-            copies: copies,
-        };
-    }
-
-    window.confirmCreateAiCampaign = async function () {
-        if (!currentBrief) return;
-        const payload = collectReviewData();
-        if (!payload.name) {
-            payload.name = 'حملة بالذكاء الاصطناعي';
-        }
-
-        const btn = document.getElementById('aiConfirmCreateBtn');
-        btn.disabled = true;
-        btn.textContent = 'جارِ الإنشاء...';
-
-        const res = await fetchJSON('/api/ads/campaigns', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-        });
-
-        btn.disabled = false;
-        btn.textContent = 'إنشاء الحملة ✅';
-
-        if (res.success) {
-            P.toast('تم إنشاء الحملة بنجاح', 'success');
-            closeAiWizard();
-            load();
-        } else {
-            P.toast(res.error || 'تعذر إنشاء الحملة', 'error');
-        }
-    };
-
-    let currentToolsCampaignId = null;
-
-    window.openCampaignTools = function (btn) {
-        currentToolsCampaignId = btn.getAttribute('data-campaign-id') || currentToolsCampaignId;
-        document.getElementById('toolsCampaignName').textContent = btn.getAttribute('data-campaign-name') || '';
-        document.getElementById('kwResults').innerHTML = '';
-        document.getElementById('lpResults').innerHTML = '';
-        document.getElementById('utmResults').innerHTML = '';
-        document.getElementById('campaignToolsModal').classList.add('open');
-    };
-
-    window.generateCampaignKeywords = async function () {
-        const box = document.getElementById('kwResults');
-        box.innerHTML = 'جارِ التحليل...';
-        const goalDescription = document.getElementById('kwGoalDesc').value.trim();
-        const res = await fetchJSON(`/api/ads/campaigns/${currentToolsCampaignId}/keywords/generate`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ goal_description: goalDescription }),
-        });
-        if (!res.success) { box.innerHTML = `<span style="color:#b91c1c;">${esc(res.error || 'تعذر التوليد')}</span>`; return; }
-
-        const groups = ['high_intent', 'commercial', 'long_tail', 'local', 'negative'];
-        const labels = { high_intent: 'نية شراء عالية', commercial: 'تجارية عامة', long_tail: 'عبارات طويلة', local: 'محلية', negative: 'سلبية (استبعاد)' };
-        box.innerHTML = groups.map(g => (res.data[g] && res.data[g].length) ? `
-            <div style="margin-bottom:8px;"><b>${labels[g]}:</b> ${res.data[g].map(k => `<span class="pill xs" style="margin:2px;">${esc(k.keyword)}</span>`).join('')}</div>
-        ` : '').join('') + `<div class="p-cell-muted" style="font-size:11px;">${esc(res.data.disclaimer || '')}</div>`;
-    };
-
-    window.analyzeCampaignLandingPage = async function () {
-        const box = document.getElementById('lpResults');
-        box.innerHTML = 'جارِ التحليل...';
-        const url = document.getElementById('lpUrl').value.trim();
-        const res = await fetchJSON(`/api/ads/campaigns/${currentToolsCampaignId}/landing-page/analyze`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url }),
-        });
-        if (!res.success) { box.innerHTML = `<span style="color:#b91c1c;">${esc(res.error || 'تعذر التحليل')}</span>`; return; }
-        if (res.data.fetch_error) { box.innerHTML = `<span style="color:#b91c1c;">${esc(res.data.fetch_error)}</span>`; return; }
-
-        box.innerHTML = `
-            <div><b>Relevance:</b> ${esc(res.data.relevance || '-')}</div>
-            <div><b>CTA:</b> ${esc(res.data.cta || '-')}</div>
-            <div><b>Message Match:</b> ${esc(res.data.message_match || '-')}</div>
-            <div style="margin-top:6px;"><b>التوصيات:</b><ul>${(res.data.recommendations || []).map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>
-        `;
-    };
-
-    window.createCampaignUtmLink = async function () {
-        const box = document.getElementById('utmResults');
-        box.innerHTML = 'جارِ الإنشاء...';
-        const payload = {
-            destination_url: document.getElementById('utmDest').value.trim(),
-            utm_source: document.getElementById('utmSource').value.trim() || 'google',
-            utm_medium: document.getElementById('utmMedium').value.trim() || 'cpc',
-        };
-        const res = await fetchJSON(`/api/ads/campaigns/${currentToolsCampaignId}/utm-links`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-        });
-        if (!res.success) { box.innerHTML = `<span style="color:#b91c1c;">${esc(res.error || 'تعذر الإنشاء')}</span>`; return; }
-        box.innerHTML = `<div>رابط التتبع القصير: <a href="${esc(res.data.short_redirect_url)}" target="_blank">${esc(res.data.short_redirect_url)}</a></div>`;
-    };
-
-    async function loadDashboardSummary() {
-        const box = document.getElementById('dashboardKpis');
-        const period = document.getElementById('dashPeriod').value;
-        const platform = document.getElementById('dashPlatform').value;
-        const status = document.getElementById('dashStatus').value;
-
-        const qs = new URLSearchParams({ period });
-        if (platform) qs.set('platform', platform);
-        if (status) qs.set('status', status);
-
-        const res = await fetchJSON('/api/ads/dashboard/summary?' + qs.toString());
-        if (!res.success) { box.innerHTML = '<div class="p-cell-muted">تعذر تحميل الملخص</div>'; return; }
-        const d = res.data;
-
-        const kpi = (label, value) => `
-            <div class="p-card" style="padding:14px;">
-                <div class="p-cell-muted" style="font-size:11.5px;">${label}</div>
-                <div style="font-size:20px;font-weight:800;margin-top:4px;">${value === null || value === undefined ? '<span class="p-cell-muted" style="font-size:13px;">لا توجد بيانات كافية</span>' : esc(String(value))}</div>
-            </div>`;
-
-        box.innerHTML =
-            kpi('إجمالي الإنفاق', d.spend) +
-            kpi('التحويلات', d.conversions) +
-            kpi('CTR', d.ctr !== null ? d.ctr + '%' : null) +
-            kpi('CPC', d.cpc) +
-            kpi('CPM', d.cpm) +
-            kpi('ROAS', d.roas !== null ? d.roas + 'x' : null) +
-            kpi('حملات نشطة', d.active_campaigns) +
-            kpi('حملات متوقفة', d.paused_campaigns) +
-            kpi('استخدام الميزانية', d.budget_utilization_pct !== null ? d.budget_utilization_pct + '%' : null);
-    }
-
-    async function loadDashboardRecommendations() {
-        const box = document.getElementById('dashboardRecommendations');
-        const res = await fetchJSON('/api/ads/autopilot/pending');
-        if (!res.success) { box.innerHTML = '<div class="p-cell-muted">تعذر التحميل</div>'; return; }
-        if (!res.data.length) { box.innerHTML = '<div class="p-cell-muted">مفيش توصيات جديدة حاليًا - كل حملاتك ضمن النطاق الطبيعي، أو الوضع الحالي "يدوي" وبيسجّل توصيات في سجل Autopilot بدل طابور الموافقة.</div>'; return; }
-        box.innerHTML = res.data.slice(0, 3).map(a => `
-            <div style="padding:8px 0;border-bottom:1px solid var(--border-color, #eee);">
-                <b>${esc(a.action_type)}</b> - حملة #${a.campaign_id}
-                <div class="p-cell-muted" style="font-size:12px;">${esc(a.reasoning)}</div>
-            </div>`).join('') + `<a href="/ads/autopilot" class="p-btn outline xs" style="margin-top:8px;">مراجعة كل التوصيات</a>`;
-    }
-
-    loadDashboardSummary();
-    loadDashboardRecommendations();
-    loadMetaStatus();
-    loadGoogleAdsStatus();
-    load();
-})();
-JS;
+        $body = $this->renderView('ads/index', ['adsActive' => 'dashboard', 'objectiveOptionsHtml' => $objectiveOptionsHtml, 'ctasJson' => $ctasJson]);
+        $script = '<script src="' . asset_v('/assets/js/ads/index.js') . '"></script>';
 
         header('Content-Type: text/html; charset=utf-8');
+
         echo $this->renderPanelPage('ads', 'إدارة الإعلانات', 'حملاتك الإعلانية عبر كل المنصات المربوطة', $body, $script);
         exit;
     }
-
     /** GET /api/ads/campaigns (?owner_id= لعرض حساب فريق تانٍ إنت عضو فيه) */
     public function list(array $params = []): array
     {
@@ -1114,9 +329,8 @@ JS;
 
         $state = base64_encode(json_encode(['nonce' => $nonce], JSON_UNESCAPED_UNICODE));
         header('Location: ' . $oauth->buildAuthUrl($state));
-        exit;
+                exit;
     }
-
     /** GET /ads/connect/meta/callback */
     public function metaOAuthCallback(array $params = []): array
     {
@@ -1161,9 +375,8 @@ JS;
         unset($_SESSION['meta_oauth_nonce']);
 
         header('Location: /ads/connect/meta/choose');
-        exit;
+                exit;
     }
-
     /** GET /ads/connect/meta/choose - يختار العميل حساب الإعلانات بتاعه */
     public function showMetaAdAccountPicker(array $params = []): array
     {
@@ -1194,29 +407,18 @@ JS;
             $optionsHtml .= "<button class=\"p-btn outline\" style=\"width:100%;text-align:start;margin-bottom:8px;\" onclick=\"chooseAccount('{$id}')\">{$name} <span class=\"p-cell-muted\">({$currency})</span></button>";
         }
 
-        $body = <<<HTML
-        <div class="p-card">
-            <div class="p-card-head"><h3>اختار حساب الإعلانات</h3><span class="p-card-sub">هنربط حملاتك الحقيقية من الحساب ده</span></div>
-            <div id="accountOptions">{$optionsHtml}</div>
-        </div>
-HTML;
-
-        $script = <<<'JS'
-window.chooseAccount = async function (accountId) {
-    const res = await window.Panel.fetchJSON('/api/ads/meta/choose-account', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account_id: accountId })
-    });
-    if (res.success) { window.location.href = '/ads'; }
-    else { window.Panel.toast(res.error || 'تعذر الربط', 'error'); }
-};
-JS;
+        $body = $this->renderView('ads/account_picker', [
+            'pickerTitle' => 'اختار حساب الإعلانات',
+            'pickerSubtitle' => 'هنربط حملاتك الحقيقية من الحساب ده',
+            'pickerOptions' => $optionsHtml,
+        ]);
+        $script = '<script src="' . asset_v('/assets/js/ads/meta_picker.js') . '"></script>';
 
         header('Content-Type: text/html; charset=utf-8');
+
         echo $this->renderPanelPage('ads', 'اختيار حساب Meta Ads', '', $body, $script);
         exit;
     }
-
     /** POST /api/ads/meta/choose-account */
     public function chooseMetaAdAccount(array $params = []): array
     {
@@ -1805,9 +1007,8 @@ JS;
 
         $state = base64_encode(json_encode(['nonce' => $nonce], JSON_UNESCAPED_UNICODE));
         header('Location: ' . $oauth->buildAuthUrl($state));
-        exit;
+                exit;
     }
-
     /** GET /ads/connect/google/callback */
     public function googleAdsOAuthCallback(array $params = []): array
     {
@@ -1857,9 +1058,8 @@ JS;
         unset($_SESSION['google_ads_oauth_nonce']);
 
         header('Location: /ads/connect/google/choose');
-        exit;
+                exit;
     }
-
     /** GET /ads/connect/google/choose - يختار العميل حساب Google Ads بتاعه */
     public function showGoogleAdsAccountPicker(array $params = []): array
     {
@@ -1894,29 +1094,18 @@ JS;
             $optionsHtml .= "<button class=\"p-btn outline\" style=\"width:100%;text-align:start;margin-bottom:8px;\" onclick=\"chooseGoogleAdsAccountBtn('{$id}')\">{$name} <span class=\"p-cell-muted\">({$currency})</span></button>";
         }
 
-        $body = <<<HTML
-        <div class="p-card">
-            <div class="p-card-head"><h3>اختار حساب Google Ads</h3><span class="p-card-sub">هنربط حملاتك الحقيقية من الحساب ده</span></div>
-            <div id="accountOptions">{$optionsHtml}</div>
-        </div>
-HTML;
-
-        $script = <<<'JS'
-window.chooseGoogleAdsAccountBtn = async function (accountId) {
-    const res = await window.Panel.fetchJSON('/api/ads/google/choose-account', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account_id: accountId })
-    });
-    if (res.success) { window.location.href = '/ads'; }
-    else { window.Panel.toast(res.error || 'تعذر الربط', 'error'); }
-};
-JS;
+        $body = $this->renderView('ads/account_picker', [
+            'pickerTitle' => 'اختار حساب Google Ads',
+            'pickerSubtitle' => 'هنربط حملاتك الحقيقية من الحساب ده',
+            'pickerOptions' => $optionsHtml,
+        ]);
+        $script = '<script src="' . asset_v('/assets/js/ads/google_picker.js') . '"></script>';
 
         header('Content-Type: text/html; charset=utf-8');
+
         echo $this->renderPanelPage('ads', 'اختيار حساب Google Ads', '', $body, $script);
         exit;
     }
-
     /** POST /api/ads/google/choose-account */
     public function chooseGoogleAdsAccount(array $params = []): array
     {
@@ -3344,104 +2533,14 @@ JS;
             exit;
         }
 
-        $tabsHtml = $this->adsTabsHtml('team');
-        $body = <<<HTML
-        {$tabsHtml}
-
-        <div class="p-card" style="margin-bottom:16px;">
-            <div class="p-card-head"><h3>👥 إدارة الفريق</h3><span class="p-card-sub">أضف زملاء عندهم حساب Tourfecto بالفعل، وحدّد صلاحياتهم على موديول الإعلانات بتاعك</span></div>
-            <div style="display:grid;grid-template-columns:2fr 1fr auto;gap:8px;margin-bottom:14px;">
-                <input type="email" id="newMemberEmail" class="p-select" placeholder="إيميل العضو (لازم يكون مسجّل في Tourfecto)">
-                <select id="newMemberRole" class="p-select">
-                    <option value="viewer">Viewer - عرض فقط</option>
-                    <option value="manager">Manager - إدارة الحملات</option>
-                    <option value="admin">Admin - كل الصلاحيات</option>
-                </select>
-                <button class="p-btn primary" onclick="addTeamMember()">+ إضافة</button>
-            </div>
-            <div id="teamMembersBox"><div class="p-loading-row">جارِ التحميل...</div></div>
-        </div>
-
-        <div class="p-card" id="belongToCard" style="display:none;">
-            <div class="p-card-head"><h3>🔗 حسابات أنا عضو فيها</h3></div>
-            <div id="belongToBox"></div>
-        </div>
-        HTML;
-
-        $script = <<<'JS'
-(function () {
-    const P = window.Panel;
-    const esc = P.esc;
-    const _ownerId = new URLSearchParams(window.location.search).get('owner_id') || '';
-    const fetchJSON = _ownerId
-        ? (url, options) => P.fetchJSON(url + (url.includes('?') ? '&' : '?') + 'owner_id=' + encodeURIComponent(_ownerId), options)
-        : P.fetchJSON;
-    const roleLabels = { viewer: 'Viewer - عرض فقط', manager: 'Manager - إدارة الحملات', admin: 'Admin - كل الصلاحيات' };
-
-    async function loadTeam() {
-        const res = await fetchJSON('/api/ads/team');
-        const box = document.getElementById('teamMembersBox');
-        if (!res.success) { box.innerHTML = '<div class="p-cell-muted">تعذر التحميل</div>'; return; }
-
-        if (!res.data.members.length) {
-            box.innerHTML = '<div class="p-cell-muted">لسه مفيش أعضاء فريق مضافين - إنت الـOwner الوحيد على الحساب ده حاليًا</div>';
-        } else {
-            box.innerHTML = res.data.members.map(m => `
-                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-color, #eee);">
-                    <div><b>${esc(m.company_name)}</b> <span class="p-cell-muted" style="font-size:12px;">${esc(m.email)}</span></div>
-                    <div style="display:flex;gap:8px;align-items:center;">
-                        <select class="p-select xs" onchange="updateMemberRole(${m.id}, this.value)">
-                            ${Object.entries(roleLabels).map(([k, l]) => `<option value="${k}" ${m.role === k ? 'selected' : ''}>${l}</option>`).join('')}
-                        </select>
-                        <button class="p-btn danger xs" onclick="removeTeamMember(${m.id})">إزالة</button>
-                    </div>
-                </div>`).join('');
-        }
-
-        if (res.data.accounts_i_belong_to.length) {
-            document.getElementById('belongToCard').style.display = 'block';
-            document.getElementById('belongToBox').innerHTML = res.data.accounts_i_belong_to.map(a => `
-                <div style="padding:8px 0;border-bottom:1px solid var(--border-color, #eee);">
-                    <b>${esc(a.company_name)}</b> - دورك: <span class="pill xs">${esc(roleLabels[a.role] || a.role)}</span>
-                    <div class="p-cell-muted" style="font-size:11px;">استخدم <code>?owner_id=${a.owner_user_id}</code> في الروابط للوصول لهذا الحساب حاليًا</div>
-                </div>`).join('');
-        }
-    }
-
-    window.addTeamMember = async function () {
-        const email = document.getElementById('newMemberEmail').value.trim();
-        const role = document.getElementById('newMemberRole').value;
-        if (!email) { P.toast('اكتب إيميل العضو', 'error'); return; }
-
-        const res = await fetchJSON('/api/ads/team', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, role }),
-        });
-        if (res.success) { P.toast('تم إضافة العضو', 'success'); document.getElementById('newMemberEmail').value = ''; loadTeam(); }
-        else P.toast(res.error || 'تعذّرت الإضافة', 'error');
-    };
-
-    window.updateMemberRole = async function (id, role) {
-        const res = await fetchJSON('/api/ads/team/' + id + '/role', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role }),
-        });
-        if (res.success) P.toast('تم تحديث الدور', 'success'); else P.toast(res.error || 'تعذّر التحديث', 'error');
-    };
-
-    window.removeTeamMember = async function (id) {
-        if (!confirm('متأكد من إزالة العضو ده؟')) return;
-        const res = await fetchJSON('/api/ads/team/' + id + '/remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-        if (res.success) { P.toast('تم الإزالة', 'success'); loadTeam(); } else P.toast(res.error || 'تعذّرت الإزالة', 'error');
-    };
-
-    loadTeam();
-})();
-JS;
+        $body = $this->renderView('ads/team', ['adsActive' => 'team']);
+        $script = '<script src="' . asset_v('/assets/js/ads/team.js') . '"></script>';
 
         header('Content-Type: text/html; charset=utf-8');
+
         echo $this->renderPanelPage('ads', 'فريق العمل', 'إدارة أعضاء الفريق وصلاحياتهم على موديول الإعلانات', $body, $script);
         exit;
     }
-
     /**
      * شريط تنقّل فرعي داخلي لكل صفحات الإعلانات (نفس نمط crmTabsHtml في
      * CrmController.php بالظبط - مفيش عنصر Sidebar عام جديد، الـ"ads"
@@ -3457,123 +2556,14 @@ JS;
             exit;
         }
 
-        $tabsHtml = $this->adsTabsHtml('reports');
-        $body = <<<HTML
-        {$tabsHtml}
-
-        <div class="p-card" style="margin-bottom:16px;">
-            <div class="p-card-head">
-                <h3>📈 اتجاه الأداء اليومي</h3>
-                <select id="trendDays" class="p-select" style="width:auto;" onchange="loadTrendChart()">
-                    <option value="7">آخر 7 أيام</option>
-                    <option value="30" selected>آخر 30 يوم</option>
-                    <option value="90">آخر 90 يوم</option>
-                </select>
-            </div>
-            <div id="trendChartEmpty" class="p-cell-muted" style="display:none;">لا توجد بيانات كافية بعد لعرض الاتجاه</div>
-            <canvas id="trendChart" height="90"></canvas>
-        </div>
-
-        <div class="p-card" id="reportsCard" style="margin-bottom:16px;">
-            <div class="p-card-head">
-                <h3>📊 تقرير الأداء الآلي</h3>
-                <select id="reportPeriod" class="p-select" style="width:auto;" onchange="loadAdsReport()">
-                    <option value="daily">يومي</option>
-                    <option value="weekly" selected>أسبوعي</option>
-                    <option value="monthly">شهري</option>
-                </select>
-            </div>
-            <div id="reportBox"><div class="p-loading-row">جارِ التحميل...</div></div>
-        </div>
-
-        <div class="p-card" id="attributionCard" style="margin-bottom:16px;">
-            <div class="p-card-head"><h3>🔗 الإسناد (Attribution) - روابط UTM</h3><span class="p-card-sub">نقرات حقيقية مسجّلة لكل رابط تتبّع أنشأته لحملاتك</span></div>
-            <div id="attributionBox"><div class="p-cell-muted">اختار حملة من صفحة "الحملات" لعرض روابط الـUTM بتاعتها وأداء النقرات.</div></div>
-        </div>
-        HTML;
-
-        $script = <<<'JS'
-(function () {
-    const P = window.Panel;
-    const esc = P.esc;
-    const _ownerId = new URLSearchParams(window.location.search).get('owner_id') || '';
-    const fetchJSON = _ownerId
-        ? (url, options) => P.fetchJSON(url + (url.includes('?') ? '&' : '?') + 'owner_id=' + encodeURIComponent(_ownerId), options)
-        : P.fetchJSON;
-    let trendChartInstance = null;
-
-    window.loadTrendChart = async function () {
-        const days = document.getElementById('trendDays').value;
-        const res = await fetchJSON('/api/ads/reports/trend?days=' + days);
-        const emptyBox = document.getElementById('trendChartEmpty');
-        const canvas = document.getElementById('trendChart');
-
-        if (!res.success || !res.data.length) {
-            emptyBox.style.display = 'block';
-            canvas.style.display = 'none';
-            return;
-        }
-        emptyBox.style.display = 'none';
-        canvas.style.display = 'block';
-
-        const labels = res.data.map(r => r.date);
-        const spend = res.data.map(r => r.spend);
-        const conversions = res.data.map(r => r.conversions);
-
-        if (trendChartInstance) trendChartInstance.destroy();
-        trendChartInstance = new Chart(canvas.getContext('2d'), {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [
-                    { label: 'الإنفاق', data: spend, borderColor: '#0077be', tension: 0.3, yAxisID: 'y' },
-                    { label: 'التحويلات', data: conversions, borderColor: '#22c55e', tension: 0.3, yAxisID: 'y1' },
-                ],
-            },
-            options: {
-                responsive: true,
-                interaction: { mode: 'index', intersect: false },
-                scales: {
-                    y: { type: 'linear', position: 'left', title: { display: true, text: 'الإنفاق' } },
-                    y1: { type: 'linear', position: 'right', title: { display: true, text: 'التحويلات' }, grid: { drawOnChartArea: false } },
-                },
-            },
-        });
-    };
-
-    window.loadAdsReport = async function () {
-        const box = document.getElementById('reportBox');
-        box.innerHTML = '<div class="p-loading-row">جارِ التحميل...</div>';
-        const period = document.getElementById('reportPeriod').value;
-        const res = await fetchJSON('/api/ads/reports?period=' + period);
-        if (!res.success) { box.innerHTML = '<div class="p-cell-muted">تعذر تحميل التقرير</div>'; return; }
-        const d = res.data;
-        if (!d.has_data) { box.innerHTML = `<div class="p-cell-muted">${esc(d.note || 'مفيش بيانات كافية للفترة دي بعد')}</div>`; return; }
-
-        box.innerHTML = `
-            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;">
-                <div><div class="p-cell-muted" style="font-size:11px;">الإنفاق</div><div><b>${esc(d.totals.spend)}</b></div></div>
-                <div><div class="p-cell-muted" style="font-size:11px;">النقرات</div><div><b>${esc(d.totals.clicks)}</b></div></div>
-                <div><div class="p-cell-muted" style="font-size:11px;">CPA</div><div><b>${d.totals.cpa ?? '-'}</b></div></div>
-                <div><div class="p-cell-muted" style="font-size:11px;">ROAS</div><div><b>${d.totals.roas ?? '-'}</b></div></div>
-            </div>
-            ${d.best_campaign ? `<div>🏆 أفضل حملة: <b>${esc(d.best_campaign.name)}</b> (ROAS: ${d.best_campaign.roas ?? '-'})</div>` : ''}
-            ${d.worst_campaign ? `<div>⚠️ أضعف حملة: <b>${esc(d.worst_campaign.name)}</b> (ROAS: ${d.worst_campaign.roas ?? '-'})</div>` : ''}
-            ${d.best_creative ? `<div>✨ أفضل إعلان: <b>${esc(d.best_creative.headline)}</b></div>` : ''}
-            ${d.actions_taken.length ? `<div style="margin-top:8px;"><b>إجراءات اتخذها Autopilot:</b><ul>${d.actions_taken.slice(0, 5).map(a => `<li>${esc(a.action_type)} - ${esc(a.description)}</li>`).join('')}</ul></div>` : ''}
-        `;
-    };
-
-    loadTrendChart();
-    loadAdsReport();
-})();
-JS;
+        $body = $this->renderView('ads/reports', ['adsActive' => 'reports']);
+        $script = '<script src="' . asset_v('/assets/js/ads/reports.js') . '"></script>';
 
         header('Content-Type: text/html; charset=utf-8');
+
         echo $this->renderPanelPage('ads', 'تقارير الأداء', 'اتجاه الأداء اليومي والتقارير الدورية والإسناد', $body, $script);
         exit;
     }
-
     /** GET /ads/budget */
     public function showBudgetPage(array $params = []): array
     {
@@ -3582,108 +2572,14 @@ JS;
             exit;
         }
 
-        $tabsHtml = $this->adsTabsHtml('budget');
-        $body = <<<HTML
-        {$tabsHtml}
-
-        <div id="budgetKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px;">
-            <div class="p-loading-row">جارِ التحميل...</div>
-        </div>
-
-        <div class="p-card" style="margin-bottom:16px;">
-            <div class="p-card-head"><h3>📉 اتجاه الإنفاق مقابل التحويلات</h3></div>
-            <div id="budgetTrendEmpty" class="p-cell-muted" style="display:none;">لا توجد بيانات كافية بعد</div>
-            <canvas id="budgetTrendChart" height="90"></canvas>
-        </div>
-
-        <div class="p-card">
-            <div class="p-card-head">
-                <h3>⚖️ مقارنة الحملات</h3>
-                <select id="cmpPeriod" class="p-select" style="width:auto;" onchange="loadComparisonChart()">
-                    <option value="weekly" selected>آخر 7 أيام</option>
-                    <option value="monthly">آخر 30 يوم</option>
-                </select>
-            </div>
-            <div id="comparisonEmpty" class="p-cell-muted" style="display:none;">لا توجد بيانات كافية بعد</div>
-            <canvas id="comparisonChart" height="100"></canvas>
-        </div>
-        HTML;
-
-        $script = <<<'JS'
-(function () {
-    const P = window.Panel;
-    const esc = P.esc;
-    const _ownerId = new URLSearchParams(window.location.search).get('owner_id') || '';
-    const fetchJSON = _ownerId
-        ? (url, options) => P.fetchJSON(url + (url.includes('?') ? '&' : '?') + 'owner_id=' + encodeURIComponent(_ownerId), options)
-        : P.fetchJSON;
-    let budgetTrendChart = null, comparisonChart = null;
-
-    async function loadBudgetKpis() {
-        const box = document.getElementById('budgetKpis');
-        const res = await fetchJSON('/api/ads/dashboard/summary?period=monthly');
-        if (!res.success) { box.innerHTML = '<div class="p-cell-muted">تعذر التحميل</div>'; return; }
-        const d = res.data;
-        const kpi = (label, value) => `
-            <div class="p-card" style="padding:14px;">
-                <div class="p-cell-muted" style="font-size:11.5px;">${label}</div>
-                <div style="font-size:20px;font-weight:800;margin-top:4px;">${value === null || value === undefined ? '<span class="p-cell-muted" style="font-size:13px;">لا توجد بيانات كافية</span>' : esc(String(value))}</div>
-            </div>`;
-        box.innerHTML = kpi('الإنفاق (آخر 30 يوم)', d.spend) + kpi('استخدام الميزانية', d.budget_utilization_pct !== null ? d.budget_utilization_pct + '%' : null) + kpi('حملات نشطة', d.active_campaigns) + kpi('حملات متوقفة', d.paused_campaigns);
-    }
-
-    window.loadComparisonChart = async function () {
-        const period = document.getElementById('cmpPeriod').value;
-        const res = await fetchJSON('/api/ads/reports/comparison?period=' + period);
-        const emptyBox = document.getElementById('comparisonEmpty');
-        const canvas = document.getElementById('comparisonChart');
-
-        if (!res.success || !res.data.length) { emptyBox.style.display = 'block'; canvas.style.display = 'none'; return; }
-        emptyBox.style.display = 'none'; canvas.style.display = 'block';
-
-        if (comparisonChart) comparisonChart.destroy();
-        comparisonChart = new Chart(canvas.getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: res.data.map(c => c.name),
-                datasets: [{ label: 'الإنفاق', data: res.data.map(c => c.spend), backgroundColor: '#0077be' }],
-            },
-            options: { responsive: true },
-        });
-    };
-
-    async function loadBudgetTrend() {
-        const res = await fetchJSON('/api/ads/reports/trend?days=30');
-        const emptyBox = document.getElementById('budgetTrendEmpty');
-        const canvas = document.getElementById('budgetTrendChart');
-        if (!res.success || !res.data.length) { emptyBox.style.display = 'block'; canvas.style.display = 'none'; return; }
-        emptyBox.style.display = 'none'; canvas.style.display = 'block';
-
-        if (budgetTrendChart) budgetTrendChart.destroy();
-        budgetTrendChart = new Chart(canvas.getContext('2d'), {
-            type: 'line',
-            data: {
-                labels: res.data.map(r => r.date),
-                datasets: [
-                    { label: 'الإنفاق', data: res.data.map(r => r.spend), borderColor: '#0077be', tension: 0.3 },
-                    { label: 'التحويلات', data: res.data.map(r => r.conversions), borderColor: '#22c55e', tension: 0.3 },
-                ],
-            },
-            options: { responsive: true },
-        });
-    }
-
-    loadBudgetKpis();
-    loadBudgetTrend();
-    loadComparisonChart();
-})();
-JS;
+        $body = $this->renderView('ads/budget', ['adsActive' => 'budget']);
+        $script = '<script src="' . asset_v('/assets/js/ads/budget.js') . '"></script>';
 
         header('Content-Type: text/html; charset=utf-8');
+
         echo $this->renderPanelPage('ads', 'الميزانية والإنفاق', 'اتجاه الإنفاق ومقارنة أداء الحملات', $body, $script);
         exit;
     }
-
     /** GET /ads/campaigns/{id} */
     public function showCampaignDetailsPage(array $params = []): array
     {
@@ -3699,344 +2595,14 @@ JS;
             exit;
         }
 
-        $nameSafe = htmlspecialchars((string) $campaign->getAttribute('name'), ENT_QUOTES, 'UTF-8');
-        $tabsHtml = $this->adsTabsHtml('campaigns');
-
-        $body = <<<HTML
-        {$tabsHtml}
-        <div style="margin-bottom:12px;"><a href="/ads#campaignsTable" class="p-cell-muted" style="text-decoration:none;">← رجوع لقائمة الحملات</a></div>
-
-        <div class="p-card" id="campaignOverviewCard" style="margin-bottom:16px;">
-            <div class="p-loading-row">جارِ التحميل...</div>
-        </div>
-
-        <div class="p-card" style="margin-bottom:16px;">
-            <div class="p-card-head"><h3>📈 أداء الحملة</h3></div>
-            <div id="campaignTrendEmpty" class="p-cell-muted" style="display:none;">لا توجد بيانات كافية بعد</div>
-            <canvas id="campaignTrendChart" height="90"></canvas>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;" id="campaignTwoCol">
-            <div class="p-card">
-                <div class="p-card-head"><h3>🎯 الاستهداف والجمهور</h3></div>
-                <div id="campaignAudienceBox"><div class="p-loading-row">جارِ التحميل...</div></div>
-            </div>
-            <div class="p-card">
-                <div class="p-card-head"><h3>🌐 صفحة الهبوط</h3></div>
-                <div id="campaignLandingPageBox">
-                    <input type="text" id="lpUrl" class="p-select" style="width:100%;margin-bottom:8px;" placeholder="https://example.com/landing-page">
-                    <button class="p-btn primary xs" onclick="analyzeCampaignLandingPage()">تحليل الصفحة</button>
-                    <div id="lpResults" style="margin-top:10px;font-size:13px;"></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="p-card" style="margin-bottom:16px;" id="adGroupsCard">
-            <div class="p-card-head">
-                <h3>📁 المجموعات الإعلانية (Ad Groups)</h3>
-                <span class="p-card-sub">تنظيم محلي للكلمات/الإعلانات - مش مزامنة حقيقية مع Ad Set على المنصة</span>
-            </div>
-            <div style="display:flex;gap:8px;margin-bottom:10px;">
-                <input type="text" id="newAdGroupName" class="p-select" style="flex:1;" placeholder="اسم مجموعة إعلانية جديدة">
-                <button class="p-btn primary xs" onclick="createAdGroup()">+ إضافة</button>
-            </div>
-            <div id="adGroupsBox"><div class="p-loading-row">جارِ التحميل...</div></div>
-        </div>
-
-        <div class="p-card" style="margin-bottom:16px;">
-            <div class="p-card-head"><h3>✍️ الإعلانات (Creatives)</h3></div>
-            <div id="campaignCopiesBox"><div class="p-loading-row">جارِ التحميل...</div></div>
-        </div>
-
-        <div class="p-card" style="margin-bottom:16px;">
-            <div class="p-card-head">
-                <h3>🔑 الكلمات المفتاحية</h3>
-                <button class="p-btn outline xs" onclick="generateCampaignKeywords()">توليد بالذكاء الاصطناعي</button>
-            </div>
-            <textarea id="kwGoalDesc" class="p-select" style="width:100%;min-height:50px;margin-bottom:8px;display:none;" placeholder="وصف مختصر للعرض (اختياري)"></textarea>
-            <div id="kwResults"><div class="p-loading-row">جارِ التحميل...</div></div>
-        </div>
-
-        <div class="p-card" style="margin-bottom:16px;">
-            <div class="p-card-head"><h3>🔗 روابط UTM</h3></div>
-            <input type="text" id="utmDest" class="p-select" style="width:100%;margin-bottom:6px;" placeholder="رابط الوجهة (صفحة الهبوط)">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                <input type="text" id="utmSource" class="p-select" placeholder="utm_source" value="google">
-                <input type="text" id="utmMedium" class="p-select" placeholder="utm_medium" value="cpc">
-            </div>
-            <button class="p-btn primary xs" style="margin-top:8px;" onclick="createCampaignUtmLink()">إنشاء رابط</button>
-            <div id="utmResults" style="margin-top:10px;font-size:13px;"></div>
-            <div id="utmListBox" style="margin-top:10px;"></div>
-        </div>
-
-        <div id="campaignDetailsConfig" data-campaign-id="{$campaignId}" style="display:none;"></div>
-
-        <div class="p-card">
-            <div class="p-card-head"><h3>📜 سجل النشاط والقرارات</h3></div>
-            <div id="campaignLogBox"><div class="p-loading-row">جارِ التحميل...</div></div>
-        </div>
-        HTML;
-
-        $script = <<<'JS'
-(function () {
-    const P = window.Panel;
-    const esc = P.esc;
-    const _ownerId = new URLSearchParams(window.location.search).get('owner_id') || '';
-    const fetchJSON = _ownerId
-        ? (url, options) => P.fetchJSON(url + (url.includes('?') ? '&' : '?') + 'owner_id=' + encodeURIComponent(_ownerId), options)
-        : P.fetchJSON;
-    const CAMPAIGN_ID = document.getElementById('campaignDetailsConfig').dataset.campaignId;
-    let trendChart = null;
-
-    async function loadOverview() {
-        const res = await fetchJSON('/api/ads/campaigns/' + CAMPAIGN_ID);
-        const box = document.getElementById('campaignOverviewCard');
-        if (!res.success) { box.innerHTML = '<div class="p-cell-muted">تعذر تحميل بيانات الحملة</div>'; return; }
-        const c = res.data.campaign;
-        const statusPill = c.status === 'active' ? 'green' : (c.status === 'paused' ? 'gray' : 'yellow');
-        box.innerHTML = `
-            <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;align-items:center;">
-                <div>
-                    <h2 style="margin:0;">${esc(c.name || '')}</h2>
-                    <div class="p-cell-muted">${esc(c.objective || '')} · <span class="pill ${statusPill}">${esc(c.status)}</span></div>
-                </div>
-                <div style="display:flex;gap:8px;">
-                    ${c.status === 'active' ? `<button class="p-btn outline xs" onclick="toggleCampaignStatus('paused')">⏸ إيقاف</button>` : ''}
-                    ${c.status === 'paused' ? `<button class="p-btn outline xs" onclick="toggleCampaignStatus('active')">▶ استئناف</button>` : ''}
-                    <button class="p-btn danger xs" onclick="deleteCampaign()">🗑 حذف الحملة</button>
-                </div>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:16px;">
-                <div><div class="p-cell-muted" style="font-size:11px;">الميزانية اليومية</div><div><b>${esc(c.daily_budget ?? '-')}</b></div></div>
-                <div><div class="p-cell-muted" style="font-size:11px;">الإنفاق الكلي</div><div><b>${esc(c.spend ?? 0)}</b></div></div>
-                <div><div class="p-cell-muted" style="font-size:11px;">النقرات</div><div><b>${esc(c.clicks ?? 0)}</b></div></div>
-                <div><div class="p-cell-muted" style="font-size:11px;">الظهور</div><div><b>${esc(c.impressions ?? 0)}</b></div></div>
-            </div>
-        `;
-
-        renderAudience(res.data.audience);
-        if (c.landing_page_url) document.getElementById('lpUrl').value = c.landing_page_url;
-        if (c.landing_page_last_analysis) renderLandingPageResult(c.landing_page_last_analysis);
-        document.getElementById('utmDest').value = c.landing_page_url || '';
-    }
-
-    window.toggleCampaignStatus = async function (newStatus) {
-        const actionLabel = newStatus === 'paused' ? 'إيقاف' : 'استئناف';
-        if (!confirm('متأكد من ' + actionLabel + ' هذه الحملة على المنصة الإعلانية الحقيقية؟')) return;
-
-        const res = await fetchJSON('/api/ads/campaigns/' + CAMPAIGN_ID + '/status', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }),
-        });
-        if (res.success) {
-            P.toast('تم ' + actionLabel + ' الحملة بنجاح', 'success');
-            loadOverview();
-            loadLog();
-        } else {
-            P.toast(res.error || 'تعذّر تنفيذ الإجراء', 'error');
-        }
-    };
-
-    window.deleteCampaign = async function () {
-        if (!confirm('متأكد من حذف هذه الحملة؟\n\nملحوظة: Meta/Google Ads مفيهمش حذف نهائي حقيقي - الحملة هتتوقف على المنصة (لو كانت شغّالة) وتتخفي من قوائم Tourfecto، لكن كل بيانات الأداء التاريخية هتفضل محفوظة.')) return;
-
-        const res = await fetchJSON('/api/ads/campaigns/' + CAMPAIGN_ID, { method: 'DELETE' });
-        if (res.success) {
-            P.toast('تم حذف الحملة', 'success');
-            setTimeout(() => { window.location.href = '/ads'; }, 800);
-        } else {
-            P.toast(res.error || 'تعذّر الحذف', 'error');
-        }
-    };
-
-    function renderAudience(a) {
-        const box = document.getElementById('campaignAudienceBox');
-        if (!a) { box.innerHTML = '<div class="p-cell-muted">لا يوجد جمهور محدد لهذه الحملة</div>'; return; }
-        box.innerHTML = `
-            <div><b>الفئة العمرية:</b> ${esc(a.age_min || '-')} - ${esc(a.age_max || '-')}</div>
-            <div><b>الجنس:</b> ${esc(a.genders || 'الكل')}</div>
-            <div><b>الدول:</b> ${(a.locations || []).map(l => `<span class="pill xs">${esc(l)}</span>`).join(' ') || '-'}</div>
-            <div style="margin-top:6px;"><b>الاهتمامات:</b> ${(a.interests || []).map(i => `<span class="pill xs">${esc(i)}</span>`).join(' ') || '-'}</div>
-        `;
-    }
-
-    function renderLandingPageResult(d) {
-        const box = document.getElementById('lpResults');
-        if (d.fetch_error) { box.innerHTML = `<span style="color:#b91c1c;">${esc(d.fetch_error)}</span>`; return; }
-        box.innerHTML = `
-            <div><b>Relevance:</b> ${esc(d.relevance || '-')}</div>
-            <div><b>CTA:</b> ${esc(d.cta || '-')}</div>
-            <div style="margin-top:6px;"><b>التوصيات:</b><ul>${(d.recommendations || []).map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>
-        `;
-    }
-
-    window.analyzeCampaignLandingPage = async function () {
-        const box = document.getElementById('lpResults');
-        box.innerHTML = 'جارِ التحليل...';
-        const url = document.getElementById('lpUrl').value.trim();
-        const res = await fetchJSON('/api/ads/campaigns/' + CAMPAIGN_ID + '/landing-page/analyze', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }),
-        });
-        if (!res.success) { box.innerHTML = `<span style="color:#b91c1c;">${esc(res.error || 'تعذر التحليل')}</span>`; return; }
-        renderLandingPageResult(res.data);
-    };
-
-    async function loadAdGroups() {
-        const box = document.getElementById('adGroupsBox');
-        const res = await fetchJSON('/api/ads/campaigns/' + CAMPAIGN_ID + '/ad-groups');
-        if (!res.success) { box.innerHTML = '<div class="p-cell-muted">تعذر تحميل المجموعات الإعلانية</div>'; return; }
-        if (!res.data.ad_groups.length) { box.innerHTML = '<div class="p-cell-muted">لا توجد مجموعات إعلانية بعد - أضف واحدة لتنظيم كلماتك/إعلاناتك</div>'; return; }
-
-        box.innerHTML = res.data.ad_groups.map(g => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-color, #eee);">
-                <div>
-                    <b>${esc(g.name)}</b> <span class="pill xs ${g.status === 'active' ? 'green' : 'gray'}">${esc(g.status)}</span>
-                    <div class="p-cell-muted" style="font-size:11px;">🔑 ${g.keywords_count} كلمة مفتاحية · ✍️ ${g.ads_count} إعلان</div>
-                </div>
-                <div style="display:flex;gap:6px;">
-                    <button class="p-btn outline xs" onclick="toggleAdGroupStatus(${g.id}, '${g.status === 'active' ? 'paused' : 'active'}')">${g.status === 'active' ? '⏸ إيقاف' : '▶ استئناف'}</button>
-                    <button class="p-btn danger xs" onclick="deleteAdGroup(${g.id})">🗑</button>
-                </div>
-            </div>`).join('') + `<div class="p-cell-muted" style="font-size:11px;margin-top:8px;">${esc(res.data.performance_note)}</div>`;
-    }
-
-    window.createAdGroup = async function () {
-        const input = document.getElementById('newAdGroupName');
-        const name = input.value.trim();
-        if (!name) { P.toast('اكتب اسم المجموعة الأول', 'error'); return; }
-
-        const res = await fetchJSON('/api/ads/campaigns/' + CAMPAIGN_ID + '/ad-groups', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }),
-        });
-        if (res.success) { input.value = ''; P.toast('تم إنشاء المجموعة الإعلانية', 'success'); loadAdGroups(); }
-        else P.toast(res.error || 'تعذر الإنشاء', 'error');
-    };
-
-    window.toggleAdGroupStatus = async function (id, newStatus) {
-        const res = await fetchJSON('/api/ads/ad-groups/' + id + '/status', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }),
-        });
-        if (res.success) loadAdGroups(); else P.toast(res.error || 'تعذر التحديث', 'error');
-    };
-
-    window.deleteAdGroup = async function (id) {
-        if (!confirm('متأكد من حذف المجموعة دي؟ (الكلمات/الإعلانات المرتبطة هتفضل موجودة بس تنفصل عن المجموعة)')) return;
-        const res = await fetchJSON('/api/ads/ad-groups/' + id, { method: 'DELETE' });
-        if (res.success) { P.toast('تم الحذف', 'success'); loadAdGroups(); } else P.toast(res.error || 'تعذر الحذف', 'error');
-    };
-
-    async function loadCopies() {
-        const box = document.getElementById('campaignCopiesBox');
-        const res = await fetchJSON('/api/ads/campaigns/' + CAMPAIGN_ID + '/copies');
-        if (!res.success || !res.data.copies || !res.data.copies.length) { box.innerHTML = '<div class="p-cell-muted">لا توجد إعلانات مُولَّدة لهذه الحملة بعد</div>'; return; }
-        box.innerHTML = res.data.copies.map(c => `
-            <div style="padding:10px 0;border-bottom:1px solid var(--border-color, #eee);">
-                <div><b>${esc(c.headline || '')}</b> <span class="pill xs">${esc(c.variant_label || '')}</span> <span class="pill xs">${esc(c.status || '')}</span></div>
-                <div class="p-cell-muted" style="font-size:13px;">${esc(c.description || '')}</div>
-                ${c.performance_score !== null && c.performance_score !== undefined ? `<div class="p-cell-muted" style="font-size:11px;">نقاط الأداء: ${esc(c.performance_score)}</div>` : ''}
-            </div>`).join('');
-    }
-
-    window.generateCampaignKeywords = async function () {
-        const box = document.getElementById('kwResults');
-        box.innerHTML = 'جارِ التوليد...';
-        const res = await fetchJSON('/api/ads/campaigns/' + CAMPAIGN_ID + '/keywords/generate', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
-        });
-        if (!res.success) { box.innerHTML = `<span style="color:#b91c1c;">${esc(res.error || 'تعذر التوليد')}</span>`; return; }
-        renderKeywords(res.data);
-    };
-
-    function renderKeywords(data) {
-        const box = document.getElementById('kwResults');
-        const groups = ['high_intent', 'commercial', 'long_tail', 'local', 'negative'];
-        const labels = { high_intent: 'نية شراء عالية', commercial: 'تجارية عامة', long_tail: 'عبارات طويلة', local: 'محلية', negative: 'سلبية (استبعاد)' };
-        const any = groups.some(g => data[g] && data[g].length);
-        if (!any) { box.innerHTML = '<div class="p-cell-muted">لا توجد كلمات مفتاحية مُولَّدة بعد - اضغط "توليد بالذكاء الاصطناعي"</div>'; return; }
-        box.innerHTML = groups.map(g => (data[g] && data[g].length) ? `
-            <div style="margin-bottom:8px;"><b>${labels[g]}:</b> ${data[g].map(k => `<span class="pill xs" style="margin:2px;">${esc(k.keyword)}</span>`).join('')}</div>
-        ` : '').join('') + (data.disclaimer ? `<div class="p-cell-muted" style="font-size:11px;">${esc(data.disclaimer)}</div>` : '');
-    }
-
-    async function loadKeywords() {
-        const box = document.getElementById('kwResults');
-        const res = await fetchJSON('/api/ads/campaigns/' + CAMPAIGN_ID + '/keywords');
-        if (!res.success || !res.data.length) { box.innerHTML = '<div class="p-cell-muted">لا توجد كلمات مفتاحية مُولَّدة بعد - اضغط "توليد بالذكاء الاصطناعي"</div>'; return; }
-        // ملحوظة: match_type (exact/phrase/broad/negative) هو اللي بيتخزّن في
-        // ad_keywords - تصنيف الـintent (high_intent/commercial/...) بيتولّد
-        // لحظيًا وقت التوليد بس ومش عمود مُخزَّن، فعرض الكلمات المحفوظة
-        // بيبقى List بسيط بدل تجميع Intent وهمي.
-        box.innerHTML = '<table class="p-table"><thead><tr><th>الكلمة</th><th>النوع</th><th>الملاءمة</th><th>حجم بحث تقديري</th><th>CPC تقديري</th></tr></thead><tbody>' +
-            res.data.map(k => `<tr><td>${esc(k.keyword)}</td><td>${esc(k.match_type)}</td><td>${k.ai_relevance_score ?? '-'}</td><td>${k.estimated_search_volume ?? '-'}</td><td>${k.estimated_cpc ?? '-'}</td></tr>`).join('') +
-            '</tbody></table><div class="p-cell-muted" style="font-size:11px;margin-top:6px;">الأرقام تقديرات ذكاء اصطناعي، مش بيانات بحث حقيقية مقاسة.</div>';
-    }
-
-    window.createCampaignUtmLink = async function () {
-        const box = document.getElementById('utmResults');
-        box.innerHTML = 'جارِ الإنشاء...';
-        const payload = {
-            destination_url: document.getElementById('utmDest').value.trim(),
-            utm_source: document.getElementById('utmSource').value.trim() || 'google',
-            utm_medium: document.getElementById('utmMedium').value.trim() || 'cpc',
-        };
-        const res = await fetchJSON('/api/ads/campaigns/' + CAMPAIGN_ID + '/utm-links', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-        });
-        if (!res.success) { box.innerHTML = `<span style="color:#b91c1c;">${esc(res.error || 'تعذر الإنشاء')}</span>`; return; }
-        box.innerHTML = `<div>رابط التتبع: <a href="${esc(res.data.short_redirect_url)}" target="_blank">${esc(res.data.short_redirect_url)}</a></div>`;
-        loadUtmLinks();
-    };
-
-    async function loadUtmLinks() {
-        const box = document.getElementById('utmListBox');
-        const res = await fetchJSON('/api/ads/campaigns/' + CAMPAIGN_ID + '/utm-links');
-        if (!res.success || !res.data.length) { box.innerHTML = ''; return; }
-        box.innerHTML = '<table class="p-table"><thead><tr><th>المصدر</th><th>الوسيط</th><th>نقرات</th></tr></thead><tbody>' +
-            res.data.map(l => `<tr><td>${esc(l.utm_source)}</td><td>${esc(l.utm_medium)}</td><td>${esc(l.clicks)}</td></tr>`).join('') + '</tbody></table>';
-    }
-
-    async function loadTrend() {
-        const res = await fetchJSON('/api/ads/reports/trend?days=30&campaign_id=' + CAMPAIGN_ID);
-        const emptyBox = document.getElementById('campaignTrendEmpty');
-        const canvas = document.getElementById('campaignTrendChart');
-        if (!res.success || !res.data.length) { emptyBox.style.display = 'block'; canvas.style.display = 'none'; return; }
-        emptyBox.style.display = 'none'; canvas.style.display = 'block';
-        if (trendChart) trendChart.destroy();
-        trendChart = new Chart(canvas.getContext('2d'), {
-            type: 'line',
-            data: { labels: res.data.map(r => r.date), datasets: [
-                { label: 'الإنفاق', data: res.data.map(r => r.spend), borderColor: '#0077be', tension: 0.3 },
-                { label: 'التحويلات', data: res.data.map(r => r.conversions), borderColor: '#22c55e', tension: 0.3 },
-            ] },
-            options: { responsive: true },
-        });
-    }
-
-    async function loadLog() {
-        const box = document.getElementById('campaignLogBox');
-        const res = await fetchJSON('/api/ads/autopilot/logs?campaign_id=' + CAMPAIGN_ID);
-        if (!res.success || !res.data.length) { box.innerHTML = '<div class="p-cell-muted">لا يوجد سجل نشاط لهذه الحملة بعد</div>'; return; }
-        box.innerHTML = res.data.map(l => `
-            <div style="padding:8px 0;border-bottom:1px solid var(--border-color, #eee);">
-                <b>${esc(l.action_type)}</b> <span class="p-cell-muted" style="font-size:11px;">(${esc(l.mode)})</span>
-                <div class="p-cell-muted" style="font-size:12px;">${esc(l.description)}</div>
-            </div>`).join('');
-    }
-
-    loadOverview();
-    loadAdGroups();
-    loadCopies();
-    loadKeywords();
-    loadUtmLinks();
-    loadTrend();
-    loadLog();
-})();
-JS;
+        $body = $this->renderView('ads/campaign_details', ['adsActive' => 'campaigns', 'campaignId' => $campaignId]);
+        $script = '<script src="' . asset_v('/assets/js/ads/campaign_details.js') . '"></script>';
 
         header('Content-Type: text/html; charset=utf-8');
+
         echo $this->renderPanelPage('ads', 'تفاصيل الحملة', 'نظرة شاملة على أداء واستهداف وإعدادات الحملة', $body, $script);
         exit;
     }
-
     /** GET /ads/competitors */
     public function showCompetitorsPage(array $params = []): array
     {
@@ -4045,86 +2611,14 @@ JS;
             exit;
         }
 
-        $tabsHtml = $this->adsTabsHtml('competitors');
-        $body = <<<HTML
-        {$tabsHtml}
-
-        <div class="p-card" style="margin-bottom:16px;">
-            <div class="p-card-head"><h3>🕵️ تحليل منافس من منظور إعلاني</h3><span class="p-card-sub">تحليل استشاري بالذكاء الاصطناعي - مش بيانات إعلانات حقيقية مسحوبة من المنافس</span></div>
-            <div id="competitorSelectorBox"><div class="p-loading-row">جارِ التحميل...</div></div>
-        </div>
-
-        <div class="p-card" id="competitorInsightsCard" style="display:none;">
-            <div class="p-card-head"><h3>💡 التوصيات</h3></div>
-            <div id="competitorInsightsBox"></div>
-        </div>
-        HTML;
-
-        $script = <<<'JS'
-(function () {
-    const P = window.Panel;
-    const esc = P.esc;
-    const _ownerId = new URLSearchParams(window.location.search).get('owner_id') || '';
-    const fetchJSON = _ownerId
-        ? (url, options) => P.fetchJSON(url + (url.includes('?') ? '&' : '?') + 'owner_id=' + encodeURIComponent(_ownerId), options)
-        : P.fetchJSON;
-    let selectedCompetitorId = null;
-
-    async function loadCompetitors() {
-        const box = document.getElementById('competitorSelectorBox');
-        const res = await fetchJSON('/api/ads/competitors');
-        if (!res.success) { box.innerHTML = '<div class="p-cell-muted">تعذر تحميل قائمة المنافسين</div>'; return; }
-        if (!res.data.length) {
-            box.innerHTML = '<div class="p-cell-muted">لا يوجد منافسون مسجّلون بعد - أضف منافس أولًا من صفحة "مراقبة المنافسين".</div>';
-            return;
-        }
-
-        box.innerHTML = `
-            <select id="competitorSelect" class="p-select" style="width:100%;margin-bottom:8px;">
-                ${res.data.map(c => `<option value="${c.id}">${esc(c.competitor_name || c.competitor_domain)}</option>`).join('')}
-            </select>
-            <textarea id="offerDesc" class="p-select" style="width:100%;min-height:60px;margin-bottom:8px;" placeholder="وصف مختصر لعرضك الإعلاني الحالي"></textarea>
-            <button class="p-btn primary xs" onclick="analyzeCompetitor()">تحليل</button>
-        `;
-    }
-
-    window.analyzeCompetitor = async function () {
-        const competitorId = document.getElementById('competitorSelect').value;
-        const offerDescription = document.getElementById('offerDesc').value.trim();
-        if (!offerDescription) { P.toast('اكتب وصف العرض الأول', 'error'); return; }
-
-        const card = document.getElementById('competitorInsightsCard');
-        const box = document.getElementById('competitorInsightsBox');
-        card.style.display = 'block';
-        box.innerHTML = '<div class="p-loading-row">جارِ التحليل...</div>';
-
-        const res = await fetchJSON('/api/ads/competitors/' + competitorId + '/analyze', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ offer_description: offerDescription }),
-        });
-        if (!res.success) { box.innerHTML = `<span style="color:#b91c1c;">${esc(res.error || 'تعذر التحليل')}</span>`; return; }
-
-        renderInsights(res.data.recommendations, res.data.disclaimer);
-    };
-
-    function renderInsights(recs, disclaimer) {
-        const box = document.getElementById('competitorInsightsBox');
-        if (!recs || !recs.length) { box.innerHTML = '<div class="p-cell-muted">لا توجد توصيات</div>'; return; }
-        box.innerHTML = recs.map(r => `
-            <div style="padding:8px 0;border-bottom:1px solid var(--border-color, #eee);">
-                <span class="pill ${r.priority === 'high' ? 'red' : (r.priority === 'medium' ? 'yellow' : 'gray')}">${esc(r.priority)}</span>
-                ${esc(r.text)}
-            </div>`).join('') + (disclaimer ? `<div class="p-cell-muted" style="font-size:11px;margin-top:8px;">${esc(disclaimer)}</div>` : '');
-    }
-
-    loadCompetitors();
-})();
-JS;
+        $body = $this->renderView('ads/competitors', ['adsActive' => 'competitors']);
+        $script = '<script src="' . asset_v('/assets/js/ads/competitors.js') . '"></script>';
 
         header('Content-Type: text/html; charset=utf-8');
+
         echo $this->renderPanelPage('ads', 'المنافسون', 'تحليل رسائل وتموضع المنافسين من منظور إعلاني', $body, $script);
         exit;
     }
-
     /** GET /api/ads/connections/status - تفاصيل كاملة لحالة ربط Google Ads وMeta Ads معًا (Connection Center) */
     public function getConnectionsStatus(array $params = []): array
     {
@@ -4168,98 +2662,14 @@ JS;
             exit;
         }
 
-        $tabsHtml = $this->adsTabsHtml('connections');
-        $body = <<<HTML
-        {$tabsHtml}
-
-        <div class="p-card" style="margin-bottom:16px;">
-            <div class="p-card-head"><h3>Google Ads</h3></div>
-            <div id="ccGoogleAds"><div class="p-loading-row">جارِ التحميل...</div></div>
-        </div>
-
-        <div class="p-card">
-            <div class="p-card-head"><h3>Meta Ads (Facebook / Instagram)</h3></div>
-            <div id="ccMetaAds"><div class="p-loading-row">جارِ التحميل...</div></div>
-        </div>
-        HTML;
-
-        $script = <<<'JS'
-(function () {
-    const P = window.Panel;
-    const esc = P.esc;
-    const _ownerId = new URLSearchParams(window.location.search).get('owner_id') || '';
-    const fetchJSON = _ownerId
-        ? (url, options) => P.fetchJSON(url + (url.includes('?') ? '&' : '?') + 'owner_id=' + encodeURIComponent(_ownerId), options)
-        : P.fetchJSON;
-
-    const STATUS_LABELS = {
-        connected: ['✔ مربوط', 'green'],
-        disconnected: ['غير مربوط', 'gray'],
-        error: ['⚠ خطأ', 'red'],
-        token_expired: ['⏰ انتهت الصلاحية - محتاج إعادة ربط', 'yellow'],
-    };
-
-    function renderProvider(boxId, data, connectUrl, syncFn, disconnectFn) {
-        const box = document.getElementById(boxId);
-        if (!data.configured) { box.innerHTML = '<div class="p-cell-muted">لسه مش مفعّل من إدارة النظام (بيانات الربط ناقصة في إعدادات السيرفر) - Setup Required</div>'; return; }
-
-        const conn = data.connection;
-        if (!conn) { box.innerHTML = `<a href="${connectUrl}" class="p-btn primary xs">🔗 ربط الحساب</a>`; return; }
-
-        const [label, color] = STATUS_LABELS[conn.status] || [esc(conn.status), 'gray'];
-        box.innerHTML = `
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-                <div>
-                    <span class="pill ${color}">${label}</span> ${esc(conn.external_account_id || '')}
-                    <div class="p-cell-muted" style="font-size:12px;margin-top:4px;">آخر مزامنة: ${conn.last_synced_at ? esc(conn.last_synced_at) : 'لم تتم بعد'}</div>
-                    ${conn.last_error ? `<div style="color:#b91c1c;font-size:12px;margin-top:2px;">آخر خطأ: ${esc(conn.last_error)}</div>` : ''}
-                </div>
-                <div style="display:flex;gap:8px;">
-                    ${conn.status === 'connected' ? `<button class="p-btn outline xs" onclick="${syncFn}()">🔄 مزامنة الآن</button>` : `<a href="${connectUrl}" class="p-btn outline xs">🔗 إعادة الربط</a>`}
-                    <button class="p-btn danger xs" onclick="${disconnectFn}()">فصل الربط</button>
-                </div>
-            </div>`;
-    }
-
-    window.ccSyncGoogle = async function () {
-        P.toast('جارِ المزامنة...', 'success');
-        const res = await fetchJSON('/api/ads/google/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-        if (res.success) P.toast('تمت المزامنة: ' + res.data.synced + ' حملة', 'success'); else P.toast(res.error || 'تعذرت المزامنة', 'error');
-        loadStatus();
-    };
-    window.ccDisconnectGoogle = async function () {
-        if (!confirm('متأكد من فصل ربط Google Ads؟')) return;
-        await fetchJSON('/api/ads/google/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-        loadStatus();
-    };
-    window.ccSyncMeta = async function () {
-        P.toast('جارِ المزامنة...', 'success');
-        const res = await fetchJSON('/api/ads/meta/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-        if (res.success) P.toast('تمت المزامنة', 'success'); else P.toast(res.error || 'تعذرت المزامنة', 'error');
-        loadStatus();
-    };
-    window.ccDisconnectMeta = async function () {
-        if (!confirm('متأكد من فصل ربط Meta Ads؟')) return;
-        await fetchJSON('/api/ads/meta/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-        loadStatus();
-    };
-
-    async function loadStatus() {
-        const res = await fetchJSON('/api/ads/connections/status');
-        if (!res.success) return;
-        renderProvider('ccGoogleAds', res.data.google_ads, '/ads/connect/google', 'ccSyncGoogle', 'ccDisconnectGoogle');
-        renderProvider('ccMetaAds', res.data.meta_ads, '/ads/connect/meta', 'ccSyncMeta', 'ccDisconnectMeta');
-    }
-
-    loadStatus();
-})();
-JS;
+        $body = $this->renderView('ads/connections', ['adsActive' => 'connections']);
+        $script = '<script src="' . asset_v('/assets/js/ads/connections.js') . '"></script>';
 
         header('Content-Type: text/html; charset=utf-8');
+
         echo $this->renderPanelPage('ads', 'ربط المنصات', 'حالة ربط Google Ads وMeta Ads والمزامنة', $body, $script);
         exit;
     }
-
     /** GET /ads/alerts */
     public function showAlertsPage(array $params = []): array
     {
@@ -4268,134 +2678,14 @@ JS;
             exit;
         }
 
-        $tabsHtml = $this->adsTabsHtml('alerts');
-        $body = <<<HTML
-        {$tabsHtml}
-
-        <div class="p-card" style="margin-bottom:16px;">
-            <div class="p-card-head"><h3>🔔 التنبيهات الاستباقية</h3><span class="p-card-sub">قواعد آلية تراقب أداء حملاتك الحقيقي (إنفاق/CPC/CTR/صفحة هبوط) وتنبهك عند حدوث مشكلة</span></div>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
-                <button class="p-btn primary" onclick="runAlertsNow()">تقييم فوري الآن</button>
-                <button class="p-btn" onclick="markAllRead()">تعليم الكل كمقروء</button>
-            </div>
-            <div id="alertsList"><div class="p-loading-row">جارِ التحميل...</div></div>
-        </div>
-
-        <div class="p-card">
-            <div class="p-card-head"><h3>⚙️ إعدادات القواعد</h3><span class="p-card-sub">فعّل/عطّل كل قاعدة واضبط حدّها</span></div>
-            <div id="rulesBox"><div class="p-loading-row">جارِ التحميل...</div></div>
-        </div>
-        HTML;
-
-        $script = <<<'JS'
-(function () {
-    const P = window.Panel;
-    const esc = P.esc;
-    const _ownerId = new URLSearchParams(window.location.search).get('owner_id') || '';
-    const fetchJSON = _ownerId
-        ? (url, options) => P.fetchJSON(url + (url.includes('?') ? '&' : '?') + 'owner_id=' + encodeURIComponent(_ownerId), options)
-        : P.fetchJSON;
-
-    const RULE_LABELS = {
-        budget_exhausted: 'نفاد الميزانية اليومية',
-        cpc_spike: 'ارتفاع تكلفة النقرة',
-        ctr_drop: 'انخفاض نسبة النقر',
-        landing_page_down: 'صفحة هبوط معطّلة',
-        budget_pacing: 'إنفاق أبطأ من المتوقع',
-    };
-    const RULE_HINTS = {
-        budget_exhausted: 'أشعرني لما يصرف % من ميزانيته اليومية',
-        cpc_spike: 'نسبة زيادة عن متوسط الأسبوع السابق',
-        ctr_drop: 'نسبة انخفاض عن متوسط الأسبوع السابق',
-        landing_page_down: 'الفحص بدون حد نسبة',
-        budget_pacing: 'نسبة اليوم المنقضي',
-    };
-
-    async function loadAlerts() {
-        const res = await fetchJSON('/api/ads/alerts');
-        const box = document.getElementById('alertsList');
-        if (!res.success) { box.innerHTML = '<div class="p-cell-muted">تعذر التحميل</div>'; return; }
-
-        const severityIcon = { info: 'ℹ️', warning: '⚠️', critical: '🚨' };
-        const severityColor = { info: 'var(--info-color, #1890ff)', warning: 'var(--warning-color, #fa8c16)', critical: 'var(--danger-color, #f5222d)' };
-
-        if (!res.data.alerts.length) {
-            box.innerHTML = '<div class="p-cell-muted">مفيش تنبيهات حالياً - كل الحملات داخل الحدود الطبيعية 🎉</div>';
-            return;
-        }
-        box.innerHTML = res.data.alerts.map(a => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-color, #eee);">
-                <div style="flex:1;">
-                    <div style="color:${severityColor[a.severity] || '#666'};font-weight:bold;">${severityIcon[a.severity] || 'ℹ️'} ${esc(a.title)} <span class="p-cell-muted" style="font-weight:normal;font-size:11px;">${esc(RULE_LABELS[a.rule_type] || a.rule_type)}</span></div>
-                    <div class="p-cell-muted" style="font-size:12px;margin-top:2px;">${esc(a.body || '')}</div>
-                </div>
-                <button class="p-btn xs" onclick="dismissAlert(${a.id})">تجاهل</button>
-            </div>`).join('');
-    }
-
-    async function loadRules() {
-        const res = await fetchJSON('/api/ads/alerts/rules');
-        const box = document.getElementById('rulesBox');
-        if (!res.success) { box.innerHTML = '<div class="p-cell-muted">تعذر التحميل</div>'; return; }
-
-        box.innerHTML = Object.entries(res.data.rules).map(([type, rule]) => `
-            <div style="display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-color, #eee);">
-                <input type="checkbox" id="rule-${type}" ${rule.is_enabled ? 'checked' : ''} onchange="saveRules()" style="transform:scale(1.2);">
-                <div>
-                    <div><b>${esc(RULE_LABELS[type] || type)}</b></div>
-                    <div class="p-cell-muted" style="font-size:11px;">${esc(RULE_HINTS[type] || '')}</div>
-                </div>
-                <div style="display:flex;gap:6px;align-items:center;">
-                    <input type="number" id="rule-val-${type}" class="p-select xs" style="width:90px;" value="${rule.threshold_value ?? ''}" min="1" max="999" step="1" placeholder="—" onchange="saveRules()">
-                    <span class="p-cell-muted" style="font-size:11px;">%</span>
-                </div>
-            </div>`).join('');
-        box.innerHTML += '<div style="margin-top:10px;"><button class="p-btn primary" onclick="saveRules()">حفظ القواعد</button></div>';
-    }
-
-    window.runAlertsNow = async function () {
-        const res = await fetchJSON('/api/ads/alerts/run', { method: 'POST' });
-        if (res.success) { P.toast('تم التقييم - ' + res.data.generated + ' تنبيه جديد', 'success'); loadAlerts(); }
-        else P.toast(res.error || 'تعذر التقييم', 'error');
-    };
-
-    window.markAllRead = async function () {
-        const res = await fetchJSON('/api/ads/alerts/read-all', { method: 'POST' });
-        if (res.success) P.toast('تم تعليم الكل كمقروء', 'success');
-    };
-
-    window.dismissAlert = async function (id) {
-        const res = await fetchJSON('/api/ads/alerts/' + id + '/dismiss', { method: 'POST' });
-        if (res.success) { P.toast('تم تجاهل التنبيه', 'success'); loadAlerts(); }
-        else P.toast(res.error || 'تعذر التجاهل', 'error');
-    };
-
-    window.saveRules = async function () {
-        const types = Object.keys(RULE_LABELS);
-        const rules = {};
-        types.forEach(t => {
-            rules[t] = {
-                is_enabled: document.getElementById('rule-' + t).checked ? 1 : 0,
-                threshold_value: document.getElementById('rule-val-' + t).value || null,
-            };
-        });
-        const res = await fetchJSON('/api/ads/alerts/rules', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rules }),
-        });
-        if (res.success) P.toast('تم حفظ القواعد', 'success');
-        else P.toast(res.error || 'تعذر الحفظ', 'error');
-    };
-
-    loadAlerts();
-    loadRules();
-})();
-JS;
+        $body = $this->renderView('ads/alerts', ['adsActive' => 'alerts']);
+        $script = '<script src="' . asset_v('/assets/js/ads/alerts.js') . '"></script>';
 
         header('Content-Type: text/html; charset=utf-8');
+
         echo $this->renderPanelPage('ads', 'التنبيهات الاستباقية', 'مراقبة تلقائية لصحة الحملات الإعلانية', $body, $script);
         exit;
     }
-
     /** GET /ads/autopilot */
     public function showAutopilotPage(array $params = []): array
     {
@@ -4404,130 +2694,14 @@ JS;
             exit;
         }
 
-        $tabsHtml = $this->adsTabsHtml('autopilot');
-        $body = <<<HTML
-        {$tabsHtml}
-
-        <div class="p-card" id="autopilotCard" style="margin-bottom:16px;">
-            <div class="p-card-head"><h3>🤖 AI Ads Autopilot</h3><span class="p-card-sub">وضع التشغيل وحدود الأمان - الذكاء الاصطناعي بيقترح، وينفّذ بس داخل الحدود دي</span></div>
-            <div id="autopilotSettingsBox"><div class="p-loading-row">جارِ التحميل...</div></div>
-        </div>
-
-        <div class="p-card" id="pendingActionsCard" style="margin-bottom:16px;">
-            <div class="p-card-head"><h3>⏳ قرارات بانتظار الموافقة</h3><span class="p-card-sub">توصيات الذكاء الاصطناعي اللي محتاجة موافقتك قبل التنفيذ الفعلي</span></div>
-            <div id="pendingActionsBox"><div class="p-loading-row">جارِ التحميل...</div></div>
-        </div>
-
-        <div class="p-card" id="optimizationLogCard">
-            <div class="p-card-head"><h3>📜 سجل قرارات التحسين</h3><span class="p-card-sub">كل تغيير نفّذه النظام - إمتى، ليه، وقابلية التراجع</span></div>
-            <div id="optimizationLogBox"><div class="p-loading-row">جارِ التحميل...</div></div>
-        </div>
-        HTML;
-
-        $script = <<<'JS'
-(function () {
-    const P = window.Panel;
-    const esc = P.esc;
-    const _ownerId = new URLSearchParams(window.location.search).get('owner_id') || '';
-    const fetchJSON = _ownerId
-        ? (url, options) => P.fetchJSON(url + (url.includes('?') ? '&' : '?') + 'owner_id=' + encodeURIComponent(_ownerId), options)
-        : P.fetchJSON;
-
-    async function loadAutopilotSettings() {
-        const res = await fetchJSON('/api/ads/autopilot/settings');
-        const box = document.getElementById('autopilotSettingsBox');
-        if (!res.success) { box.innerHTML = '<div class="p-cell-muted">تعذر تحميل الإعدادات</div>'; return; }
-        const s = res.data;
-        const modeLabels = { manual: 'يدوي - توصيات فقط', approval: 'موافقة - تنفيذ بعد موافقتك', autopilot: 'تلقائي - تنفيذ داخل الحدود' };
-        box.innerHTML = `
-            <label>وضع التشغيل</label>
-            <select id="apMode" class="p-select" style="width:100%;margin-bottom:12px;">
-                ${Object.entries(modeLabels).map(([k, l]) => `<option value="${k}" ${s.optimization_mode === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}
-            </select>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
-                <div><label>أقصى ميزانية يومية إجمالية</label><input type="number" id="apMaxDaily" class="p-select" style="width:100%;" value="${s.max_daily_budget ?? ''}"></div>
-                <div><label>أقصى تكلفة اكتساب (CPA) مقبولة</label><input type="number" id="apMaxCpa" class="p-select" style="width:100%;" value="${s.max_allowed_cpa ?? ''}"></div>
-                <div><label>أقل ROAS مقبول</label><input type="number" id="apMinRoas" class="p-select" style="width:100%;" value="${s.min_required_roas ?? ''}"></div>
-                <div><label>أقصى عدد تغييرات تلقائية/يوم</label><input type="number" id="apMaxChanges" class="p-select" style="width:100%;" value="${s.max_changes_per_day}"></div>
-                <div><label>أقصى نسبة زيادة ميزانية لكل قرار %</label><input type="number" id="apIncPct" class="p-select" style="width:100%;" value="${s.max_budget_increase_pct}"></div>
-                <div><label>أقصى نسبة تخفيض ميزانية لكل قرار %</label><input type="number" id="apDecPct" class="p-select" style="width:100%;" value="${s.max_budget_decrease_pct}"></div>
-            </div>
-            <div class="p-cell-muted" style="font-size:11.5px;margin-bottom:10px;">في وضع "تلقائي": أي قرار يتجاوز الحدود دي ما بيتنفذش تلقائيًا أبدًا - بيتحوّل لقسم "قرارات بانتظار الموافقة" فوق.</div>
-            <button class="p-btn primary" onclick="saveAutopilotSettings()">حفظ الإعدادات</button>
-        `;
-    }
-
-    window.saveAutopilotSettings = async function () {
-        const payload = {
-            optimization_mode: document.getElementById('apMode').value,
-            max_daily_budget: document.getElementById('apMaxDaily').value || null,
-            max_allowed_cpa: document.getElementById('apMaxCpa').value || null,
-            min_required_roas: document.getElementById('apMinRoas').value || null,
-            max_changes_per_day: document.getElementById('apMaxChanges').value,
-            max_budget_increase_pct: document.getElementById('apIncPct').value,
-            max_budget_decrease_pct: document.getElementById('apDecPct').value,
-        };
-        const res = await fetchJSON('/api/ads/autopilot/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        if (res.success) P.toast('تم حفظ إعدادات Autopilot', 'success');
-        else P.toast(res.error || 'تعذر الحفظ', 'error');
-    };
-
-    async function loadPendingActions() {
-        const res = await fetchJSON('/api/ads/autopilot/pending');
-        const box = document.getElementById('pendingActionsBox');
-        if (!res.success) { box.innerHTML = '<div class="p-cell-muted">تعذر التحميل</div>'; return; }
-        if (!res.data.length) { box.innerHTML = '<div class="p-cell-muted">لا توجد قرارات معلّقة حاليًا</div>'; return; }
-        box.innerHTML = res.data.map(a => `
-            <div class="p-card" style="margin-bottom:8px;padding:10px;">
-                <div><b>${esc(a.action_type)}</b> - <a href="/ads/campaigns/${a.campaign_id}">حملة #${a.campaign_id}</a> ${a.before_value ? `(${esc(a.before_value)} ← ${esc(a.after_value)})` : ''}</div>
-                <div class="p-cell-muted" style="font-size:12px;margin:4px 0;">${esc(a.reasoning)}</div>
-                ${a.blocked_reason ? `<div class="p-cell-muted" style="font-size:11px;color:#b45309;">⚠ ${esc(a.blocked_reason)}</div>` : ''}
-                <div style="display:flex;gap:8px;margin-top:6px;">
-                    <button class="p-btn primary xs" onclick="decidePendingAction(${a.id}, 'approve')">✅ موافقة وتنفيذ</button>
-                    <button class="p-btn outline xs" onclick="decidePendingAction(${a.id}, 'reject')">❌ رفض</button>
-                </div>
-            </div>`).join('');
-    }
-
-    window.decidePendingAction = async function (id, decision) {
-        const res = await fetchJSON(`/api/ads/autopilot/pending/${id}/${decision}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-        if (res.success) { P.toast(decision === 'approve' ? 'تم التنفيذ' : 'تم الرفض', 'success'); loadPendingActions(); loadOptimizationLog(); }
-        else P.toast(res.error || 'تعذر تنفيذ القرار', 'error');
-    };
-
-    async function loadOptimizationLog() {
-        const res = await fetchJSON('/api/ads/autopilot/logs');
-        const box = document.getElementById('optimizationLogBox');
-        if (!res.success) { box.innerHTML = '<div class="p-cell-muted">تعذر التحميل</div>'; return; }
-        if (!res.data.length) { box.innerHTML = '<div class="p-cell-muted">لا يوجد سجل بعد</div>'; return; }
-        box.innerHTML = res.data.map(l => `
-            <div style="padding:8px 0;border-bottom:1px solid var(--border-color, #eee);">
-                <div><b>${esc(l.action_type)}</b> <span class="p-cell-muted" style="font-size:11px;">(${esc(l.mode)} - ${l.applied_automatically == 1 ? 'نُفّذ فعليًا' : 'توصية فقط'})</span></div>
-                ${l.before_value ? `<div class="p-cell-muted" style="font-size:12px;">${esc(l.before_value)} ← ${esc(l.after_value || '')}</div>` : ''}
-                <div class="p-cell-muted" style="font-size:12px;">${esc(l.description)}</div>
-                ${(l.can_rollback == 1 && !l.rolled_back_at) ? `<button class="p-btn outline xs" style="margin-top:4px;" onclick="rollbackLog(${l.id})">↩ تراجع</button>` : ''}
-                ${l.rolled_back_at ? `<span class="p-cell-muted" style="font-size:11px;">تم التراجع عنه</span>` : ''}
-            </div>`).join('');
-    }
-
-    window.rollbackLog = async function (id) {
-        if (!confirm('متأكد من التراجع عن التغيير ده؟')) return;
-        const res = await fetchJSON(`/api/ads/autopilot/logs/${id}/rollback`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-        if (res.success) { P.toast('تم التراجع', 'success'); loadOptimizationLog(); }
-        else P.toast(res.error || 'تعذر التراجع', 'error');
-    };
-
-    loadAutopilotSettings();
-    loadPendingActions();
-    loadOptimizationLog();
-})();
-JS;
+        $body = $this->renderView('ads/autopilot', ['adsActive' => 'autopilot']);
+        $script = '<script src="' . asset_v('/assets/js/ads/autopilot.js') . '"></script>';
 
         header('Content-Type: text/html; charset=utf-8');
+
         echo $this->renderPanelPage('ads', 'AI Ads Autopilot', 'وضع التشغيل، حدود الأمان، القرارات المعلّقة، وسجل التحسين', $body, $script);
         exit;
     }
-
     /** GET /ads/copilot */
     public function showCopilotPage(array $params = []): array
     {
@@ -4536,56 +2710,14 @@ JS;
             exit;
         }
 
-        $tabsHtml = $this->adsTabsHtml('copilot');
-        $body = <<<HTML
-        {$tabsHtml}
-
-        <div class="p-card" id="copilotCard">
-            <div class="p-card-head"><h3>💬 AI Marketing Copilot</h3><span class="p-card-sub">اسأل عن أداء حسابك، أو اطلب تعديل مباشر (هيمر عبر نفس وضع التشغيل وحدود الأمان)</span></div>
-            <div id="copilotMessages" style="max-height:420px;overflow-y:auto;margin-bottom:10px;"></div>
-            <div style="display:flex;gap:8px;">
-                <input type="text" id="copilotInput" class="p-select" style="flex:1;" placeholder="مثال: ليه تكلفة العميل زادت؟">
-                <button class="p-btn primary" onclick="sendCopilotMessage()">إرسال</button>
-            </div>
-            <div class="p-cell-muted" style="font-size:11px;margin-top:8px;">أمثلة: "أنهي حملة محتاجة انتباه؟" · "ليه الأداء قلّ؟" · "فين بضيّع ميزانية؟" · "أنهي حملة أرشحها للتوسّع؟"</div>
-        </div>
-        HTML;
-
-        $script = <<<'JS'
-(function () {
-    const P = window.Panel;
-    const esc = P.esc;
-    const _ownerId = new URLSearchParams(window.location.search).get('owner_id') || '';
-    const fetchJSON = _ownerId
-        ? (url, options) => P.fetchJSON(url + (url.includes('?') ? '&' : '?') + 'owner_id=' + encodeURIComponent(_ownerId), options)
-        : P.fetchJSON;
-
-    window.sendCopilotMessage = async function () {
-        const input = document.getElementById('copilotInput');
-        const msg = input.value.trim();
-        if (!msg) return;
-        const box = document.getElementById('copilotMessages');
-        box.innerHTML += `<div style="text-align:end;margin-bottom:6px;"><span class="pill">${esc(msg)}</span></div>`;
-        input.value = '';
-        box.scrollTop = box.scrollHeight;
-
-        const res = await fetchJSON('/api/ads/copilot/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: msg }) });
-        const reply = res.success ? res.data.reply : (res.error || 'تعذر الرد حاليًا');
-        box.innerHTML += `<div style="margin-bottom:6px;"><span class="p-cell-muted">${esc(reply)}</span></div>`;
-        box.scrollTop = box.scrollHeight;
-    };
-
-    document.getElementById('copilotInput').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') window.sendCopilotMessage();
-    });
-})();
-JS;
+        $body = $this->renderView('ads/copilot', ['adsActive' => 'copilot']);
+        $script = '<script src="' . asset_v('/assets/js/ads/copilot.js') . '"></script>';
 
         header('Content-Type: text/html; charset=utf-8');
+
         echo $this->renderPanelPage('ads', 'AI Copilot', 'اسأل عن أداء حسابك أو اطلب تعديل مباشر', $body, $script);
         exit;
     }
-
     /** GET /ads/market-research */
     public function showMarketResearchPage(array $params = []): array
     {
@@ -4594,77 +2726,14 @@ JS;
             exit;
         }
 
-        $tabsHtml = $this->adsTabsHtml('market_research');
-        $body = <<<HTML
-        {$tabsHtml}
-
-        <div class="p-card" style="margin-bottom:16px;">
-            <div class="p-card-head"><h3>🌍 بحث الأسواق والدول (AI)</h3><span class="p-card-sub">توصية استشارية مبنية على معرفة السوق - مش بيانات طلب بحث حقيقية</span></div>
-            <textarea id="mrGoalDesc" class="p-select" style="width:100%;min-height:60px;" placeholder="مثال: عايز أجيب حجوزات سياحية من أوروبا لمصر"></textarea>
-            <button class="p-btn primary xs" style="margin-top:8px;" onclick="runMarketResearch()">تحليل الأسواق</button>
-            <div id="marketResearchResults" style="margin-top:10px;"></div>
-        </div>
-
-        <div class="p-card" id="mrHistoryCard">
-            <div class="p-card-head"><h3>📜 أرشيف التحليلات السابقة</h3></div>
-            <div id="mrHistoryBox"><div class="p-loading-row">جارِ التحميل...</div></div>
-        </div>
-        HTML;
-
-        $script = <<<'JS'
-(function () {
-    const P = window.Panel;
-    const esc = P.esc;
-    const _ownerId = new URLSearchParams(window.location.search).get('owner_id') || '';
-    const fetchJSON = _ownerId
-        ? (url, options) => P.fetchJSON(url + (url.includes('?') ? '&' : '?') + 'owner_id=' + encodeURIComponent(_ownerId), options)
-        : P.fetchJSON;
-    const colors = { high: 'green', medium: 'yellow', low: 'gray' };
-
-    function renderCountries(countries, disclaimer) {
-        return countries.map(c => `
-            <div style="padding:8px 0;border-bottom:1px solid var(--border-color, #eee);">
-                <span class="pill ${colors[c.opportunity] || ''}">${esc(c.opportunity)}</span> <b>${esc(c.country)}</b>
-                <div class="p-cell-muted" style="font-size:12px;">${esc(c.reasoning)}</div>
-            </div>
-        `).join('') + `<div class="p-cell-muted" style="font-size:11px;margin-top:6px;">${esc(disclaimer)}</div>`;
-    }
-
-    window.runMarketResearch = async function () {
-        const box = document.getElementById('marketResearchResults');
-        box.innerHTML = 'جارِ التحليل...';
-        const goalDescription = document.getElementById('mrGoalDesc').value.trim();
-        if (!goalDescription) { box.innerHTML = '<span style="color:#b91c1c;">اكتب وصف العرض الأول</span>'; return; }
-
-        const res = await fetchJSON('/api/ads/market-research', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ goal_description: goalDescription }),
-        });
-        if (!res.success) { box.innerHTML = `<span style="color:#b91c1c;">${esc(res.error || 'تعذر التحليل')}</span>`; return; }
-        box.innerHTML = renderCountries(res.data.countries, res.data.disclaimer);
-        loadHistory();
-    };
-
-    async function loadHistory() {
-        const box = document.getElementById('mrHistoryBox');
-        const res = await fetchJSON('/api/ads/market-research/history');
-        if (!res.success || !res.data.length) { box.innerHTML = '<div class="p-cell-muted">لا يوجد تحليلات سابقة بعد</div>'; return; }
-        box.innerHTML = res.data.map(h => `
-            <div style="padding:10px 0;border-bottom:1px solid var(--border-color, #eee);">
-                <div class="p-cell-muted" style="font-size:11px;">${esc(h.created_at)}</div>
-                <div style="margin:4px 0;">${esc(h.goal_description)}</div>
-                ${h.result_json && h.result_json.countries ? renderCountries(h.result_json.countries, h.result_json.disclaimer) : ''}
-            </div>`).join('');
-    }
-
-    loadHistory();
-})();
-JS;
+        $body = $this->renderView('ads/market_research', ['adsActive' => 'market_research']);
+        $script = '<script src="' . asset_v('/assets/js/ads/market_research.js') . '"></script>';
 
         header('Content-Type: text/html; charset=utf-8');
+
         echo $this->renderPanelPage('ads', 'بحث الأسواق', 'ترشيح وترتيب الدول المناسبة لحملتك القادمة', $body, $script);
         exit;
     }
-
     /**
      * بيحدد "مين صاحب حساب الإعلانات اللي المستخدم الحالي بيشتغل عليه
      * دلوقتي" ويتحقق إن دوره كافي. المشروع مالوش مفهوم "Workspace Switcher"
@@ -4744,29 +2813,6 @@ JS;
         return ['owner_id' => $requestedOwnerId, 'role' => $access['role']];
     }
 
-    private function adsTabsHtml(string $active): string
-    {
-        $tabs = [
-            'dashboard' => ['نظرة عامة', '/ads'],
-            'campaigns' => ['الحملات', '/ads#campaignsTable'],
-            'reports' => ['التقارير', '/ads/reports'],
-            'budget' => ['الميزانية والإنفاق', '/ads/budget'],
-            'market_research' => ['بحث الأسواق', '/ads/market-research'],
-            'competitors' => ['المنافسون', '/ads/competitors'],
-            'autopilot' => ['Autopilot', '/ads/autopilot'],
-            'copilot' => ['AI Copilot', '/ads/copilot'],
-            'alerts' => ['التنبيهات', '/ads/alerts'],
-            'connections' => ['ربط المنصات', '/ads/connections'],
-            'team' => ['فريق العمل', '/ads/team'],
-        ];
-        $html = '<div class="p-tabs" style="margin-bottom:18px;flex-wrap:wrap;">';
-        foreach ($tabs as $key => [$label, $url]) {
-            $activeClass = $key === $active ? ' active' : '';
-            $html .= "<a href=\"{$url}\" class=\"p-tab{$activeClass}\" style=\"text-decoration:none;\">{$label}</a>";
-        }
-        return $html . '</div>';
-    }
-
     private function firstWebsiteForUser(int $userId): ?array
     {
         $rows = $this->db->query("SELECT id FROM websites WHERE user_id = ? ORDER BY created_at ASC LIMIT 1", [$userId]);
@@ -4775,7 +2821,7 @@ JS;
 
     private function renderAdsOAuthError(string $message): void
     {
-        $body = '<div class="p-card"><div class="p-empty"><div class="p-empty-icon">⚠️</div>' . $message . '<br><br><a href="/ads" class="p-btn primary">الرجوع لصفحة الإعلانات</a></div></div>';
+        $body = $this->renderView('ads/oauth_error', ['message' => $message]);
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderPanelPage('ads', 'تعذر الربط', 'Meta Ads', $body, '');
     }

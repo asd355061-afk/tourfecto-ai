@@ -1,5 +1,46 @@
 # Tourfecto AI Chat & Customer Communication Platform
-## الموديول 9 — اختبارات SearchConsole + Integrations + SocialMedia بـ fakes — 2026-08-31
+## موديول الواجهة 1 — إعادة تصميم موديول الإعلانات وفصل الواجهة عن المتحكم — 2026-09-01 (فرع redesign/frontend-all)
+
+بداية إعادة تصميم واجهة المنصة بالكامل (موديول بموديول على فرع
+`redesign/frontend-all`) — الأول: **Ads**. فصل HTML/JS من داخل
+`AdsController` إلى Views مستقلة + ملفات JS ثابتة، مع تحسين التصميم
+بنفس الهوية البصرية (Compass/Panel) — بدون أي تغيير في منطق العمل أو
+العناوين (endpoints) أو معرّفات العناصر اللي تعتمد عليها الـ JS.
+
+1. **نظام Views جديد:** `app/Core/Controller.php` — `renderView()` عام
+   (extract + include + output-buffering) يحل محل كتابة HTML في المتحكمات،
+   و`renderPanelPage()` أصبح يقبل وسم `<script src>` كاملًا (متوافق مع
+   المتصلين القدامى اللي بيمرروا JS خام). `ads.css` بتحقن في الـ head
+   تلقائيًا لصفحات `/ads` (نفس نمط `chat.css`).
+2. **فصل الواجهة في AdsController (4782 ← 2829 سطرًا):** كل صفحات الموديول
+   الـ 11 تحوّلت لـ Views مستقلة في `app/Views/ads/` (`index`, `reports`,
+   `budget`, `campaign_details`, `competitors`, `connections`, `alerts`,
+   `autopilot`, `copilot`, `market_research`, `team`) + partial تبويث `_tabs.php`
+   (حل محل `adsTabsHtml()`) + Views لاختيار الحساب وخطأ OAuth.
+3. **فصل JS:** كل سكريبتات الصفحات اللي كانت heredoc جوه المتحكم اتنقلت
+   **حرفيًا** لملفات ثابتة `public_html/assets/js/ads/*.js` (13 ملفًا — تم
+   التحقق أنها مطابقة byte-for-byte للنسخ الأصلية عبر git HEAD، وكلها
+   `node --check` سليمة).
+4. **طبقة تصميم جديدة:** `public_html/assets/css/ads.css` — hero bar، شبكات
+   KPIs، شريط فلاتر، bulk bar، بطاقات النصوص الإعلانية (`ads-copy-card`/
+   `ads-char-badge`/...)، شات Copilot، قواعد/تنبيهات، وكلها responsive
+   mobile-first (RTL جاهز عبر logical properties الموجودة في النظام).
+5. **التحقق:** كل الـ IDs والـ endpoints اللي بتعتمد عليها الـ JS محفوظة
+   100% (فحص آلي لكل `getElementById` ثابت مقابل الـ Views)؛ `tools/lint.php`
+   (828 ملفًا سليمًا)؛ phpstan بلا أخطاء؛ phpunit **1111/18199** — نفس خط
+   الأساس (فشل 4 اختبارات Revenue pre-existing خارج نطاق الموديول، مؤكد
+   أنها فاشلة على نفس الـ commit قبل التغييرات).
+
+### التغييرات
+- `app/Core/Controller.php`: `renderView()` جديدة + دعم `<script src>` في
+  `renderPanelPage()` + حقن `ads.css` لصفحات `/ads`.
+- `app/Controllers/AdsController.php`: إزالة ~2033 سطرًا من HTML/JS الـ inline
+  واستبدالها باستدعاءات `renderView()` + `<script src>`؛ إزالة `adsTabsHtml()`؛
+  `renderAdsOAuthError()` بترندر View.
+- `app/Views/ads/`: 13 ملف View جديد + `_tabs.php`.
+- `public_html/assets/css/ads.css`: طبقة تصميم الموديول الجديدة.
+- `public_html/assets/js/ads/`: 13 ملف JS (منقول حرفيًا).
+
 
 تغطية الأنظمة الثلاثة بمصادر حقيقية **وصفر شبكة** — حقن `?callable $transport`
 في عملاء HTTP (نفس بنية رد curl / نمط حقن WordPressPublisher من م3):
