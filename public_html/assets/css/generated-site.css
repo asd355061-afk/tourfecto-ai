@@ -24,6 +24,8 @@ body { font-family: 'IBM Plex Sans Arabic', sans-serif; background: #0b0f1a; col
 
 .ws-btn { display: inline-block; background: var(--ws-accent); color: #0b0f1a; padding: 13px 30px; border-radius: 30px; text-decoration: none; font-weight: 700; font-size: 14px; }
 .ws-btn:hover { opacity: .9; }
+.ws-btn + .ws-btn, .ws-btn + .ws-btn-outline, .ws-btn-outline + .ws-btn { margin-inline-start: 10px; }
+.ws-btn-outline { background: transparent; color: var(--ws-accent); border: 2px solid var(--ws-accent); }
 
 .ws-section { max-width: 1100px; margin: 0 auto; padding: 60px 24px; }
 .ws-section h2 { text-align: center; font-size: 26px; margin-bottom: 30px; }

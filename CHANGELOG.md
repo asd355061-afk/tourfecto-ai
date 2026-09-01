@@ -1,4 +1,31 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## البند 3 — نموذج تواصل/طلب حجز في مواقع الويب المولّدة — 2026-09-01 (فرع redesign/frontend-all)
+
+ثالث بنود التطوير الـ3 فوق الكود الشغال (إضافات بلا حذف/إعادة بناء): نموذج
+تواصل/طلب خفيف في الصفحة الرئيسية للموقع المولّد يرسل إلى `submitLead`
+الموجود، مع زرار "احجز الآن" يوجّه لأقرب قسم جولات/غرف بس لو الموقع ليه
+`crm_products` مرتبط (جولات فعلية قابلة للحجز).
+
+1. **`siteLeadFormHtml($slug, $hasBookingProducts, $itemsSectionId)`** — مساعد
+   جديد في `WebsiteBuilderController` ينتج قسم "أرسل لنا طلبك" بنفس أسلوب
+   نماذج الحجز الموجودة: حقول `visitor_name` (مطلوب) / `phone` / `email` /
+   `message` ترسل JSON إلى `POST /sites/{slug}/lead` (نفس `submitLead` الحالي
+   بدون أي تكرار لـ CSRF — الحماية الأساسية هي `RateLimitMiddleware` العام +
+   تحقق `visitor_name` المطلوب، بلا تغيير في سلوك الـ endpoint).
+2. **تكامل الصفحة الرئيسية:** النموذج أُضيف في `renderToursHome` و
+   `renderHotelHome` (قسم `#lead` قبل تواصل معنا + رابط ناف في الهيدر).
+   زرار "احجز الآن" (`ws-btn-outline`) يظهر في الهيرو فقط عند وجود صف
+   `crm_products (website_id, is_active=1)` ويوجّه لـ `#tours` (جولات) أو
+   `#rooms` (فندق) — نفس فحص الربط المستخدم في نماذج الحجز.
+3. **CSS:** قاعدتا `.ws-btn-outline` وتباعد الأزرار المتجاورة في
+   `public_html/assets/css/generated-site.css` (بدون مساس بأي قاعدة موجودة).
+4. **حماية من التحذير:** حارس `if (!headers_sent())` حول `header()` قبل
+   ردّ صفحات الجولات/الفندق ليتجنب تحذيرات PHP عند الاستدعاء من CLI/SAPI.
+5. **اختبارات:** `tests/Integration/WebsiteLeadFormIntegrationTest.php` —
+   النموذج موجود في HTML صفحتي الجولات والفندق (id + action + الحقول)، زرار
+   "احجز الآن" يظهر/يختفي حسب وجود منتج مرتبط، `submitLead` يخزّن
+   `WebsiteLead` فعليًا بـ `status='new'`، والاسم الفاضي يرفض (422) بلا حفظ.
+
 ## البند 2 — Double Opt-In مع بريد تأكيد في Email Marketing — 2026-09-01 (فرع redesign/frontend-all)
 
 ثاني بند من بنود التطوير الـ3 فوق الكود الشغال: تفعيل تأكيد الاشتراك بحالة
