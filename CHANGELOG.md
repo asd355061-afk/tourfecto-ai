@@ -1,4 +1,40 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## البند 2 — Double Opt-In مع بريد تأكيد في Email Marketing — 2026-09-01 (فرع redesign/frontend-all)
+
+ثاني بند من بنود التطوير الـ3 فوق الكود الشغال: تفعيل تأكيد الاشتراك بحالة
+`pending_optin` + بريد تأكيد بتوكن فريد — الاشتراك العام فقط يمر بالتأكيد،
+أما استيراد/إدخال الأدمن يبقى `subscribed` فورًا (سلوك غير متغيّر)، وأي
+استعلام جمهور/شريحة يستثني `pending_optin`.
+
+1. **ميجريشن `2026_09_01_000002_email_double_optin.sql`:** `ALTER MODIFY` على
+   الـ ENUM يضيف `pending_optin` فقط (القيم الموجودة `subscribed/unsubscribed/
+   bounced` كما هي بلا مساس) + عمود `optin_token` (64 حرف) بمفتاح فهرس.
+   `optin_ip`/`optin_at` موجودان أصلًا من ميجريشن 2026_08_21_000011.
+2. **`EmailListService::subscribe` بعلامة `require_optin`:** الاشتراك العام
+   (source=form) يبدأ `pending_optin` بتوكن فريد ويرسل بريد تأكيد عبر
+   `SmtpSettingsService::mailerForUser` (best-effort — فشل SMTP لا يُفشل
+   الاشتراك، القيد موثّق). إعادة الاشتراك عبر النموذج لغير المشترك يلزم
+   تأكيدًا جديدًا؛ الاشتراك القائم يبقى `subscribed`. `pending_optin` لا
+   يُشغّل أتمتة "subscribed" حتى التفعيل. الاستيراد/الإدخال اليدوي
+   (source=manual/import) بلا `require_optin` → `subscribed` فورًا.
+3. **`confirmOptin($token, $ip)`:** pending_optin → subscribed + تسجيل
+   `optin_ip`/`optin_at` + مسح التوكن + تشغيل أتمتة "subscribed".
+4. **مسارات عامة (بلا Auth):** `POST /webhooks/email/subscribe` (نموذج عام —
+   يتطلب `list_id` صالحًا لمعرفة المالك، حماية عبر RateLimitMiddleware العام)
+   و`GET /webhooks/email/confirm/{token}` (صفحة تأكيد HTML عربية).
+5. **استثناء من الجمهور:** `audience()`/`segmentAudience()` تفيلتر
+   `status='subscribed'` أصلًا (يستثني pending_optin تلقائيًا)؛ أُضيف
+   `status != 'pending_optin'` صراحةً إلى الـ base SQL في
+   `ContactManagementService::evaluateSegment` حتى لا تظهر المعلّقين في أي شريحة.
+6. **إصلاح مرتبط:** `EmailSubscriber::$fillable` يتضمن الآن `optin_ip`/
+   `optin_at`/`optin_token` (مع بقية عدّادات التسليم) — كان `setAttribute`
+   يتجاهل حفظها.
+7. **اختبارات:** `tests/Integration/EmailDoubleOptinIntegrationTest.php` —
+   اشتراك عام → pending+توكن، إدخال/استيراد الأدمن → subscribed فورًا، تفعيل
+   توكن → subscribed+IP+time، توكن غير صالح → رفض، حملة تستثني pending_optin،
+   شريحة تستثني pending_optin. تحقق E2E على السيرفر الحي (list → subscribe →
+   confirm) نجح.
+
 ## البند 1 — Webhook تتبع الارتدادات/الشكاوى في Email Marketing — 2026-09-01 (فرع redesign/frontend-all)
 
 أول بند من بنود التطوير الـ3 الجديدة فوق الكود الشغال (بلا حذف/إعادة بناء):
