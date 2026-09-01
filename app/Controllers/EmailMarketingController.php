@@ -991,6 +991,31 @@ class EmailMarketingController extends Controller
             </div>
             <p class="p-cell-muted" style="margin-top:12px;">الإعدادات الخاصة بك تتجاوز إعدادات .env العامة. كلمة المرور لا تُظهر مرة أخرى بعد الحفظ.</p>
         </div>
+
+        <div class="p-card" style="margin-top:16px;">
+            <div class="p-card-head">
+                <h3>🔔 Webhook تتبع التسليم</h3>
+                <span class="p-card-sub">تُعلَم تلقائيًا بالارتدادات (bounce) والشكاوى (complaint) من مزوّد البريد — مثال SendGrid/Mailgun/Postmark</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;">
+                <input type="checkbox" id="emDeliveryWebhookEnabled" onchange="toggleDeliveryWebhook()" style="transform:scale(1.1);">
+                <label for="emDeliveryWebhookEnabled">تفعيل استقبال webhook التسليم</label>
+                <button class="p-btn" onclick="regenerateDeliveryWebhookSecret()">🔑 توليد مفتاح جديد</button>
+            </div>
+            <div style="margin-top:12px;font-size:13px;">
+                <label class="p-label">رابط الـ webhook (ضعه في إعدادات مزوّد البريد)</label>
+                <code id="emDeliveryWebhookUrl" style="display:block;background:#0f172a;color:#7dd3fc;padding:8px 12px;border-radius:8px;margin-top:6px;direction:ltr;text-align:left;word-break:break-all;"></code>
+            </div>
+            <div style="margin-top:10px;font-size:13px;">
+                <label class="p-label">المفتاح السري (يُرسَل في header التوقيع — ادعمنا Mailgun/SendGrid/Postmark)</label>
+                <code id="emDeliveryWebhookSecret" style="display:block;background:#0f172a;color:#a5f3fc;padding:8px 12px;border-radius:8px;margin-top:6px;direction:ltr;text-align:left;word-break:break-all;"></code>
+            </div>
+            <p class="p-cell-muted" style="margin-top:10px;">التحقق من التوقيع: مفتاح المستخدم الخاص أولًا، ثم مفتاح .env العام
+                (EMAIL_DELIVERY_WEBHOOK_SECRET) كحد أدنى. النوع غير المعروف يُتجاهل بأمان
+                (bounce/complaint/spam فقط). ملاحظة: مع SMTP الخام (البنية الحالية) لا توجد
+                webhooks رسمية من السيرفر نفسه — تسجيل المشاكل يدويًا عبر هذا الـ endpoint أو
+                من لوحة تحكم المزوّد حتى وجود تكامل API تلقائي.</p>
+        </div>
         HTML;
 
         $script = $this->smtpSettingsJs();
@@ -2275,6 +2300,65 @@ class EmailMarketingController extends Controller
         return $result['success']
             ? $this->success([], 'تم حفظ إعدادات SMTP')
             : $this->error($result['error'], 422);
+    }
+
+    // ============================================================
+    //  API: SMTP Delivery Webhook (بند 1 - تتبع الارتدادات/الشكاوى)
+    // ============================================================
+
+    /**
+     * GET /api/email-marketing/smtp/webhook
+     * حالة + رابط webhook تتبع التسليم (المفتاح يعرض مقنّعًا - النص الكامل
+     * بيتكشف لحظة التوليد/التجديد بس).
+     */
+    public function deliveryWebhookSettings(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $uid = $this->uid();
+        $settings = $this->smtpSettingsService()->get($uid);
+        $enabled = (bool) ($settings['delivery_webhook_enabled'] ?? false);
+        $secret = trim((string) ($settings['delivery_webhook_secret'] ?? ''));
+        $url = rtrim(defined('APP_URL') ? (string) APP_URL : '', '/') . '/webhooks/email/delivery-status/' . $uid;
+
+        return $this->success([
+            'enabled' => $enabled,
+            'url' => $url,
+            'has_secret' => $secret !== '',
+            'secret_masked' => $this->maskWebhookSecret($secret),
+        ]);
+    }
+
+    /**
+     * POST /api/email-marketing/smtp/webhook
+     * تفعيل/تعطيل الـ webhook + توليد/تجديد المفتاح السري (regenerate).
+     */
+    public function saveDeliveryWebhook(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $result = $this->smtpSettingsService()->saveDeliveryWebhook($this->uid(), $this->all());
+        if (!$result['success']) {
+            return $this->error($result['error'] ?? 'تعذر حفظ إعدادات الـ webhook', 422);
+        }
+        return $this->success([
+            'enabled' => (bool) $result['enabled'],
+            'secret' => $result['secret'] ?? '',
+            'secret_masked' => $this->maskWebhookSecret((string) ($result['secret'] ?? '')),
+        ], 'تم حفظ إعدادات webhook تتبع التسليم');
+    }
+
+    /** إخفاء المفتاح السري (أول 4 + آخر 4) — يظهر كاملًا لحظة التوليد فقط. */
+    private function maskWebhookSecret(string $secret): string
+    {
+        if ($secret === '') {
+            return '';
+        }
+        return strlen($secret) > 8
+            ? substr($secret, 0, 4) . '…' . substr($secret, -4)
+            : '••••••';
     }
 
     public function testSmtpSettings(array $params = []): array
@@ -4629,7 +4713,28 @@ class EmailMarketingController extends Controller
             if (r.success) notify('✅ تم الاتصال والمصادقة بنجاح');
             else notify('❌ ' + (r.error || 'فشل الاختبار'));
         }
+        async function loadDeliveryWebhook() {
+            const r = await emApi('/smtp-settings/webhook');
+            if (!r.success) return;
+            const d = r.data || {};
+            document.getElementById('emDeliveryWebhookEnabled').checked = !!d.enabled;
+            document.getElementById('emDeliveryWebhookUrl').textContent = d.url || '—';
+            document.getElementById('emDeliveryWebhookSecret').textContent = d.has_secret ? (d.secret_masked || '••••') : 'لا يوجد مفتاح بعد — اضغط "توليد مفتاح جديد"';
+        }
+        async function toggleDeliveryWebhook() {
+            const enabled = document.getElementById('emDeliveryWebhookEnabled').checked;
+            const r = await emPost('/smtp-settings/webhook', { enabled: enabled ? 1 : 0 });
+            if (r.success) { notify(enabled ? 'تم تفعيل webhook تتبع التسليم' : 'تم تعطيل webhook تتبع التسليم'); loadDeliveryWebhook(); }
+            else notify(r.error || 'حدث خطأ');
+        }
+        async function regenerateDeliveryWebhookSecret() {
+            const r = await emPost('/smtp-settings/webhook', { regenerate: 1, enabled: document.getElementById('emDeliveryWebhookEnabled').checked ? 1 : 0 });
+            if (!r.success) { notify(r.error || 'حدث خطأ'); return; }
+            notify('تم توليد مفتاح جديد — انسخه الآن، لن يظهر كاملًا بعد ذلك');
+            document.getElementById('emDeliveryWebhookSecret').textContent = r.data.secret || '••••';
+        }
         loadSmtpSettings();
+        loadDeliveryWebhook();
         JS;
     }
 

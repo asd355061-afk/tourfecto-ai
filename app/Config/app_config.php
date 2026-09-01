@@ -100,6 +100,10 @@ define('MAIL_PASSWORD', env('MAIL_PASSWORD') ?: '');
 define('MAIL_ENCRYPTION', env('MAIL_ENCRYPTION') ?: 'tls');
 define('MAIL_FROM_ADDRESS', env('MAIL_FROM_ADDRESS') ?: 'noreply@tourfecto.com');
 define('MAIL_FROM_NAME', env('MAIL_FROM_NAME') ?: 'Tourfecto');
+// مفتاح سري عام لـ webhook تتبع التسليم (بند 1): الحد الأدنى المطلوب للتحقق
+// من توقيع الطلبات الواردة، بجانب المفتاح الخاص لكل مستخدم في
+// email_smtp_settings.delivery_webhook_secret (الأقوى - يُفضّل).
+define('EMAIL_DELIVERY_WEBHOOK_SECRET', env('EMAIL_DELIVERY_WEBHOOK_SECRET') ?: '');
 
 // ============================================
 // إعدادات تحديد معدل الطلبات (Rate Limiting)

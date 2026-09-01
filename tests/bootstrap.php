@@ -304,6 +304,9 @@ function applyTestMigrations(): void
         // (aspect_ratio/duration_seconds/provider_ref/poll_attempts) — الطلب
         // الأول بيضيفها، ولو اتكرر بيتخطى بأمان (حلقة try/catch).
         '2026_08_07_000040_add_ai_video_generation_and_publishing.sql',
+        // بند 1 (2026-09-01): webhook تتبع التسليم — delivery_webhook_enabled
+        // + delivery_webhook_secret في email_smtp_settings.
+        '2026_09_01_000001_email_delivery_webhook.sql',
     ];
 
     // إصلاح انحرافات السكيما المحلية: schema.sql القديمة بتحتوي أسماء

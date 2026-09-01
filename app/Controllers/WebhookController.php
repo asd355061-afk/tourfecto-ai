@@ -395,6 +395,44 @@ class WebhookController extends Controller
     }
 
     /**
+     * Webhook تتبع تسليم البريد (بند 1): ارتداد/شكوى/سبام من مزوّد SMTP.
+     * POST /webhooks/email/delivery-status/{user_id}
+     * بدون Auth — التوثيق بتوقيع HMAC/مفتاح سري (عبر verifyDeliverySignature
+     * في ContactManagementService). المزوّد بيبقى هو اللي بيكتب الـ user_id
+     * في الـ URL، والمفتاح هو الضمان إنه محدش غيره يقدّر يرسل نيابة عنه.
+     *
+     * ملاحظة مسار: الـ route اتسجّل في app/routes/api.php (الملف المحمّل فعلًا
+     * في index.php) وليس app/routes/webhooks.php — الملف ده مش متضمّن في
+     * index.php إطلاقًا (بيحمّل web.php + api.php بس) فأي route فيه ميت.
+     */
+    public function emailDeliveryStatusWebhook(array $params = []): array
+    {
+        $userId = (int) ($params['user_id'] ?? 0);
+        $rawBody = file_get_contents('php://input') ?: '';
+        $payload = json_decode($rawBody, true);
+        if (!is_array($payload)) {
+            $payload = $_POST ?: [];
+        }
+
+        $headers = [
+            'x-twilio-email-event-webhook-signature' => $_SERVER['HTTP_X_TWILIO_EMAIL_EVENT_WEBHOOK_SIGNATURE'] ?? '',
+            'x-twilio-email-event-webhook-timestamp' => $_SERVER['HTTP_X_TWILIO_EMAIL_EVENT_WEBHOOK_TIMESTAMP'] ?? '',
+            'x-postmark-server-token' => $_SERVER['HTTP_X_POSTMARK_SERVER_TOKEN'] ?? '',
+            'x-delivery-webhook-secret' => $_SERVER['HTTP_X_DELIVERY_WEBHOOK_SECRET'] ?? '',
+        ];
+
+        $result = (new ContactManagementService())->handleDeliveryWebhook($userId, $rawBody, $payload, $headers);
+        if (!empty($result['error'])) {
+            return $this->error($result['error'], 401);
+        }
+        return $this->success([
+            'handled' => (bool) ($result['handled'] ?? false),
+            'type' => $result['type'] ?? '',
+            'email' => $result['email'] ?? '',
+        ]);
+    }
+
+    /**
      * Webhook Stripe لشحن المحفظة (wallet top-up) + تأكيد الحجوزات.
      * مسار موحّد لكل Stripe Checkout Sessions (يحدد الغرض من metadata).
      * بدون Auth - التوثيق بالتوقيع HMAC.

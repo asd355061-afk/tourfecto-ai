@@ -102,6 +102,9 @@ class SmtpSettingsService
         if (array_key_exists('is_active', $data)) {
             $row['is_active'] = !empty($data['is_active']) ? 1 : 0;
         }
+        if (array_key_exists('delivery_webhook_enabled', $data)) {
+            $row['delivery_webhook_enabled'] = !empty($data['delivery_webhook_enabled']) ? 1 : 0;
+        }
 
         // تشفير كلمة المرور قبل الحفظ (لما المستخدم يدخل كلمة مرور جديدة).
         // لو مفيش password جديد في الطلب بنخلي القديم كما هو (مشفر أصلًا).
@@ -118,27 +121,71 @@ class SmtpSettingsService
             $this->db->query(
                 "UPDATE email_smtp_settings
                  SET host = ?, port = ?, username = ?, password = ?, encryption = ?,
-                     from_email = ?, from_name = ?, is_active = ?
+                     from_email = ?, from_name = ?, is_active = ?, delivery_webhook_enabled = ?
                  WHERE user_id = ?",
                 [
                     $row['host'], (int) $row['port'], $row['username'], $row['password'],
                     $row['encryption'], $row['from_email'], $row['from_name'],
-                    (int) $row['is_active'], $userId,
+                    (int) $row['is_active'], (int) ($row['delivery_webhook_enabled'] ?? 0), $userId,
                 ]
             );
         } else {
             $this->db->query(
                 "INSERT INTO email_smtp_settings
-                 (user_id, host, port, username, password, encryption, from_email, from_name, is_active)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                 (user_id, host, port, username, password, encryption, from_email, from_name, is_active, delivery_webhook_enabled)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     $userId, $row['host'], (int) $row['port'], $row['username'], $row['password'],
-                    $row['encryption'], $row['from_email'], $row['from_name'], (int) $row['is_active'],
+                    $row['encryption'], $row['from_email'], $row['from_name'],
+                    (int) $row['is_active'], (int) ($row['delivery_webhook_enabled'] ?? 0),
                 ]
             );
         }
 
         return ['success' => true];
+    }
+
+    /**
+     * حفظ/توليد إعدادات webhook تتبع التسليم (بند 1): تفعيل/تعطيل + مفتاح سري.
+     * - البيانات: ['enabled' => bool, 'regenerate' => bool] أو ['secret' => string].
+     * - لو مفيش صف SMTP للمستخدم بننشئ صفًا بسيطًا (بدون بيانات إرسال)
+     *   عشان نقدر نخزن عليه إعدادات الـ webhook لوحده.
+     * - المفتاح بيتولّد تلقائيًا أول مرة أو عند طلب regenerate، ومش بيتعرض
+     *   تاني كامل إلا لحظة التوليد (التخزين مشفرًا غير مجدٍ هنا لأن الـ webhook
+     *   محتاج يقارن نص المفتاح الوارد — فالمفتاح محفوظ كنص عادي داخل DB).
+     * @return array ['success'=>bool, 'enabled'=>bool, 'secret'=>?string, 'error'=>?string]
+     */
+    public function saveDeliveryWebhook(int $userId, array $data): array
+    {
+        $existing = $this->get($userId);
+        $enabled = !empty($data['enabled']) ? 1 : 0;
+
+        $secret = (string) ($data['secret'] ?? '');
+        $regenerate = !empty($data['regenerate']);
+
+        if ($existing && !$regenerate && $secret === '') {
+            // محافظ على المفتاح الحالي (مع خيار إبقائه كما هو)
+            $secret = (string) ($existing['delivery_webhook_secret'] ?? '');
+        }
+        if ($regenerate || $secret === '') {
+            $secret = bin2hex(random_bytes(32)); // 64 حرف hex
+        }
+
+        if ($existing) {
+            $this->db->query(
+                "UPDATE email_smtp_settings SET delivery_webhook_enabled = ?, delivery_webhook_secret = ? WHERE user_id = ?",
+                [$enabled, $secret, $userId]
+            );
+        } else {
+            $this->db->query(
+                "INSERT INTO email_smtp_settings
+                 (user_id, host, port, username, password, encryption, from_email, from_name, is_active, delivery_webhook_enabled, delivery_webhook_secret)
+                 VALUES (?, '', 587, '', '', 'tls', NULL, NULL, 0, ?, ?)",
+                [$userId, $enabled, $secret]
+            );
+        }
+
+        return ['success' => true, 'enabled' => (bool) $enabled, 'secret' => $secret];
     }
 
     /**

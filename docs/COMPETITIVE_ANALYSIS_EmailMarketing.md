@@ -116,7 +116,7 @@ Composer، PDO خام، لا Namespace) ضد أبرز منصات التسويق 
 | تقرير لكل مستلم (Recipient-level) | ✅ | ✅ | ✅ | ✅ | ✅ (`campaignReport` بـ status/opened/clicked + error) |
 | لوحة KPIs + حالة بوابة الإرسال | ✅ | ✅ | ✅ | ✅ | ✅ (`dashboard()`/`stats()`/`deliveryStatus()`) |
 | **رسوم بيانية زمنية / تقارير قابلة للتخصيص** | ✅ | ✅ | ✅ | ✅ | ❌ (جداول و KPIs رقمية فقط، صفحة `showReportsPage`) |
-| **تتبع ارتداد/شكوى تلقائي (Webhook)** | ✅ | ✅ | ✅ | ✅ | ❌ (`recordDeliveryIssue` معرّفة في `ContactManagementService.php` لكن **لا يُستدعى من أي مكان**) |
+| **تتبع ارتداد/شكوى تلقائي (Webhook)** | ✅ | ✅ | ✅ | ✅ | ✅ (`WebhookController::emailDeliveryStatusWebhook` → `ContactManagementService::handleDeliveryWebhook` → `recordDeliveryIssue`؛ توقيع HMAC/مفتاح لكل مستخدم + تجاهل آمن لنوع غير معروف) |
 | تتبع رسائل معاملات (فتح/كليك) | ✅ | ✅ | ✅ | ✅ | ✅ (`EmailTrackingService::recordTransactionalOpen/Click`) |
 
 ### 2.8 رسائل المعاملات (Transactional Email)
@@ -164,7 +164,7 @@ Composer، PDO خام، لا Namespace) ضد أبرز منصات التسويق 
 
 | # | الفجوة | المنافسون الذين يملكونها | الفجوة الحالية في الموديول |
 |---|---|---|---|
-| G1 | **تتبع الارتداد/الشكاوى تلقائيًا** (Bounce & Complaint Webhook) | كلهم | `ContactManagementService::recordDeliveryIssue` معرّفة (تحدّث `email_suppressions` + حالة المشترك) لكن **لا يُستدعى من أي مسار/Webhook** — `Mailer` لا يقرأ إشعارات ارتداد DSN. العدادات `bounced_count` تبقى صفرًا ما لم يُدخل يدويًا |
+| G1 | **تتبع الارتداد/الشكاوى تلقائيًا** (Bounce & Complaint Webhook) | كلهم | ✅ **مغلقة (2026-09-01)** — `POST /webhooks/email/delivery-status/{user_id}` (مُسجّل في `app/routes/api.php` — `webhooks.php` القديم غير محمّل في `index.php`)؛ `WebhookController::emailDeliveryStatusWebhook` يقرأ الجسم الخام والهيدرز ويفوّض لـ`ContactManagementService::handleDeliveryWebhook` التي تتحقق من التوقيع حسب المزوّد (SendGrid HMAC فوق timestamp+body، Mailgun `signature` HMAC، Postmark Server-Token، أو `X-Delivery-Webhook-Secret` — مفتاح المستخدم الخاص في `email_smtp_settings.delivery_webhook_secret` ثم المفتاح العام `EMAIL_DELIVERY_WEBHOOK_SECRET` في `.env`) وتستدعي `recordDeliveryIssue` (يُسجّل `email_suppressions` + يحوّل المشترك bounced/unsubscribed + يزيد `bounce_count`). مفتاح تعطيل/تفعيل + مفتاح سري قابل للتوليد في شاشة SMTP (`delivery_webhook_enabled/delivery_webhook_secret` في ميجريشن `2026_09_01_000001`). أنواع غير معروفة/توقيع غلط/webhook معطّل → تجاهل آمن. قيد موثّق: مع SMTP الخام (البنية الحالية) لا توجد webhooks رسمية من سيرفر SMTP نفسه — يُستخدم endpoint المزوّد أو التسجيل اليدوي |
 | G2 | **استهداف الشرائح كجمهور للحملات** | كلهم | ✅ **مغلقة (2026-08-29)** — عمود `segment_id` على `email_campaigns` (FK + ملكية مُتحقق منها)؛ `EmailCampaignService::audience()` يفضّل الشريحة على القوائم عبر `segmentAudience()` (عزل تينانت + subscribed + استبعاد `email_suppressions`)؛ الواجهة تعرض مُحدِّد الشريحة مع اسم الشريحة في الجدول |
 | G3 | **تتبع فتح/كليك رسائل الأتمتة** | كلهم | ✅ **مغلقة (2026-08-29)** — `email_automation_logs` جديد يُنشأ لكل إرسال أتمتة (بمعرّفات الأتمتة/الخطوة/المشارك + توكنات فتح/كليك فريدة) وتُحدَّث حالته بعد الإرسال؛ مسارا التتبع العامان يبحثان في السجل (إلى جانب الحملات والمعاملات) ويسجّلان الفتح/الكليك والعدّادات |
 | G4 | **Double Opt-In مع بريد تأكيد** | كلهم | أعمدة `optin_ip`/`optin_at` أُنشئت في الميجريشن `2026_08_21_000011` لكن لا يوجد flow إرسال تأكيد ولا حالة `pending_optin` — حرج للامتثال في أسواق صارمة |
