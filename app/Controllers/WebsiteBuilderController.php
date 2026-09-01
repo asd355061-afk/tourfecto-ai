@@ -1021,7 +1021,22 @@ HTML;
 
         $reviewsHtml = $websiteId > 0 ? $this->siteReviewsSectionHtml($websiteId, $slug) : '';
 
-        header('Content-Type: text/html; charset=utf-8');
+        $hasBookingProducts = false;
+        if ($websiteId > 0) {
+            $hasBookingProducts = !empty($this->db->query(
+                'SELECT id FROM crm_products WHERE website_id = ? AND is_active = 1 LIMIT 1',
+                [$websiteId]
+            ));
+        }
+
+        $leadFormHtml = $this->siteLeadFormHtml($slug, $hasBookingProducts, 'tours');
+        $bookCta = $hasBookingProducts
+            ? '<a href="#tours" class="ws-btn ws-btn-outline" style="text-decoration:none;">احجز الآن</a>'
+            : '';
+
+        if (!headers_sent()) {
+            header('Content-Type: text/html; charset=utf-8');
+        }
         return <<<HTML
 <!DOCTYPE html>
 <html lang="{$lang}" dir="{$dir}">
@@ -1036,7 +1051,7 @@ HTML;
                 <a href="#about">عننا</a>
                 <a href="#tours">رحلاتنا</a>
                 <a href="#reviews">تقييماتنا</a>
-                <a href="#contact">تواصل معنا</a>
+                <a href="#lead">تواصل معنا</a>
                 <a href="{$whatsappLink}" target="_blank" class="ws-nav-cta">احجز الآن</a>
             </div>
         </div>
@@ -1046,6 +1061,7 @@ HTML;
         <h1>{$heroHeadline}</h1>
         <p>{$heroSubtext}</p>
         <a href="{$whatsappLink}" target="_blank" class="ws-btn">{$ctaText}</a>
+        {$bookCta}
     </header>
 
     <section class="ws-section" id="about">
@@ -1068,6 +1084,8 @@ HTML;
     </section>
 
     {$reviewsHtml}
+
+    {$leadFormHtml}
 
     <section class="ws-section ws-section-alt ws-contact" id="contact">
         <h2>تواصل معنا</h2>
@@ -1129,7 +1147,22 @@ HTML;
 
         $reviewsHtml = $websiteId > 0 ? $this->siteReviewsSectionHtml($websiteId, $slug) : '';
 
-        header('Content-Type: text/html; charset=utf-8');
+        $hasBookingProducts = false;
+        if ($websiteId > 0) {
+            $hasBookingProducts = !empty($this->db->query(
+                'SELECT id FROM crm_products WHERE website_id = ? AND is_active = 1 LIMIT 1',
+                [$websiteId]
+            ));
+        }
+
+        $leadFormHtml = $this->siteLeadFormHtml($slug, $hasBookingProducts, 'rooms');
+        $bookCta = $hasBookingProducts
+            ? '<a href="#rooms" class="ws-btn ws-btn-outline" style="text-decoration:none;">احجز الآن</a>'
+            : '';
+
+        if (!headers_sent()) {
+            header('Content-Type: text/html; charset=utf-8');
+        }
         return <<<HTML
 <!DOCTYPE html>
 <html lang="{$lang}" dir="{$dir}">
@@ -1144,7 +1177,7 @@ HTML;
                 <a href="#about">عننا</a>
                 <a href="#rooms">غرفنا</a>
                 <a href="#reviews">تقييماتنا</a>
-                <a href="#contact">تواصل معنا</a>
+                <a href="#lead">تواصل معنا</a>
                 <a href="{$whatsappLink}" target="_blank" class="ws-nav-cta">احجز الآن</a>
             </div>
         </div>
@@ -1154,6 +1187,7 @@ HTML;
         <h1>{$heroHeadline}</h1>
         <p>{$heroSubtext}</p>
         <a href="{$whatsappLink}" target="_blank" class="ws-btn">{$ctaText}</a>
+        {$bookCta}
     </header>
 
     <section class="ws-section" id="about">
@@ -1172,6 +1206,8 @@ HTML;
     </section>
 
     {$reviewsHtml}
+
+    {$leadFormHtml}
 
     <section class="ws-section ws-section-alt ws-contact" id="contact">
         <h2>تواصل معنا</h2>
@@ -1803,6 +1839,81 @@ HTML;
      * بيبعت بـ fetch لـ POST /sites/{slug}/{tours|rooms}/{itemSlug}/book
      * ويحوّل الزائر لصفحة Stripe أو يعرض كود الحجز.
      */
+    /**
+     * نموذج تواصل/طلب حجز خفيف للصفحة الرئيسية العامة (بند 3).
+     * بيرسل لـ POST /sites/{slug}/lead (submitLead الموجود) بنفس أسماء الحقول
+     * (visitor_name/phone/email/message) ونفس أسلوب fetch JSON زي نماذج الحجز.
+     * بدون CSRF إضافي — submitLead لا يستدعي verifyCsrf (نفس السلوك الحالي،
+     * الحماية الأساسية هي RateLimitMiddleware العام + فلترة visitor_name المطلوب).
+     * لو $hasBookingProducts بيرضيف زرار "احجز الآن" يرجّع الزائر لأقرب
+     * قسم جولات/غرف (لما الموقع عنده منتجات فعلية مرتبطة بـ crm_products).
+     */
+    private function siteLeadFormHtml(string $slug, bool $hasBookingProducts, string $itemsSectionId = 'tours'): string
+    {
+        $esc = fn ($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
+        $action = '/sites/' . rawurlencode($slug) . '/lead';
+        $bookNow = $hasBookingProducts
+            ? '<div style="margin-top:14px;"><a href="#' . $esc($itemsSectionId) . '" class="ws-btn" style="text-decoration:none;">احجز الآن — شوف البرامج والتفاصيل</a></div>'
+            : '';
+
+        return <<<HTML
+<section class="ws-section ws-lead" id="lead">
+    <h2>أرسل لنا طلبك</h2>
+    <p style="color:#64748b;text-align:center;margin:0 0 18px;">املأ النموذج وسنواصل معك في أقرب وقت.</p>
+    <form id="wsLeadForm" class="ws-booking-form" data-action="{$esc($action)}">
+        <div class="ws-booking-cols">
+            <label class="ws-bf-label">👤 الاسم *
+                <input type="text" name="visitor_name" required placeholder="اسمك الكامل" class="ws-bf-input">
+            </label>
+            <label class="ws-bf-label">📱 الهاتف
+                <input type="tel" name="phone" placeholder="رقم واتساب/هاتف" class="ws-bf-input">
+            </label>
+        </div>
+        <label class="ws-bf-label">✉️ الإيميل
+            <input type="email" name="email" placeholder="بريدك الإلكتروني" class="ws-bf-input">
+        </label>
+        <label class="ws-bf-label">💬 رسالتك / طلبك
+            <textarea name="message" rows="3" placeholder="أخبرنا بما تحتاجه (مثال: حجز رحلة النيل يوم 15...)" class="ws-bf-input" style="resize:vertical;"></textarea>
+        </label>
+        <button type="submit" class="ws-btn" style="width:100%;">إرسال الطلب</button>
+        <div id="wsLeadMsg" class="ws-booking-msg" role="status"></div>
+    </form>
+    {$bookNow}
+</section>
+<script>
+(function () {
+    var form = document.getElementById('wsLeadForm');
+    if (!form) return;
+    var msg = document.getElementById('wsLeadMsg');
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        msg.className = 'ws-booking-msg';
+        msg.textContent = 'جاري إرسال طلبك...';
+        var payload = {};
+        new FormData(form).forEach(function (value, key) { payload[key] = value; });
+        fetch(form.getAttribute('data-action'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(payload)
+        }).then(function (res) { return res.json(); }).then(function (res) {
+            if (res.success) {
+                msg.className = 'ws-booking-msg ws-ok';
+                msg.textContent = res.message || 'تم إرسال طلبك';
+                form.reset();
+            } else {
+                msg.className = 'ws-booking-msg ws-pending';
+                msg.textContent = res.error || 'حصل خطأ - جرب تاني أو تواصل عبر واتساب';
+            }
+        }).catch(function () {
+            msg.className = 'ws-booking-msg ws-pending';
+            msg.textContent = 'حصل خطأ في الاتصال - جرب تاني أو تواصل عبر واتساب';
+        });
+    });
+})();
+</script>
+HTML;
+    }
+
     private function siteBookingFormHtml(string $slug, string $itemSlug, string $itemType): string
     {
         $esc = fn ($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');

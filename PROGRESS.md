@@ -1,5 +1,31 @@
 # PROGRESS — الخطوة 4: Ads (5) + CRM (1) + AI Chat (2)
 
+## البنود الـ3 (مكتملة 2026-09-01): Webhook تتبع التسليم + Double Opt-in + نموذج تواصل/حجز
+- **هدف:** 3 إضافات فوق الكود الشغال على فرع `redesign/frontend-all` بلا حذف/
+  إعادة بناء أي موديول، كل بند بـ commit منفصل + push (b8cecee / 0b77d21 / التالي).
+- **منفّذ:**
+  - **بند 1 — Webhook تتبع الارتدادات/الشكاوى:** `POST /webhooks/email/delivery-status/{user_id}`
+    بتوقيع حسب المزوّد (SendGrid/Mailgun/Postmark/عام) → `handleDeliveryWebhook`
+    يفعّل `recordDeliveryIssue` (كانت غير مستدعاة)؛ ميجريشن `delivery_webhook_*` +
+    قسم "Webhook تتبع التسليم" في شاشة SMTP؛ إصلاح bug قديم في
+    `EmailSubscriber::$fillable` (كان يمنع حفظ `bounce_count`).
+  - **بند 2 — Double Opt-in:** حالة `pending_optin` (ميجريشن ENUM `ALTER MODIFY`
+    بلا مساس بالقيم الموجودة) للاشتراك العام بس (source=form)، تأكيد بتوكن عبر
+    Mailer، تفعيل → `subscribed` + `optin_ip/optin_at`؛ الاستعلامات الجماهيرية
+    تستثني `pending_optin`؛ استيراد/إدخال الأدمن يبقى `subscribed` فورًا.
+  - **بند 3 — نموذج تواصل/حجز:** `siteLeadFormHtml` على الرئيسية (جولات/فندق)
+    يرسل لـ `submitLead` الموجود (`visitor_name/phone/email/message`) بدون تكرار
+    CSRF؛ زرار "احجز الآن" في الهيرو يظهر فقط عند وجود `crm_products`
+    (website_id, is_active=1) ويوجّه لـ `#tours`/`#rooms`؛ قاعدتا `.ws-btn-outline`
+    + فاصل أزرار في `generated-site.css`.
+- **التحقق:** 3 ملفات اختبار تكامل جديدة — EmailDeliveryWebhook (6)،
+  EmailDoubleOptin (6)، WebsiteLeadForm (12) — كلها OK متكررة؛ lint (852 ملف) +
+  phpstan بلا أخطاء؛ E2E حي للـ opt-in (subscribe→confirm) نجح.
+- **ملاحظة:** قيد SMTP الخام موثّق في الشاشة (لا webhooks رسمية من سيرفر SMTP
+  نفسه — يُستخدم endpoint المزوّد أو التسجيل اليدوي).
+- **Commits:** بند 1 `b8cecee` + بند 2 `0b77d21` + بند 3 (آخر commit) — تفاصيل
+  كاملة في CHANGELOG.md.
+
 ## الموديول 9 (مكتمل 2026-08-31): اختبارات SearchConsole + Integrations + SocialMedia بـ fakes
 - **هدف:** تغطية الأنظمة الثلاثة بمصادر حقيقية **وصفر شبكة** — حقن
   `?callable $transport` في عملاء HTTP (نفس بنية رد curl — نمط حقن م3).
