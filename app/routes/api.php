@@ -721,6 +721,9 @@ $router->get('/api/email-marketing/smtp-settings', 'EmailMarketingController', '
 $router->post('/api/email-marketing/smtp-settings', 'EmailMarketingController', 'saveSmtpSettings', ['AuthMiddleware']);
 $router->post('/api/email-marketing/smtp-settings/test', 'EmailMarketingController', 'testSmtpSettings', ['AuthMiddleware']);
 $router->delete('/api/email-marketing/smtp-settings', 'EmailMarketingController', 'deleteSmtpSettings', ['AuthMiddleware']);
+// بند 1: webhook تتبع التسليم (توليد مفتاح + تفعيل/تعطيل)
+$router->get('/api/email-marketing/smtp-settings/webhook', 'EmailMarketingController', 'deliveryWebhookSettings', ['AuthMiddleware']);
+$router->post('/api/email-marketing/smtp-settings/webhook', 'EmailMarketingController', 'saveDeliveryWebhook', ['AuthMiddleware']);
 
 $router->get('/api/email-marketing/transactional/templates', 'EmailMarketingController', 'transactionalTemplates', ['AuthMiddleware']);
 $router->post('/api/email-marketing/transactional/templates', 'EmailMarketingController', 'createTransactionalTemplate', ['AuthMiddleware']);
@@ -1210,6 +1213,12 @@ $router->get('/webhooks/crm/whatsapp', 'CrmWhatsAppWebhookController', 'verify',
 $router->post('/webhooks/crm/whatsapp', 'CrmWhatsAppWebhookController', 'receive', []);
 $router->post('/webhooks/crm/sms', 'CrmSmsWebhookController', 'receive', []);
 $router->post('/webhooks/crm/email-inbound', 'CrmEmailWebhookController', 'receive', []);
+
+// Webhook تتبع تسليم البريد (بند 1): ارتداد/شكوى/سبام من مزوّد SMTP.
+// بدون AuthMiddleware - التوثيق بتوقيع HMAC/مفتاح سري لكل مستخدم
+// (راجع WebhookController::emailDeliveryStatusWebhook). المزوّد يكتب
+// user_id في الـ URL والمفتاح السري هو الضمان.
+$router->post('/webhooks/email/delivery-status/{user_id}', 'WebhookController', 'emailDeliveryStatusWebhook', []);
 
 // ============================================
 // AI Chat Platform - Knowledge Base (بند 4 + 13 Brand Voice)

@@ -9,6 +9,8 @@ class EmailSubscriber extends Model
     protected $table = 'email_subscribers';
     protected $fillable = [
         'user_id', 'email', 'name', 'attributes', 'status',
-        'unsubscribe_token', 'source', 'unsubscribed_at'
+        'unsubscribe_token', 'source', 'unsubscribed_at',
+        'bounce_count', 'complaint_count', 'engagement_score',
+        'optin_ip', 'optin_at', 'language', 'optin_token',
     ];
 }

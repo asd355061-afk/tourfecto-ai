@@ -841,6 +841,144 @@ class ContactManagementService
         }
     }
 
+    /**
+     * معالجة webhook تتبع التسليم (بند 1): ارتداد/شكوى/سبام من مزوّد SMTP.
+     * بيتحقق من التوقيع (مفتاح المستخدم الخاص أو المفتاح العام في .env كحد
+     * أدنى) قبل تسجيل المشكلة — النوع غير المعروف أو التوقيع الغلط بيتم
+     * تجاهلهم بأمان من غير ما يكسّروا الـ webhook.
+     *
+     * المصدر الوحيد لهذه المعالجة هو WebhookController::emailDeliveryStatusWebhook
+     * (route /webhooks/email/delivery-status/{user_id}) — أي مسارات webhooks.php
+     * القديمة غير محمّلة إطلاقًا في index.php (بيحمّل web.php + api.php فقط).
+     *
+     * @param string $rawBody جسم الطلب الخام (مطلوب للتحقق HMAC بتاع SendGrid)
+     * @param array  $payload الـ JSON المُحلَّل (أو $_POST للمتغير form)
+     * @param array  $headers هيدرز http ذات الصلة (أسماء lowercase بلا بادئة HTTP_)
+     * @return array ['handled'=>bool, 'type'=>?string, 'email'=>?string, 'error'=>?string]
+     */
+    public function handleDeliveryWebhook(int $userId, string $rawBody, array $payload, array $headers = []): array
+    {
+        if ($userId <= 0) {
+            return ['handled' => false, 'error' => 'معرّف مستخدم غير صالح'];
+        }
+        $settings = (new SmtpSettingsService())->get($userId);
+        if (!$settings) {
+            return ['handled' => false, 'error' => 'لا توجد إعدادات SMTP لهذا المستخدم'];
+        }
+        // webhook معطّل => تجاهل آمن (200 بدون معالجة)
+        if (!(int) ($settings['delivery_webhook_enabled'] ?? 0)) {
+            return ['handled' => false];
+        }
+
+        $secret = trim((string) ($settings['delivery_webhook_secret'] ?? ''));
+        // الحد الأدنى: مفتاح سري عام في .env لو المستخدم معملش مفتاح خاص
+        if ($secret === '' && defined('EMAIL_DELIVERY_WEBHOOK_SECRET')) {
+            $secret = trim((string) EMAIL_DELIVERY_WEBHOOK_SECRET);
+        }
+        if ($secret === '' || !$this->verifyDeliverySignature($rawBody, $payload, $headers, $secret)) {
+            return ['handled' => false, 'error' => 'توقيع غير صالح'];
+        }
+
+        [$type, $email, $reason] = $this->mapDeliveryEvent($payload);
+        // نوع/بريد غير معروف => تجاهل آمن (نرد نجاح بس من غير معالجة)
+        if ($type === null || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return ['handled' => false];
+        }
+
+        $this->recordDeliveryIssue($userId, $email, $type, $reason);
+        return ['handled' => true, 'type' => $type, 'email' => $email];
+    }
+
+    /**
+     * التحقق من توقيع webhook التسليم حسب المزوّد:
+     *  - Mailgun: signature.timestamp + signature.token مرقّمة HMAC-SHA256
+     *    بمفتاح المستخدم.
+     *  - SendGrid: هيدرز X-Twilio-Email-Event-Webhook-Signature/
+     *    Timestamp مع HMAC-SHA256 فوق (timestamp + جسم خام).
+     *  - Postmark: هيدر X-Postmark-Server-Token بمطابقة نص المفتاح.
+     *  - عام: هيدر X-Delivery-Webhook-Secret بمطابقة نص المفتاح (الحد الأدنى).
+     * @param string $secret المفتاح السري (خاص بالمستخدم أو عام من .env)
+     */
+    private function verifyDeliverySignature(string $rawBody, array $payload, array $headers, string $secret): bool
+    {
+        if ($secret === '') {
+            return false;
+        }
+
+        // Mailgun: {"signature":{"timestamp":..,"token":..,"signature":".."}}
+        if (!empty($payload['signature']) && is_array($payload['signature'])) {
+            $sig = $payload['signature'];
+            $expected = hash_hmac('sha256', (string) ($sig['timestamp'] ?? '') . (string) ($sig['token'] ?? ''), $secret);
+            return hash_equals($expected, (string) ($sig['signature'] ?? ''));
+        }
+
+        // SendGrid: X-Twilio-Email-Event-Webhook-Signature + Timestamp
+        $sendGridSig = (string) ($headers['x-twilio-email-event-webhook-signature'] ?? '');
+        $sendGridTs = (string) ($headers['x-twilio-email-event-webhook-timestamp'] ?? '');
+        if ($sendGridSig !== '' && $sendGridTs !== '') {
+            $expected = hash_hmac('sha256', $sendGridTs . $rawBody, $secret);
+            return hash_equals($expected, $sendGridSig);
+        }
+
+        // Postmark: X-Postmark-Server-Token
+        $postmarkToken = (string) ($headers['x-postmark-server-token'] ?? '');
+        if ($postmarkToken !== '') {
+            return hash_equals($secret, $postmarkToken);
+        }
+
+        // عام/مخصص: X-Delivery-Webhook-Secret (الحد الأدنى المطلوب في .env)
+        $generic = (string) ($headers['x-delivery-webhook-secret'] ?? '');
+        if ($generic !== '') {
+            return hash_equals($secret, $generic);
+        }
+
+        return false;
+    }
+
+    /**
+     * رسم حدث webhook التسليم لنوع suppressions + البريد + السبب.
+     * يدعم صيغ SendGrid (مصفوفة أحداث) و Mailgun (event-data) و Postmark
+     * (RecordType) والصيغة العامة (event/email).
+     * @return array [type|null, email, reason]
+     */
+    private function mapDeliveryEvent(array $payload): array
+    {
+        $event = '';
+        $email = '';
+        $reason = '';
+
+        // SendGrid: [{"event":"bounce","email":"..","reason":".."}, ...] (نأخذ أول حدث)
+        if (isset($payload[0]) && is_array($payload[0])) {
+            $first = $payload[0];
+            $event = (string) ($first['event'] ?? '');
+            $email = (string) ($first['email'] ?? '');
+            $reason = (string) ($first['reason'] ?? $first['response'] ?? '');
+        } elseif (!empty($payload['event-data']) && is_array($payload['event-data'])) {
+            // Mailgun
+            $ed = $payload['event-data'];
+            $event = (string) ($ed['event'] ?? '');
+            $email = (string) ($ed['recipient'] ?? '');
+            $reason = (string) ($ed['reason'] ?? '');
+        } else {
+            // Postmark / عام
+            $event = (string) ($payload['event'] ?? $payload['type'] ?? $payload['RecordType'] ?? '');
+            $email = (string) ($payload['email'] ?? $payload['recipient'] ?? $payload['Email'] ?? '');
+            $reason = (string) ($payload['reason'] ?? $payload['Description'] ?? '');
+        }
+
+        $event = strtolower(trim($event));
+        $type = null;
+        if (in_array($event, ['bounce', 'bounced', 'blocked', 'permanent_fail'], true)) {
+            $type = 'bounce';
+        } elseif (in_array($event, ['complaint', 'complained', 'spamreport', 'spam_complaint', 'spamcomplaint'], true)) {
+            $type = 'complaint';
+        } elseif (in_array($event, ['spam', 'manual_spam'], true)) {
+            $type = 'spam';
+        }
+
+        return [$type, strtolower(trim($email)), trim($reason)];
+    }
+
     // ============================ Import / Export ============================
 
     /**

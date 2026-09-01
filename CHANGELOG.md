@@ -1,4 +1,42 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## البند 1 — Webhook تتبع الارتدادات/الشكاوى في Email Marketing — 2026-09-01 (فرع redesign/frontend-all)
+
+أول بند من بنود التطوير الـ3 الجديدة فوق الكود الشغال (بلا حذف/إعادة بناء):
+تفعيل `recordDeliveryIssue` (الموجودة أصلًا وغير المستدعاة) عبر Webhook
+تسليم فعلي + إدارة من شاشة SMTP + إصلاح bug قديم في حفظ `bounce_count`.
+
+1. **Endpoint جديد `POST /webhooks/email/delivery-status/{user_id}`** — مسجّل في
+   `app/routes/api.php` (الملف المحمّل فعلًا في `index.php`؛ ملف `app/routes/webhooks.php`
+   القديم غير محمّل إطلاقًا فلم يُستخدم). `WebhookController::emailDeliveryStatusWebhook`
+   يقرأ الجسم الخام (`php://input`) والهيدرز ويفوّض لـ
+   `ContactManagementService::handleDeliveryWebhook` التي:
+   - تتحقق من التوقيع حسب المزوّد: **SendGrid** (`X-Twilio-Email-Event-Webhook-Signature`
+     + `Timestamp`، HMAC-SHA256 فوق `timestamp + body`)، **Mailgun** (كائن `signature`
+     بـ `token/timestamp/signature` HMAC) ، **Postmark** (`X-Postmark-Server-Token`)،
+     أو عام `X-Delivery-Webhook-Secret`. المفتاح: خاص بكل مستخدم
+     (`email_smtp_settings.delivery_webhook_secret`) ثم مفتاح `.env` العام
+     `EMAIL_DELIVERY_WEBHOOK_SECRET` كحد أدنى.
+   - **تجاهل آمن**: نوع غير معروف/توقيع غلط/webhook معطّل → استجابة نجاح بلا معالجة.
+   - على حدث صالح تستدعي `recordDeliveryIssue` (يُسجّل `email_suppressions` + يحوّل
+     المشترك إلى bounced/unsubscribed).
+2. **ميجريشن `2026_09_01_000001_email_delivery_webhook.sql`**: عمودا
+   `delivery_webhook_enabled` (تفعيل/تعطيل) و`delivery_webhook_secret` (مفتاح 64 hex)
+   على `email_smtp_settings` — بلا مساس بأي قيمة موجودة.
+3. **خدمة + شاشة:** `SmtpSettingsService::saveDeliveryWebhook` (توليد/تجديد المفتاح
+   + upsert حتى لو مفيش صف SMTP بعد)؛ واجهتا `GET/POST /api/email-marketing/smtp-settings/webhook`
+   في `EmailMarketingController`؛ قسم "Webhook تتبع التسليم" في شاشة SMTP يعرض
+   الرابط والمفتاح (مقنّعًا، يظهر كاملًا لحظة التوليد) مع توثيق قيد SMTP الخام
+   (لا webhooks رسمية من سيرفر SMTP نفسه — يستخدم endpoint المزوّد أو التسجيل اليدوي).
+4. **إصلاح bug قديم:** `EmailSubscriber::$fillable` لم يكن يشمل
+   `bounce_count/complaint_count/engagement_score/optin_ip/optin_at/language`
+   فكانت `setAttribute` تتجاهل حفظها — أُضيفت للقائمة ليعمل عدّاد الارتدادات فعلًا
+   (وتمهيدًا لبند الـ Double Opt-in).
+5. **اختبارات:** `tests/Integration/EmailDeliveryWebhookIntegrationTest.php` —
+   bounce بتوقيع سليم → suppression + حالة `bounced` + `bounce_count=1`؛ توقيع غلط →
+   رفض بلا تسجيل؛ نوع غير معروف → تجاهل آمن؛ webhook معطّل → تجاهل؛ صيغ SendGrid
+   (مصفوفة + HMAC) وMailgun (signature) تعمل. `composer lint` (850 ملف) و`phpstan`
+   بلا أخطاء، واختبارات Email Marketing الحالية سليمة.
+
 ## موديول الواجهة 3 — إعادة تصميم موديول الشات وفصل الواجهة عن المتحكم — 2026-09-01 (فرع redesign/frontend-all)
 
 ثالث موديول في إعادة تصميم واجهة المنصة (بعد Ads — موديول الواجهة 1، وCRM —
