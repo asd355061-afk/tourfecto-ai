@@ -1,4 +1,34 @@
 # Tourfecto AI Chat & Customer Communication Platform
+## دمج 3 إصلاحات وظيفية على main — 2026-09-01 (من redesign/frontend-all)
+
+دمج على **main** بالـ cherry-pick لثلاثة commits وظيفية من فرع
+`redesign/frontend-all` (كان الفرع مخلوطًا بشغل إعادة تصميم واجهات غير مرتبط —
+راجع PROGRESS.md). كل بند جاي من commit منفصل بوظيفته الموثّقة، والتوثيق
+التفصيلي الأصلي لكل بند في سجلات الـ commits نفسها:
+
+1. **بند 1 — SMTP delivery webhook (تتبع الارتدادات/الشكاوى):** `POST
+   /webhooks/email/delivery-status/{user_id}` + `handleDeliveryWebhook` بتوقيع
+   حسب المزوّد + ميجريشن `2026_09_01_000001` + قسم Webhook في شاشة SMTP +
+   إصلاح `EmailSubscriber::$fillable`. → commit أصلي `b8cecee`.
+2. **بند 2 — Double Opt-in مع بريد تأكيد:** `pending_optin` + `optin_token`
+   (ميجريشن `2026_09_01_000002`) للاشتراك العام فقط + `confirmOptin` +
+   مسارات عامة، بدون مساس بقيم ENUM الموجودة أو سلوك استيراد الأدمن. →
+   commit أصلي `0b77d21`.
+3. **بند 3 — نموذج تواصل/طلب حجز في مواقع الويب المولّدة:** `siteLeadFormHtml`
+   يرسل لـ `submitLead` الموجود + زرار "احجز الآن" عند وجود `crm_products`
+   مرتبط. → commit أصلي `d4d3984`.
+
+**لماذا بالـ cherry-pick وليس الدمج الكامل:** الـ 4 commits الباقية على
+`redesign/frontend-all` (ads/crm/chat UI) إعادة تصميم واجهات مستقلة وغير
+مطلوبة لهذه المهمة — أُجلت لمراجعة واعية في `redesign/pending-review` (مش جزء
+من main).
+
+**التحقق بعد الدمج:** `php tools/lint.php` (817 ملف OK) + `phpstan analyse` (No
+errors) + `phpunit` كامل **1147 اختبار / 18443 assertion**: صفر regression —
+الـ 4 فشلات الوحيدة `RevenueModuleIntegrationTest` (سابقة الوجود على main
+الأصلية أيضًا، متعلقة بتاريخ ثابت 2026-08 انتهى). الفروقات: 1111 → 1147
+اختبارًا (+36 جديد من بنود email/website، كلها ناجحة).
+
 ## الموديول 9 — اختبارات SearchConsole + Integrations + SocialMedia بـ fakes — 2026-08-31
 
 تغطية الأنظمة الثلاثة بمصادر حقيقية **وصفر شبكة** — حقن `?callable $transport`
