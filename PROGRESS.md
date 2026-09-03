@@ -1,5 +1,25 @@
 # PROGRESS — الخطوة 4: Ads (5) + CRM (1) + AI Chat (2)
 
+## دمج البنود الوظيفية الـ3 على main + تأجيل redesign (2026-09-01)
+- **ماذا اتدمج على main:** البنود الـ3 (Webhook تتبع التسليم، Double Opt-in،
+  نموذج تواصل/حجز) وصلت main بالـ cherry-pick من `redesign/frontend-all` في
+  3 commits (الأصول: `b8cecee`, `0b77d21`, `d4d3984`). سبب الـ cherry-pick:
+  فرع `redesign/frontend-all` كان مخلوطًا — الـ 3 commits دي مبنية فوق 4
+  commits لإعادة تصميم واجهات (ads/crm/chat) غير مرتبطة بهذه المهمة.
+- **ماذا اتأجل (وليه):** الـ 4 commits UI (`2a55bf7` ads، `c06d1f7` fix ads،
+  `6c48f94` crm، `7a67c47` chat) — شغل حقيقي "extract views + JS" مفحوص
+  (كل المسارات/الـ endpoints محفوظة، lint/phpstan نظيفان، بلا regression)
+  **لكن لم يُثبت طلبه بطلب صريح من الفريق**، ويعدّل ملفًا مشتركًا حساسًا
+  (`app/Core/Controller.php::renderPanelPage`) بيأثر على كل اللوحة. نقلت على
+  فرع `redesign/pending-review` (نفس الـ 4 commits فوق main) لمراجعة واعية
+  قبل أي دمج مستقبلي على main — مش جزء من main حاليًا.
+- **نتيجة الفصل:** المحتوى كله محفوظ — الوظيفي على main، والـ redesign على
+  `redesign/pending-review`؛ وحذفت `redesign/frontend-all` عشان محدش يدمجه
+  تاني بالغلط.
+- **التحقق:** بعد دمج الوظيفي على main: lint (817 OK) + phpstan (No errors) +
+  phpunit **1147/18443** — صفر regression (4 فشلات Revenue الوحيدة سابقة
+  الوجود على main الأصلية: TEST_PERIOD=2026-08 انتهى تاريخه).
+
 ## البنود الـ3 (مكتملة 2026-09-01): Webhook تتبع التسليم + Double Opt-in + نموذج تواصل/حجز
 - **هدف:** 3 إضافات فوق الكود الشغال على فرع `redesign/frontend-all` بلا حذف/
   إعادة بناء أي موديول، كل بند بـ commit منفصل + push (b8cecee / 0b77d21 / التالي).
